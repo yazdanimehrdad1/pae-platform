@@ -1,0 +1,58 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base manifests for pae-backend-ot. Environment-specific values (namespace,
+# image tag, replicas, resources, Memorystore IP, Cloud SQL instance) are set in
+# overlays/{dev,prod}. Do not deploy this base directly — deploy an overlay.
+
+resources:
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
+  - redis.yaml
+  - migration-job.yaml
+  - hpa.yaml
+  - pdb.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: pae-backend-ot
+      app.kubernetes.io/part-of: pae-microservices
+    includeSelectors: true
+
+# Non-secret configuration. Overlays override env-specific keys with a
+# `configMapGenerator` using `behavior: merge`. The generated name gets a content
+# hash suffix, so any config change rolls the Deployment automatically.
+configMapGenerator:
+  - name: pae-backend-ot-config
+    literals:
+      - LOG_LEVEL=INFO
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      # Modbus (aggregator) — point at the real aggregator per environment
+      - AGGREGATOR_MODBUS_HOST=aggregator-modbus
+      - AGGREGATOR_MODBUS_PORT=502
+      - AGGREGATOR_SERVER_ID=1
+      - MODBUS_TIMEOUT_S=5.0
+      - MODBUS_RETRIES=3
+      # Redis runs in-cluster (see redis.yaml) — reached by its Service DNS name.
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      # Postgres via the Cloud SQL Auth Proxy sidecar on localhost
+      - POSTGRES_HOST=127.0.0.1
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=pae_backend_ot
+      - POSTGRES_USER=pae_backend_ot_user
+      # Scheduler (Redis leader election — safe across replicas)
+      - SCHEDULER_ENABLED=true
+      # App pods do NOT migrate; the PreSync migration Job owns the schema
+      - RUN_MIGRATIONS_ON_START=false
+      # Polling
+      - POLL_INTERVAL_SECONDS=10
+
+# Image name is a logical placeholder; overlays pin newName (Artifact Registry)
+# and newTag (CI sets the git SHA via `kustomize edit set image`).
+images:
+  - name: pae-backend-ot
+    newTag: latest

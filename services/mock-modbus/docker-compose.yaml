@@ -1,0 +1,21 @@
+services:
+  mock-modbus:
+    build: .
+    container_name: mock-modbus
+    ports:
+      - "${MODBUS_PORT:-502}:502"
+    environment:
+      - MODBUS_HOST=0.0.0.0
+      - MODBUS_PORT=502
+      - DEFAULT_REGISTER_VALUE=${DEFAULT_REGISTER_VALUE:-0}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # - RANDOM_SEED=1234  # uncomment for deterministic mode
+      # - ZERO_MODE=true   # set true for 0-based clients (pymodbus); false (default) for standard Modbus Poll/PLCs
+    networks:
+      - shared-network
+    restart: unless-stopped
+
+networks:
+  shared-network:
+    name: pae-shared-network
+    external: true

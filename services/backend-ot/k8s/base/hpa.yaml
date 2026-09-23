@@ -1,0 +1,23 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pae-backend-ot
+  annotations:
+    # Created after the Deployment (wave 2) exists — an HPA with no scale target
+    # reports Degraded, which would stall the sync if it ran in an earlier wave.
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pae-backend-ot
+  # min/max are overridden per overlay.
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

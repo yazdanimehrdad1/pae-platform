@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # config.py requires POSTGRES_PASSWORD at import time; provide it job-wide.
+      PYTHONPATH: src
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: pae_backend_ot
+      POSTGRES_USER: pae_backend_ot_user
+      POSTGRES_PASSWORD: ci-password
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      # The CI postgres/redis are disposable service containers, so integration tests may
+      # truncate/flush them (tests/integration/conftest.py skips them without this).
+      INTEGRATION_DB_RESET_ALLOWED: "1"
+      SCHEDULER_ENABLED: "false"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pae_backend_ot
+          POSTGRES_USER: pae_backend_ot_user
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pae_backend_ot_user -d pae_backend_ot"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check src/ tests/
+
+      # Not yet blocking: the codebase is not fully typed. Flip to blocking (drop
+      # continue-on-error) once `mypy src/` is clean.
+      - name: Type check (mypy)
+        continue-on-error: true
+        run: mypy src/
+
+      - name: Run migrations against the CI database
+        run: python scripts/migrate_db.py
+
+      - name: Tests (pytest)
+        run: python -m pytest tests/ -v
+
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true
+          tags: pae-backend-ot:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the image imports
+        run: |
+          docker run --rm -e POSTGRES_PASSWORD=ci \
+            --entrypoint python pae-backend-ot:ci \
+            -c "from config import settings; from app import app; print('image imports OK')"
+
+  validate-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kustomize + kubeconform
+        run: |
+          curl -sSL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+          sudo mv kustomize /usr/local/bin/
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | tar -xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate overlays
+        run: |
+          for env in prod; do
+            echo "== $env =="
+            kustomize build "k8s/overlays/$env" \
+              | kubeconform -strict -summary -ignore-missing-schemas \
+                  -kubernetes-version 1.29.0
+          done

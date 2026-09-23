@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pae-backend-ot
+  annotations:
+    # Roll out only after the migration Job (wave 1) completes.
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  # replicas is overridden per overlay; leader election keeps a single poller.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pae-backend-ot
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pae-backend-ot
+        # Distinguishes app pods from redis/migrate pods (which share
+        # app.kubernetes.io/name via the base labels transformer) so the app
+        # Service targets only these pods.
+        app: pae-backend-ot-api
+    spec:
+      serviceAccountName: pae-backend-ot
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      # Cloud SQL Auth Proxy as a native sidecar (starts before, terminates after
+      # the app). Requires GKE >= 1.28 (Autopilot qualifies). App reaches Postgres
+      # at 127.0.0.1:5432. INSTANCE_CONNECTION_NAME is patched per overlay.
+      initContainers:
+        - name: cloud-sql-proxy
+          restartPolicy: Always
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+          args:
+            - "--structured-logs"
+            - "--port=5432"
+            # Health-check server for the probes below. Must bind 0.0.0.0 (not the
+            # default localhost) so the kubelet can reach it at the pod IP.
+            - "--health-check"
+            - "--http-address=0.0.0.0"
+            - "--http-port=9801"
+            - "$(INSTANCE_CONNECTION_NAME)"
+          env:
+            - name: INSTANCE_CONNECTION_NAME
+              value: REPLACE_PROJECT:REGION:INSTANCE
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9801
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 9801
+            periodSeconds: 10
+      containers:
+        - name: app
+          image: pae-backend-ot
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: pae-backend-ot-config
+            - secretRef:
+                name: pae-backend-ot-secrets
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          # Liveness: dependency-free, must not depend on DB/Redis.
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness: gates traffic on Postgres + Redis.
+          readinessProbe:
+            httpGet:
+              path: /api/readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Startup: give the process time to come up before liveness kicks in.
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # resources are set per overlay (dev vs prod).
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi

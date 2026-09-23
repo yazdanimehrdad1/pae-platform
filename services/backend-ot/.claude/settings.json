@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "autoCompactEnabled": true,
+  "permissions": {
+    "allow": [
+      "Bash(pytest:*)", "PowerShell(pytest:*)",
+      "Bash(ruff:*)", "PowerShell(ruff:*)",
+      "Bash(mypy:*)", "PowerShell(mypy:*)",
+      "Bash(black:*)", "PowerShell(black:*)",
+      "Bash(docker-compose ps:*)", "PowerShell(docker-compose ps:*)",
+      "Bash(docker-compose logs:*)", "PowerShell(docker-compose logs:*)",
+      "Bash(docker compose ps:*)", "PowerShell(docker compose ps:*)",
+      "Bash(docker compose logs:*)", "PowerShell(docker compose logs:*)",
+      "Bash(make test:*)", "Bash(make lint:*)",
+      "PowerShell(.\\make.ps1 test:*)", "PowerShell(.\\make.ps1 lint:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(docker-compose down -v:*)", "PowerShell(docker-compose down -v:*)",
+      "Bash(docker compose down -v:*)", "PowerShell(docker compose down -v:*)",
+      "Bash(docker volume rm:*)", "PowerShell(docker volume rm:*)"
+    ]
+  }
+}

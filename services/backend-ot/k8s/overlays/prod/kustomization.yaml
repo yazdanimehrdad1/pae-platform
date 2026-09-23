@@ -1,0 +1,116 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pae-backend-ot-prod
+
+resources:
+- namespace.yaml
+- ../../base
+
+# CI pins the tag to the built git SHA via:
+#   kustomize edit set image pae-backend-ot=<AR_HOST>/<PROJECT>/pae/pae-backend-ot:<sha>
+images:
+- name: pae-backend-ot
+  newName: us-central1-docker.pkg.dev/prd-pae-backend-ot/pae/pae-backend-ot
+  newTag: 7ef0b46eb207568de24a1ad642a4a6ab60babd9d
+
+replicas:
+- count: 2
+  name: pae-backend-ot
+
+# Override env-specific, non-secret config. Merged onto the base ConfigMap; the
+# resulting content hash rolls the Deployment when any value changes.
+configMapGenerator:
+- behavior: merge
+  literals:
+  - LOG_LEVEL=INFO
+  - AGGREGATOR_MODBUS_HOST=REPLACE_AGGREGATOR_PROD_HOST
+  name: pae-backend-ot-config
+
+  # Cloud SQL instance + prod app resources.
+  # Cloud SQL instance for the migration Job.
+  # Workload Identity binding for prod.
+  # Autoscaling range for prod.
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+patches:
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: pae-backend-ot
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: cloud-sql-proxy
+              # Full args set explicitly here (not just in base) so the overlay
+              # render is self-contained and robust to kustomize patch-merge quirks.
+              args:
+                - "--structured-logs"
+                - "--port=5432"
+                - "--health-check"
+                - "--http-address=0.0.0.0"
+                - "--http-port=9801"
+                - "$(INSTANCE_CONNECTION_NAME)"
+              env:
+                - name: INSTANCE_CONNECTION_NAME
+                  value: prd-pae-backend-ot:us-central1:pae-backend-ot-pg-prod
+          containers:
+            - name: app
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  memory: 1Gi
+  target:
+    kind: Deployment
+    name: pae-backend-ot
+- patch: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: pae-backend-ot-migrate
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: cloud-sql-proxy
+              env:
+                - name: INSTANCE_CONNECTION_NAME
+                  value: prd-pae-backend-ot:us-central1:pae-backend-ot-pg-prod
+  target:
+    kind: Job
+    name: pae-backend-ot-migrate
+- patch: |-
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: pae-backend-ot
+      annotations:
+        iam.gke.io/gcp-service-account: pae-backend-ot-prod@prd-pae-backend-ot.iam.gserviceaccount.com
+  target:
+    kind: ServiceAccount
+    name: pae-backend-ot
+- patch: |-
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: pae-backend-ot
+    spec:
+      minReplicas: 2
+      maxReplicas: 6
+  target:
+    kind: HorizontalPodAutoscaler
+    name: pae-backend-ot

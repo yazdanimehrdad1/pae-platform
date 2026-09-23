@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pae-backend-ot
+  annotations:
+    # Created after the Deployment (wave 2) — a PDB with no matching pods can report
+    # Degraded, which would stall the sync if it ran in an earlier wave.
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pae-backend-ot
+      # Scope to app pods only (redis/migrate share the name label).
+      app: pae-backend-ot-api

@@ -1,0 +1,71 @@
+# Throwaway stack for integration tests. Run it via `make test-integration` /
+# `.\make.ps1 test-integration` (project name pae-backend-ot-test), never by hand against
+# the dev stack: postgres and redis here live in tmpfs, publish no host ports, and are
+# destroyed after every run, so tests can truncate/flush freely.
+#
+# The sibling mock Modbus server will be added here as another service when the polling
+# pipeline tests land.
+
+services:
+  postgres-test:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      - POSTGRES_DB=pae_backend_ot_test
+      - POSTGRES_USER=pae_backend_ot_test_user
+      - POSTGRES_PASSWORD=pae_backend_ot_test_password
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pae_backend_ot_test_user -d pae_backend_ot_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis-test:
+    image: redis:7-alpine
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONPATH=src
+      - POSTGRES_HOST=postgres-test
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=pae_backend_ot_test
+      - POSTGRES_USER=pae_backend_ot_test_user
+      - POSTGRES_PASSWORD=pae_backend_ot_test_password
+      - REDIS_HOST=redis-test
+      - REDIS_PORT=6379
+      - SCHEDULER_ENABLED=false
+      # tests/integration/conftest.py refuses to truncate/flush unless this is set.
+      - INTEGRATION_DB_RESET_ALLOWED=1
+      - PYTEST_TARGET=${PYTEST_TARGET:-tests/integration}
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - >-
+        pip install -q --root-user-action=ignore -e '.[dev]' &&
+        python scripts/migrate_db.py &&
+        pytest $$PYTEST_TARGET -v --color=yes -rfE
+
+volumes:
+  # Shared with the unit-test runner so dependency downloads are cached across both.
+  # External so `compose down` never removes it; the make targets create it if missing.
+  pip-cache:
+    name: pae-backend-ot-pip-cache
+    external: true

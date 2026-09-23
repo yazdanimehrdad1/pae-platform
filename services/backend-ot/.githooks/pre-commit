@@ -1,0 +1,35 @@
+#!/bin/sh
+# Pre-commit hook: run ruff so lint errors never get committed.
+#
+# No local Python needed — ruff runs in Docker (Astral's official image).
+# Activate once per clone:   git config core.hooksPath .githooks
+# Bypass once (emergencies): git commit --no-verify
+#
+# Keep the ruff tag here in sync with CI (.github/workflows/ci.yml).
+
+# Only run when Python files are staged; skip doc/config-only commits.
+staged_py="$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)"
+if [ -z "$staged_py" ]; then
+    exit 0
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+    echo "pre-commit: Docker not found — skipping ruff. Run '.\\make.ps1 lint' before pushing." >&2
+    exit 0
+fi
+
+echo "pre-commit: running ruff (via Docker)..."
+# `pwd -W` yields the Windows-style path Docker needs under Git Bash; plain `pwd`
+# is the POSIX fallback for Linux/macOS.
+host_pwd="$(pwd -W 2>/dev/null || pwd)"
+
+if docker run --rm -v "$host_pwd:/io" ghcr.io/astral-sh/ruff:0.16.0 check src/ tests/; then
+    echo "pre-commit: ruff clean."
+    exit 0
+fi
+
+echo ""
+echo "pre-commit: ruff found lint errors — commit blocked."
+echo "  Auto-fix:     .\\make.ps1 lint-fix   (or: make lint-fix)"
+echo "  Bypass once:  git commit --no-verify"
+exit 1

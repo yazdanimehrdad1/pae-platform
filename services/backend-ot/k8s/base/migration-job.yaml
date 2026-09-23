@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pae-backend-ot-migrate
+  annotations:
+    # Run as an ArgoCD **Sync hook** at wave 1. Within the Sync phase ArgoCD orders
+    # hooks and regular resources together by wave, so this still runs after wave-0
+    # (ServiceAccount/ConfigMap) and before the wave-2 Deployment — its deps exist and
+    # migrations finish before the app rolls.
+    # Crucially, hooks are EXCLUDED from the app's sync-status diff: a completed Job
+    # never shows OutOfSync, so selfHeal doesn't keep re-running it (no churn/flapping
+    # — the failure mode of the old Replace=true,Force=true approach). BeforeHookCreation
+    # deletes the previous Job and recreates it on each real sync (git change), which
+    # also sidesteps the immutable-Job-selector error without needing Force.
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pae-backend-ot
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: pae-backend-ot
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: cloud-sql-proxy
+          restartPolicy: Always
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+          args:
+            - "--structured-logs"
+            - "--port=5432"
+            - "$(INSTANCE_CONNECTION_NAME)"
+          env:
+            - name: INSTANCE_CONNECTION_NAME
+              value: REPLACE_PROJECT:REGION:INSTANCE
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+      containers:
+        - name: migrate
+          image: pae-backend-ot
+          # Bypass the image ENTRYPOINT (which starts uvicorn) and just migrate.
+          command: ["python", "scripts/migrate_db.py"]
+          envFrom:
+            - configMapRef:
+                name: pae-backend-ot-config
+            - secretRef:
+                name: pae-backend-ot-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
