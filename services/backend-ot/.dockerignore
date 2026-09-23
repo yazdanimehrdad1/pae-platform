@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+docs/
+Readme-dev/
+
+# Docker / deploy artifacts (not needed inside the build context)
+docker-compose.yaml
+docker-compose*.yaml
+docker/Dockerfile
+.dockerignore
+k8s/
+.github/
+
+# Tests are not shipped into the runtime image
+tests/
+

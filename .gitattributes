@@ -1,0 +1,10 @@
+# Normalise line endings in the repo to LF regardless of the contributor's core.autocrlf.
+# Shell scripts and Makefiles must be LF or they break inside Linux containers / GNU make.
+* text=auto eol=lf
+
+*.sh      text eol=lf
+Makefile  text eol=lf
+*.mk      text eol=lf
+*.ps1     text eol=crlf
+
+*.lock    text eol=lf -diff

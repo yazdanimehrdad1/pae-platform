@@ -1,0 +1,56 @@
+# Monorepo-wide ignores. Service-specific rules live in services/<svc>/.gitignore.
+# Keep patterns here generic and never add bare names like `lib/` or `build/` that
+# would also match source directories in a future service (e.g. a frontend's src/lib/).
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+*.egg
+dist/
+wheels/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Environment files: .env.example is committed, real values never are
+.env
+.env.local
+.env.*.local
+
+# Claude Code: personal, machine-local files (shared settings.json / CLAUDE.md are committed)
+# (`**/` is required: a pattern containing a slash is otherwise anchored to the repo root)
+CLAUDE.local.md
+**/.claude/settings.local.json
+**/.claude/scheduled_tasks.lock
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs / temp
+*.log
+*.tmp
+*.bak

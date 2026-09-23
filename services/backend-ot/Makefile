@@ -234,6 +234,3 @@ seed-db:
 	@docker cp tests/seed_db/. pae-backend-ot:/app/tests/seed_db/
 	@echo "Running seed script..."
 	@docker-compose -f docker-compose.yaml exec pae-backend-ot python tests/seed_db/seed_db.py
-
-stop_rm_all:
-	docker stop $(docker ps -q) ; docker rm $(docker ps -aq) ; docker volume rm $(docker volume ls -q)

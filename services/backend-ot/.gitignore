@@ -1,74 +1,25 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# backend-ot-specific ignores. Generic rules (Python caches, venvs, .env, IDE, OS,
+# Claude local files) live in the monorepo root .gitignore.
+
+# Python packaging output — scoped to this service so they can't match another
+# service's source directories (e.g. a frontend's src/lib/)
 build/
 develop-eggs/
-dist/
 downloads/
-eggs/
-.eggs/
 lib/
 lib64/
 parts/
 sdist/
 var/
-wheels/
-pip-wheel-metadata/
 share/python-wheels/
-*.egg-info/
 .installed.cfg
-*.egg
 MANIFEST
 
-# Virtual environments
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
-.venv
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Personal, machine-local Claude files (NOT the shared .claude/settings.json or CLAUDE.md)
-CLAUDE.local.md
-.claude/settings.local.json
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
-
-# Logs
-*.log
-logs/
-
-# Database
+# Local databases
 *.db
 *.sqlite
 *.sqlite3
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Docker
-.dockerignore
+logs/
 
 # Kubernetes secrets
 /secrets
@@ -76,12 +27,6 @@ Thumbs.db
 
 # TimescaleDB
 /data
-
-# Temporary files
-*.tmp
-*.bak
-*.swp
-
 
 # GCloud
 gcloud-notes.md
