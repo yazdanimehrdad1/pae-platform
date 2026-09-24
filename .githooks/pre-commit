@@ -1,0 +1,31 @@
+#!/bin/sh
+# pae-platform pre-commit hook. Enable once per clone with `make hooks`.
+#
+# 1. `make -C services/<svc> lint` for every service with staged changes;
+# 2. `make check-boundaries` (no cross-service imports/paths, mock-modbus stays dev-only);
+# 3. `make contracts-check` when a service or contracts/ changed (regenerated contracts must be
+#    staged in the same commit).
+# Lint and the checks read the working tree, not only the staged content.
+# Bypassing (`git commit --no-verify`) is for the human, never for an agent.
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMRD)
+[ -n "$staged" ] || exit 0
+
+services=$(printf '%s\n' "$staged" | sed -n 's|^services/\([^/]*\)/.*|\1|p' | sort -u)
+for service in $services; do
+	[ -d "services/$service" ] || continue  # service deleted in this commit
+	echo "pre-commit: make -C services/$service lint"
+	make --no-print-directory -s -C "services/$service" lint
+done
+
+echo "pre-commit: make check-boundaries"
+make --no-print-directory -s check-boundaries
+
+if printf '%s\n' "$staged" | grep -q -e '^services/' -e '^contracts/'; then
+	echo "pre-commit: make contracts-check"
+	make --no-print-directory -s contracts-check
+fi

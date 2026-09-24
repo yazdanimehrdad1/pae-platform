@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environments / tool caches
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment variables (never baked into the image)
+.env
+.env.*
+
+# Editor / OS / agent files
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docs
+*.md
+docs/
+
+# Docker / compose (not needed inside the build context)
+Dockerfile
+.dockerignore
+compose*.yaml
+docker-compose*.yaml
+
+# Only src/ is shipped into the runtime image
+tests/
+scripts/
+Makefile

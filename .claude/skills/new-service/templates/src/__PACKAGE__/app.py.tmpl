@@ -1,0 +1,31 @@
+"""FastAPI application factory. Every route lives under /api and declares a response_model."""
+
+from fastapi import APIRouter, FastAPI
+from pydantic import BaseModel
+
+# The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
+# (see contracts/README.md).
+API_VERSION = "0.1.0"
+DESCRIPTION = "__DESCRIPTION__"  # noqa: E501 (filled in by the new-service scaffold)
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+
+
+health_router = APIRouter(tags=["health"])
+
+
+@health_router.get("/healthz", response_model=HealthResponse, summary="Liveness")
+async def healthz() -> HealthResponse:
+    """Dependency-free liveness check (the Docker HEALTHCHECK hits it)."""
+    return HealthResponse(ok=True)
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="__SERVICE__", description=DESCRIPTION, version=API_VERSION)
+    app.include_router(health_router, prefix="/api")
+    return app
+
+
+app = create_app()

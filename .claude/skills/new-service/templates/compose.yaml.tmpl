@@ -1,0 +1,20 @@
+# __SERVICE__ — standalone: `make -C services/__SERVICE__ up`.
+# Also included by the monorepo dev stack (deploy/compose/dev.yaml). Service convention:
+# service/volume names prefixed with the service dir, no container_name, no custom or external
+# networks, host ports overridable, container-network values in `environment:`.
+name: __SERVICE__
+
+services:
+  __SERVICE__:
+    image: __SERVICE__:dev
+    build: .
+    ports:
+      - "${__ENV_PREFIX___HTTP_PORT:-__PORT__}:8000"
+    # Service settings; optional. See .env.example.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    restart: unless-stopped

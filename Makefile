@@ -33,7 +33,7 @@ TARGET_SERVICES := $(or $(svc),$(SERVICES))
 DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildcard .env),--env-file $(CURDIR)/.env)
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
-.PHONY: help up down restart logs ps seed e2e check contracts-check $(FANOUT_TARGETS)
+.PHONY: help up down restart logs ps seed e2e check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -46,8 +46,11 @@ help:
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
 	@echo ""
 	@echo "Per service (runs in every service, or svc=<name>): $(FANOUT_TARGETS)"
-	@echo "  check              lint + test for every service, then contracts-check (stage regenerated specs first)"
+	@echo "  check              lint + test for every service, then check-boundaries + contracts-check"
+	@echo "                     (stage regenerated contracts first)"
+	@echo "  check-boundaries   no cross-service imports/paths; mock-modbus in no production manifest"
 	@echo "  contracts-check    regenerate every contract; fail if contracts/ differs from the index"
+	@echo "  hooks              enable the repo's git hooks (.githooks/pre-commit)"
 	@echo ""
 	@echo "Services: $(SERVICES)"
 	@echo "Standalone: make -C services/<svc> <target>   (see each service's CLAUDE.md)"
@@ -96,7 +99,15 @@ $(FANOUT_TARGETS):
 	done
 
 # contracts-check compares with the git index: stage regenerated contracts before `make check`.
-check: lint test contracts-check
+check: lint test check-boundaries contracts-check
+
+# Stdlib-only script; `uv run --no-project` just supplies a Python.
+check-boundaries:
+	uv run --no-project python scripts/check_boundaries.py
+
+hooks:
+	git config core.hooksPath .githooks
+	@echo "hooks: enabled .githooks/ (pre-commit: lint changed services, check-boundaries, contracts-check)"
 
 # Regenerates every published contract (the `contract` fan-out), then fails if contracts/ now
 # differs from what is staged/committed, or has untracked files. Compares against the index,

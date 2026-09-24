@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1
+# Build context: services/__SERVICE__ (never the monorepo root).
+
+# ---------------------------------------------------------------------------
+# Builder: install the locked runtime dependencies into a venv
+# ---------------------------------------------------------------------------
+FROM python:3.11-slim AS builder
+
+# uv pinned to an exact version so image builds are reproducible.
+COPY --from=ghcr.io/astral-sh/uv:0.11.15 /uv /bin/uv
+
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# ---------------------------------------------------------------------------
+# Runtime: slim, non-root, no build tooling, no tests
+# ---------------------------------------------------------------------------
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app/src
+
+WORKDIR /app
+
+RUN groupadd --system --gid 999 app && \
+    useradd --system --uid 999 --gid app --home-dir /app --shell /usr/sbin/nologin app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY src/ ./src/
+
+USER app
+
+EXPOSE 8000
+
+# Liveness only: the dependency-free /api/healthz.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz')" || exit 1
+
+CMD ["uvicorn", "__PACKAGE__.app:app", "--host", "0.0.0.0", "--port", "8000"]

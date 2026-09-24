@@ -1,0 +1,25 @@
+"""The app starts and answers its liveness check without any backing services."""
+
+import asyncio
+
+import httpx
+
+from __PACKAGE__.app import HealthResponse, create_app
+
+
+def get(path: str) -> httpx.Response:
+    """In-process request through the ASGI app (no server, no lifespan)."""
+
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=create_app())
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.get(path)
+
+    return asyncio.run(send())
+
+
+class TestHealthz:
+    def test_healthz_is_ok(self) -> None:
+        response = get("/api/healthz")
+        assert response.status_code == 200
+        assert HealthResponse.model_validate(response.json()).ok is True

@@ -35,13 +35,16 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   root** (see the `run-platform` skill). Compose service names: `backend-ot`, `backend-ot-postgres`,
   `backend-ot-redis`.
 - Run on the host: `make run` (needs pg+redis reachable) · `make migrate`.
-- Schema changes: use the `add-migration` skill.
-- API changes: use the `add-endpoint` skill. This service publishes its OpenAPI spec to
-  `contracts/openapi/backend-ot.openapi.json`; `make contract` regenerates it and `make test`
-  fails while it is stale (`tests/unit/test_contract.py`). Rules: `contracts/README.md`.
-- Dev seed: devices + points are built from mock-modbus's contract
-  (`contracts/modbus/mock-modbus.devices.json`, via `tests/seed_db/mock_modbus_seed.py`) — never
-  hand-edit seeded devices/points; change the mock and run `make -C services/mock-modbus contract`.
+- Schema changes: use the `add-migration` skill. API changes: use the `add-endpoint` skill.
+- Checks: the root `test-runner` agent runs lint/tests and reports only failures.
+
+## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)
+- **Provides** `contracts/openapi/backend-ot.openapi.json`: `make contract` regenerates it, and
+  `make test` fails while it is stale (`tests/unit/test_contract.py`). The contract version is
+  `version=` in `create_app()` (`src/app.py`). No consumers yet.
+- **Consumes** `contracts/modbus/mock-modbus.devices.json` (dev seed only): seed devices and points
+  are built from it (`tests/seed_db/mock_modbus_seed.py`). Never hand-edit seeded devices or points.
+  Change the mock and run `make -C services/mock-modbus contract`.
 
 ## The feature comes first; tests prove it
 The feature is the priority. Build it to the highest standard first — correct behavior,
@@ -140,7 +143,7 @@ Concretely, write code that already satisfies these:
   broaden the global ignore list without asking.
 - Run `make lint` (check) and `make lint-fix` (auto-fix imports/typing/whitespace; B904 must
   be fixed by hand). ruff comes from `uv.lock`, so the version is the same everywhere.
-- The monorepo-root pre-commit hook will run this lint for changed services (roadmap Phase 5).
+- The monorepo-root pre-commit hook (`make hooks` enables it) runs this lint when backend-ot has staged changes.
 
 ## What this service owns
 - Postgres tables: `sites`, `devices`, `device_points`, `device_points_readings`,

@@ -1,0 +1,38 @@
+[project]
+name = "__SERVICE__"
+version = "0.1.0"
+description = "__DESCRIPTION__"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+]
+
+# PEP 735 dependency group: `uv sync` installs it by default; never shipped in the image.
+[dependency-groups]
+dev = [
+    "httpx>=0.25",  # in-process test requests (ASGITransport)
+    "pytest>=8.0",
+    "ruff>=0.16",
+]
+
+# Not an installable package: code runs from src/ via pythonpath / PYTHONPATH / --app-dir.
+[tool.uv]
+package = false
+# Copy instead of hardlinking from the uv cache: hardlinks fail on OneDrive-synced folders.
+link-mode = "copy"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Same rule set as every other Python service.
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["B008"]  # FastAPI Depends()/Query() in argument defaults
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
