@@ -1,0 +1,83 @@
+# backend-ot dev stack — standalone: `make -C services/backend-ot up`.
+# Also included by the monorepo dev stack (deploy/compose/dev.yaml), so it follows the
+# service convention:
+#   - service and volume names are prefixed `backend-ot-` (unique once every service's
+#     compose file is included into one project);
+#   - no container_name and no external networks, so any number of copies (worktrees,
+#     root stack + standalone) can run at once;
+#   - host ports are overridable: BACKEND_OT_HTTP_PORT / _POSTGRES_PORT / _REDIS_PORT;
+#   - container-network values (hostnames, internal ports) are set in `environment:`,
+#     which overrides anything the optional .env supplies for host-side runs.
+name: backend-ot
+
+services:
+  backend-ot-redis:
+    image: redis:7-alpine
+    ports:
+      - "${BACKEND_OT_REDIS_PORT:-6380}:6379"
+    volumes:
+      - backend-ot-redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  backend-ot-postgres:
+    image: timescale/timescaledb:latest-pg16
+    ports:
+      - "${BACKEND_OT_POSTGRES_PORT:-5435}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-pae_backend_ot}
+      - POSTGRES_USER=${POSTGRES_USER:-pae_backend_ot_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pae_backend_ot_password}
+    volumes:
+      - backend-ot-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pae_backend_ot_user} -d ${POSTGRES_DB:-pae_backend_ot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-ot:
+    image: backend-ot:dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${BACKEND_OT_HTTP_PORT:-8000}:8000"
+    # Service settings for host runs live in .env (see .env.example); optional here.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Modbus aggregator. Standalone default: mock-modbus's published host port, so
+      # `make -C services/mock-modbus up` + `make -C services/backend-ot up` work side by
+      # side. The monorepo dev stack overrides this to the `mock-modbus` service name.
+      - AGGREGATOR_MODBUS_HOST=${BACKEND_OT_AGGREGATOR_HOST:-host.docker.internal}
+      - AGGREGATOR_MODBUS_PORT=${BACKEND_OT_AGGREGATOR_PORT:-502}
+      # Redis / Postgres on this compose network (internal ports, never the host ones)
+      - REDIS_HOST=backend-ot-redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - POSTGRES_HOST=backend-ot-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-pae_backend_ot}
+      - POSTGRES_USER=${POSTGRES_USER:-pae_backend_ot_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pae_backend_ot_password}
+    extra_hosts:
+      # Docker Desktop provides host.docker.internal; this makes it resolve on Linux too.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      backend-ot-redis:
+        condition: service_healthy
+      backend-ot-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  backend-ot-redis-data:
+  backend-ot-postgres-data:

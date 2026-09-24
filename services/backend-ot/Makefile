@@ -24,10 +24,15 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: help install lint lint-fix format typecheck test test-unit test-integration test-all \
-	build rebuild up up-build down restart logs ps shell health clean network \
+	build rebuild up up-build down restart logs ps shell health clean \
 	run migrate apply-migration seed-db cloud-down cloud-up
 
-COMPOSE := docker compose -f docker-compose.yaml
+# Standalone stack. Host ports: BACKEND_OT_HTTP_PORT / _POSTGRES_PORT / _REDIS_PORT (defaults
+# 8000/5435/6380). The Modbus aggregator defaults to mock-modbus's host port via
+# host.docker.internal; override with BACKEND_OT_AGGREGATOR_HOST / _PORT.
+COMPOSE := docker compose -f compose.yaml
+APP     := backend-ot
+HTTP_PORT := $(or $(BACKEND_OT_HTTP_PORT),8000)
 UV_RUN  := uv run --frozen
 
 # Integration-test stack: one isolated compose project per worktree, so parallel agent
@@ -108,11 +113,6 @@ migrate:
 # ---------------------------------------------------------------------------
 # Containers
 # ---------------------------------------------------------------------------
-# Shared external network the compose file still expects (removed in roadmap Phase 3).
-network:
-	@docker network inspect pae-shared-network >/dev/null 2>&1 || docker network create pae-shared-network >/dev/null
-	@echo "pae-shared-network ready"
-
 build:
 	$(COMPOSE) build
 
@@ -121,10 +121,10 @@ rebuild:
 
 # --wait blocks until postgres, redis and the app report healthy (migrations run in the
 # app's entrypoint before uvicorn starts).
-up: network
+up:
 	$(COMPOSE) up -d --wait
 
-up-build: network
+up-build:
 	$(COMPOSE) up -d --build --wait
 
 down:
@@ -134,32 +134,32 @@ restart:
 	$(COMPOSE) restart
 
 logs:
-	$(COMPOSE) logs -f pae-backend-ot
+	$(COMPOSE) logs -f $(APP)
 
 ps:
 	$(COMPOSE) ps
 
 shell:
-	$(COMPOSE) exec pae-backend-ot /bin/bash
+	$(COMPOSE) exec $(APP) /bin/bash
 
 health:
-	@curl -fsS http://localhost:8000/api/healthz && echo || echo "Service not responding"
+	@curl -fsS http://localhost:$(HTTP_PORT)/api/healthz && echo || echo "Service not responding"
 
 # Removes this project's containers and the images it built (volumes are kept).
 clean:
 	$(COMPOSE) down --rmi local
 
 apply-migration:
-	$(COMPOSE) exec pae-backend-ot python scripts/migrate_db.py
+	$(COMPOSE) exec $(APP) python scripts/migrate_db.py
 
 # tests/ and contracts/ are not shipped in the image, so copy the seed files in first —
 # including mock-modbus's register-map contract, which the seeded devices/points are built from.
 MOCK_MODBUS_CONTRACT := ../../contracts/modbus/mock-modbus.devices.json
 seed-db:
-	$(COMPOSE) exec -T pae-backend-ot mkdir -p /app/tests/seed_db
-	$(COMPOSE) cp tests/seed_db/. pae-backend-ot:/app/tests/seed_db/
-	$(COMPOSE) cp $(MOCK_MODBUS_CONTRACT) pae-backend-ot:/app/tests/seed_db/
-	$(COMPOSE) exec pae-backend-ot python tests/seed_db/seed_db.py
+	$(COMPOSE) exec -T $(APP) mkdir -p /app/tests/seed_db
+	$(COMPOSE) cp tests/seed_db/. $(APP):/app/tests/seed_db/
+	$(COMPOSE) cp $(MOCK_MODBUS_CONTRACT) $(APP):/app/tests/seed_db/
+	$(COMPOSE) exec -T $(APP) python tests/seed_db/seed_db.py
 
 # ---------------------------------------------------------------------------
 # Cloud cost control (GKE) — stop everything billable when not in use, and bring

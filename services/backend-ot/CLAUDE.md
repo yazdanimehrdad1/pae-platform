@@ -28,8 +28,12 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   from zero, runs `tests/integration`, tears down. Never touches the dev stack; parallel worktrees
   don't collide. `make test-all` = both.
 - Lint / format / types: `make lint` (ruff, CI-enforced) · `make lint-fix` · `make format` (black + ruff) · `make typecheck` (mypy).
-- Dev stack (Docker): `make up` / `make up-build` (postgres, redis, app; migrations auto-run in
-  the entrypoint) · `make down` · `make logs` · `make seed-db` · `make apply-migration`.
+- Standalone stack (Docker, `compose.yaml`): `make up` / `make up-build` (postgres, redis, app;
+  migrations auto-run in the entrypoint) · `make down` · `make logs` · `make seed-db` ·
+  `make apply-migration`. Reads the Modbus aggregator at `host.docker.internal:502` (a standalone
+  mock-modbus). The whole platform together: `make up` / `make seed` / `make e2e` at the **repo
+  root** (see the `run-platform` skill). Compose service names: `backend-ot`, `backend-ot-postgres`,
+  `backend-ot-redis`.
 - Run on the host: `make run` (needs pg+redis reachable) · `make migrate`.
 - Schema changes: use the `add-migration` skill.
 - Dev seed: devices + points are built from mock-modbus's contract
@@ -147,8 +151,9 @@ Concretely, write code that already satisfies these:
 - Publishes no events to any broker; there is no DAS API integration.
 
 ## Gotchas
-- Host ports are remapped: app 8000, **postgres 5435→5432, redis 6380→6379**. A local
-  `.env` for tests/tools must target 5435/6380, not the defaults.
+- Host ports are remapped: app 8000, **postgres 5435→5432, redis 6380→6379** (override with
+  `BACKEND_OT_HTTP_PORT` / `_POSTGRES_PORT` / `_REDIS_PORT` in the shell). A local `.env` for
+  host-run tools must target those host ports; inside containers compose sets the internal ones.
 - Migrations are raw numbered SQL in `src/db/migrations/NNN_*.sql`, applied and tracked in
   `schema_migrations` by `scripts/migrate_db.py`. No Alembic — add a new `NNN_*.sql` to change schema.
 - Scheduler uses Redis leader election: only ONE replica polls (job `modbus_poll`, every

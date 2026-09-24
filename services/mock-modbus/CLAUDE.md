@@ -39,8 +39,10 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). **uv only** — d
   device-file conventions. No Docker. `TEST_PATH=...` to narrow.
 - `make lint` / `make lint-fix` — ruff (same rule set as backend-ot).
 - `make run` — server on the host, port `RUN_PORT` (default 5020; 502 is privileged on Linux/macOS).
-- `make up` / `make down` / `make logs` — container on host port 502 (`make up` builds and waits
-  for healthy).
+- `make up` / `make down` / `make logs` — standalone container on host port 502 (override with
+  `MOCK_MODBUS_PORT`; `make up` builds and waits for healthy). `ZERO_MODE=false` is pinned in
+  `compose.yaml` because the contract's 1-based numbering depends on it. The whole platform
+  runs from the repo root (`make up`, see the `run-platform` skill).
 - `make contract` — regenerate `contracts/modbus/mock-modbus.devices.json` (the published
   register map). **Run it after any device/register change**; `make test` fails while it's stale.
 

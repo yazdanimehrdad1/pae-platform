@@ -1,0 +1,27 @@
+# mock-modbus (DEV-ONLY) — standalone: `make -C services/mock-modbus up`.
+# Also included by the monorepo dev stack (deploy/compose/dev.yaml). Follows the service
+# convention: service name prefixed with the service dir, no container_name, no external
+# networks, host port overridable with MOCK_MODBUS_PORT.
+name: mock-modbus
+
+services:
+  mock-modbus:
+    image: mock-modbus:dev
+    build: .
+    ports:
+      # Host port only; inside the container the aggregator always listens on 502.
+      - "${MOCK_MODBUS_PORT:-502}:502"
+    # Simulator settings (DEFAULT_REGISTER_VALUE, RANDOM_SEED, LOG_LEVEL, PROFILE_*...);
+    # optional. See .env.example.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - MODBUS_HOST=0.0.0.0
+      - MODBUS_PORT=502
+      - AGGREGATOR_ENABLED=true
+      # Pinned: the published contract (contracts/modbus/mock-modbus.devices.json) declares
+      # 1-based register numbering, which only holds with ZERO_MODE=false. backend-ot's
+      # seeded devices (modbus_address_mode=one_based) depend on it.
+      - ZERO_MODE=false
+    restart: unless-stopped

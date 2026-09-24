@@ -1,0 +1,15 @@
+# Monorepo DEV stack: every service together on one network, addressing each other by
+# compose service name. Run it with the root Makefile (`make up`, `make down`, ...).
+#
+# Each service keeps owning its own compose file; this file only includes them. Included
+# files resolve paths (build context, env_file) relative to their own directory.
+#
+# DEV-ONLY: mock-modbus is included here and must never appear in any production manifest.
+# Host ports: see the port registry in the root CLAUDE.md; override them in the root .env.
+name: pae-dev
+
+include:
+  - path:
+      - ../../services/backend-ot/compose.yaml
+      - backend-ot.dev.override.yaml
+  - path: ../../services/mock-modbus/compose.yaml
