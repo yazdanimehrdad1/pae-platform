@@ -2,7 +2,7 @@
 #
 # Run from anywhere with `make -C services/backend-ot <target>` (or from this directory).
 # Standard targets (same names in every service): install lint format typecheck test
-# test-integration build up down logs run. Service-specific: migrate seed-db cloud-*.
+# test-integration build up down logs run contract. Service-specific: migrate seed-db cloud-*.
 # Tooling: uv only; every Python tool runs from uv.lock via `uv run --frozen`.
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: help install lint lint-fix format typecheck test test-unit test-integration test-all \
+.PHONY: help install lint lint-fix format typecheck test test-unit test-integration test-all contract \
 	build rebuild up up-build down restart logs ps shell health clean \
 	run migrate apply-migration seed-db cloud-down cloud-up
 
@@ -57,6 +57,7 @@ help:
 	@echo "  test-all         test + test-integration"
 	@echo "  run              run the API on the host (needs postgres+redis reachable)"
 	@echo "  migrate          apply SQL migrations from the host"
+	@echo "  contract         regenerate $(CONTRACT_FILE) (the OpenAPI spec)"
 	@echo ""
 	@echo "Containers (docker compose):"
 	@echo "  build / rebuild  build the image (rebuild = no cache)"
@@ -109,6 +110,12 @@ run:
 
 migrate:
 	$(UV_RUN) python scripts/migrate_db.py
+
+# Published HTTP API (contracts/ is the only directory shared between services).
+# Run after any route/model change; `make test` fails while the contract is stale.
+CONTRACT_FILE := ../../contracts/openapi/backend-ot.openapi.json
+contract:
+	$(UNIT_ENV) $(UV_RUN) python scripts/export_openapi.py --output $(CONTRACT_FILE)
 
 # ---------------------------------------------------------------------------
 # Containers

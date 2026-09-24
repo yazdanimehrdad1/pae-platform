@@ -36,6 +36,9 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   `backend-ot-redis`.
 - Run on the host: `make run` (needs pg+redis reachable) · `make migrate`.
 - Schema changes: use the `add-migration` skill.
+- API changes: use the `add-endpoint` skill. This service publishes its OpenAPI spec to
+  `contracts/openapi/backend-ot.openapi.json`; `make contract` regenerates it and `make test`
+  fails while it is stale (`tests/unit/test_contract.py`). Rules: `contracts/README.md`.
 - Dev seed: devices + points are built from mock-modbus's contract
   (`contracts/modbus/mock-modbus.devices.json`, via `tests/seed_db/mock_modbus_seed.py`) — never
   hand-edit seeded devices/points; change the mock and run `make -C services/mock-modbus contract`.

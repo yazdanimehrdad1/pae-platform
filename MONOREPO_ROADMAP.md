@@ -47,8 +47,8 @@ Nothing gets committed. I stage each phase, show you the diff, and wait for you 
 - **What it is:** a machine-readable description of a service's public API. Here that's an **OpenAPI JSON file** at `contracts/openapi/<service>.openapi.json`, generated from the FastAPI app itself (`create_app().openapi()`), never hand-written.
 - **Objective:** services depend on each other's *published interface*, not their source code. It's the one allowed shared dependency, so it's what keeps services decoupled yet compatible.
 - **How it's used here:**
-  - **Provider** (backend-ot): after changing an endpoint, run `make -C services/backend-ot openapi`; the spec updates and the change shows up in the PR diff as a reviewable API change.
-  - **Drift check:** `make contracts-check` regenerates every spec and fails if the committed one differs. So a route can't change without the contract changing with it; the git hook runs it today, CI later.
+  - **Provider** (backend-ot): after changing an endpoint, run `make -C services/backend-ot contract`; the spec updates and the change shows up in the PR diff as a reviewable API change.
+  - **Drift check:** each provider's unit tests fail while its committed spec is stale (so `make check` catches it), and `make contracts-check` regenerates every spec and fails if `contracts/` then differs from the git index. So a route can't change without the contract changing with it; the git hook runs it today, CI later.
   - **Consumers** (optimizer, frontend, later): generate a typed client from the spec, so a breaking change shows up as a compile or test error in the consumer rather than a runtime 422 in prod. The client generator is chosen when the first consumer exists (roadmap R1).
   - **Rules** in `contracts/README.md`: the provider owns its spec; a breaking change (removed or renamed field or route) needs a version bump and a note.
 - **Not a contract:** mock-modbus's register maps. It speaks Modbus, not HTTP, and its maps are internal to its device files.
@@ -100,7 +100,7 @@ Nothing gets committed. I stage each phase, show you the diff, and wait for you 
 ### How it fits together: one realistic task
 You ask: *"Expose the latest reading timestamp on the devices endpoint so the optimizer can use it."*
 1. Root CLAUDE.md tells the agent the rules. backend-ot's CLAUDE.md loads because the work is in that service.
-2. The `backend-ot:add-endpoint` skill drives the change: model, router, integration test, then `make openapi` regenerates `contracts/openapi/backend-ot.openapi.json`.
+2. The `backend-ot:add-endpoint` skill drives the change: model, router, integration test, then `make contract` regenerates `contracts/openapi/backend-ot.openapi.json`.
 3. The `test-runner` subagent runs lint and tests and reports "all green" in a few lines.
 4. The `contracts` skill classifies the spec diff as additive (non-breaking) and notes the consumers to update.
 5. `run-platform` brings up the stack to confirm the endpoint live against mock-modbus.
@@ -118,8 +118,8 @@ You ask: *"Expose the latest reading timestamp on the devices endpoint so the op
 | 1 | Repo hygiene | ✅ **Done** (`e7301b9`) | Root `.gitignore`/`.gitattributes`/`.editorconfig`, both `.dockerignore`s, lock file untracked | — | `git check-ignore` samples | — |
 | 2a | backend-ot → uv + standard Makefile | ✅ **Done** (`f32712e`) | `uv.lock`-driven installs and Dockerfile; standard targets; `make.ps1` removed (its cloud targets move to `scripts/cloud.ps1`); anchored `env_file`; `load_dotenv` removed | `backend-ot:add-migration` | `make -C services/backend-ot install lint test test-integration build` pass; the skill adds a throwaway migration that applies in `test-integration`, then it's reverted | 1 |
 | 2b | mock-modbus → uv + pytest suite | ✅ **Done** (`f32712e`) | New `pyproject` and `uv.lock`, uv Dockerfile, anchored `env_file`, real tests; device-authoring docs moved out of its 25 KB CLAUDE.md | `mock-modbus:add-mock-device` | `make -C services/mock-modbus install lint test build` pass; the skill adds a throwaway device that the new tests read, then it's reverted | 1 (can run in parallel with 2a) |
-| 3 | Run standalone / together / concurrently | 🟡 **Staged, awaiting commit** | Per-service `compose.yaml`; `deploy/compose/dev.yaml`; root `Makefile` + `.env.example` | `run-platform` (root) | Standalone pair talks via `host.docker.internal`; root `make up` works by service name; both at once with no port clash; the built-in `run` skill picks up `run-platform` | 2a, 2b |
-| 4 | Contracts | Partly done early: mock-modbus register-map contract + `contracts/README.md` (see log); backend-ot OpenAPI remains | `export_openapi.py`, `contracts/openapi/backend-ot.openapi.json`, `contracts/README.md`, `make contracts` / `contracts-check` | `contracts` (root), `backend-ot:add-endpoint` | Drift check is clean, and fails when a route changes; `add-endpoint` adds a throwaway route, its test and the regenerated spec, then it's reverted | 2a |
+| 3 | Run standalone / together / concurrently | ✅ **Done** (`69ff983`, merged in `904e1d7`) | Per-service `compose.yaml`; `deploy/compose/dev.yaml`; root `Makefile` + `.env.example` | `run-platform` (root) | Standalone pair talks via `host.docker.internal`; root `make up` works by service name; both at once with no port clash; the built-in `run` skill picks up `run-platform` | 2a, 2b |
+| 4 | Contracts | 🟡 **Staged, awaiting commit** (mock-modbus register map done early in Phase 3) | `export_openapi.py`, `contracts/openapi/backend-ot.openapi.json`, `contracts/README.md`, `make contract` / `contracts-check` | `contracts` (root), `backend-ot:add-endpoint` | Drift check is clean, and fails when a route changes; `add-endpoint` adds a throwaway route, its test and the regenerated spec, then it's reverted | 2a |
 | 5 | Agent layer | | Root CLAUDE.md (lists every skill), root `.claude/settings.json`, 2 subagents, `check_boundaries.py`, root git hook; service CLAUDE.md files slimmed and pointing to their skills | `new-service` (root; needs every convention settled) | Launched from the root, every skill and agent is listed and scoped correctly; `new-service` scaffolds a dummy `services/_probe` that passes `make -C services/_probe lint test` and the boundary check, then it's deleted; `.env` read denied; a planted cross-import is blocked | 3, 4 |
 | 6 | Stale docs | | READMEs and RUNBOOK local-dev sections updated | Skills audited: every command they quote matches the final Makefiles | Every command quoted in a doc or skill has been run once | 5 |
 
@@ -139,7 +139,7 @@ You ask: *"Expose the latest reading timestamp on the devices endpoint so the op
 | `add-mock-device` | mock-modbus | new `device_N.py`, address bands, 32-bit registers, profile registers, test | 2b |
 | `run-platform` | root | whole stack or one service, health checks, seed, logs, teardown, port overrides | 3 |
 | `contracts` | root | regenerate spec, drift check, breaking-change rules, consumer follow-up | 4 |
-| `add-endpoint` | backend-ot | router + pydantic models + integration test + `make openapi` | 4 |
+| `add-endpoint` | backend-ot | router + pydantic models + integration test + `make contract` | 4 |
 | `new-service` | root | scaffold to the convention and register it everywhere (root Makefile, dev compose, ports, CLAUDE.md) | 5 |
 
 **Suggested order:** 2a → 2b → 3 → 4 → 5 → 6, with a commit after each.
@@ -183,7 +183,7 @@ pae-platform/
 ## The service convention (what every current and future service must provide)
 - **Makefile targets, same names everywhere:**
   - `install` (`uv sync`), `lint`, `format`, `typecheck`, `test` (fast, no Docker where possible);
-  - `test-integration` (if the service has one), `build`, `up`, `down`, `logs`, `run` (on the host), `openapi` (HTTP providers only);
+  - `test-integration` (if the service has one), `build`, `up`, `down`, `logs`, `run` (on the host), `contract` (services that publish to `contracts/`);
   - service-specific extras, e.g. `migrate` and `seed-db`.
 - **`compose.yaml`** (renamed from `docker-compose.yaml`):
   - `name: <svc>`, no `container_name`, no external networks;
@@ -291,7 +291,7 @@ As built, with one deviation from the plan: the `.claude/*` rules use a `**/` pr
 - `services/backend-ot/scripts/export_openapi.py` uses the stdlib plus the app itself. It calls `create_app().openapi()` and writes `contracts/openapi/backend-ot.openapi.json` with `sort_keys=True, indent=2`.
   - Its output path comes from a CLI argument that the Makefile passes. The service doesn't hardcode repo layout.
   - It runs with a dummy `POSTGRES_PASSWORD`, which is safe because `create_app` doesn't connect at import (confirmed in the lifespan code during implementation).
-- `make -C services/backend-ot openapi` regenerates it. Root `make contracts` regenerates every provider, and `make contracts-check` regenerates and then runs `git diff --exit-code contracts/`.
+- `make -C services/backend-ot contract` regenerates it. Root `make contract` regenerates every provider, and `make contracts-check` regenerates and then runs `git diff --exit-code contracts/` (as built: also fails on untracked files, ignores the hand-written `*.md`).
 - `contracts/README.md` covers:
   - the provider service owns its spec;
   - specs are generated, never edited by hand;
@@ -299,7 +299,7 @@ As built, with one deviation from the plan: the `.claude/*` rules use a `**/` pr
   - consumers never import provider code.
 
   Client generation (tool and output location) is decided when the first consumer (optimizer or frontend) arrives, because it adds a dependency.
-- mock-modbus exposes no HTTP API, so it has nothing to publish in `contracts/`. Its register maps are internal to its device files.
+- ~~mock-modbus exposes no HTTP API, so it has nothing to publish in `contracts/`.~~ Superseded 2026-09-24: it publishes its register map (see log).
 
 ## Phase 5: The agent layer
 - **Root `CLAUDE.md`** (about 80 lines):
@@ -401,8 +401,10 @@ Each phase ends with its diff staged and shown to you. Nothing is committed unti
 | 2026-09-24 | 3 | **Exit checks run:** `make check` (both services lint + test) from root; all 4 compose files `config -q`; **three stacks at once, 11 containers, no clash** — the old repo's stack on 8000/5435/6380, the standalone pair (mock on 502, backend-ot on 18000/15435/16380 via `host.docker.internal`) → AGREE 155/155, and the root dev stack (28000/25435/26380, mock 2502, by service name) → AGREE 155/155 with exact read alignment in the mock log. `make e2e` → AGREE. **Two worktrees ran `test-integration` concurrently** (`backend-ot-test-pae-platform` / `backend-ot-test-wt-probe`): 77 + 77 passed. All test stacks torn down; the old stack left running. |
 | 2026-09-24 | 3 | ⚠ **OneDrive vs git worktrees:** removing the probe worktree failed (`Filename too long`, then `Permission denied`) — OneDrive had turned `.git/worktrees/wt-probe` into read-only cloud reparse points. Cleaned up manually. Parallel agent worktrees will hit this repeatedly while the repo lives under OneDrive; see open question in Phase 5. |
 | 2026-09-24 | 3 | `run-platform` skill written (root `.claude/skills/`). backend-ot CLAUDE.md commands/gotchas, `Readme-dev/service-readme.md` wiring section and mock-modbus CLAUDE.md commands updated for the new compose layout. Untracked `CLAUDE.local.md` files (personal, not ours to edit) still mention `pae-shared-network`. |
-<<<<<<< HEAD
 | 2026-09-24 | — | **Repo moved out of OneDrive** (user decision): copied (robocopy, venvs/caches excluded) from `C:\Users\yazda\OneDrive\Desktop\pae-microservices-dev\pae-platform` to **`C:\dev\pae-platform`**, which is now the working copy. Verified: same HEAD `f32712e`, identical status and staged diff, `git fsck` clean, no reparse points in `.git`, personal ignored files (.env, CLAUDE.local.md, settings.local.json) carried over; `make install` + `make check` pass; `dev.yaml` validates; a git worktree was added, ran `test-integration` (77 passed) and removed cleanly — the failure OneDrive caused. The OneDrive copy is left untouched for the user to delete. Compose project names are fixed by `name:`, so Docker volumes/containers are unaffected. The `[tool.uv] link-mode = "copy"` setting (added for OneDrive) is kept: harmless and still needed by anyone syncing from a OneDrive folder. |
 | 2026-09-24 | — | Minimal root `CLAUDE.md` added (points sessions at this roadmap + the hard rules) so a new Claude session at the new path starts with context; Phase 5 replaces it with the full rules. Observed: the root `run-platform` skill was auto-discovered by the running session — first evidence for the Phase 5 skill-discovery check. |
-=======
->>>>>>> 6042a44e1eea4021ae83ec4d2c2fe06ded6d74df
+| 2026-09-24 | — | Merge `904e1d7` committed conflict markers into this file (log tail); resolved by keeping the HEAD side (the other side was empty). Phase 3 marked done: committed as `69ff983` (and the same content as `6042a44` on the remote), merged in `904e1d7`. |
+| 2026-09-24 | 4 | backend-ot publishes `contracts/openapi/backend-ot.openapi.json` (OpenAPI 3.1, 36 paths, ~137 KB): `src/contract.py` (`render_openapi_contract`: `sort_keys`, indent 2, `ensure_ascii=False`, trailing LF), `scripts/export_openapi.py --output`, standard target `make contract` (roadmap said `openapi`; renamed to the `contract` convention set in Phase 3). Confirmed `create_app()` opens no connections: spec generated with `POSTGRES_HOST`/`REDIS_HOST` unresolvable; the Makefile passes the unit-test dummy `POSTGRES_PASSWORD`. |
+| 2026-09-24 | 4 | Drift checked two ways: unit test `tests/unit/test_contract.py` (same pattern as mock-modbus, so `make check` catches drift), and root `make contracts-check` (regenerate all, then `git diff --exit-code` vs the **index** + no untracked files; hand-written `contracts/**/*.md` excluded). `contracts-check` is part of `make check` (user decision, next entry). Contract version for backend-ot = `info.version` (`create_app(version=...)`); for mock-modbus `CONTRACT_VERSION`. Dropped a planned "every route is published" test: FastAPI now nests `_IncludedRouter` objects in `app.routes`, and the check only re-derived `app.openapi()`. |
+| 2026-09-24 | 4 | **Exit checks run:** backend-ot `lint` clean, `test` 130 passed. `contracts-check`: clean → pass; spec untracked → fail; stray untracked `.json` → fail; untracked `.md` → pass; route summary changed without regenerating → fail (and the unit drift test fails); reverted → pass. Mutation (renamed route path + query description) → both checks fail; reverted. `add-endpoint` skill probe: throwaway `GET /api/probe/site-count` (new router mounted in `create_app`, response model in `api_models`, integration test) → `make test` failed "contract is stale" until `make contract` (37 paths), then `lint`, `test` (130) and `test-integration` (78 passed) passed; `contracts-check` failed there, but on my unstaged edit to the hand-written `contracts/README.md` — which is why `*.md` is now excluded (re-verified above); probe fully reverted, spec back to 36 paths. Skills `contracts` (root) and `backend-ot:add-endpoint` written; `contracts/README.md` extended (targets, both drift tests, what counts as breaking, where each version lives); backend-ot CLAUDE.md points at both. |
+| 2026-09-24 | 4 | **Decision (user): `make check` = `lint` + `test` + `contracts-check`** (option B, over keeping it separate for the pre-commit hook). One command covers everything; cost: `make check` fails mid-change until regenerated contracts are staged. Documented in the root Makefile help, `contracts/README.md` and the `contracts` skill. |

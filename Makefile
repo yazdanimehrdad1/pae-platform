@@ -33,7 +33,7 @@ TARGET_SERVICES := $(or $(svc),$(SERVICES))
 DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildcard .env),--env-file $(CURDIR)/.env)
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
-.PHONY: help up down restart logs ps seed e2e check $(FANOUT_TARGETS)
+.PHONY: help up down restart logs ps seed e2e check contracts-check $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -46,7 +46,8 @@ help:
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
 	@echo ""
 	@echo "Per service (runs in every service, or svc=<name>): $(FANOUT_TARGETS)"
-	@echo "  check              lint + test for every service"
+	@echo "  check              lint + test for every service, then contracts-check (stage regenerated specs first)"
+	@echo "  contracts-check    regenerate every contract; fail if contracts/ differs from the index"
 	@echo ""
 	@echo "Services: $(SERVICES)"
 	@echo "Standalone: make -C services/<svc> <target>   (see each service's CLAUDE.md)"
@@ -94,4 +95,16 @@ $(FANOUT_TARGETS):
 		fi; \
 	done
 
-check: lint test
+# contracts-check compares with the git index: stage regenerated contracts before `make check`.
+check: lint test contracts-check
+
+# Regenerates every published contract (the `contract` fan-out), then fails if contracts/ now
+# differs from what is staged/committed, or has untracked files. Compares against the index,
+# so a regenerated-and-staged contract passes (the pre-commit case).
+# Hand-written docs (contracts/**/*.md) are not generated, so they are not compared.
+CONTRACT_FILES := contracts/ ":(exclude,glob)contracts/**/*.md"
+contracts-check: contract
+	@git diff --exit-code --stat -- $(CONTRACT_FILES) || { echo "contracts-check: contracts/ is stale; stage the regenerated files" >&2; exit 1; }
+	@untracked="$$(git ls-files --others --exclude-standard -- $(CONTRACT_FILES))"; \
+		if [ -n "$$untracked" ]; then echo "contracts-check: untracked contract files:" >&2; echo "$$untracked" >&2; exit 1; fi
+	@echo "contracts-check: contracts/ is current"

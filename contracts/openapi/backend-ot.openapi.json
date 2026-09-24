@@ -1,0 +1,4907 @@
+{
+  "components": {
+    "schemas": {
+      "CacheGetResponse": {
+        "description": "Response model for retrieving a value from the cache.",
+        "properties": {
+          "exists": {
+            "description": "Whether the key exists in the cache",
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "Cache key",
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "description": "Cached value, or None if the key is absent",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "exists"
+        ],
+        "title": "CacheGetResponse",
+        "type": "object"
+      },
+      "CacheSetRequest": {
+        "description": "Request model for setting a value in the cache.",
+        "properties": {
+          "key": {
+            "description": "Cache key",
+            "title": "Key",
+            "type": "string"
+          },
+          "ttl": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Time-to-live in seconds; None means no expiry",
+            "title": "Ttl"
+          },
+          "value": {
+            "description": "Value to cache",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "CacheSetRequest",
+        "type": "object"
+      },
+      "Coordinates": {
+        "description": "Coordinates model for site location.",
+        "properties": {
+          "lat": {
+            "description": "Latitude",
+            "title": "Lat",
+            "type": "number"
+          },
+          "lng": {
+            "description": "Longitude",
+            "title": "Lng",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "title": "Coordinates",
+        "type": "object"
+      },
+      "DeviceCreateRequest": {
+        "description": "Request model for creating a new device.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional device description",
+            "title": "Description"
+          },
+          "host": {
+            "description": "Device hostname or IP address",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "modbus_address_mode": {
+            "default": "zero_based",
+            "description": "zero_based: use addresses as-is; one_based: subtract 1 before sending to pymodbus (for devices whose docs use 1-based numbering)",
+            "enum": [
+              "zero_based",
+              "one_based"
+            ],
+            "title": "Modbus Address Mode",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device model",
+            "title": "Model"
+          },
+          "name": {
+            "description": "Unique device name/identifier",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "poll_enabled": {
+            "default": true,
+            "description": "Whether polling is enabled for this device",
+            "title": "Poll Enabled",
+            "type": "boolean"
+          },
+          "port": {
+            "default": 502,
+            "description": "Device port (default: 502)",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "protocol": {
+            "default": "Modbus",
+            "description": "Communication protocol",
+            "enum": [
+              "Modbus",
+              "DNP"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "read_from_aggregator": {
+            "default": true,
+            "description": "Whether to read from edge aggregator",
+            "title": "Read From Aggregator",
+            "type": "boolean"
+          },
+          "scan_ranges": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceScanRanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Initial scan ranges (optional)"
+          },
+          "server_address": {
+            "default": 1,
+            "description": "Server address (default: 1)",
+            "minimum": 1.0,
+            "title": "Server Address",
+            "type": "integer"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional timeout (seconds)",
+            "title": "Timeout"
+          },
+          "type": {
+            "description": "Device type. Case-insensitive on input; stored uppercase.",
+            "enum": [
+              "BESS",
+              "ES",
+              "INVERTER",
+              "PV",
+              "GENERATOR",
+              "LOADBANK",
+              "RELAY",
+              "IED",
+              "METER",
+              "RTAC"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device vendor",
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "host"
+        ],
+        "title": "DeviceCreateRequest",
+        "type": "object"
+      },
+      "DeviceDeleteResponse": {
+        "description": "Response model for a deleted device.",
+        "properties": {
+          "device_id": {
+            "description": "Deleted device ID",
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "mode": {
+            "description": "soft: device_id preserved and restorable; hard: permanently removed",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "site_id": {
+            "description": "Site ID for the deleted device",
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device_id",
+          "site_id",
+          "mode"
+        ],
+        "title": "DeviceDeleteResponse",
+        "type": "object"
+      },
+      "DeviceHealthStatus": {
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "poll_enabled": {
+            "title": "Poll Enabled",
+            "type": "boolean"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "read_from_aggregator": {
+            "title": "Read From Aggregator",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "device_id",
+          "name",
+          "host",
+          "port",
+          "read_from_aggregator",
+          "poll_enabled",
+          "reachable"
+        ],
+        "title": "DeviceHealthStatus",
+        "type": "object"
+      },
+      "DevicePointCreateRequest": {
+        "description": "Request model for creating a device point directly (Config-free).",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "bitfield_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bitfield Detail"
+          },
+          "byte_order": {
+            "default": "big-endian",
+            "title": "Byte Order",
+            "type": "string"
+          },
+          "category": {
+            "default": "NATIVE",
+            "enum": [
+              "NATIVE",
+              "STANDARDIZED",
+              "VIRTUAL"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "data_type": {
+            "description": "Register interpretation. Width is encoded in the type (e.g. enum32, bitfield16); `size` must match register_size(data_type).",
+            "enum": [
+              "bool",
+              "uint16",
+              "int16",
+              "uint32",
+              "int32",
+              "uint64",
+              "int64",
+              "float32",
+              "float64",
+              "raw",
+              "enum16",
+              "enum32",
+              "bitfield16",
+              "bitfield32",
+              "status_word16",
+              "status_word32"
+            ],
+            "title": "Data Type",
+            "type": "string"
+          },
+          "enum_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enum Detail"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "poll_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "holding",
+                  "input",
+                  "coils"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poll Kind"
+          },
+          "scale_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Factor"
+          },
+          "size": {
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "word_order": {
+            "default": "msw_first",
+            "title": "Word Order",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "data_type"
+        ],
+        "title": "DevicePointCreateRequest",
+        "type": "object"
+      },
+      "DevicePointResponse": {
+        "description": "Response model for a device point.",
+        "properties": {
+          "address": {
+            "description": "Point address",
+            "title": "Address",
+            "type": "integer"
+          },
+          "bitfield_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bitfield detail mapping",
+            "title": "Bitfield Detail"
+          },
+          "byte_order": {
+            "default": "big-endian",
+            "description": "Byte order for interpretation",
+            "title": "Byte Order",
+            "type": "string"
+          },
+          "category": {
+            "default": "NATIVE",
+            "description": "Point category: NATIVE, STANDARDIZED, or VIRTUAL",
+            "title": "Category",
+            "type": "string"
+          },
+          "data_type": {
+            "description": "Data type",
+            "title": "Data Type",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Soft-delete timestamp; null means active",
+            "title": "Deleted At"
+          },
+          "device_id": {
+            "description": "Device ID",
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "enum_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Enum detail mapping",
+            "title": "Enum Detail"
+          },
+          "id": {
+            "description": "Primary key",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Point name",
+            "title": "Name",
+            "type": "string"
+          },
+          "poll_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Register type: holding, input, or coils",
+            "title": "Poll Kind"
+          },
+          "scale_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scale factor",
+            "title": "Scale Factor"
+          },
+          "site_id": {
+            "description": "Site ID",
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "size": {
+            "description": "Point size",
+            "title": "Size",
+            "type": "integer"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit",
+            "title": "Unit"
+          },
+          "word_order": {
+            "default": "msw_first",
+            "description": "Word order for multi-register types",
+            "title": "Word Order",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "device_id",
+          "name",
+          "address",
+          "size",
+          "data_type"
+        ],
+        "title": "DevicePointResponse",
+        "type": "object"
+      },
+      "DevicePointUpdateRequest": {
+        "description": "Request model for updating a device point.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "bitfield_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bitfield Detail"
+          },
+          "byte_order": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Byte Order"
+          },
+          "data_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "bool",
+                  "uint16",
+                  "int16",
+                  "uint32",
+                  "int32",
+                  "uint64",
+                  "int64",
+                  "float32",
+                  "float64",
+                  "raw",
+                  "enum16",
+                  "enum32",
+                  "bitfield16",
+                  "bitfield32",
+                  "status_word16",
+                  "status_word32"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Register interpretation. Width is encoded in the type (e.g. enum32, bitfield16); `size` must match register_size(data_type).",
+            "title": "Data Type"
+          },
+          "enum_detail": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enum Detail"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "poll_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "holding",
+                  "input",
+                  "coils"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poll Kind"
+          },
+          "scale_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Factor"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "word_order": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Order"
+          }
+        },
+        "title": "DevicePointUpdateRequest",
+        "type": "object"
+      },
+      "DevicePointsBulkRequest": {
+        "description": "Bulk upsert: create new points and update existing ones (matched by name) in one call.",
+        "properties": {
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/DevicePointCreateRequest"
+            },
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "points"
+        ],
+        "title": "DevicePointsBulkRequest",
+        "type": "object"
+      },
+      "DevicePointsCategoryGrouped": {
+        "description": "Device points grouped by category.",
+        "properties": {
+          "native": {
+            "items": {
+              "$ref": "#/components/schemas/DevicePointResponse"
+            },
+            "title": "Native",
+            "type": "array"
+          },
+          "standardized": {
+            "items": {
+              "$ref": "#/components/schemas/DevicePointResponse"
+            },
+            "title": "Standardized",
+            "type": "array"
+          },
+          "virtual": {
+            "items": {
+              "$ref": "#/components/schemas/DevicePointResponse"
+            },
+            "title": "Virtual",
+            "type": "array"
+          }
+        },
+        "title": "DevicePointsCategoryGrouped",
+        "type": "object"
+      },
+      "DeviceScanRanges": {
+        "description": "Scan ranges categorized by register type.",
+        "properties": {
+          "coils": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterRange"
+            },
+            "title": "Coils",
+            "type": "array"
+          },
+          "holding": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterRange"
+            },
+            "title": "Holding",
+            "type": "array"
+          },
+          "input": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterRange"
+            },
+            "title": "Input",
+            "type": "array"
+          }
+        },
+        "title": "DeviceScanRanges",
+        "type": "object"
+      },
+      "DeviceUpdate": {
+        "description": "Request model for updating a device.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device description",
+            "title": "Description"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device hostname or IP address",
+            "title": "Host"
+          },
+          "modbus_address_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "zero_based",
+                  "one_based"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "zero_based: use addresses as-is; one_based: subtract 1 before sending to pymodbus",
+            "title": "Modbus Address Mode"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device model",
+            "title": "Model"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device name/identifier",
+            "title": "Name"
+          },
+          "poll_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether polling is enabled for this device",
+            "title": "Poll Enabled"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device port",
+            "title": "Port"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Modbus",
+                  "DNP"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Communication protocol",
+            "title": "Protocol"
+          },
+          "read_from_aggregator": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether to read from edge aggregator",
+            "title": "Read From Aggregator"
+          },
+          "scan_ranges": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceScanRanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Updated scan ranges (does not lock)"
+          },
+          "server_address": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Server address",
+            "title": "Server Address"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional timeout (seconds)",
+            "title": "Timeout"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "BESS",
+                  "ES",
+                  "INVERTER",
+                  "PV",
+                  "GENERATOR",
+                  "LOADBANK",
+                  "RELAY",
+                  "IED",
+                  "METER",
+                  "RTAC"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device type. Case-insensitive on input; stored uppercase.",
+            "title": "Type"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device vendor",
+            "title": "Vendor"
+          }
+        },
+        "title": "DeviceUpdate",
+        "type": "object"
+      },
+      "DeviceWithPoints": {
+        "description": "Device response with its device points grouped by category.",
+        "properties": {
+          "created_at": {
+            "description": "Timestamp when device was created",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Soft-delete timestamp; null means active",
+            "title": "Deleted At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device description",
+            "title": "Description"
+          },
+          "device_id": {
+            "description": "Device ID",
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "host": {
+            "description": "Device hostname or IP address",
+            "title": "Host",
+            "type": "string"
+          },
+          "modbus_address_mode": {
+            "default": "zero_based",
+            "description": "zero_based or one_based — controls pymodbus address offset",
+            "title": "Modbus Address Mode",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device model",
+            "title": "Model"
+          },
+          "name": {
+            "description": "Device name",
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "$ref": "#/components/schemas/DevicePointsCategoryGrouped"
+          },
+          "poll_enabled": {
+            "default": true,
+            "description": "Whether polling is enabled for this device",
+            "title": "Poll Enabled",
+            "type": "boolean"
+          },
+          "port": {
+            "description": "Device port",
+            "title": "Port",
+            "type": "integer"
+          },
+          "protocol": {
+            "description": "Communication protocol",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "read_from_aggregator": {
+            "default": true,
+            "description": "Whether to read from edge aggregator",
+            "title": "Read From Aggregator",
+            "type": "boolean"
+          },
+          "scan_ranges": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceScanRanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Auto-computed or manually locked scan ranges"
+          },
+          "scan_ranges_locked": {
+            "default": false,
+            "description": "Whether scan ranges are locked against auto-recompute",
+            "title": "Scan Ranges Locked",
+            "type": "boolean"
+          },
+          "server_address": {
+            "description": "Server address",
+            "title": "Server Address",
+            "type": "integer"
+          },
+          "site_id": {
+            "description": "Site ID (4-digit number)",
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional timeout (seconds)",
+            "title": "Timeout"
+          },
+          "type": {
+            "description": "Device type",
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "Timestamp when device was last updated",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device vendor",
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "device_id",
+          "site_id",
+          "name",
+          "type",
+          "protocol",
+          "host",
+          "port",
+          "server_address",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeviceWithPoints",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "Response model for health check.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "device_id": {
+            "description": "Modbus unit/slave ID",
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "host",
+          "port",
+          "device_id"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "LatestMeta": {
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "point_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Ids"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "device_id",
+          "total_count"
+        ],
+        "title": "LatestMeta",
+        "type": "object"
+      },
+      "LatestResponse": {
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/LatestMeta"
+          },
+          "readings": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PointLatest"
+            },
+            "title": "Readings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "meta",
+          "readings"
+        ],
+        "title": "LatestResponse",
+        "type": "object"
+      },
+      "LiveStreamDeleteAllSessionsResponse": {
+        "properties": {
+          "cancelled_active_sessions": {
+            "title": "Cancelled Active Sessions",
+            "type": "integer"
+          },
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "deleted_sessions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deleted Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cancelled_active_sessions",
+          "deleted_count",
+          "deleted_sessions"
+        ],
+        "title": "LiveStreamDeleteAllSessionsResponse",
+        "type": "object"
+      },
+      "LiveStreamDeleteSessionResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "LiveStreamDeleteSessionResponse",
+        "type": "object"
+      },
+      "LiveStreamRawRegistersParams": {
+        "properties": {
+          "byte_order": {
+            "default": "big",
+            "enum": [
+              "big",
+              "little"
+            ],
+            "title": "Byte Order",
+            "type": "string"
+          },
+          "duration": {
+            "default": 3600,
+            "description": "Session length in seconds, max 1 hour",
+            "maximum": 3600.0,
+            "minimum": 1.0,
+            "title": "Duration",
+            "type": "integer"
+          },
+          "end_address": {
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "End Address",
+            "type": "integer"
+          },
+          "host": {
+            "description": "Modbus device IP/hostname",
+            "title": "Host",
+            "type": "string"
+          },
+          "interval": {
+            "default": 1.0,
+            "description": "Seconds between polls",
+            "maximum": 60.0,
+            "minimum": 0.5,
+            "title": "Interval",
+            "type": "number"
+          },
+          "kind": {
+            "default": "holding",
+            "enum": [
+              "holding",
+              "input"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modbus_address_mode": {
+            "default": "zero_based",
+            "description": "zero_based: address sent as-is; one_based: subtract 1 before sending to device",
+            "enum": [
+              "zero_based",
+              "one_based"
+            ],
+            "title": "Modbus Address Mode",
+            "type": "string"
+          },
+          "port": {
+            "default": 502,
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "register_configs": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/LiveStreamRawRegistersRegisterConfig"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional per-address config, e.g. {\"1400\": {\"label\": \"voltage\", \"data_type\": \"float32\"}}",
+            "title": "Register Configs"
+          },
+          "server_address": {
+            "default": 1,
+            "description": "Modbus unit/slave ID",
+            "maximum": 255.0,
+            "minimum": 1.0,
+            "title": "Server Address",
+            "type": "integer"
+          },
+          "start_address": {
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Start Address",
+            "type": "integer"
+          },
+          "word_order": {
+            "default": "msw_first",
+            "enum": [
+              "msw_first",
+              "lsw_first"
+            ],
+            "title": "Word Order",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "start_address",
+          "end_address"
+        ],
+        "title": "LiveStreamRawRegistersParams",
+        "type": "object"
+      },
+      "LiveStreamRawRegistersRegisterConfig": {
+        "properties": {
+          "byte_order": {
+            "anyOf": [
+              {
+                "enum": [
+                  "big",
+                  "little"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Byte Order"
+          },
+          "data_type": {
+            "default": "int16",
+            "enum": [
+              "bool",
+              "uint16",
+              "int16",
+              "uint32",
+              "int32",
+              "uint64",
+              "int64",
+              "float32",
+              "float64",
+              "raw"
+            ],
+            "title": "Data Type",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "word_order": {
+            "anyOf": [
+              {
+                "enum": [
+                  "msw_first",
+                  "lsw_first"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Order"
+          }
+        },
+        "title": "LiveStreamRawRegistersRegisterConfig",
+        "type": "object"
+      },
+      "LiveStreamRegisterSnapshotEntry": {
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "integer"
+          },
+          "data_type": {
+            "default": "int16",
+            "title": "Data Type",
+            "type": "string"
+          },
+          "label": {
+            "default": "unknown",
+            "title": "Label",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "address",
+          "values"
+        ],
+        "title": "LiveStreamRegisterSnapshotEntry",
+        "type": "object"
+      },
+      "LiveStreamRegisterSnapshotResponse": {
+        "properties": {
+          "registers": {
+            "items": {
+              "$ref": "#/components/schemas/LiveStreamRegisterSnapshotEntry"
+            },
+            "title": "Registers",
+            "type": "array"
+          },
+          "timestamps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Timestamps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "timestamps",
+          "registers"
+        ],
+        "title": "LiveStreamRegisterSnapshotResponse",
+        "type": "object"
+      },
+      "LiveStreamSessionInfo": {
+        "properties": {
+          "duration": {
+            "title": "Duration",
+            "type": "integer"
+          },
+          "end_address": {
+            "title": "End Address",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "interval": {
+            "title": "Interval",
+            "type": "number"
+          },
+          "kind": {
+            "enum": [
+              "holding",
+              "input"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modbus_address_mode": {
+            "title": "Modbus Address Mode",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "server_address": {
+            "title": "Server Address",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "start_address": {
+            "title": "Start Address",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "stopped"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "status",
+          "host",
+          "port",
+          "server_address",
+          "kind",
+          "start_address",
+          "end_address",
+          "interval",
+          "duration",
+          "modbus_address_mode"
+        ],
+        "title": "LiveStreamSessionInfo",
+        "type": "object"
+      },
+      "LiveStreamSessionsResponse": {
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/LiveStreamSessionInfo"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "title": "LiveStreamSessionsResponse",
+        "type": "object"
+      },
+      "LiveStreamStopSessionResponse": {
+        "properties": {
+          "stopped": {
+            "title": "Stopped",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stopped"
+        ],
+        "title": "LiveStreamStopSessionResponse",
+        "type": "object"
+      },
+      "Location": {
+        "description": "Location model for site address details.",
+        "properties": {
+          "city": {
+            "description": "City",
+            "title": "City",
+            "type": "string"
+          },
+          "state": {
+            "description": "State/province",
+            "title": "State",
+            "type": "string"
+          },
+          "street": {
+            "description": "Street address",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Street",
+            "type": "string"
+          },
+          "zip_code": {
+            "description": "Zip/postal code",
+            "minimum": 0.0,
+            "title": "Zip Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "street",
+          "city",
+          "state",
+          "zip_code"
+        ],
+        "title": "Location",
+        "type": "object"
+      },
+      "PointLatest": {
+        "properties": {
+          "data_type": {
+            "title": "Data Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "translated_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translated Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "data_type"
+        ],
+        "title": "PointLatest",
+        "type": "object"
+      },
+      "PointTimeseries": {
+        "properties": {
+          "bit_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bit Labels"
+          },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "data_type": {
+            "title": "Data Type",
+            "type": "string"
+          },
+          "enum_map": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enum Map"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "timeseries": {
+            "items": {
+              "$ref": "#/components/schemas/TimeseriesPoint"
+            },
+            "title": "Timeseries",
+            "type": "array"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "data_type"
+        ],
+        "title": "PointTimeseries",
+        "type": "object"
+      },
+      "RegisterRange": {
+        "description": "A single Modbus read window.",
+        "properties": {
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "start_index": {
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Start Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_index",
+          "count"
+        ],
+        "title": "RegisterRange",
+        "type": "object"
+      },
+      "SiteComprehensiveResponse": {
+        "description": "Comprehensive site response with devices and their categorized points.",
+        "properties": {
+          "capacity": {
+            "description": "Site capacity",
+            "title": "Capacity",
+            "type": "string"
+          },
+          "client_id": {
+            "description": "Client identifier",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Coordinates"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Geographic coordinates"
+          },
+          "created_at": {
+            "description": "Timestamp when site was created",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site description",
+            "title": "Description"
+          },
+          "device_count": {
+            "description": "Number of devices at this site",
+            "title": "Device Count",
+            "type": "integer"
+          },
+          "devices": {
+            "description": "Devices with categorized points",
+            "items": {
+              "$ref": "#/components/schemas/DeviceWithPoints"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "last_update": {
+            "description": "Timestamp of last update",
+            "format": "date-time",
+            "title": "Last Update",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Location"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site location details"
+          },
+          "name": {
+            "description": "Site name",
+            "title": "Name",
+            "type": "string"
+          },
+          "operator": {
+            "description": "Site operator",
+            "title": "Operator",
+            "type": "string"
+          },
+          "site_id": {
+            "description": "Site ID (4-digit number)",
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "description": "Timestamp when site was last updated",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "client_id",
+          "name",
+          "operator",
+          "capacity",
+          "device_count",
+          "created_at",
+          "updated_at",
+          "last_update"
+        ],
+        "title": "SiteComprehensiveResponse",
+        "type": "object"
+      },
+      "SiteCreateRequest": {
+        "description": "Request model for creating a new site.",
+        "properties": {
+          "capacity": {
+            "description": "Site capacity",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Capacity",
+            "type": "string"
+          },
+          "client_id": {
+            "description": "Client identifier",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Client Id",
+            "type": "string"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Coordinates"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Geographic coordinates"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional site description",
+            "title": "Description"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location",
+            "description": "Site location details"
+          },
+          "name": {
+            "description": "Site name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "operator": {
+            "description": "Site operator",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Operator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "name",
+          "location",
+          "operator",
+          "capacity"
+        ],
+        "title": "SiteCreateRequest",
+        "type": "object"
+      },
+      "SiteDeleteResponse": {
+        "description": "Response model for a deleted site.",
+        "properties": {
+          "mode": {
+            "description": "soft: site_id preserved and restorable; hard: permanently removed",
+            "enum": [
+              "soft",
+              "hard"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "site_id": {
+            "description": "Deleted site ID",
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "mode"
+        ],
+        "title": "SiteDeleteResponse",
+        "type": "object"
+      },
+      "SiteDevicesHealthResponse": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceHealthStatus"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unreachable": {
+            "title": "Unreachable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "total",
+          "reachable",
+          "unreachable",
+          "devices"
+        ],
+        "title": "SiteDevicesHealthResponse",
+        "type": "object"
+      },
+      "SiteResponse": {
+        "description": "Response model for site data.",
+        "properties": {
+          "capacity": {
+            "description": "Site capacity",
+            "title": "Capacity",
+            "type": "string"
+          },
+          "client_id": {
+            "description": "Client identifier",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Coordinates"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Geographic coordinates"
+          },
+          "created_at": {
+            "description": "Timestamp when site was created",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Soft-delete timestamp; null means active",
+            "title": "Deleted At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site description",
+            "title": "Description"
+          },
+          "device_count": {
+            "description": "Number of devices at this site",
+            "title": "Device Count",
+            "type": "integer"
+          },
+          "last_update": {
+            "description": "Timestamp of last update",
+            "format": "date-time",
+            "title": "Last Update",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Location"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site location details"
+          },
+          "name": {
+            "description": "Site name",
+            "title": "Name",
+            "type": "string"
+          },
+          "operator": {
+            "description": "Site operator",
+            "title": "Operator",
+            "type": "string"
+          },
+          "site_id": {
+            "description": "Site ID (4-digit number)",
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "description": "Timestamp when site was last updated",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "client_id",
+          "name",
+          "operator",
+          "capacity",
+          "device_count",
+          "created_at",
+          "updated_at",
+          "last_update"
+        ],
+        "title": "SiteResponse",
+        "type": "object"
+      },
+      "SiteUpdateRequest": {
+        "description": "Request model for updating a site.",
+        "properties": {
+          "capacity": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site capacity",
+            "title": "Capacity"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client identifier",
+            "title": "Client Id"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Coordinates"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Geographic coordinates"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site description",
+            "title": "Description"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Location"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site location details"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site name",
+            "title": "Name"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site operator",
+            "title": "Operator"
+          }
+        },
+        "title": "SiteUpdateRequest",
+        "type": "object"
+      },
+      "TimeseriesMeta": {
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "point_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Ids"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "device_id",
+          "total_count"
+        ],
+        "title": "TimeseriesMeta",
+        "type": "object"
+      },
+      "TimeseriesPoint": {
+        "properties": {
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "translated_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translated Value"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "time"
+        ],
+        "title": "TimeseriesPoint",
+        "type": "object"
+      },
+      "TimeseriesResponse": {
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/TimeseriesMeta"
+          },
+          "readings": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PointTimeseries"
+            },
+            "title": "Readings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "meta",
+          "readings"
+        ],
+        "title": "TimeseriesResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Modbus TCP service for polling and storing time-series data",
+    "title": "PAE Backend OT",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/cache/clear": {
+      "delete": {
+        "description": "Delete all cache keys and associated data.\n\nWARNING: This is a destructive operation that will permanently delete\nall cached data. Use with caution.\n\nReturns:\n    Dictionary with number of keys deleted",
+        "operationId": "cache_clear_all_api_cache_clear_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cache Clear All",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/delete/{key}": {
+      "delete": {
+        "description": "Delete a key from cache.",
+        "operationId": "cache_delete_api_cache_delete__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cache Delete",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/exists/{key}": {
+      "get": {
+        "description": "Check if a key exists in cache.",
+        "operationId": "cache_exists_api_cache_exists__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cache Exists",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/get/{key}": {
+      "get": {
+        "description": "Get a value from cache.",
+        "operationId": "cache_get_api_cache_get__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheGetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cache Get",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/health": {
+      "get": {
+        "description": "Check Redis cache health.",
+        "operationId": "cache_health_api_cache_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cache Health",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/keys": {
+      "get": {
+        "description": "List all cached keys with TTL, optionally filtered by pattern.\n\nArgs:\n    pattern: Optional pattern to match (e.g., \"poll:*\").\n            If not provided, returns all keys.\n\nReturns:\n    Dictionary with list of keys (with TTL) and count",
+        "operationId": "cache_list_keys_api_cache_keys_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pattern",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pattern"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cache List Keys",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/set": {
+      "post": {
+        "description": "Set a value in cache.",
+        "operationId": "cache_set_api_cache_set_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cache Set Api Cache Set Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cache Set",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/csv-exports/raw-register-map-csv": {
+      "get": {
+        "description": "Export empty CSV file with register map column headers.\n\nIf type is 'modbus', exports an empty CSV file with the following columns:\n- register_address\n- register_name\n- size\n- data_type\n- scale_factor\n- unit\n\nArgs:\n    type: Export type (must be 'modbus' for now)\n\nReturns:\n    Empty CSV file with column headers only",
+        "operationId": "export_raw_register_map_csv_api_csv_exports_raw_register_map_csv_get",
+        "parameters": [
+          {
+            "description": "Export type (e.g., 'modbus')",
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "description": "Export type (e.g., 'modbus')",
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Raw Register Map Csv",
+        "tags": [
+          "csv-exports",
+          "csv-exports"
+        ]
+      }
+    },
+    "/api/db_health": {
+      "get": {
+        "description": "Database health check endpoint with detailed information.\n\nReturns:\n    Dictionary containing database connection status, configuration, and server information",
+        "operationId": "db_health_api_db_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Db Health Api Db Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Db Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/device-point-readings/site/{site_id}/device/{device_id}/latest": {
+      "get": {
+        "description": "Get the latest reading for each requested device point, keyed by device_point_id.",
+        "operationId": "get_latest_readings_api_device_point_readings_site__site_id__device__device_id__latest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Comma-separated device_point_ids (e.g. '1,2,3'). If omitted, returns all points for the device.",
+            "in": "query",
+            "name": "point_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated device_point_ids (e.g. '1,2,3'). If omitted, returns all points for the device.",
+              "title": "Point Ids"
+            }
+          },
+          {
+            "description": "Translate enum/bitfield values to human-readable form",
+            "in": "query",
+            "name": "translate",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Translate enum/bitfield values to human-readable form",
+              "title": "Translate",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "IANA timezone, e.g. 'America/Los_Angeles', or a US shorthand such as 'PT'/'PDT'. Interprets naive start_time/end_time and renders response timestamps in this zone. An explicit offset on a timestamp takes precedence over this.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone, e.g. 'America/Los_Angeles', or a US shorthand such as 'PT'/'PDT'. Interprets naive start_time/end_time and renders response timestamps in this zone. An explicit offset on a timestamp takes precedence over this.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Latest Readings",
+        "tags": [
+          "device-point-readings",
+          "device-point-readings"
+        ]
+      }
+    },
+    "/api/device-point-readings/timeseries/site/{site_id}/device/{device_id}": {
+      "get": {
+        "description": "Get time-series readings for each requested device point, keyed by device_point_id.\nEach entry contains point metadata and a timeseries array sorted newest-first —\nthe most recent reading is always the first element, for any limit or time window.\n\nTime window — pick one approach:\n- time_range: shorthand token (e.g. '1H', '1D', '1W') resolved relative to UTC now\n- start_time / end_time: ISO timestamps carrying a UTC offset\n- Neither: returns all stored readings up to limit\n\nTimezones: readings are stored in UTC and returned in UTC by default. A timestamp\nwithout an offset is rejected rather than guessed — pass tz=<IANA zone> to read\nnaive bounds as local wall-clock time and render the response in that zone.",
+        "operationId": "get_timeseries_readings_api_device_point_readings_timeseries_site__site_id__device__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Comma-separated device_point_ids (e.g. '1,2,3'). If omitted, returns all points for the device.",
+            "in": "query",
+            "name": "point_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated device_point_ids (e.g. '1,2,3'). If omitted, returns all points for the device.",
+              "title": "Point Ids"
+            }
+          },
+          {
+            "description": "Start time in ISO format. Must carry a UTC offset (e.g. '2025-01-18T08:00:00Z' or '2025-01-18T00:00:00-08:00') unless tz is supplied. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start time in ISO format. Must carry a UTC offset (e.g. '2025-01-18T08:00:00Z' or '2025-01-18T00:00:00-08:00') unless tz is supplied. Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "End time in ISO format. Must carry a UTC offset unless tz is supplied. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End time in ISO format. Must carry a UTC offset unless tz is supplied. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative time window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. Cannot be combined with start_time/end_time.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative time window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. Cannot be combined with start_time/end_time.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "Maximum readings per point, taking the most recent N (returned newest-first)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "description": "Maximum readings per point, taking the most recent N (returned newest-first)",
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Translate enum/bitfield values to human-readable form",
+            "in": "query",
+            "name": "translate",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Translate enum/bitfield values to human-readable form",
+              "title": "Translate",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "IANA timezone, e.g. 'America/Los_Angeles', or a US shorthand such as 'PT'/'PDT'. Interprets naive start_time/end_time and renders response timestamps in this zone. An explicit offset on a timestamp takes precedence over this.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone, e.g. 'America/Los_Angeles', or a US shorthand such as 'PT'/'PDT'. Interprets naive start_time/end_time and renders response timestamps in this zone. An explicit offset on a timestamp takes precedence over this.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeseriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Timeseries Readings",
+        "tags": [
+          "device-point-readings",
+          "device-point-readings"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}": {
+      "delete": {
+        "description": "Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.",
+        "operationId": "delete_points_api_device_points_site__site_id__device__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Point IDs to delete, e.g. ?point_ids=1&point_ids=2",
+            "in": "query",
+            "name": "point_ids",
+            "required": true,
+            "schema": {
+              "description": "Point IDs to delete, e.g. ?point_ids=1&point_ids=2",
+              "items": {
+                "type": "integer"
+              },
+              "title": "Point Ids",
+              "type": "array"
+            }
+          },
+          {
+            "description": "soft=preserve readings, hard=cascade delete",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "soft",
+              "description": "soft=preserve readings, hard=cascade delete",
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required for mode=hard",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Required for mode=hard",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DevicePointResponse"
+                  },
+                  "title": "Response Delete Points Api Device Points Site  Site Id  Device  Device Id  Delete",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Soft- or hard-delete device points",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      },
+      "get": {
+        "description": "Get all registered points for a specific device.",
+        "operationId": "get_points_for_device_api_device_points_site__site_id__device__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Filter points by category",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "NATIVE",
+                    "STANDARDIZED",
+                    "VIRTUAL"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter points by category",
+              "title": "Category"
+            }
+          },
+          {
+            "description": "Include soft-deleted points",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include soft-deleted points",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DevicePointResponse"
+                  },
+                  "title": "Response Get Points For Device Api Device Points Site  Site Id  Device  Device Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a device's points",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/bulk": {
+      "put": {
+        "description": "Upsert multiple device points in one call.\nPoints matched by name: existing names are updated, new names are created.\nScan range recompute runs once at the end.",
+        "operationId": "bulk_upsert_points_api_device_points_site__site_id__device__device_id__bulk_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePointsBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DevicePointResponse"
+                  },
+                  "title": "Response Bulk Upsert Points Api Device Points Site  Site Id  Device  Device Id  Bulk Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk create/update a device's points",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/deleted": {
+      "get": {
+        "description": "Get all soft-deleted points for a specific device, ordered by most recently deleted.",
+        "operationId": "get_deleted_points_for_device_api_device_points_site__site_id__device__device_id__deleted_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DevicePointResponse"
+                  },
+                  "title": "Response Get Deleted Points For Device Api Device Points Site  Site Id  Device  Device Id  Deleted Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a device's soft-deleted points",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/scan-ranges": {
+      "delete": {
+        "description": "Clear the scan ranges lock and recompute from current NATIVE points.",
+        "operationId": "reset_scan_ranges_api_device_points_site__site_id__device__device_id__scan_ranges_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceScanRanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset a device's scan ranges to auto-computed",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      },
+      "put": {
+        "description": "Manually set scan ranges and lock them (auto-recompute disabled until reset).",
+        "operationId": "override_scan_ranges_api_device_points_site__site_id__device__device_id__scan_ranges_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceScanRanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceScanRanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Override and lock a device's scan ranges",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/{point_id}": {
+      "put": {
+        "description": "Update a device point. Triggers scan range recompute unless locked.",
+        "operationId": "update_point_api_device_points_site__site_id__device__device_id___point_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePointUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a device point",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/{point_id}/restore": {
+      "post": {
+        "description": "Restore a soft-deleted device point. Triggers scan range recompute.",
+        "operationId": "restore_point_api_device_points_site__site_id__device__device_id___point_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore a soft-deleted device point",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/devices/site/{site_id}/devices": {
+      "get": {
+        "operationId": "get_all_devices_endpoint_api_devices_site__site_id__devices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include soft-deleted devices",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include soft-deleted devices",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceWithPoints"
+                  },
+                  "title": "Response Get All Devices Endpoint Api Devices Site  Site Id  Devices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List all devices at a site",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      },
+      "post": {
+        "operationId": "create_new_device_api_devices_site__site_id__devices_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceWithPoints"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a device at a site",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/site/{site_id}/devices/{device_id}": {
+      "delete": {
+        "operationId": "delete_existing_device_api_devices_site__site_id__devices__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "soft: preserves device_id — restorable via /restore. hard: permanent deletion, requires confirm=true.",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "soft",
+              "description": "soft: preserves device_id — restorable via /restore. hard: permanent deletion, requires confirm=true.",
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Must be true to execute a hard delete",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Must be true to execute a hard delete",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Soft- or hard-delete a device",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      },
+      "get": {
+        "operationId": "get_device_api_devices_site__site_id__devices__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return the device even if soft-deleted",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return the device even if soft-deleted",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceWithPoints"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a device by ID",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      },
+      "put": {
+        "operationId": "update_existing_device_api_devices_site__site_id__devices__device_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceWithPoints"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a device",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/site/{site_id}/devices/{device_id}/restore": {
+      "post": {
+        "description": "Restore a soft-deleted device and all its soft-deleted points under the same device_id.",
+        "operationId": "restore_existing_device_api_devices_site__site_id__devices__device_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceWithPoints"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore a soft-deleted device",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      }
+    },
+    "/api/health_modbus_client": {
+      "get": {
+        "description": "Connects to the Modbus server and reads a single register to confirm end-to-end communication.",
+        "operationId": "health_modbus_client_api_health_modbus_client_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Modbus Client",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/healthz": {
+      "get": {
+        "description": "Health check endpoint that verifies API is running.",
+        "operationId": "health_check_api_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/healthz/site/{site_id}": {
+      "get": {
+        "description": "Check Modbus TCP reachability for every active device in a site.\n\nFor devices with read_from_aggregator=true the aggregator host/port is probed;\notherwise the device's own host/port is used. All devices are checked concurrently.",
+        "operationId": "site_devices_health_api_healthz_site__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteDevicesHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Devices Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/healthz/site/{site_id}/device/{device_id}": {
+      "get": {
+        "description": "Check Modbus TCP reachability for a single device.",
+        "operationId": "device_health_api_healthz_site__site_id__device__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHealthStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Device Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/modbus-live-stream-raw-registers/sessions": {
+      "delete": {
+        "description": "Cancel all active sessions and delete all Redis data for every session.",
+        "operationId": "delete_all_live_stream_sessions_api_modbus_live_stream_raw_registers_sessions_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStreamDeleteAllSessionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete All Live Stream Sessions",
+        "tags": [
+          "modbus-live-stream-raw-registers",
+          "modbus-live-stream-raw-registers"
+        ]
+      },
+      "get": {
+        "description": "List sessions with their configs and status.\n\n- Omit `status` → all sessions with data in Redis (active + stopped within TTL)\n- `?status=active` → only currently polling sessions\n- `?status=stopped` → only sessions that have ended but whose data is still in Redis",
+        "operationId": "list_live_stream_sessions_api_modbus_live_stream_raw_registers_sessions_get",
+        "parameters": [
+          {
+            "description": "Filter by status. Omit to return all.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "active",
+                    "stopped"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status. Omit to return all.",
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStreamSessionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Live Stream Sessions",
+        "tags": [
+          "modbus-live-stream-raw-registers",
+          "modbus-live-stream-raw-registers"
+        ]
+      }
+    },
+    "/api/modbus-live-stream-raw-registers/stream": {
+      "post": {
+        "description": "Stream live Modbus raw register reads over Server-Sent Events.\n\nConnects to the target device, polls the specified register range at the given\ninterval, and emits SSE events until duration expires or the client disconnects.\n\nEvents:\n- connected: first event, contains session_id for use with the stop/delete endpoints\n- poll: one reading per interval with all register values\n- error: Modbus or connection error (stream continues unless unrecoverable)\n- done: emitted once when the session ends",
+        "operationId": "start_live_stream_raw_registers_api_modbus_live_stream_raw_registers_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveStreamRawRegistersParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Live Stream Raw Registers",
+        "tags": [
+          "modbus-live-stream-raw-registers",
+          "modbus-live-stream-raw-registers"
+        ]
+      }
+    },
+    "/api/modbus-live-stream-raw-registers/stream/{session_id}": {
+      "delete": {
+        "description": "Stop polling and delete all Redis data for this session immediately.",
+        "operationId": "delete_live_stream_raw_registers_api_modbus_live_stream_raw_registers_stream__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStreamDeleteSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Live Stream Raw Registers",
+        "tags": [
+          "modbus-live-stream-raw-registers",
+          "modbus-live-stream-raw-registers"
+        ]
+      }
+    },
+    "/api/modbus-live-stream-raw-registers/stream/{session_id}/resume": {
+      "get": {
+        "description": "Resume a stopped session under the same session_id. History continues accumulating.",
+        "operationId": "resume_live_stream_raw_registers_api_modbus_live_stream_raw_registers_stream__session_id__resume_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Live Stream Raw Registers",
+        "tags": [
+          "modbus-live-stream-raw-registers",
+          "modbus-live-stream-raw-registers"
+        ]
+      }
+    },
+    "/api/modbus-live-stream-raw-registers/stream/{session_id}/stop": {
+      "get": {
+        "description": "Stop polling. Redis data (session params + history) remains accessible until TTL expires.",
+        "operationId": "stop_live_stream_raw_registers_api_modbus_live_stream_raw_registers_stream__session_id__stop_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStreamStopSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Live Stream Raw Registers",
+        "tags": [
+          "modbus-live-stream-raw-registers",
+          "modbus-live-stream-raw-registers"
+        ]
+      }
+    },
+    "/api/modbus-live-stream-register-snapshot/registers": {
+      "get": {
+        "description": "Return the last 5 decoded register reads for a live stream session.\n\nSnapshots are ordered newest-first. timestamps[j] corresponds to registers[i].values[j].\nReturns empty lists if no polls have been recorded yet.\nReturns 404 if the session is unknown or its data has expired (TTL elapsed).",
+        "operationId": "get_live_stream_register_snapshot_api_modbus_live_stream_register_snapshot_registers_get",
+        "parameters": [
+          {
+            "description": "session_id from the connected SSE event",
+            "in": "query",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "session_id from the connected SSE event",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStreamRegisterSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Live Stream Register Snapshot",
+        "tags": [
+          "modbus-live-stream-register-snapshot",
+          "modbus-live-stream-register-snapshot"
+        ]
+      }
+    },
+    "/api/readyz": {
+      "get": {
+        "description": "Readiness probe for Kubernetes.\n\nGates on the hard runtime dependencies — Postgres and Redis — using the\nlightweight shared health checks (a `SELECT 1` and a Redis PING). Returns\nHTTP 503 if either is unreachable so k8s stops routing traffic to the pod.\nKept intentionally cheap; the detailed /db_health and /redis_health endpoints\nare too heavy to run on every probe interval.",
+        "operationId": "readiness_check_api_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Readiness Check Api Readyz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness Check",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/redis_health": {
+      "get": {
+        "description": "Redis health check endpoint with detailed information.\n\nReturns:\n    Dictionary containing Redis connection status, configuration, and server information",
+        "operationId": "redis_health_api_redis_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Redis Health Api Redis Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Redis Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/sites": {
+      "get": {
+        "operationId": "get_all_sites_endpoint_api_sites_get",
+        "parameters": [
+          {
+            "description": "Include soft-deleted sites",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include soft-deleted sites",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteResponse"
+                  },
+                  "title": "Response Get All Sites Endpoint Api Sites Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List all sites",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "create_new_site_api_sites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a site",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/comprehensive/{site_id}": {
+      "get": {
+        "operationId": "get_comprehensive_site_endpoint_api_sites_comprehensive__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteComprehensiveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a site with its devices and their categorized points",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}": {
+      "delete": {
+        "operationId": "delete_site_endpoint_api_sites__site_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "soft: preserves site_id — restorable via /restore. hard: permanent deletion, requires confirm=true and no active devices.",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "soft",
+              "description": "soft: preserves site_id — restorable via /restore. hard: permanent deletion, requires confirm=true and no active devices.",
+              "enum": [
+                "soft",
+                "hard"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Must be true to execute a hard delete",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Must be true to execute a hard delete",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Soft- or hard-delete a site",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
+      "get": {
+        "operationId": "get_site_api_sites__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return the site even if soft-deleted",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return the site even if soft-deleted",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a site by ID",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
+      "put": {
+        "operationId": "update_site_endpoint_api_sites__site_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a site",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}/restore": {
+      "post": {
+        "description": "Restore a soft-deleted site, all its soft-deleted devices, and their soft-deleted points.",
+        "operationId": "restore_site_endpoint_api_sites__site_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore a soft-deleted site",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    }
+  }
+}
