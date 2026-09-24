@@ -4,15 +4,21 @@ Application configuration using Pydantic Settings.
 Environment-driven configuration with validation and type safety.
 """
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# services/backend-ot/.env — anchored to this file so it loads the same way from any CWD
+# (make run from src/, scripts/, tests, the container's /app). Never a parent directory's .env.
+SERVICE_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=SERVICE_ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=False,
         # Deployment environments carry vars this service doesn't consume

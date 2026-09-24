@@ -1,3 +1,0 @@
-pymodbus[serial]>=3.5,<3.7
-pydantic>=2.0
-pydantic-settings>=2.0

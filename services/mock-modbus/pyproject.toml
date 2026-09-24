@@ -1,0 +1,41 @@
+[project]
+name = "mock-modbus"
+version = "0.1.0"
+description = "DEV-ONLY Modbus TCP register simulator standing in for on-site OT devices"
+requires-python = ">=3.11"
+dependencies = [
+    # <3.7: the server uses ModbusSlaveContext / slaves=, renamed in later pymodbus releases.
+    "pymodbus[serial]>=3.5,<3.7",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+]
+
+# PEP 735 dependency group: `uv sync` installs it by default; never shipped in the image.
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.16",
+]
+
+# Not an installable package: the app runs as `python -m app.server` from this directory.
+[tool.uv]
+package = false
+# Copy instead of hardlinking from the uv cache: hardlinks fail on OneDrive-synced folders (os error 396).
+link-mode = "copy"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Same rule set as backend-ot, so every Python service lints the same way.
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = [
+    "E501",  # line length: device register maps are deliberately one register per line
+    "B008",  # function calls in argument defaults
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `import app...` from tests without installing the project.
+pythonpath = ["."]

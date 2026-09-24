@@ -21,22 +21,17 @@ temperatures…) and **41 `random`** — grid frequency, phase voltages, fault c
 enums, bitfields and the energy counters, for which a smooth daily shape is simply
 wrong. `device_2` and `device_3` are still fully random.
 
-Built on pymodbus 3.5–3.6, pydantic v2, and pydantic-settings. Python 3.11.
+**Dev-only** — never deployed to production. Built on pymodbus 3.5–3.6, pydantic v2, and pydantic-settings. Python 3.11, managed with uv.
 
 ## Quick start
 
-Local:
+From the monorepo root (uv manages the venv; see `uv.lock`):
 
 ```bash
-pip install -r requirements.txt
-MODBUS_PORT=5020 python -m app.server     # port 502 is privileged; use a high port locally
-```
-
-Container:
-
-```bash
-docker network create pae-shared-network   # if not already created
-docker compose up --build                  # or: make up
+make -C services/mock-modbus install      # uv sync
+make -C services/mock-modbus test         # pytest: starts the server itself, no Docker
+make -C services/mock-modbus run          # host run on port 5020 (RUN_PORT=... to change)
+make -C services/mock-modbus up           # container on host port 502 (builds, waits for healthy)
 ```
 
 The server listens on port **502** by default and serves 3 devices.
@@ -66,8 +61,8 @@ The server listens on port **502** by default and serves 3 devices.
 The two `PROFILE_*` variables only affect `profile_static` registers, and they only
 decide which row of the frozen table a read lands on — never the value itself.
 
-See [.env.example](.env.example) for a copyable template — note it does not yet list
-the `PROFILE_*` variables.
+See [.env.example](.env.example) for a copyable template; `app/settings.py` loads `.env` from
+this directory, and real environment variables override it.
 
 ## Register definitions
 
@@ -77,8 +72,9 @@ required `device_type`. Every register carries a required snake_case `name`
 (`active_power`, `solar_irradiance`, `inv01_grid_voltage_ab`), unique within its
 device, so a register says what it represents rather than relying on a comment. To
 add a device, drop a new `device_N.py` into that folder;
-it's auto-discovered and validated at startup. See [CLAUDE.md](CLAUDE.md) for the full
-architecture, a device template, and which registers are and aren't worth profiling.
+it's auto-discovered and validated at startup. See [docs/device-authoring.md](docs/device-authoring.md)
+for a device template and address bands, [CLAUDE.md](CLAUDE.md) for the architecture, and
+[docs/profiles-and-timeseries.md](docs/profiles-and-timeseries.md) for which registers are worth profiling.
 
 To watch a profile curve without waiting for noon, compress the day:
 
@@ -133,7 +129,7 @@ Each sample carries `timestamp, kw, irradiance_w_m2, poa_irradiance_w_m2,
 ambient_temp_c, module_temp_c, wind_speed_m_s`. Peak output lands below nameplate
 because hot modules derate, ambient temperature peaks mid-afternoon rather than at
 solar noon, and cloud persists across samples instead of flickering. See
-[CLAUDE.md](CLAUDE.md) for the full model.
+[docs/profiles-and-timeseries.md](docs/profiles-and-timeseries.md) for the full model.
 
 ## Testing
 

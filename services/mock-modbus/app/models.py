@@ -19,7 +19,7 @@ exactly as it always has.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 from pydantic import (
     BaseModel,
@@ -58,7 +58,8 @@ class StaticProfile(BaseModel):
     rows: dict[SlotKey, dict[RegisterAddress, RegisterValue]]
 
 
-class DeviceType(str, Enum):
+# StrEnum would change str()/format() of members ("pv" instead of "DeviceType.PV"); keep as is.
+class DeviceType(str, Enum):  # noqa: UP042
     """Kind of equipment a device emulates.
 
     Selects which frozen profile table a device's ``type="profile_static"``
@@ -106,7 +107,7 @@ class RegisterSpec(BaseModel):
     width: Literal[16, 32] = 16
     #: Engineering unit of the decoded value, or ``None`` for dimensionless and
     #: coded registers (power factor, enums, bitfields, counts).
-    unit: Optional[str] = None
+    unit: str | None = None
     #: Multiply a raw register value by this to get engineering units:
     #: ``7600`` with ``scale=0.1`` is 760.0 V. This is the Modbus convention;
     #: note it is the reciprocal of the "×10" form the old comments used.
@@ -114,12 +115,12 @@ class RegisterSpec(BaseModel):
     min: int
     max: int
     #: Enum registers: raw value -> what it means.
-    enum_values: Optional[dict[RegisterValue, str]] = None
+    enum_values: dict[RegisterValue, str] | None = None
     #: Bitfield registers: bit position -> what that bit means.
-    bit_flags: Optional[dict[BitPosition, str]] = None
+    bit_flags: dict[BitPosition, str] | None = None
 
     @model_validator(mode="after")
-    def _check_bounds(self) -> "RegisterSpec":
+    def _check_bounds(self) -> RegisterSpec:
         if self.min > self.max:
             raise ValueError(f"min ({self.min}) must be <= max ({self.max})")
         if self.enum_values and self.bit_flags:
@@ -158,12 +159,12 @@ class DeviceSpec(BaseModel):
     #: Nameplate rating in kW. Optional because an ``ied`` (meter, relay) has no
     #: nameplate, but required by the timeseries generators in
     #: ``app/timeseries_data`` — they scale a whole day's output from it.
-    kw_max: Optional[float] = Field(default=None, gt=0)
+    kw_max: float | None = Field(default=None, gt=0)
     holding_registers: dict[int, RegisterSpec] = Field(default_factory=dict)
     input_registers: dict[int, RegisterSpec] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _check_register_names_unique(self) -> "DeviceSpec":
+    def _check_register_names_unique(self) -> DeviceSpec:
         """Register names must be unique across BOTH maps on a device.
 
         They are identifiers — a duplicate would make "read me `active_power`"

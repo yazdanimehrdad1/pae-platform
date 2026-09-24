@@ -6,30 +6,35 @@ device-points CRUD, live register streaming, and CSV export API (all under `/api
 Does NOT own: the upstream Modbus aggregator/RTAC itself (external, `AGGREGATOR_MODBUS_HOST`),
 the DAS data-acquisition API (`pae-das-api`), or any downstream dashboard/analytics.
 
-## This repo diverges from the standard Python setup — read this
-- No uv. Deps install via `pip install -e .` (Docker) against pyproject; there is no
-  `requirements.txt` and no `setup.py`. Types are checked with **mypy, not pyright**;
-  formatting is **black + ruff** (line-length 100). `uv run` / pyright do not apply here.
-- Imports are flat and require `PYTHONPATH=src` — modules import as `from config import ...`,
-  `from db.connection import ...`, NOT a package. Bare `pytest` and bare `python main.py` fail.
+## Python setup — read this
+- **uv only.** Deps are pinned in `uv.lock`; `make install` = `uv sync --frozen`. Add deps with
+  `uv add` / `uv add --dev` (dev tools live in the `[dependency-groups] dev` group, never shipped
+  in the image). The Dockerfile installs from the lock with `uv sync --frozen --no-dev`.
+- Divergences from the global Python rules: types are checked with **mypy, not pyright**
+  (`make typecheck`, not yet blocking); formatting is **black + ruff** (line-length 100).
+- Imports are flat — modules import as `from config import ...`, `from db.connection import ...`,
+  NOT a package. pytest gets `src` via `pythonpath` in pyproject, so plain `uv run pytest` works;
+  other entry points (`scripts/*.py`, the image) put `src` on the path themselves.
 - There is no auth layer at all yet; every endpoint is unauthenticated. `/api/healthz`
   must stay that way — the Docker HEALTHCHECK and k8s probes hit it.
 
-## Commands (need Docker running first)
-- Setup / dev: `make up-build` (Windows: `.\make.ps1 up-build`) — builds & starts
-  postgres, redis, app; migrations auto-run in the container entrypoint.
-- Run outside Docker: `make run` (= `cd src && python -m main`, needs pg+redis reachable).
-- Unit tests: `make test-unit` (Windows: `.\make.ps1 test-unit`) — runs pytest in a
-  `python:3.11-slim` container with `.[dev]` installed; no local Python or containers needed.
-  Narrow it with `make test-unit TEST_PATH=tests/unit/helpers/modbus` /
-  `.\make.ps1 test-unit tests/unit/helpers/modbus/test_modbus_data_mapping.py`.
-- Integration tests: `make test-integration` / `.\make.ps1 test-integration [path]` — spins
-  up a throwaway postgres + redis (`docker-compose.test.yaml`, project `pae-backend-ot-test`,
-  tmpfs, no host ports), migrates, runs `tests/integration`, tears it down. Never touches the
-  dev stack; `make up` is not needed.
-- All tests: `make test` / `.\make.ps1 test` = `test-unit` then `test-integration`.
-- Lint/format: `make lint` (ruff + mypy) / `make format` (black + ruff).
-- Migrate manually: `make migrate` (= `python scripts/migrate_db.py`).
+## Commands
+Run from the repo root as `make -C services/backend-ot <target>` (or `make <target>` in this
+directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh. `make help` lists all.
+- Setup: `make install` (uv sync → `.venv`).
+- Unit tests: `make test` — host, no Docker. Narrow with `make test TEST_PATH=tests/unit/helpers/modbus`.
+- Integration tests: `make test-integration [TEST_PATH=...]` — throwaway postgres + redis
+  (`compose.test.yaml`, project `backend-ot-test-<worktree dir>`, tmpfs, no host ports), migrates
+  from zero, runs `tests/integration`, tears down. Never touches the dev stack; parallel worktrees
+  don't collide. `make test-all` = both.
+- Lint / format / types: `make lint` (ruff, CI-enforced) · `make lint-fix` · `make format` (black + ruff) · `make typecheck` (mypy).
+- Dev stack (Docker): `make up` / `make up-build` (postgres, redis, app; migrations auto-run in
+  the entrypoint) · `make down` · `make logs` · `make seed-db` · `make apply-migration`.
+- Run on the host: `make run` (needs pg+redis reachable) · `make migrate`.
+- Schema changes: use the `add-migration` skill.
+- Dev seed: devices + points are built from mock-modbus's contract
+  (`contracts/modbus/mock-modbus.devices.json`, via `tests/seed_db/mock_modbus_seed.py`) — never
+  hand-edit seeded devices/points; change the mock and run `make -C services/mock-modbus contract`.
 
 ## The feature comes first; tests prove it
 The feature is the priority. Build it to the highest standard first — correct behavior,
@@ -70,7 +75,7 @@ integration tests, and seed/mock data alike.
 
 ## Unit tests are required for every feature and bug fix
 Every new feature, behavior change, or bug fix ships with unit tests **in the same change**.
-A change is not done until `make test-unit` / `.\make.ps1 test-unit` passes and ruff is clean.
+A change is not done until `make test` passes and `make lint` is clean.
 - **Layout mirrors `src/`:** tests for `src/<path>/<module>.py` live in
   `tests/unit/<path>/test_<module>.py` — e.g. `src/helpers/modbus/poll_device.py` →
   `tests/unit/helpers/modbus/test_poll_device.py`. Create missing folders as needed.
@@ -107,13 +112,13 @@ the API isn't done until `make test-integration` passes too. See `tests/integrat
   assertion to match the bug. Remove the marker in the change that fixes it (strict XPASS
   fails the run).
 - **Safety guard:** tests only run when `INTEGRATION_DB_RESET_ALLOWED=1` (set by
-  `docker-compose.test.yaml` and CI); otherwise they skip. Never set it against a real DB.
+  `compose.test.yaml` and CI); otherwise they skip. Never set it against a real DB.
 - **Anything needing Modbus** (polling, live stream, `/health_modbus_client`) waits for the
-  mock Modbus server, which will be added as a service in `docker-compose.test.yaml`.
+  mock Modbus server (`services/mock-modbus`), to be added as a service in `compose.test.yaml`.
 
 ## Linting is CI-enforced — every change must leave `ruff check` clean
-`.github/workflows/ci.yml` runs `ruff check src/ tests/` and **fails the build on any
-error** (mypy also runs but is currently non-blocking). Before finishing any Python
+`make lint` (`ruff check src tests`) is the gate; the service's old `.github/workflows/ci.yml`
+is inert in the monorepo until root CI exists, but treat any ruff error as blocking. Before finishing any Python
 change, make sure ruff passes with zero errors. Config lives in `pyproject.toml` under
 `[tool.ruff.lint]` (line-length 100; rule sets `E,W,F,I,B,C4,UP`; `E501`/`B008` ignored).
 Concretely, write code that already satisfies these:
@@ -126,12 +131,9 @@ Concretely, write code that already satisfies these:
 - **No trailing/blank-line whitespace (W29x)**, files end with a newline, no unused imports (F401).
 - If a rule genuinely shouldn't apply, add a scoped `# noqa: <CODE>` with a reason — don't
   broaden the global ignore list without asking.
-- No local Python here (the `.venv` is a broken shim). Use the Docker-backed make
-  targets: `make lint` / `.\make.ps1 lint` (check) and `make lint-fix` /
-  `.\make.ps1 lint-fix` (auto-fix imports/typing/whitespace; B904 must be fixed by hand).
-- A pre-commit hook (`.githooks/pre-commit`) runs ruff in Docker and blocks commits with
-  lint errors. Enable it once per clone: `git config core.hooksPath .githooks` (needs
-  Docker running; bypass in emergencies with `git commit --no-verify`).
+- Run `make lint` (check) and `make lint-fix` (auto-fix imports/typing/whitespace; B904 must
+  be fixed by hand). ruff comes from `uv.lock`, so the version is the same everywhere.
+- The monorepo-root pre-commit hook will run this lint for changed services (roadmap Phase 5).
 
 ## What this service owns
 - Postgres tables: `sites`, `devices`, `device_points`, `device_points_readings`,

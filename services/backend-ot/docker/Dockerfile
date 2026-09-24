@@ -1,27 +1,32 @@
 # syntax=docker/dockerfile:1
 
+# Build context: services/backend-ot (never the monorepo root).
+
 # ---------------------------------------------------------------------------
-# Builder stage: create a venv and install dependencies (+ editable package)
+# Builder stage: install the locked dependencies (+ editable package) into a venv
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS builder
 
+# uv pinned to an exact version so image builds are reproducible.
+COPY --from=ghcr.io/astral-sh/uv:0.11.15 /uv /bin/uv
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
 
 WORKDIR /app
 
-# Isolated venv we can copy wholesale into the runtime image
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Dependencies first (cached layer), exactly as pinned in uv.lock; dev group excluded.
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
 
-# Install deps from pyproject. src/ is needed because the editable install
-# resolves the declared packages from it. The editable finder points at
-# /app/src, which is the same path used in the runtime stage below.
-COPY pyproject.toml ./
+# Then the project itself (editable). The editable finder points at /app/src,
+# which is the same path used in the runtime stage below.
 COPY src/ ./src/
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install -e .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # ---------------------------------------------------------------------------
 # Runtime stage: slim, non-root, no build tooling, no tests
@@ -35,9 +40,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Non-root runtime user
-RUN groupadd --system app && \
-    useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app
+# Non-root runtime user. UID/GID pinned to 999 to match k8s runAsUser/runAsGroup.
+RUN groupadd --system --gid 999 app && \
+    useradd --system --uid 999 --gid app --home-dir /app --shell /usr/sbin/nologin app
 
 # Bring in the pre-built venv (dependencies) from the builder
 COPY --from=builder /opt/venv /opt/venv

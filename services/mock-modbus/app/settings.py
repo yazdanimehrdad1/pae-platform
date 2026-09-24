@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional
+from pathlib import Path
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# services/mock-modbus/.env — anchored to this file so it loads the same way from any CWD.
+# Never a parent directory's .env. Real environment variables take precedence over it.
+SERVICE_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
@@ -19,7 +23,7 @@ class Settings(BaseSettings):
     # Matches the docker-compose default (DEFAULT_REGISTER_VALUE=0).
     default_register_value: int = 0
     log_level: str = "INFO"
-    random_seed: Optional[int] = None
+    random_seed: int | None = None
     # False (default): 1-based addressing — standard Modbus (Modbus Poll, most PLCs)
     # True: 0-based addressing — use when clients send raw PDU addresses (e.g. pymodbus client)
     zero_mode: bool = False
@@ -35,7 +39,13 @@ class Settings(BaseSettings):
     # low (e.g. 5) to watch a full diurnal cycle without waiting for noon.
     profile_day_minutes: float = Field(default=1440.0, gt=0.0)
 
-    model_config = {"env_prefix": ""}
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        env_file=SERVICE_ENV_FILE,
+        env_file_encoding="utf-8",
+        # A .env may carry compose-interpolation keys (e.g. MOCK_MODBUS_PORT) that aren't settings.
+        extra="ignore",
+    )
 
     @field_validator("random_seed", mode="before")
     @classmethod

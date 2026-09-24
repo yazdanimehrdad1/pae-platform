@@ -70,7 +70,7 @@ DEVICE = DeviceSpec(
 
         # ── Bitfield registers (1022–1031) — each bit is an independent flag ────
         1022: RegisterSpec(name="phase_over_under_flags", type="random", unit=None, scale=1.0, min=0, max=63, bit_flags={0: "l1_ov", 1: "l1_uv", 2: "l2_ov", 3: "l2_uv", 4: "l3_ov", 5: "l3_uv"}),
-        1023: RegisterSpec(name="protection_trip_flags", type="random", unit=None, scale=1.0, min=0, max=255, bit_flags={0: "ocp", 1: "ovp", 2: "uvp", 3: "ofp", 4: "ufp", 5: "otp", 6: "gfci", 7: "rcd"}),  
+        1023: RegisterSpec(name="protection_trip_flags", type="random", unit=None, scale=1.0, min=0, max=255, bit_flags={0: "ocp", 1: "ovp", 2: "uvp", 3: "ofp", 4: "ufp", 5: "otp", 6: "gfci", 7: "rcd"}),
         1024: RegisterSpec(name="mppt_tracker_active_flags", type="random", unit=None, scale=1.0, min=0, max=255, bit_flags={0: "tracker_0", 1: "tracker_1", 2: "tracker_2", 3: "tracker_3", 4: "tracker_4", 5: "tracker_5", 6: "tracker_6", 7: "tracker_7"}),
         1025: RegisterSpec(name="string_input_presence_flags", type="random", unit=None, scale=1.0, min=0, max=255, bit_flags={0: "string_0", 1: "string_1", 2: "string_2", 3: "string_3", 4: "string_4", 5: "string_5", 6: "string_6", 7: "string_7"}),
         1026: RegisterSpec(name="phase_sync_flags", type="random", unit=None, scale=1.0, min=0, max=63, bit_flags={0: "l1_locked", 1: "l2_locked", 2: "l3_locked", 3: "freq_ok", 4: "angle_ok", 5: "ready"}),
@@ -80,6 +80,6 @@ DEVICE = DeviceSpec(
         1030: RegisterSpec(name="network_link_flags", type="random", unit=None, scale=1.0, min=0, max=31, bit_flags={0: "modbus_tcp", 1: "mqtt", 2: "http", 3: "snmp", 4: "dnp3"}),
         1031: RegisterSpec(name="pending_notification_flags", type="random", unit=None, scale=1.0, min=0, max=15, bit_flags={0: "event_log_full", 1: "fw_update_avail", 2: "service_due", 3: "cert_expiry"}),
 
-       
+
     },
 )

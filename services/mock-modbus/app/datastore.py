@@ -20,8 +20,8 @@ from __future__ import annotations
 import logging
 import random
 from collections.abc import Callable
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from pymodbus.datastore import ModbusSequentialDataBlock
 
@@ -32,7 +32,7 @@ logger = logging.getLogger("mock_modbus")
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class RegisterValues:
@@ -50,9 +50,9 @@ class RegisterValues:
         default_value: int,
         rng: random.Random,
         label: str,
-        profile_config: Optional[ProfileConfig] = None,
+        profile_config: ProfileConfig | None = None,
         now_provider: Callable[[], datetime] = _utc_now,
-        static_profile: Optional[StaticProfile] = None,
+        static_profile: StaticProfile | None = None,
     ) -> None:
         self.default_value = default_value
         self._metadata = metadata
@@ -175,10 +175,10 @@ def build_device_blocks(
     holding_registers: dict[int, RegisterSpec],
     input_registers: dict[int, RegisterSpec],
     default_value: int = 0,
-    seed: Optional[int] = None,
-    profile_config: Optional[ProfileConfig] = None,
+    seed: int | None = None,
+    profile_config: ProfileConfig | None = None,
     now_provider: Callable[[], datetime] = _utc_now,
-    static_profile: Optional[StaticProfile] = None,
+    static_profile: StaticProfile | None = None,
 ) -> tuple[MockRegisterBlock, MockRegisterBlock]:
     """Holding and input blocks for one device, sharing a single RNG."""
     rng = random.Random(seed)

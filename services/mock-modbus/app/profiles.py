@@ -17,7 +17,7 @@ Standard library only; this module adds no dependency.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 _MINUTES_PER_DAY = 1440.0
 _SECONDS_PER_HOUR = 3600.0
@@ -51,7 +51,7 @@ def simulated_hour_of_day(now: datetime, config: ProfileConfig) -> float:
     exactly 86400 s and that reduction is exact, not approximate.
     """
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
     offset_seconds = now.timestamp() + config.timezone_offset_hours * _SECONDS_PER_HOUR
     acceleration = _MINUTES_PER_DAY / config.day_minutes
     return (offset_seconds * acceleration / _SECONDS_PER_HOUR) % _HOURS_PER_DAY

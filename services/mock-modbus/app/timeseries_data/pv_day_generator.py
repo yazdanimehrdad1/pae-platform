@@ -40,8 +40,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, date, datetime, timedelta
 
 MINUTES_PER_DAY = 1440
 DEFAULT_INTERVAL_MINUTES = 5
@@ -135,9 +134,9 @@ def _module_temp_c(ambient_temp_c: float, irradiance_w_m2: float) -> float:
 
 def generate_pv_day(
     kw_max: float,
-    day: Optional[date] = None,
+    day: date | None = None,
     interval_minutes: int = DEFAULT_INTERVAL_MINUTES,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> list[PvSample]:
     """A full day of PV output at ``interval_minutes`` resolution.
 
@@ -154,8 +153,8 @@ def generate_pv_day(
             f"interval_minutes must divide {MINUTES_PER_DAY} evenly, got {interval_minutes}"
         )
 
-    day = day or datetime.now(timezone.utc).date()
-    midnight = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+    day = day or datetime.now(UTC).date()
+    midnight = datetime(day.year, day.month, day.day, tzinfo=UTC)
     rng = random.Random(seed)
 
     samples: list[PvSample] = []

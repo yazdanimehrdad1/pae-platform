@@ -6,7 +6,7 @@ against a real Postgres and Redis. Every test starts from empty tables and an em
 Redis DB, so tests are independent and can run in any order.
 
 Safety: the reset fixture TRUNCATEs every service table and FLUSHDBs Redis. It only does
-so when INTEGRATION_DB_RESET_ALLOWED=1, which is set by docker-compose.test.yaml (the
+so when INTEGRATION_DB_RESET_ALLOWED=1, which is set by compose.test.yaml (the
 throwaway test stack) and CI. Anywhere else, integration tests are skipped, so a bare
 `pytest tests/` pointed at a dev database can never wipe it.
 """

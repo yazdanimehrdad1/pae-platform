@@ -6,13 +6,12 @@ the scheduler never starts) against a real Postgres and Redis.
 ## Running
 
 ```
-make test-integration                     # Windows: .\make.ps1 test-integration
-make test-integration TEST_PATH=tests/integration/api/routers/test_sites.py
-.\make.ps1 test-integration tests/integration/api/routers/test_sites.py
+make -C services/backend-ot test-integration
+make -C services/backend-ot test-integration TEST_PATH=tests/integration/api/routers/test_sites.py
 ```
 
-This starts the throwaway stack in `docker-compose.test.yaml` (project
-`pae-backend-ot-test`: postgres + redis in tmpfs, no host ports), migrates it, runs pytest,
+This starts the throwaway stack in `compose.test.yaml` (project
+`backend-ot-test-<worktree dir>`: postgres + redis in tmpfs, no host ports), migrates it, runs pytest,
 then tears it down. The dev stack and its data are never touched. You don't need
 `make up` first.
 
@@ -54,7 +53,7 @@ the run, so you remove the marker in the same change. There are none open right 
 - [x] csv_exports: header-only template, unsupported type
 
 ### Waiting on the mock Modbus server
-Add it as a service in `docker-compose.test.yaml`, then:
+Add it (`services/mock-modbus`) as a service in `compose.test.yaml`, then:
 - [ ] `/health_modbus_client` and a *reachable* device in `/healthz/site/...`
 - [ ] `live_stream_raw_registers` (SSE stream / resume / stop / sessions) and
       `live_stream_register_snapshot`

@@ -10,10 +10,10 @@ dependencies = [
     # and no FastAPI release requires Starlette that new.
     "starlette>=0.48.0",
     "uvicorn[standard]>=0.24.0",
-    "pymodbus>=3.6.0",
+    # 3.10.0 renamed the client unit-id kwarg `slave=` -> `device_id=`, which src/services/modbus/client.py uses.
+    "pymodbus>=3.10.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    "python-dotenv>=1.0.0",
     "redis>=5.0.0",  # Redis client for caching
     "hiredis>=2.2.0",  # C extension for faster Redis parsing (optional but recommended)
     "apscheduler>=3.10.0",  # Scheduler for cron jobs
@@ -26,7 +26,8 @@ dependencies = [
     # "prometheus-client>=0.19.0",
 ]
 
-[project.optional-dependencies]
+# PEP 735 dependency group: `uv sync` installs it by default; never shipped in the image.
+[dependency-groups]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -87,8 +88,14 @@ warn_no_return = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Flat src/ imports (`from config import settings`) — no PYTHONPATH needed by callers.
+pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 
+
+[tool.uv]
+# Copy instead of hardlinking from the uv cache: hardlinks fail on OneDrive-synced folders (os error 396).
+link-mode = "copy"
