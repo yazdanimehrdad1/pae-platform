@@ -1,0 +1,7 @@
+# Wiring for backend-ot inside the monorepo dev stack: read the Modbus aggregator from
+# the mock-modbus service on the shared compose network instead of the host port.
+services:
+  backend-ot:
+    environment:
+      - AGGREGATOR_MODBUS_HOST=mock-modbus
+      - AGGREGATOR_MODBUS_PORT=502

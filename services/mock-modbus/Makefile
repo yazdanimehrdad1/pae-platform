@@ -23,9 +23,10 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: help install lint lint-fix format typecheck test contract build rebuild up down restart \
-	logs ps clean network run
+	logs ps clean run
 
-COMPOSE := docker compose -f docker-compose.yaml
+# Standalone container. Host port: MOCK_MODBUS_PORT (default 502).
+COMPOSE := docker compose -f compose.yaml
 # Published register map (contracts/ is the only directory shared between services).
 CONTRACT_FILE := ../../contracts/modbus/mock-modbus.devices.json
 UV_RUN  := uv run --frozen
@@ -80,18 +81,13 @@ run:
 # ---------------------------------------------------------------------------
 # Containers
 # ---------------------------------------------------------------------------
-# Shared external network the compose file still expects (removed in roadmap Phase 3).
-network:
-	@docker network inspect pae-shared-network >/dev/null 2>&1 || docker network create pae-shared-network >/dev/null
-	@echo "pae-shared-network ready"
-
-build: network
+build:
 	$(COMPOSE) build
 
-rebuild: network
+rebuild:
 	$(COMPOSE) build --no-cache
 
-up: network
+up:
 	$(COMPOSE) up -d --build --wait
 
 down:
