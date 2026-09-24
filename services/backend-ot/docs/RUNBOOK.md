@@ -180,26 +180,29 @@ Data survives `cloud-down` — Cloud SQL is stopped, not deleted. Full detail in
 
 ### Local development (no cloud at all)
 
-```powershell
-docker network create pae-shared-network    # once per machine
-.\make.ps1 up-build                         # build + start postgres, redis, app
-.\make.ps1 logs                             # tail container logs
-.\make.ps1 down                             # stop
-
-.\make.ps1 test                             # pytest (start postgres too for integration tests)
-.\make.ps1 lint                             # ruff + mypy — CI fails on ruff errors
-.\make.ps1 lint-fix                         # auto-fix imports/typing/whitespace
-.\make.ps1 format                           # black + ruff
-```
-
-Health locally (note: `.\make.ps1 health` targets a dead URL — use this instead):
+This service lives in the `pae-platform` monorepo. Run these from the **repo root**; the same
+commands work in PowerShell and bash (Make runs its recipes in Git for Windows' sh).
 
 ```powershell
-Invoke-WebRequest http://localhost:8000/api/healthz | Select-Object -Expand Content
+make -C services/backend-ot install            # uv sync → .venv (once, and after uv.lock changes)
+make -C services/backend-ot up                 # build + start postgres, redis, app (waits for healthy)
+make -C services/backend-ot health             # GET /api/healthz
+make -C services/backend-ot logs               # follow the app's logs
+make -C services/backend-ot down               # stop (volumes kept)
+
+make -C services/backend-ot test               # unit tests, no Docker
+make -C services/backend-ot test-integration   # integration tests on a throwaway postgres + redis
+make -C services/backend-ot lint               # ruff — treat any error as blocking
+make -C services/backend-ot lint-fix           # auto-fix imports/typing/whitespace
+make -C services/backend-ot format             # black + ruff
 ```
 
-Host ports are remapped: app **8000**, postgres **5435**→5432, redis **6380**→6379.
-A local `.env` must target 5435/6380.
+With the Modbus simulator and dev data, the whole platform: `make up`, `make seed`, `make e2e`,
+`make down` (repo root; see 6.F).
+
+Host ports are remapped: app **8000**, postgres **5435**→5432, redis **6380**→6379 (override with
+`BACKEND_OT_HTTP_PORT` / `_POSTGRES_PORT` / `_REDIS_PORT`). A local `.env`, needed only for host
+runs (`make run`, `make migrate`), must target 5435/6380.
 
 ### Ship a change
 
@@ -1021,21 +1024,25 @@ staging overlay rather than a long-lived branch.
 <a name="6f-local"></a>
 ### 6.F DAILY — run locally (no cloud at all)
 
+From the `pae-platform` repo root: the whole platform, with backend-ot polling the DEV-ONLY
+Modbus simulator (`services/mock-modbus`) and seeded with devices that match it:
+
 ```powershell
-docker network create pae-shared-network      # once, first time only
-copy .env.example .env                         # then edit .env and set POSTGRES_PASSWORD
-.\make.ps1 up-build                            # builds & starts postgres + redis + app
+make up        # build + start every service, wait until healthy
+make seed      # dev sites/devices/points, built from mock-modbus's contract
+make e2e       # backend-ot polls mock-modbus and every point reads in range
 ```
 Check health:
 ```powershell
 Invoke-WebRequest http://localhost:8000/api/healthz | Select-Object -Expand Content
 ```
-Here Postgres and Redis are throwaway containers on your laptop, the password comes
-from `.env`, migrations run automatically inside the container, and GCP is not
-involved. Stop with `.\make.ps1 down`.
+Here Postgres and Redis are throwaway containers on your laptop, compose supplies a dev
+password (no `.env` needed), migrations run automatically inside the container, and GCP is
+not involved. Stop with `make down` (data volumes are kept).
 
-> Note: `.\make.ps1 health` targets an old URL and always reports "not available."
-> Use the `Invoke-WebRequest` line above against `/api/healthz` instead.
+backend-ot on its own: `make -C services/backend-ot up` (it then reads Modbus from the host's
+port 502, e.g. a standalone `make -C services/mock-modbus up`). Running two stacks side by side:
+override host ports in the root `.env` (see `.env.example`).
 
 ---
 

@@ -4,7 +4,7 @@ A FastAPI-based REST API service for communicating with Modbus TCP servers using
 
 ## Features
 
-- **GET /api/healthz**: Health check endpoint with connection test and small read verification
+- **GET /api/healthz**: Liveness check (no I/O; the Docker HEALTHCHECK and k8s probes hit it). `/api/readyz` checks postgres and redis
 - Robust error handling with proper HTTP status codes
 - Environment variable configuration
 - Clean connection management (no socket leaks)
@@ -16,131 +16,81 @@ The service includes a distributed scheduler system for periodic Modbus polling 
 
 ## Installation
 
-1. Install dependencies:
+This service lives in the `pae-platform` monorepo at `services/backend-ot`. Dependencies are
+managed with **uv** and pinned in `uv.lock`; Make is the only entry point (on Windows too — the
+Makefile runs its recipes in Git for Windows' sh). From the repo root:
+
 ```bash
-pip install -e .
+make -C services/backend-ot install     # uv sync → services/backend-ot/.venv (incl. dev tools)
+make -C services/backend-ot help        # every target
 ```
 
 ## Configuration
 
-The service uses environment variables for configuration. You can set them in two ways:
+Settings are pydantic-settings fields in `src/config.py`, read from environment variables and
+from `services/backend-ot/.env` (anchored to the service directory, so it loads the same way
+from any working directory). Start from the template: `cp .env.example .env`.
 
-### Option 1: Using .env file (Recommended)
+- **Containers don't need a `.env`:** `compose.yaml` supplies dev defaults, and sets every
+  container-network value (postgres/redis hostnames, internal ports, the Modbus target) in
+  `environment:`, which wins over `.env`.
+- **Host runs** (`make run`, `make migrate`) need `POSTGRES_PASSWORD` and must target the
+  remapped host ports: postgres **5435**, redis **6380**.
 
-Create or edit `.env` file in the project root with your Modbus server settings:
-```env
-AGGREGATOR_MODBUS_HOST=192.168.1.100
-AGGREGATOR_MODBUS_PORT=502
-AGGREGATOR_SERVER_ID=1
-MODBUS_TIMEOUT_S=5.0
-MODBUS_RETRIES=3
-```
-
-The `.env` file is automatically loaded when the service starts.
-
-### Option 2: Environment Variables
-
-Set the following environment variables:
-
-**Linux/Mac:**
-```bash
-export AGGREGATOR_MODBUS_HOST="192.168.1.100"      # Default: localhost
-export AGGREGATOR_MODBUS_PORT="502"                 # Default: 502
-export AGGREGATOR_SERVER_ID="1"              # Default: 1
-export MODBUS_TIMEOUT_S="5.0"            # Default: 5.0
-export MODBUS_RETRIES="3"                # Default: 3
-```
-
-**Windows PowerShell:**
-```powershell
-$env:AGGREGATOR_MODBUS_HOST="192.168.1.100"
-$env:AGGREGATOR_MODBUS_PORT="502"
-$env:AGGREGATOR_SERVER_ID="1"
-$env:MODBUS_TIMEOUT_S="5.0"
-$env:MODBUS_RETRIES="3"
-```
+The Modbus aggregator is `AGGREGATOR_MODBUS_HOST` / `AGGREGATOR_MODBUS_PORT` (host-run defaults
+`localhost:502`; compose overrides them, see below).
 
 ## Running Locally
 
-### Option 1: Using Makefile/Make Script (Recommended - Simplest)
+### The whole platform (recommended)
 
-**Windows (PowerShell):**
-```powershell
-# Configure your external Modbus server in .env file first
-.\make.ps1 up-build
-
-# View all available commands
-.\make.ps1
-```
-
-**Linux/Mac:**
-```bash
-# Configure your external Modbus server in .env file first
-make up-build
-
-# View all available commands
-make help
-```
-
-**Common commands:**
-```bash
-# Windows PowerShell
-.\make.ps1 up-build   # Build and start containers
-.\make.ps1 up         # Start containers
-.\make.ps1 down       # Stop containers
-.\make.ps1 logs       # View logs
-.\make.ps1 restart    # Restart containers
-.\make.ps1 health     # Check service health
-.\make.ps1 ps         # View container status
-
-# Linux/Mac
-make up-build   # Build and start containers
-make up         # Start containers
-make down       # Stop containers
-make logs       # View logs
-make restart    # Restart containers
-make health     # Check service health
-make ps         # View container status
-```
-
-The API will be available at `http://localhost:8000`
-
-### Option 2: Using Docker Compose Directly
-
-**Configure your external Modbus server in `.env` file:**
-```bash
-AGGREGATOR_MODBUS_HOST=192.168.1.100  # Your external Modbus server IP
-AGGREGATOR_MODBUS_PORT=502
-AGGREGATOR_SERVER_ID=1
-```
-
-**Then start the service:**
-```bash
-docker-compose up --build
-```
-
-**Or set environment variables directly:**
-```bash
-AGGREGATOR_MODBUS_HOST=192.168.1.100 docker-compose up --build
-```
-
-### Option 3: Direct Python Execution
-
-Start the service with uvicorn:
+From the monorepo root, backend-ot runs next to the DEV-ONLY Modbus simulator
+(`services/mock-modbus`) on one network, seeded with devices that match it:
 
 ```bash
-PYTHONPATH=src uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+make up      # build + start every service, wait until healthy
+make seed    # load backend-ot's dev sites/devices/points (built from mock-modbus's contract)
+make e2e     # check backend-ot polls mock-modbus and every value is in range
+make down    # stop (data volumes are kept)
 ```
 
-Or run directly:
+### backend-ot standalone
 
 ```bash
-cd src && python -m main
+make -C services/backend-ot up          # postgres + redis + app; migrations run on start
+make -C services/backend-ot seed-db     # dev data
+make -C services/backend-ot health      # GET /api/healthz
+make -C services/backend-ot logs        # follow the app's logs
+make -C services/backend-ot down
 ```
 
-The API will be available at `http://localhost:8000`
+Standalone, the app polls the Modbus aggregator at `host.docker.internal:502`, i.e. a
+standalone mock-modbus (`make -C services/mock-modbus up`) or anything else listening on the
+host. Point it elsewhere with `BACKEND_OT_AGGREGATOR_HOST` / `BACKEND_OT_AGGREGATOR_PORT`.
 
-API documentation (Swagger UI) available at: `http://localhost:8000/docs`
+Host ports default to 8000 (API), 5435 (postgres), 6380 (redis); override them in the shell to
+run next to another stack, e.g.
+`BACKEND_OT_HTTP_PORT=18000 BACKEND_OT_POSTGRES_PORT=15435 BACKEND_OT_REDIS_PORT=16380 make -C services/backend-ot up`.
+
+### On the host (no app container)
+
+With postgres and redis reachable (e.g. the standalone stack's containers) and a `.env` as
+described above:
+
+```bash
+make -C services/backend-ot migrate     # apply SQL migrations
+make -C services/backend-ot run         # uvicorn with reload, from src/
+```
+
+The API is at `http://localhost:8000/api`; Swagger UI at `http://localhost:8000/docs`.
+
+### Tests and lint
+
+```bash
+make -C services/backend-ot test              # unit tests, no Docker
+make -C services/backend-ot test-integration  # throwaway postgres + redis in Docker, then torn down
+make -C services/backend-ot lint              # ruff (blocking)
+```
 
 ## Docker Details
 
@@ -152,54 +102,25 @@ API documentation (Swagger UI) available at: `http://localhost:8000/docs`
 - Simpler deployment, debugging, and resource management
 - Standard microservice pattern
 
-### Docker Commands
+### Image
 
-**Build the image:**
-```bash
-docker build -t pae-backend-ot -f docker/Dockerfile .
-```
-
-**Run the container:**
-```bash
-docker run -p 8000:8000 \
-  -e AGGREGATOR_MODBUS_HOST=192.168.1.100 \
-  -e AGGREGATOR_MODBUS_PORT=502 \
-  pae-backend-ot
-```
-
-**Run with docker-compose (connects to external Modbus server):**
-```bash
-# Make sure AGGREGATOR_MODBUS_HOST is set in .env or as environment variable
-docker-compose up --build
-```
-
-**Stop services:**
-```bash
-docker-compose down
-```
-
-**View logs:**
-```bash
-docker-compose logs -f pae-backend-ot
-```
+`docker/Dockerfile`, built with the service directory as context (`make -C services/backend-ot
+build`): dependencies are installed from `uv.lock` with `uv sync --frozen --no-dev`, the runtime
+image runs as uid 999, and its entrypoint applies pending migrations before starting uvicorn.
+The compose services are `backend-ot`, `backend-ot-postgres` and `backend-ot-redis`.
 
 ## Example curl Commands
 
 ### Health Check
 
 ```bash
-curl -X GET "http://localhost:8000/api/healthz" | jq
+curl http://localhost:8000/api/healthz
 ```
 
-Expected response:
+Response (from the dev stack; `host`/`port`/`device_id` echo the configured Modbus aggregator,
+nothing is contacted):
 ```json
-{
-  "ok": true,
-  "host": "192.168.1.100",
-  "port": 502,
-  "device_id": 1,
-  "detail": "Connection and read test successful"
-}
+{"ok":true,"host":"mock-modbus","port":502,"device_id":1,"detail":"API is healthy"}
 ```
 
 ## Error Handling
@@ -239,9 +160,7 @@ removed and still need to be re-implemented:
 
 ## Testing with a Modbus Simulator
 
-For local testing, you can use a Modbus simulator like:
-- [ModbusPal](https://modbuspal.sourceforge.net/)
-- [pymodbus simulator](https://pymodbus.readthedocs.io/en/latest/source/example/simulator.html)
-
-Then point the service to `localhost:502` and test the endpoints.
+The monorepo ships one: `services/mock-modbus` (DEV-ONLY), which serves three simulated devices.
+Run it together with backend-ot from the repo root (`make up && make seed && make e2e`, above), or
+standalone next to a standalone backend-ot (`make -C services/mock-modbus up`).
 
