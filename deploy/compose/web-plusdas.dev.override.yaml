@@ -1,0 +1,10 @@
+# Wiring for web-plusdas inside the monorepo dev stack: nginx forwards /api/* to the
+# backend-ot service on the shared compose network instead of the host port, so the UI on
+# http://localhost:5173 calls the API on its own origin.
+services:
+  web-plusdas:
+    environment:
+      - API_UPSTREAM=http://backend-ot:8000
+    depends_on:
+      # nginx resolves the upstream hostname when it starts.
+      - backend-ot

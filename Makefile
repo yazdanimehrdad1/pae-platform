@@ -23,7 +23,7 @@ endif
 .DEFAULT_GOAL := help
 
 # Every service under services/. A new service is added here (the new-service skill does it).
-SERVICES := backend-ot mock-modbus
+SERVICES := backend-ot mock-modbus web-plusdas
 # `svc=<name>` narrows fan-out targets and dev-stack targets to one service.
 TARGET_SERVICES := $(or $(svc),$(SERVICES))
 
