@@ -14,7 +14,7 @@ contracts/           the ONLY shared surface: generated OpenAPI specs + mock reg
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
 .claude/             skills, agents (root); services add their own .claude/skills/
-MONOREPO_ROADMAP.md  setup plan + decision log: record decisions/deviations there
+TODO_MONOREPO_TASKS.md  open monorepo work (debt, deferred CI/deploy, hardening); remove items when done
 ```
 
 ## Hard rules

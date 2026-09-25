@@ -16,8 +16,30 @@ description: Create a new service in this monorepo scaffolded to the service con
   CLAUDE.md).
 
 Both have the standard Makefile targets, `compose.yaml`, `.env.example`, `.dockerignore` and a
-CLAUDE.md, and follow "The service convention" in `MONOREPO_ROADMAP.md`. Fix a template in
-`templates/<kind>/`, so every future service gets the fix.
+CLAUDE.md, and follow the service convention below. Fix a template in `templates/<kind>/`, so
+every future service gets the fix.
+
+## The service convention (what every service must provide)
+
+- **Makefile targets, same names everywhere:** `install`, `lint`, `format`, `typecheck`, `test`
+  (fast, no Docker where possible); `test-integration` (if the service has one), `build`, `up`,
+  `down`, `logs`, `run` (on the host), `contract` (services that publish to `contracts/`);
+  service-specific extras (e.g. `migrate`, `seed-db`, `api-types`). The same shell header, the
+  `require-no-dev-stack` guard on `build`/`up`, and a `help` target.
+- **`compose.yaml`:** `name: <svc>`, no `container_name`, no external networks; host ports as
+  `${<SVC>_<THING>_PORT:-default}`; `env_file: [{path: .env, required: false}]`;
+  container-network values (hostnames, internal ports) always go in `environment:`, which beats
+  `env_file`.
+- **Build context:** always the service directory, with a committed `.dockerignore`. It never
+  builds from the repo root. A service that needs something from `contracts/` commits a
+  generated copy of it (like web-plusdas's `src/api/generated/`), or uses a BuildKit named context.
+- **Config:** read from the service's own `.env` (Python: pydantic-settings with `env_file`
+  anchored via `Path(__file__)`; Node: runtime config at container start, never build-time env).
+  Nothing reads a root `.env`.
+- **CLAUDE.md sections:** Owns / Does not own · Commands (the standard targets) · Contracts
+  provided/consumed · Gotchas. About 150 lines or less; deep reference material goes in `docs/`
+  or a service skill.
+- **Port registry:** in the root CLAUDE.md and `.env.example`, kept in sync.
 
 ## Before starting
 
