@@ -17,7 +17,8 @@ so every future service gets the fix.
 - **Name:** lowercase kebab-case, starting with a letter (it's also the compose project name,
   the compose service name and, with `-` → `_`, the Python package).
 - **Port:** take it from the port registry in the root `CLAUDE.md`. Reserved: optimizer 8010,
-  powerflow 8020, frontend 5173 (Node, not covered by these templates). For anything else, ask
+  powerflow 8020. Taken: 5173/5174 by web-plusdas (the Node frontend; these templates are
+  Python-only, so a Node service copies web-plusdas's Makefile/compose/docker layout instead). For anything else, ask
   the user and pick one that isn't in the registry.
 - **Dependencies:** the templates use only packages the repo already uses (fastapi, uvicorn,
   pydantic-settings; dev: pytest, ruff, httpx). Ask the user before adding any other.

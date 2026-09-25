@@ -5,10 +5,11 @@ only machine-readable contracts. Launch Claude from this root. The repo's permis
 live in the root `.claude/`.
 
 ```
-services/<name>/     one self-contained service each (code, uv.lock, Makefile, compose.yaml,
-                     Dockerfile, .env.example, CLAUDE.md, service-scoped skills)
+services/<name>/     one self-contained service each (code, lockfile (uv.lock / package-lock.json),
+                     Makefile, compose.yaml, Dockerfile, .env.example, CLAUDE.md, service-scoped skills)
   backend-ot/        Modbus poller + historian API (FastAPI, Postgres, Redis)
   mock-modbus/       DEV-ONLY Modbus TCP simulator standing in for the site devices
+  web-plusdas/       the UI: Vite + React SPA served by nginx, /api proxied same-origin to backend-ot
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
@@ -24,6 +25,11 @@ MONOREPO_ROADMAP.md  setup plan + decision log: record decisions/deviations ther
   in the same change as the code, and a breaking change needs a version bump and the user's OK.
 - **Each service builds and tests on its own.** Its build context is its own directory, its
   config is its own `.env`, and nothing reads a root `.env` except the root dev-stack port overrides.
+- **`services/web-plusdas` stays extractable** (`git subtree split --prefix=services/web-plusdas`).
+  It depends only on `contracts/` and its own files, nothing outside it imports from it, and
+  nothing is hoisted to the root: no root package.json, no npm/pnpm/yarn workspace, no Turbo/Nx.
+  The root coordinates it only through the Makefile and `deploy/compose/`. The browser calls the
+  API same-origin at `/api` (no CORS, no absolute URLs, no build-time env). See its CLAUDE.md.
 - **`services/mock-modbus` is DEV-ONLY.** It is allowed only in its own directory, `deploy/compose/` and
   backend-ot's dev seed/tests. Never put it in a production manifest.
 - **Deployment is out of scope** (CI/CD, k8s, ArgoCD). Don't edit `services/*/.github/`,
@@ -43,6 +49,7 @@ the root, and `make -C services/<svc> help` in each service.
 - **Standard targets in every service:** `install lint format typecheck test build up down logs
   run`, plus `test-integration` and `contract` where the service has them.
 - **Root fan-out:** `make <target>` runs it in every service that has it. `svc=<name>` narrows it.
+  web-plusdas's `test-integration` checks the running container, so it needs the dev stack up.
 - **Root checks:** `make check` = lint + test + `check-boundaries` + `contracts-check` (stage
   regenerated contracts first). `make hooks` enables the pre-commit hook once per clone.
 - **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
@@ -58,9 +65,9 @@ the root, and `make -C services/<svc> help` in each service.
 |---|---|
 | backend-ot | 8000 (http), 5435 (postgres), 6380 (redis) |
 | mock-modbus | 502 |
+| web-plusdas | 5173 (http; `make -C services/web-plusdas run` dev server: 5174) |
 | optimizer (reserved) | 8010 |
 | powerflow (reserved) | 8020 |
-| frontend (reserved) | 5173 |
 
 ## Contracts
 Rules and the contract list are in `contracts/README.md`. For a change that alters what a service
@@ -70,8 +77,8 @@ holds the full procedure.
 
 ## Skills (they load when the task matches)
 - Root: `run-platform` (run/seed/check the stack), `contracts` (change or check a contract),
-  `new-service` (scaffold and register a service).
-- backend-ot: `add-endpoint`, `add-migration`. mock-modbus: `add-mock-device`.
+  `new-service` (scaffold and register a Python service).
+- backend-ot: `add-endpoint`, `add-migration`. mock-modbus: `add-mock-device`. web-plusdas: none yet.
 
 ## Agents
 - `test-runner` runs a service's lint and tests (or `make check`) and reports only the failures.

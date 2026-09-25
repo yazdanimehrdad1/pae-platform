@@ -1,0 +1,89 @@
+# web-plusdas
+
+Owns: the PAE platform UI, a Vite + React 18 + TypeScript single-page app (shadcn/ui, Tailwind 3,
+React Query, react-router v6). It is built to static files, served by nginx, and nginx also
+proxies `/api/*` to backend-ot on the same origin.
+Does NOT own: any API or data (backend-ot owns sites/devices/points/readings/streaming), the
+API contract (backend-ot publishes it), or the production reverse proxy in front of it.
+
+## The invariant: this service stays extractable. Read this first
+It must stay possible to move this directory into its own repo with
+`git subtree split --prefix=services/web-plusdas` in an afternoon. So:
+- **It depends only on `contracts/` and its own files.** Never import from, reference, or read
+  `services/<other>/` (`../backend-ot/...`, a tsconfig/vite alias into another service, a
+  Dockerfile `COPY` from outside). Talk to backend-ot over HTTP, at `/api` only.
+- **Nothing outside this directory imports from it.** Scripts and other services never read
+  its files (the dev stack's `deploy/compose/` include is the one exception).
+- **Everything it needs lives here:** package.json, package-lock.json, tsconfig, eslint config,
+  Dockerfile, Makefile, compose.yaml, .env.example. No root package.json and no workspace
+  (npm/pnpm/yarn/Turbo/Nx): the root coordinates only through its Makefile and deploy/compose/.
+- **Docker build context is this directory.** `contracts/` is NOT in it, so the future generated
+  API types are committed here (see `docs/api-types-follow-up.md`), never read from `../../contracts`
+  at build time.
+- `make check-boundaries` (root) enforces the path rules for *.ts/*.tsx/*.js/package.json/
+  tsconfig*.json: a `../` path may leave this service only into `contracts/`.
+
+## Commands
+Run from the repo root as `make -C services/web-plusdas <target>` (or `make <target>` here). Same
+Makefile on Windows: it runs recipes in Git for Windows' sh. `make help` lists all. **npm only**:
+dependencies are pinned in `package-lock.json`; host targets run `npm ci` first when
+`node_modules` is missing or stale. Node **24** (`.nvmrc`, `engines`). Ask before adding a dependency.
+- Setup: `make install` (`npm ci`).
+- Lint: `make lint` (`eslint .`, 0 errors required, pre-commit enforced) · `make lint-fix` /
+  `make format` (`eslint --fix`; there is no Prettier).
+- Types: `make typecheck` (`tsc -p tsconfig.app.json --noEmit`). **Not yet blocking**: 7
+  pre-existing errors (DeviceDetailsPage, HistorianPage, LiveDataPage, ModbusStreamForm,
+  convertSLDData). Don't add new ones.
+- Tests: `make test` is a placeholder (no unit-test runner yet). `make test-integration` =
+  `scripts/check_same_origin.mjs` against the **running** container: SPA fallback, cache headers,
+  `/config.js`, and `/api/healthz` + `/api/sites` through the web origin. Needs the dev stack up.
+- Dev server: `make run` (Vite on http://localhost:**5174**, `/api` proxied to
+  `WEB_PLUSDAS_DEV_API_TARGET`, default `http://localhost:8000` = the dev stack's backend-ot).
+- Development normally uses the whole platform from the **repo root** (`make up`, UI on
+  http://localhost:5173). Running this service alone is the exception: `make down` at the root
+  first. `build`/`rebuild`/`up` refuse while the dev stack runs.
+- Standalone container: `make up` / `down` / `logs` / `ps` / `restart` / `clean` (`compose.yaml`,
+  project `web-plusdas`, host port `WEB_PLUSDAS_HTTP_PORT`=5173, nginx upstream
+  `WEB_PLUSDAS_API_UPSTREAM`, default `http://host.docker.internal:8000`). `down-all` is destructive:
+  only when the user asks.
+- Checks: the root `test-runner` agent runs lint/tests and reports only failures.
+
+## Layout
+- `src/api/`: the only place that calls the backend. `client.ts` (`request`, `client.get/post/put/
+  delete/action`, `getErrorMessage` for FastAPI `detail`), one module per resource (`sites.ts`,
+  `devices.ts`, `historian.ts`, `health.ts`, `sld.ts`, `modbusStream.ts`), `sse.ts` (fetch-based
+  server-sent events). Pages use them through React Query.
+- `src/features/<feature>/`: pages + their hooks/lib. `src/shared/`: layout, contexts (auth,
+  notes), types, config. `src/components/ui/`: shadcn components (generated; keep edits minimal).
+- `docker/`: `Dockerfile` (node:24 build → nginx:1.30 serve), `nginx/default.conf.template`,
+  `config.js.template` + `40-app-config.sh` (writes `/config.js` at container start).
+- `Tests/`, `src/shared/test/`, `src/features/sld/test/`: static mock data, not tests.
+
+## Runtime config and same-origin (details: `docs/same-origin.md`)
+- **No build-time configuration.** No `VITE_*` variables and no `import.meta.env` reads. Runtime
+  values come from `window.__APP_CONFIG__`, set by `/config.js` before the bundle loads, and are
+  read only through `getRuntimeConfig()` (`src/shared/config/runtime.ts`). To add a value, add it
+  there, to `docker/config.js.template` + `40-app-config.sh` (the envsubst list), to
+  `public/config.js` (dev default), and to `.env.example`.
+- **API calls are same-origin `/api/...` only.** Never an absolute URL, never CORS. Never put a
+  trailing slash on an API path (backend-ot 307s it).
+- A new **streaming** route needs its own nginx location with `proxy_buffering off` (like
+  `/api/modbus-live-stream-raw-registers/`).
+
+## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)
+- **Consumes** `contracts/openapi/backend-ot.openapi.json`, but the types are **hand-written**
+  today (`src/shared/types/*`, plus inline interfaces in `src/api/sites.ts` and `src/api/devices.ts`).
+  When you change a call, check the route and fields against that spec. Generating them is
+  planned follow-up work: `docs/api-types-follow-up.md`.
+- Provides no contract (no `contract` target).
+
+## Gotchas
+- `strict: false` and `noImplicitAny: false` in tsconfig: the compiler won't catch nulls.
+- Mocked, not wired to backend-ot yet: HealthPage (`useMockHealth`), SLD (loads
+  `src/features/sld/test/*.json`), and auth (`src/shared/contexts/auth.tsx` accepts anything).
+- `.env.development` / `.env.production` are tracked but **no code reads them** (they held the old
+  `VITE_RTAC_SERVER_BASE_URL`). Never read or edit them; they are excluded from the Docker context.
+- `lovable-tagger` is an unused devDependency from the Lovable scaffold, and `index.html` still has
+  Lovable og/twitter meta tags.
+- On Windows, a Node script that calls `process.exit()` after `fetch` can crash (libuv assertion).
+  Set `process.exitCode` instead (see `scripts/check_same_origin.mjs`).
