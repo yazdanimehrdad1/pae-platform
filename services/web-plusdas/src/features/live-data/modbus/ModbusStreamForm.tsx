@@ -79,7 +79,9 @@ function toRequest(values: FormValues): ModbusLiveStreamRequest {
     if (Object.keys(config).length > 0) register_configs[row.address] = config;
   }
   const { registerConfigs, alias, ...rest } = values;
-  return { ...rest, register_configs };
+  // formSchema requires every field; z.infer only marks them optional because tsconfig has
+  // strictNullChecks off, so the cast restores what the schema already guarantees.
+  return { ...(rest as Omit<ModbusLiveStreamRequest, 'register_configs'>), register_configs };
 }
 
 function fromRequest(request: ModbusLiveStreamRequest, alias: string): FormValues {
@@ -105,7 +107,7 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit
   siteId: string | null;
   initialValues?: ModbusLiveStreamRequest;
   initialAlias?: string;
-  onSubmit: (request: ModbusLiveStreamRequest, alias: string) => Promise<string>;
+  onSubmit: (request: ModbusLiveStreamRequest, alias: string) => Promise<void>;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { register, control, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({

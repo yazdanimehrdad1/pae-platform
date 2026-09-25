@@ -5,7 +5,7 @@ import { historianApi } from '@/api/historian';
 import type { BackendPointReadings, TimeRange } from '@/shared/types/api';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ChartRow = Record<string, any>;
+export type ChartRow = Record<string, any>;
 
 export type TimeWindow =
   | { preset: TimeRange }

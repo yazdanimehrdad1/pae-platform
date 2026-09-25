@@ -593,7 +593,7 @@ export default function DeviceDetails() {
         open={editDeviceOpen}
         onOpenChange={setEditDeviceOpen}
         device={liveDevice}
-        onSubmit={(payload) => updateDeviceMutation.mutateAsync(payload)}
+        onSubmit={async (payload) => { await updateDeviceMutation.mutateAsync(payload); }}
       />
 
       <AlertDialog open={deletingPoint !== null} onOpenChange={closeDeletePointDialog}>

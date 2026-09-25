@@ -50,7 +50,7 @@ the root, and `make -C services/<svc> help` in each service.
   run`, plus `test-integration` and `contract` where the service has them.
 - **Root fan-out:** `make <target>` runs it in every service that has it. `svc=<name>` narrows it.
   web-plusdas's `test-integration` checks the running container, so it needs the dev stack up.
-- **Root checks:** `make check` = lint + test + `check-boundaries` + `contracts-check` (stage
+- **Root checks:** `make check` = lint + typecheck + test + `check-boundaries` + `contracts-check` (stage
   regenerated contracts first). `make hooks` enables the pre-commit hook once per clone.
 - **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
   `down`, `ps`, `logs`, `seed`, `e2e`. See the `run-platform` skill. **The root takes priority:**

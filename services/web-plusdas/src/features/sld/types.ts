@@ -38,9 +38,11 @@ export interface SLDDevice {
     valueKW: number;
   };
   properties?: Record<string, unknown>;
+  // convertSLDData sets only level/branch; x/y come from the layout when present
+  // (MicrogridSLD checks both for undefined before using them).
   position?: {
-    x: number;
-    y: number;
+    x?: number;
+    y?: number;
     level?: number;
     branch?: number;
   };

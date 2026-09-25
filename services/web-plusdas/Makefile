@@ -44,7 +44,7 @@ help:
 	@echo "  install          npm ci (node_modules from package-lock.json)"
 	@echo "  lint / lint-fix  eslint . / auto-fix"
 	@echo "  format           eslint --fix (no formatter configured)"
-	@echo "  typecheck        tsc --noEmit on the app (not yet blocking)"
+	@echo "  typecheck        tsc --noEmit on the app (blocking)"
 	@echo "  test             (no unit tests yet)"
 	@echo "  test-integration check the running container: SPA, caching, /api same-origin proxy"
 	@echo "  run              Vite dev server on http://localhost:$(RUN_PORT) (/api -> localhost:8000)"
@@ -73,7 +73,7 @@ format: $(NODE_MODULES)
 	npm run lint -- --fix
 
 typecheck: $(NODE_MODULES)
-	npm run typecheck || echo "typecheck: tsc reported issues (not yet blocking)"
+	npm run typecheck
 
 test:
 	@echo "test: no unit tests configured for web-plusdas yet (see docs/api-types-follow-up.md)"

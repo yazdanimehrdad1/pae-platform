@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useHistorianSeries, type TimeWindow } from "./hooks/useHistorianSeries";
+import { useHistorianSeries, type ChartRow, type TimeWindow } from "./hooks/useHistorianSeries";
 import type { TimeRange } from "@/shared/types/api";
 import { toast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/shared/contexts/auth";
@@ -137,7 +137,7 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId }: { selec
   const [dragEnd, setDragEnd] = useState<{ x: number; timestamp: number } | null>(null);
   const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
 
-  const chartData = data.map(point => ({ ...point, time: formatTimestamp(point.timestamp, spanMs) }));
+  const chartData: ChartRow[] = data.map(point => ({ ...point, time: formatTimestamp(point.timestamp, spanMs) }));
   const displayData = zoomRange ? chartData.filter(p => p.timestamp >= zoomRange.start && p.timestamp <= zoomRange.end) : chartData;
   const pointColors = getColorsForPoints(selectedPoints);
 

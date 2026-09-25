@@ -12,7 +12,7 @@ You run this monorepo's checks and report the result compactly. You never edit f
 - One service: `make -C services/<svc> lint` then `make -C services/<svc> test`.
 - Add `make -C services/<svc> test-integration` only when asked, or when the change touches
   backend-ot's API, DB or migrations (it needs Docker and takes ~20 s).
-- Everything: `make check` (every service's lint + test, then `check-boundaries` and
+- Everything: `make check` (every service's lint + typecheck + test, then `check-boundaries` and
   `contracts-check`).
 - Narrow a service's tests with `TEST_PATH=...` (backend-ot) when told which tests matter.
 

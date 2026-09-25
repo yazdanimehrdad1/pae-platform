@@ -51,7 +51,7 @@ help:
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
 	@echo ""
 	@echo "Per service (runs in every service, or svc=<name>): $(FANOUT_TARGETS)"
-	@echo "  check              lint + test for every service, then check-boundaries + contracts-check"
+	@echo "  check              lint + typecheck + test for every service, then check-boundaries + contracts-check"
 	@echo "                     (stage regenerated contracts first)"
 	@echo "  check-boundaries   no cross-service imports/paths; mock-modbus in no production manifest"
 	@echo "  contracts-check    regenerate every contract; fail if contracts/ differs from the index"
@@ -131,7 +131,7 @@ $(FANOUT_TARGETS):
 	done
 
 # contracts-check compares with the git index: stage regenerated contracts before `make check`.
-check: lint test check-boundaries contracts-check
+check: lint typecheck test check-boundaries contracts-check
 
 # Stdlib-only script; `uv run --no-project` just supplies a Python.
 check-boundaries:
