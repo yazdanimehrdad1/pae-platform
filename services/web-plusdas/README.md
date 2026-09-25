@@ -9,8 +9,10 @@ backend-ot, so the browser only ever talks to its own origin.
 ```bash
 make -C services/web-plusdas install            # npm ci
 make -C services/web-plusdas run                # Vite dev server on http://localhost:5174, /api -> localhost:8000
-make -C services/web-plusdas lint typecheck     # eslint, tsc (typecheck not yet blocking)
+make -C services/web-plusdas lint typecheck     # eslint, tsc (both blocking)
 make -C services/web-plusdas up                 # nginx container on http://localhost:5173
+make -C services/web-plusdas test               # API-types drift check + vitest
+make -C services/web-plusdas api-types          # regenerate API types after backend-ot's contract changes
 make -C services/web-plusdas test-integration   # checks the running container (SPA + same-origin /api)
 ```
 
