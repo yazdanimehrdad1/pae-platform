@@ -22,7 +22,7 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: help install lint lint-fix format typecheck test contract build rebuild up down restart \
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test contract build rebuild up down down-all restart \
 	logs ps clean run
 
 # Standalone container. Host port: MOCK_MODBUS_PORT (default 502).
@@ -49,6 +49,7 @@ help:
 	@echo "Containers (docker compose):"
 	@echo "  build / rebuild  build the image (rebuild = no cache)"
 	@echo "  up / down / restart / logs / ps / clean"
+	@echo "  down-all         DESTRUCTIVE: down + delete volumes, images, network"
 
 # ---------------------------------------------------------------------------
 # Develop
@@ -81,17 +82,30 @@ run:
 # ---------------------------------------------------------------------------
 # Containers
 # ---------------------------------------------------------------------------
-build:
+# The monorepo root takes priority: while its dev stack (compose project pae-dev) is running,
+# this service already runs there. Run `make down` at the repo root before running it alone.
+require-no-dev-stack:
+	@if docker compose ls -q 2>/dev/null | grep -qx pae-dev; then \
+		echo "mock-modbus: the platform dev stack (pae-dev) is running; run 'make down' at the repo root first" >&2; \
+		exit 1; \
+	fi
+
+build: require-no-dev-stack
 	$(COMPOSE) build
 
-rebuild:
+rebuild: require-no-dev-stack
 	$(COMPOSE) build --no-cache
 
-up:
+up: require-no-dev-stack
 	$(COMPOSE) up -d --build --wait
 
 down:
 	$(COMPOSE) down
+
+# DESTRUCTIVE: also deletes this stack's data volumes, the images it uses (built and pulled)
+# and its network. `down` keeps the volumes.
+down-all:
+	$(COMPOSE) down --volumes --rmi all --remove-orphans
 
 restart: down up
 

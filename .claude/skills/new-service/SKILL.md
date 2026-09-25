@@ -48,6 +48,7 @@ so every future service gets the fix.
 - `make check-boundaries` passes and `make help` lists the service.
 - `git add services/<name> contracts/` and then `make check` passes. (It includes
   `contracts-check`, which compares against the index.)
-- `make -C services/<name> up` reports the container healthy.
+- `make down` at the repo root, then `make -C services/<name> up` reports the container healthy
+  (a service's `up` refuses while the root dev stack runs).
   `curl http://localhost:<port>/api/healthz` → `{"ok":true}`. Then `make -C services/<name> down`.
 - `docker compose -f deploy/compose/dev.yaml config -q` is valid.

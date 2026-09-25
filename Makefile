@@ -33,14 +33,19 @@ TARGET_SERVICES := $(or $(svc),$(SERVICES))
 DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildcard .env),--env-file $(CURDIR)/.env)
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
-.PHONY: help up down restart logs ps seed e2e check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
+.PHONY: help up down down-all stop-all restart logs ps seed e2e check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
 	@echo ""
 	@echo "Dev stack (all services on one network; mock-modbus included, DEV-ONLY):"
-	@echo "  up [svc=...]       build + start everything (or one service and its deps), wait for healthy"
-	@echo "  down               stop and remove the dev stack (volumes kept)"
+	@echo "  up [svc=...]       RESET: stop every platform container (dev stack + any service started"
+	@echo "                     on its own), then build + start everything (or one service and its"
+	@echo "                     deps) and wait for healthy"
+	@echo "  down               stop every platform container, both modes (volumes kept)."
+	@echo "                     Run it before starting a single service with make -C services/<svc> up"
+	@echo "  down-all           DESTRUCTIVE: stop every platform container AND delete their volumes"
+	@echo "                     (postgres/redis data), images (built and pulled) and networks"
 	@echo "  restart / ps / logs [svc=...]"
 	@echo "  seed               load backend-ot's dev data (built from mock-modbus's contract)"
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
@@ -60,11 +65,38 @@ help:
 # ---------------------------------------------------------------------------
 # Compose service names match service directory names by convention, so svc=<name>
 # works for both the fan-out targets and the dev stack.
-up:
+# The root takes priority: `up` always starts from a clean slate, so whatever was running
+# (the dev stack, or services started on their own) is stopped first. Running a single service
+# on its own is the exception: `make down` here first (the service Makefiles refuse to start
+# while the dev stack is up). Volumes are always kept.
+up: stop-all
 	$(DEV_COMPOSE) up -d --build --wait $(svc)
 
-down:
-	$(DEV_COMPOSE) down
+down: stop-all
+
+# DESTRUCTIVE clean slate: every platform stack (dev stack + each service's standalone stack,
+# through that service's own `down-all`) loses its containers, data volumes, images and
+# network. The next `make up` re-pulls/rebuilds images and starts with empty databases (seed
+# again). Not touched: other Docker projects, the backend-ot-test-* stacks and the external
+# backend-ot-uv-cache volume.
+down-all:
+	@echo "==> dev stack (pae-dev): down, deleting volumes, images, network"
+	@$(DEV_COMPOSE) down --volumes --rmi all --remove-orphans
+	@for service in $(SERVICES); do \
+		echo "==> $$service (standalone): down-all"; \
+		$(MAKE) -s --no-print-directory -C "services/$$service" down-all; \
+	done
+
+# Every platform container: the dev stack, then each service's standalone stack via that
+# service's own `down` (the root never touches a service's compose file directly). Other
+# Docker projects, including the integration-test stacks (backend-ot-test-*), are left alone.
+stop-all:
+	@echo "==> dev stack (pae-dev): down"
+	@$(DEV_COMPOSE) down --remove-orphans
+	@for service in $(SERVICES); do \
+		echo "==> $$service (standalone): down"; \
+		$(MAKE) -s --no-print-directory -C "services/$$service" down; \
+	done
 
 restart:
 	$(DEV_COMPOSE) restart $(svc)

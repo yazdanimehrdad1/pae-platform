@@ -23,8 +23,8 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: help install lint lint-fix format typecheck test test-unit test-integration test-all contract \
-	build rebuild up up-build down restart logs ps shell health clean \
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-unit test-integration test-all contract \
+	build rebuild up up-build down down-all restart logs ps shell health clean \
 	run migrate apply-migration seed-db cloud-down cloud-up
 
 # Standalone stack. Host ports: BACKEND_OT_HTTP_PORT / _POSTGRES_PORT / _REDIS_PORT (defaults
@@ -63,6 +63,7 @@ help:
 	@echo "  build / rebuild  build the image (rebuild = no cache)"
 	@echo "  up / up-build    start postgres, redis, app (up-build builds first)"
 	@echo "  down / restart / logs / ps / shell / health / clean"
+	@echo "  down-all         DESTRUCTIVE: down + delete volumes (postgres/redis data), images, network"
 	@echo "  apply-migration  run migrations inside the running app container"
 	@echo "  seed-db          load dev mock data into the running stack"
 	@echo ""
@@ -120,22 +121,35 @@ contract:
 # ---------------------------------------------------------------------------
 # Containers
 # ---------------------------------------------------------------------------
-build:
+# The monorepo root takes priority: while its dev stack (compose project pae-dev) is running,
+# this service already runs there. Run `make down` at the repo root before running it alone.
+require-no-dev-stack:
+	@if docker compose ls -q 2>/dev/null | grep -qx pae-dev; then \
+		echo "backend-ot: the platform dev stack (pae-dev) is running; run 'make down' at the repo root first" >&2; \
+		exit 1; \
+	fi
+
+build: require-no-dev-stack
 	$(COMPOSE) build
 
-rebuild:
+rebuild: require-no-dev-stack
 	$(COMPOSE) build --no-cache
 
 # --wait blocks until postgres, redis and the app report healthy (migrations run in the
 # app's entrypoint before uvicorn starts).
-up:
+up: require-no-dev-stack
 	$(COMPOSE) up -d --wait
 
-up-build:
+up-build: require-no-dev-stack
 	$(COMPOSE) up -d --build --wait
 
 down:
 	$(COMPOSE) down
+
+# DESTRUCTIVE: also deletes this stack's data volumes, the images it uses (built and pulled)
+# and its network. `down` keeps the volumes.
+down-all:
+	$(COMPOSE) down --volumes --rmi all --remove-orphans
 
 restart:
 	$(COMPOSE) restart

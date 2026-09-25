@@ -57,7 +57,11 @@ def _check_once(api: str, contract: dict[str, Any]) -> tuple[bool, list[str]]:
             complete = False
             lines.append(f"{name}: NOT SEEDED")
             continue
-        points = _get(api, f"/device-points/site/{site_id}/device/{device['device_id']}")
+        # NATIVE only: those map 1:1 to the mock's registers. STANDARDIZED points (created for
+        # every device, by the API and the seeder alike) aren't read from Modbus registers.
+        points = _get(
+            api, f"/device-points/site/{site_id}/device/{device['device_id']}?category=NATIVE"
+        )
         readings = _get(
             api, f"/device-point-readings/site/{site_id}/device/{device['device_id']}/latest"
         )["readings"]

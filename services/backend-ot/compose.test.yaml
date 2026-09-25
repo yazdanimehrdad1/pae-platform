@@ -33,9 +33,12 @@ services:
   tests:
     # Same Python as the app image; uv installs exactly what uv.lock pins (incl. dev group).
     image: ghcr.io/astral-sh/uv:0.11.15-python3.11-trixie-slim
-    working_dir: /app
+    # Mirrors the monorepo layout, so code that reads the shared contracts/ (the dev seeder reads
+    # mock-modbus's register map) finds it exactly as on the host. contracts/ is read-only.
+    working_dir: /repo/services/backend-ot
     volumes:
-      - .:/app
+      - .:/repo/services/backend-ot
+      - ../../contracts:/repo/contracts:ro
       - uv-cache:/root/.cache/uv
     environment:
       # Venv lives outside the bind mount so the host's .venv is never overwritten.

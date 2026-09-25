@@ -30,7 +30,7 @@ MONOREPO_ROADMAP.md  setup plan + decision log: record decisions/deviations ther
   `services/*/k8s/`, or backend-ot's `scripts/gcp_bootstrap.sh`, `scripts/cloud.ps1` and
   `docs/DEPLOYMENT.md` unless asked.
 - Never read or edit `.env` files (only `.env.example`). Never delete Docker volumes
-  (`down -v`, `volume rm`).
+  (`down -v`, `volume rm`, `make down-all`) unless the user asks for it in this conversation.
 
 ## Working in a service
 Work inside one service at a time, and read `services/<svc>/CLAUDE.md` first. It says what the
@@ -45,8 +45,13 @@ the root, and `make -C services/<svc> help` in each service.
 - **Root fan-out:** `make <target>` runs it in every service that has it. `svc=<name>` narrows it.
 - **Root checks:** `make check` = lint + test + `check-boundaries` + `contracts-check` (stage
   regenerated contracts first). `make hooks` enables the pre-commit hook once per clone.
-- **Dev stack (all services, one network):** `make up [svc=]`, `down`, `ps`, `logs`, `seed`,
-  `e2e`. See the `run-platform` skill.
+- **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
+  `down`, `ps`, `logs`, `seed`, `e2e`. See the `run-platform` skill. **The root takes priority:**
+  `make up` resets, stopping every platform container (including services started on their own)
+  before starting the dev stack, and `make down` stops them all (data volumes kept). `make down-all`
+  is the destructive clean slate: it also deletes volumes (postgres/redis data), images and
+  networks. To run one service alone, `make down` here first; a service's `up`/`build` refuses
+  while the dev stack runs.
 
 ## Port registry (host ports; override in the root `.env`, see `.env.example`)
 | Service | Port(s) |

@@ -45,16 +45,21 @@ The Modbus aggregator is `AGGREGATOR_MODBUS_HOST` / `AGGREGATOR_MODBUS_PORT` (ho
 ### The whole platform (recommended)
 
 From the monorepo root, backend-ot runs next to the DEV-ONLY Modbus simulator
-(`services/mock-modbus`) on one network, seeded with devices that match it:
+(`services/mock-modbus`) on one network, seeded with devices that match it. The root takes
+priority: `make up` first stops every platform container, including services started on their
+own, then starts everything fresh.
 
 ```bash
-make up      # build + start every service, wait until healthy
+make up      # reset: stop all platform containers, build + start every service, wait until healthy
 make seed    # load backend-ot's dev sites/devices/points (built from mock-modbus's contract)
 make e2e     # check backend-ot polls mock-modbus and every value is in range
-make down    # stop (data volumes are kept)
+make down    # stop every platform container (data volumes are kept)
+make down-all  # DESTRUCTIVE: also delete volumes (postgres/redis data), images and networks
 ```
 
 ### backend-ot standalone
+
+Run `make down` at the repo root first: `up`/`up-build`/`build` refuse while the dev stack runs.
 
 ```bash
 make -C services/backend-ot up          # postgres + redis + app; migrations run on start
@@ -68,8 +73,8 @@ Standalone, the app polls the Modbus aggregator at `host.docker.internal:502`, i
 standalone mock-modbus (`make -C services/mock-modbus up`) or anything else listening on the
 host. Point it elsewhere with `BACKEND_OT_AGGREGATOR_HOST` / `BACKEND_OT_AGGREGATOR_PORT`.
 
-Host ports default to 8000 (API), 5435 (postgres), 6380 (redis); override them in the shell to
-run next to another stack, e.g.
+Host ports default to 8000 (API), 5435 (postgres), 6380 (redis); override them in the shell if
+something else on your machine uses them, e.g.
 `BACKEND_OT_HTTP_PORT=18000 BACKEND_OT_POSTGRES_PORT=15435 BACKEND_OT_REDIS_PORT=16380 make -C services/backend-ot up`.
 
 ### On the host (no app container)
@@ -161,6 +166,6 @@ removed and still need to be re-implemented:
 ## Testing with a Modbus Simulator
 
 The monorepo ships one: `services/mock-modbus` (DEV-ONLY), which serves three simulated devices.
-Run it together with backend-ot from the repo root (`make up && make seed && make e2e`, above), or
-standalone next to a standalone backend-ot (`make -C services/mock-modbus up`).
+Run it together with backend-ot from the repo root (`make up && make seed && make e2e`, above), or,
+after a root `make down`, standalone with a standalone backend-ot (`make -C services/mock-modbus up`).
 

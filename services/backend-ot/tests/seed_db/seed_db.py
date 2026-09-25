@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from db.session import get_session  # noqa: E402
+from helpers.device_points.device_standardized_points import (  # noqa: E402
+    generate_standardized_points,
+)
 from helpers.device_points.scan_range_computation import (  # noqa: E402
     compute_device_scan_ranges,
 )
@@ -76,25 +79,38 @@ async def seed() -> None:
             device_by_name[device.name] = device
 
         # ------------------------------------------------------------------ #
-        # 3. Device points                                                    #
+        # 3. Device points, device by device, in the order the API creates    #
+        #    them, so ids follow the same pattern as API-created devices:     #
+        #    STANDARDIZED (POST /api/devices/site/{id}/devices creates them   #
+        #    with the device, via the same helper), then NATIVE (added       #
+        #    afterwards), then VIRTUAL (none in the seed data yet). A flush   #
+        #    after each category makes the database assign ids in that order. #
         # ------------------------------------------------------------------ #
-        for device_name, point_requests in DEVICE_POINTS.items():
-            device = device_by_name[device_name]
-
-            for point in point_requests:
-                result = await session.execute(
-                    select(DevicePoint).where(
-                        DevicePoint.site_id == device.site_id,
-                        DevicePoint.device_id == device.device_id,
-                        DevicePoint.name == point.name,
-                    )
+        async def point_exists(device: Device, name: str) -> bool:
+            result = await session.execute(
+                select(DevicePoint).where(
+                    DevicePoint.site_id == device.site_id,
+                    DevicePoint.device_id == device.device_id,
+                    DevicePoint.name == name,
                 )
-                if result.scalar_one_or_none() is not None:
-                    logger.info(
-                        "Device point already exists '%s.%s'", device_name, point.name
-                    )
-                    continue
+            )
+            return result.scalar_one_or_none() is not None
 
+        for device_name, device in device_by_name.items():
+            # STANDARDIZED
+            for point in generate_standardized_points(device.type, device.device_id, device.site_id):
+                if await point_exists(device, point.name):
+                    logger.info("Device point already exists '%s.%s'", device_name, point.name)
+                    continue
+                session.add(DevicePoint(**point.model_dump()))
+                logger.info("Created standardized point '%s.%s'", device_name, point.name)
+            await session.flush()
+
+            # NATIVE
+            for point in DEVICE_POINTS.get(device_name, []):
+                if await point_exists(device, point.name):
+                    logger.info("Device point already exists '%s.%s'", device_name, point.name)
+                    continue
                 session.add(DevicePoint(
                     site_id=device.site_id,
                     device_id=device.device_id,
@@ -115,8 +131,9 @@ async def seed() -> None:
                     "Created device point '%s.%s' (addr=%s)",
                     device_name, point.name, point.address,
                 )
-
             await session.flush()
+
+            # VIRTUAL: the seed data defines none. Add them here, after NATIVE, if it ever does.
 
         # ------------------------------------------------------------------ #
         # 4. Recompute scan_ranges from each device's active NATIVE points    #

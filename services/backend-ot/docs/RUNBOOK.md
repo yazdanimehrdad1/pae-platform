@@ -183,6 +183,9 @@ Data survives `cloud-down` — Cloud SQL is stopped, not deleted. Full detail in
 This service lives in the `pae-platform` monorepo. Run these from the **repo root**; the same
 commands work in PowerShell and bash (Make runs its recipes in Git for Windows' sh).
 
+Containers of this service alone are the exception; day to day use the whole platform (6.F).
+Run `make down` at the repo root first: the service's `up`/`build` refuse while the dev stack runs.
+
 ```powershell
 make -C services/backend-ot install            # uv sync → .venv (once, and after uv.lock changes)
 make -C services/backend-ot up                 # build + start postgres, redis, app (waits for healthy)
@@ -1028,7 +1031,7 @@ From the `pae-platform` repo root: the whole platform, with backend-ot polling t
 Modbus simulator (`services/mock-modbus`) and seeded with devices that match it:
 
 ```powershell
-make up        # build + start every service, wait until healthy
+make up        # reset: stop every platform container, build + start all services, wait until healthy
 make seed      # dev sites/devices/points, built from mock-modbus's contract
 make e2e       # backend-ot polls mock-modbus and every point reads in range
 ```
@@ -1038,11 +1041,13 @@ Invoke-WebRequest http://localhost:8000/api/healthz | Select-Object -Expand Cont
 ```
 Here Postgres and Redis are throwaway containers on your laptop, compose supplies a dev
 password (no `.env` needed), migrations run automatically inside the container, and GCP is
-not involved. Stop with `make down` (data volumes are kept).
+not involved. Stop with `make down` (stops every platform container; data volumes are kept).
+For a clean slate, `make down-all` also deletes the volumes (all local postgres/redis data),
+images and networks; afterwards `make up` rebuilds and `make seed` reloads the dev data.
 
-backend-ot on its own: `make -C services/backend-ot up` (it then reads Modbus from the host's
-port 502, e.g. a standalone `make -C services/mock-modbus up`). Running two stacks side by side:
-override host ports in the root `.env` (see `.env.example`).
+backend-ot on its own: `make down` at the root first, then `make -C services/backend-ot up` (it
+then reads Modbus from the host's port 502, e.g. a standalone `make -C services/mock-modbus up`).
+The root `make up` stops such standalone stacks again before starting the platform.
 
 ---
 
