@@ -4,7 +4,10 @@
     "allow": [
       "Bash(make *)", "PowerShell(make *)",
       "Bash(uv run *)", "PowerShell(uv run *)", "Bash(uv sync *)", "PowerShell(uv sync *)",
-      "Bash(npm ci*)", "PowerShell(npm ci*)", "Bash(npm run *)", "PowerShell(npm run *)",
+      "Bash(npm ci*)", "PowerShell(npm ci*)",
+      "Bash(npm run lint*)", "PowerShell(npm run lint*)", "Bash(npm run build*)", "PowerShell(npm run build*)",
+      "Bash(npm run typecheck*)", "PowerShell(npm run typecheck*)", "Bash(npm run test*)", "PowerShell(npm run test*)",
+      "Bash(npm run dev*)", "PowerShell(npm run dev*)", "Bash(npm run api-types*)", "PowerShell(npm run api-types*)",
       "Bash(npx tsc *)", "PowerShell(npx tsc *)", "Bash(npx eslint *)", "PowerShell(npx eslint *)",
       "Bash(docker compose ps *)", "Bash(docker compose logs *)", "Bash(docker compose config *)",
       "Bash(docker compose * ps *)", "Bash(docker compose * logs *)", "Bash(docker compose * config *)",
