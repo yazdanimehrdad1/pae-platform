@@ -1,0 +1,15 @@
+import type { components } from '@contracts/backend-ot';
+
+type Schemas = components['schemas'];
+
+// Client-side error shape: FastAPI's JSON error body (with `detail`), or this fallback when the
+// body isn't JSON (src/api/client.ts).
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+// Wire types: aliases of the types generated from backend-ot's contract (`make api-types`),
+// never hand-written. UI view models live next to the feature that renders them.
+export type BackendHealth = Schemas['HealthResponse'];

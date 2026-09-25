@@ -1,0 +1,67 @@
+// Integration check for a RUNNING __SERVICE__ container: the SPA is served with the right
+// cache headers and /api reaches backend-ot on the same origin. Node stdlib only (fetch).
+//
+// Usage: node scripts/check_same_origin.mjs [--url http://localhost:__PORT__]
+// Run by `make test-integration`. Needs the root dev stack (`make up` at the repo root) or a
+// standalone `make up` here with backend-ot reachable.
+
+const urlFlag = process.argv.indexOf("--url");
+const baseUrl = (urlFlag > -1 ? process.argv[urlFlag + 1] : "http://localhost:__PORT__").replace(/\/$/, "");
+
+const failures = [];
+const check = (name, passed, detail = "") => {
+  console.log(`${passed ? "ok  " : "FAIL"} ${name}${detail ? ` (${detail})` : ""}`);
+  if (!passed) failures.push(name);
+};
+
+async function get(path) {
+  const response = await fetch(`${baseUrl}${path}`, { redirect: "manual" });
+  return { response, body: await response.text() };
+}
+
+async function main() {
+  try {
+    await get("/");
+  } catch {
+    console.error(`check_same_origin: nothing answers on ${baseUrl}; start the dev stack first (make up)`);
+    return 2;
+  }
+
+  const root = await get("/");
+  check("/ serves the app shell", root.response.status === 200 && root.body.includes('<div id="root">'));
+  check("/ is not cached", root.response.headers.get("cache-control") === "no-cache",
+    root.response.headers.get("cache-control") ?? "no header");
+  check("index.html loads /config.js", root.body.includes('src="/config.js"'));
+
+  const deepRoute = await get("/some/client/route");
+  check("client-side route falls back to index.html",
+    deepRoute.response.status === 200 && deepRoute.body.includes('<div id="root">'));
+
+  const config = await get("/config.js");
+  check("/config.js sets window.__APP_CONFIG__", config.body.includes("window.__APP_CONFIG__"));
+  check("/config.js is never cached", config.response.headers.get("cache-control") === "no-store",
+    config.response.headers.get("cache-control") ?? "no header");
+
+  const assetPath = root.body.match(/\/assets\/[^"']+\.js/)?.[0];
+  if (assetPath) {
+    const asset = await get(assetPath);
+    check(`${assetPath} is cached immutably`,
+      (asset.response.headers.get("cache-control") ?? "").includes("immutable"));
+  } else {
+    check("index.html references a hashed /assets/*.js bundle", false);
+  }
+
+  for (const apiPath of ["/api/healthz"]) {
+    const api = await get(apiPath);
+    const isJson = (api.response.headers.get("content-type") ?? "").includes("application/json");
+    check(`${apiPath} reaches backend-ot through ${baseUrl}`, api.response.status === 200 && isJson,
+      `status ${api.response.status}`);
+  }
+
+  console.log(failures.length ? `RESULT: ${failures.length} check(s) failed` : "RESULT: same-origin OK");
+  return failures.length ? 1 : 0;
+}
+
+// Set exitCode and let Node exit on its own: process.exit() while fetch's keep-alive sockets
+// are still closing crashes Node on Windows (libuv assertion in src/win/async.c).
+process.exitCode = await main();

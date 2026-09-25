@@ -1,0 +1,22 @@
+// Runtime configuration: read from window.__APP_CONFIG__, which /config.js sets before the
+// app bundle loads (index.html). In the container, /config.js is written at start from the
+// environment (docker/40-app-config.sh); in `npm run dev` it is public/config.js. Nothing
+// environment-specific is baked into the build, so one image runs everywhere.
+// This module is the only reader of window.__APP_CONFIG__.
+
+export interface RuntimeConfig {
+  /** Base for every API call. Keep it same-origin (`/api`): see CLAUDE.md "Same-origin". */
+  apiBaseUrl: string;
+}
+
+const DEFAULTS: RuntimeConfig = {
+  apiBaseUrl: '/api',
+};
+
+export function getRuntimeConfig(): RuntimeConfig {
+  const injected = typeof window !== 'undefined' ? window.__APP_CONFIG__ : undefined;
+  return {
+    // An empty value (unset env var at container start) falls back to the default.
+    apiBaseUrl: injected?.apiBaseUrl || DEFAULTS.apiBaseUrl,
+  };
+}

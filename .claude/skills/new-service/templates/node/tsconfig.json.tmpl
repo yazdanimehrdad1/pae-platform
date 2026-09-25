@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@contracts/backend-ot": ["./src/api/generated/backend-ot.ts"]
+    },
+    "strict": true,
+    "skipLibCheck": true
+  }
+}

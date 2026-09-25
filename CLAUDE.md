@@ -77,8 +77,8 @@ holds the full procedure.
 
 ## Skills (they load when the task matches)
 - Root: `run-platform` (run/seed/check the stack), `contracts` (change or check a contract),
-  `new-service` (scaffold and register a Python service).
-- backend-ot: `add-endpoint`, `add-migration`. mock-modbus: `add-mock-device`. web-plusdas: none yet.
+  `new-service` (scaffold and register a Python API or Node frontend service).
+- backend-ot: `add-endpoint`, `add-migration`. mock-modbus: `add-mock-device`. web-plusdas: `add-api-call`.
 
 ## Agents
 - `test-runner` runs a service's lint and tests (or `make check`) and reports only the failures.
