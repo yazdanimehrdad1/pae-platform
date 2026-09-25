@@ -1,14 +1,9 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_RTAC_SERVER_BASE_URL: string;
-  readonly VITE_WS_BASE_URL: string;
-  readonly VITE_APP_TITLE: string;
-  readonly VITE_ENABLE_MOCK_DATA: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
+// No VITE_* variables: configuration is read at runtime from window.__APP_CONFIG__
+// (see src/shared/config/runtime.ts), so the bundle is the same in every environment.
+interface Window {
+  __APP_CONFIG__?: Partial<import('./shared/config/runtime').RuntimeConfig>;
 }
 
 declare module "*.json" {

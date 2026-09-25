@@ -6,13 +6,16 @@ import path from "path";
 export default defineConfig(({ mode: _mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    // `make run` passes --port (RUN_PORT, default 5174); the container owns 5173.
+    port: 5174,
     proxy: {
+      // Same origin in dev as in the container: the browser calls /api on this server,
+      // which forwards to backend-ot (the dev stack's by default). See docs/same-origin.md.
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.WEB_PLUSDAS_DEV_API_TARGET ?? 'http://localhost:8000',
         changeOrigin: true,
         // Follow backend slash-redirects server-side so they never reach the
-        // browser as a cross-origin request. Dev only — see CORS.md.
+        // browser as a cross-origin request. Dev only — see docs/same-origin.md.
         followRedirects: true,
       },
     },

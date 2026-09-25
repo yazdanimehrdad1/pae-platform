@@ -1,6 +1,8 @@
 import type { ApiError } from '@/shared/types/api';
+import { getRuntimeConfig } from '@/shared/config/runtime';
 
-export const BASE_URL = (import.meta.env.VITE_RTAC_SERVER_BASE_URL ?? '') + '/api';
+// Same-origin API base from runtime config (default `/api`), never a build-time value.
+export const BASE_URL = getRuntimeConfig().apiBaseUrl;
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
