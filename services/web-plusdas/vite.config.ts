@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -30,5 +31,14 @@ export default defineConfig(({ mode: _mode }) => ({
       // path for API types; on extraction it can point at a published contracts package.
       "@contracts/backend-ot": path.resolve(__dirname, "./src/api/generated/backend-ot.ts"),
     },
+  },
+  // Unit tests (`make test`): *.test.ts(x) next to the code. Node by default (fast); a test
+  // that needs a DOM starts with `// @vitest-environment jsdom`.
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/test/setup.ts"],
+    restoreMocks: true,
+    unstubGlobals: true,
   },
 }));

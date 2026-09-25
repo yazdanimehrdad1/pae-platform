@@ -45,7 +45,7 @@ help:
 	@echo "  lint / lint-fix  eslint . / auto-fix"
 	@echo "  format           eslint --fix (no formatter configured)"
 	@echo "  typecheck        tsc --noEmit on the app (blocking)"
-	@echo "  test             API types match the contract (api-types --check)"
+	@echo "  test             API types match the contract, then vitest (unit + component, no Docker)"
 	@echo "  api-types        regenerate src/api/generated/backend-ot.ts from backend-ot's contract"
 	@echo "  test-integration check the running container: SPA, caching, /api same-origin proxy"
 	@echo "  run              Vite dev server on http://localhost:$(RUN_PORT) (/api -> localhost:8000)"
@@ -76,10 +76,12 @@ format: $(NODE_MODULES)
 typecheck: $(NODE_MODULES)
 	npm run typecheck
 
-# Fails while the generated API types are stale, like backend-ot's test_contract.py: a
-# backend-ot contract change shows up here (root `make check`) until `make api-types` is run.
+# First fails while the generated API types are stale, like backend-ot's test_contract.py (a
+# backend-ot contract change shows up here, in root `make check`, until `make api-types`);
+# then the vitest suite (src/**/*.test.ts(x)).
 test: $(NODE_MODULES)
 	node scripts/api-types.mjs --check
+	npm run test
 
 # Regenerate after backend-ot's contract changes (contracts/openapi/backend-ot.openapi.json).
 api-types: $(NODE_MODULES)
