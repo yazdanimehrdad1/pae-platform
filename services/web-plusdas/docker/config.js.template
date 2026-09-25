@@ -1,0 +1,5 @@
+// Runtime config, written by /docker-entrypoint.d/40-app-config.sh at container start.
+// Read in the app through src/shared/config/runtime.ts only.
+window.__APP_CONFIG__ = {
+  apiBaseUrl: "${APP_API_BASE_URL}",
+};

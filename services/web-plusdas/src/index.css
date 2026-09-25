@@ -1,0 +1,308 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Industrial Analytics Design System - Emerald → Cyan → Blue → White */
+
+@layer base {
+  :root {
+    /* Industrial Color Palette */
+    --background: 210 20% 94%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Primary: Emerald Industrial */
+    --primary: 160 84% 35%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 160 84% 45%;
+
+    /* Secondary: Cyan Data Flow */
+    --secondary: 191 91% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Accent: Blue Reliability */
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Muted: Industrial Grays */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Status Colors */
+    --success: 160 84% 35%;
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 56%;
+    --warning-foreground: 0 0% 0%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* UI Elements */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 160 84% 35%;
+
+    --radius: 0.5rem;
+
+    /* Industrial Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(160, 84%, 35%), hsl(191, 91%, 40%));
+    --gradient-secondary: linear-gradient(135deg, hsl(191, 91%, 40%), hsl(217, 91%, 60%));
+    --gradient-accent: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(210, 20%, 98%));
+    --gradient-status: linear-gradient(90deg, hsl(160, 84%, 35%), hsl(43, 96%, 56%), hsl(0, 84%, 60%));
+
+    /* Shadows */
+    --shadow-industrial: 0 4px 12px hsl(160, 84%, 35%, 0.15);
+    --shadow-elevated: 0 8px 24px hsl(215, 25%, 15%, 0.12);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.15s ease;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark Industrial Theme */
+    --background: 215 28% 8%;
+    --foreground: 210 20% 92%;
+
+    --card: 215 25% 12%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 215 25% 12%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 160 84% 45%;
+    --primary-foreground: 215 28% 8%;
+    --primary-glow: 160 84% 55%;
+
+    --secondary: 191 91% 50%;
+    --secondary-foreground: 215 28% 8%;
+
+    --accent: 217 91% 70%;
+    --accent-foreground: 215 28% 8%;
+
+    --muted: 215 25% 15%;
+    --muted-foreground: 215 16% 65%;
+
+    --success: 160 84% 45%;
+    --success-foreground: 215 28% 8%;
+    --warning: 43 96% 65%;
+    --warning-foreground: 215 28% 8%;
+    --destructive: 0 84% 70%;
+    --destructive-foreground: 215 28% 8%;
+
+    --border: 215 25% 20%;
+    --input: 215 25% 20%;
+    --ring: 160 84% 45%;
+
+    /* Dark Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(160, 84%, 45%), hsl(191, 91%, 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(191, 91%, 50%), hsl(217, 91%, 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(217, 91%, 70%), hsl(215, 28%, 8%));
+
+    /* Dark Shadows */
+    --shadow-industrial: 0 4px 12px hsl(160, 84%, 45%, 0.25);
+    --shadow-elevated: 0 8px 24px hsl(215, 28%, 8%, 0.5);
+
+    /* Sidebar Dark */
+    --sidebar-background: 215 25% 10%;
+    --sidebar-foreground: 210 20% 92%;
+    --sidebar-primary: 160 84% 45%;
+    --sidebar-primary-foreground: 215 28% 8%;
+    --sidebar-accent: 215 25% 15%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 215 25% 20%;
+    --sidebar-ring: 160 84% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer components {
+  /* Industrial Button Variants */
+  .btn-industrial {
+    @apply bg-gradient-to-r from-primary to-secondary text-primary-foreground font-medium 
+           shadow-[var(--shadow-industrial)] hover:shadow-[var(--shadow-elevated)]
+           transition-[var(--transition-smooth)] hover:scale-[1.02];
+  }
+
+  .btn-status {
+    @apply bg-gradient-to-r text-white font-medium px-4 py-2 rounded-md
+           transition-[var(--transition-fast)] hover:scale-[1.02];
+  }
+
+  /* Status Indicators */
+  .status-ok {
+    @apply bg-success text-success-foreground;
+  }
+
+  .status-warning {
+    @apply bg-warning text-warning-foreground;
+  }
+
+  .status-error {
+    @apply bg-destructive text-destructive-foreground;
+  }
+
+  /* Industrial Cards */
+  .card-industrial {
+    @apply bg-card border border-border rounded-lg p-6
+           shadow-[var(--shadow-elevated)] backdrop-blur-sm
+           transition-[var(--transition-smooth)] hover:shadow-[var(--shadow-industrial)];
+  }
+
+  /* Data Display */
+  .data-metric {
+    @apply text-2xl font-bold text-foreground;
+  }
+
+  .data-label {
+    @apply text-sm font-medium text-muted-foreground uppercase tracking-wide;
+  }
+
+  /* Timeline Elements */
+  .timeline-segment {
+    @apply h-6 flex items-center justify-center text-xs font-medium
+           transition-[var(--transition-fast)] hover:scale-y-110;
+  }
+
+  /* SLD Components */
+  .sld-node {
+    @apply bg-card border-2 border-border rounded-lg p-4 shadow-lg;
+  }
+
+  .sld-node-grid {
+    @apply border-primary/50 bg-primary/5;
+  }
+
+  .sld-node-solar {
+    @apply border-yellow-400/50 bg-yellow-400/5;
+  }
+
+  .sld-node-wind {
+    @apply border-cyan-400/50 bg-cyan-400/5;
+  }
+
+  .sld-node-battery {
+    @apply border-warning/50 bg-warning/5;
+  }
+
+  .status-online {
+    @apply bg-success/20 text-success border border-success/30;
+  }
+
+  .status-warning {
+    @apply bg-warning/20 text-warning border border-warning/30;
+  }
+
+  .status-offline {
+    @apply bg-destructive/20 text-destructive border border-destructive/30;
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 15px hsl(199 89% 48% / 0.5);
+    }
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 25px hsl(199 89% 48% / 0.8);
+    }
+  }
+
+  .animate-flow-down {
+    animation: flow-down 2s linear infinite;
+  }
+
+  .animate-flow-up {
+    animation: flow-up 2s linear infinite;
+  }
+
+  @keyframes flow-down {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+
+  @keyframes flow-up {
+    0% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+  }
+
+  /* Custom color classes for SLD */
+  .text-solar {
+    color: #fde047;
+  }
+
+  .text-wind {
+    color: #22d3ee;
+  }
+
+  .text-load-commercial {
+    color: #8b5cf6;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
