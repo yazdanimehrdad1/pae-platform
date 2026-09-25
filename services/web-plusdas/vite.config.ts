@@ -26,6 +26,9 @@ export default defineConfig(({ mode: _mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Types generated from backend-ot's contract (scripts/api-types.mjs). The one import
+      // path for API types; on extraction it can point at a published contracts package.
+      "@contracts/backend-ot": path.resolve(__dirname, "./src/api/generated/backend-ot.ts"),
     },
   },
 }));

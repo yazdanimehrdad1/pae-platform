@@ -1,3 +1,8 @@
+import type { components } from '@contracts/backend-ot';
+
+type Schemas = components['schemas'];
+
+// UI view model (what the pages render); built from SiteRecord in src/api/sites.ts.
 export interface Site {
   id: string;
   name: string;
@@ -11,47 +16,10 @@ export interface Site {
   description: string;
 }
 
-export interface SiteLocation {
-  street: string;
-  city: string;
-  state: string;
-  zip_code: number;
-}
-
-export interface SiteCoordinates {
-  lat: number;
-  lng: number;
-}
-
-export interface SiteRecord {
-  site_id: number;
-  client_id: string;
-  name: string;
-  location: SiteLocation;
-  operator: string;
-  capacity: string;
-  device_count: number;
-  description: string;
-  coordinates: SiteCoordinates;
-  created_at: string;
-  updated_at: string;
-  last_update: string;
-  deleted_at: string | null;
-}
-
-export interface SiteCreateRequest {
-  client_id: string;
-  name: string;
-  location: SiteLocation;
-  operator: string;
-  capacity: string;
-  description: string;
-  coordinates: SiteCoordinates;
-}
-
-export type SiteUpdateRequest = Partial<SiteCreateRequest>;
-
-export interface SiteDeleteResponse {
-  site_id: number;
-  mode: 'soft' | 'hard';
-}
+// Wire types: generated from backend-ot's contract, never hand-written.
+export type SiteLocation = Schemas['Location'];
+export type SiteCoordinates = Schemas['Coordinates'];
+export type SiteRecord = Schemas['SiteResponse'];
+export type SiteCreateRequest = Schemas['SiteCreateRequest'];
+export type SiteUpdateRequest = Schemas['SiteUpdateRequest'];
+export type SiteDeleteResponse = Schemas['SiteDeleteResponse'];

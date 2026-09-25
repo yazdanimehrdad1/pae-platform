@@ -1,42 +1,30 @@
 import type { Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse } from '@/shared/types/site';
 import { client, request } from './client';
 
-interface BackendSite {
-  site_id: number;
-  name: string;
-  location: { street: string; city: string; state: string; zip_code: number };
-  operator: string;
-  capacity: string;
-  device_count: number;
-  description: string;
-  last_update: string;
-  status?: 'online' | 'warning' | 'offline';
-  type?: Site['type'];
-}
-
-function toSite(site: BackendSite): Site {
+// backend-ot has no site type or status yet (see docs/backend-gaps.md), so the UI defaults them.
+function toSite(site: SiteRecord): Site {
   return {
     id: String(site.site_id),
     name: site.name,
-    location: `${site.location.city}, ${site.location.state}`,
-    type: site.type ?? 'facility',
-    status: site.status ?? 'online',
+    location: site.location ? `${site.location.city}, ${site.location.state}` : '',
+    type: 'facility',
+    status: 'online',
     deviceCount: site.device_count,
     lastUpdate: site.last_update,
     capacity: site.capacity,
     operator: site.operator,
-    description: site.description,
+    description: site.description ?? '',
   };
 }
 
 export const sitesApi = {
   getAll: async (): Promise<Site[]> => {
-    const data = await client.get<BackendSite[]>('/sites');
+    const data = await client.get<SiteRecord[]>('/sites');
     return data.map(toSite);
   },
 
   getById: async (siteId: string): Promise<Site> => {
-    const data = await client.get<BackendSite>(`/sites/${siteId}`);
+    const data = await client.get<SiteRecord>(`/sites/${siteId}`);
     return toSite(data);
   },
 

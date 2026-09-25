@@ -1,5 +1,6 @@
 import { BASE_URL, client } from './client';
 import { streamSse, type SseEvent } from './sse';
+import type { components } from '@contracts/backend-ot';
 import type { ModbusLiveStreamRequest, ModbusSessionSummary } from '@/shared/types/modbusLiveStream';
 
 const STREAM_PATH = '/modbus-live-stream-raw-registers/stream';
@@ -14,7 +15,7 @@ export const modbusStreamApi = {
 
   list: async (status?: 'active'): Promise<ModbusSessionSummary[]> => {
     const query = status ? `?status=${status}` : '';
-    const data = await client.get<{ sessions: ModbusSessionSummary[] }>(`${SESSIONS_PATH}${query}`);
+    const data = await client.get<components['schemas']['LiveStreamSessionsResponse']>(`${SESSIONS_PATH}${query}`);
     return data.sessions;
   },
 

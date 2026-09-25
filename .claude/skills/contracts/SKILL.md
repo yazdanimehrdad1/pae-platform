@@ -33,8 +33,12 @@ change the provider's code → regenerate → classify → update consumers → 
    `contracts/README.md`, plus a search: `grep -rn "<contract file name>" services/`.
    Today: mock-modbus's map is read by backend-ot's dev seed
    (`services/backend-ot/tests/seed_db/mock_modbus_seed.py`, strict models in
-   `src/schemas/tests_models/mock_modbus_contract.py`); backend-ot's OpenAPI spec has no
-   consumer yet. Work inside one service at a time; a consumer changes only its own files.
+   `src/schemas/tests_models/mock_modbus_contract.py`); backend-ot's OpenAPI spec is consumed
+   by web-plusdas: run `make -C services/web-plusdas api-types` (regenerates
+   `src/api/generated/backend-ot.ts`), then `make -C services/web-plusdas typecheck`. Every
+   compile error there is a frontend call site the change affects, so fix them in the same
+   change. `make -C services/web-plusdas test` fails while those types are stale. Work inside
+   one service at a time; a consumer changes only its own files.
 6. If a new service starts consuming a contract, add it to the Consumers column.
 
 ## Done when

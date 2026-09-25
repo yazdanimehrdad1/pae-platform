@@ -1,43 +1,9 @@
 import type { Device, DeviceRecord, DeviceCreateRequest, DeviceUpdateRequest, DeviceDeleteResponse, DeviceScanRanges } from '@/shared/types/device';
 import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from '@/shared/types/device-point';
+import type { components } from '@contracts/backend-ot';
 import { client, request } from './client';
 
-interface PointResponse {
-  id: number;
-  name: string;
-  category: 'STANDARDIZED' | 'NATIVE' | 'VIRTUAL';
-}
-
-interface ScanRange {
-  start_index: number;
-  count: number;
-}
-
-interface DeviceResponse {
-  device_id: number;
-  name: string;
-  type: string;
-  protocol: string;
-  vendor: string;
-  model: string;
-  host: string;
-  port: number;
-  server_address: number;
-  poll_enabled: boolean;
-  read_from_aggregator: boolean;
-  scan_ranges: { holding: ScanRange[]; input: ScanRange[]; coils: ScanRange[] } | null;
-  scan_ranges_locked: boolean;
-  modbus_address_mode: string;
-  description: string;
-  updated_at: string;
-  points: {
-    standardized: PointResponse[];
-    native: PointResponse[];
-    virtual: PointResponse[];
-  };
-}
-
-function toDevice(device: DeviceResponse): Device {
+function toDevice(device: DeviceRecord): Device {
   const points = [
     ...device.points.standardized,
     ...device.points.native,
@@ -83,7 +49,7 @@ export interface DevicePointsEntry {
 export const devicesApi = {
   getBySite: async (siteId: string): Promise<Device[]> => {
     try {
-      const data = await client.get<DeviceResponse[]>(`/devices/site/${siteId}/devices`);
+      const data = await client.get<DeviceRecord[]>(`/devices/site/${siteId}/devices`);
       return data.map(toDevice);
     } catch (error: unknown) {
       const apiError = error as { detail?: string };
@@ -92,15 +58,12 @@ export const devicesApi = {
     }
   },
 
-  getById: (siteId: string, deviceId: string): Promise<Device> =>
-    client.get(`/devices/site/${siteId}/devices/${deviceId}`),
-
   ping: (siteId: string, deviceId: string): Promise<PingResult> =>
     client.get(`/healthz/site/${siteId}/device/${deviceId}`),
 
   getBySiteWithPoints: async (siteId: string): Promise<DevicePointsEntry[]> => {
     try {
-      const data = await client.get<DeviceResponse[]>(`/devices/site/${siteId}/devices`);
+      const data = await client.get<DeviceRecord[]>(`/devices/site/${siteId}/devices`);
       return data.map(device => ({
         deviceId: device.device_id,
         deviceName: device.name,
@@ -166,7 +129,10 @@ export const devicesApi = {
     client.put(`/device-points/site/${siteId}/device/${deviceId}/${pointId}`, payload),
 
   deletePoints: (siteId: string, deviceId: number, pointIds: number[], opts: { mode: 'soft' | 'hard'; confirm?: boolean }): Promise<DevicePoint[]> => {
-    const params = new URLSearchParams({ point_ids: pointIds.join(','), mode: opts.mode, confirm: String(opts.confirm ?? false) });
+    // point_ids is an integer array in the contract: repeat the parameter (?point_ids=1&point_ids=2).
+    // A comma-joined value is rejected with 422 for more than one id.
+    const params = new URLSearchParams({ mode: opts.mode, confirm: String(opts.confirm ?? false) });
+    for (const pointId of pointIds) params.append('point_ids', String(pointId));
     return request<DevicePoint[]>(`/device-points/site/${siteId}/device/${deviceId}?${params}`, { method: 'DELETE' });
   },
 
@@ -174,14 +140,4 @@ export const devicesApi = {
     client.post(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/restore`, {}),
 };
 
-export interface PingResult {
-  device_id: number;
-  name: string;
-  host: string;
-  port: number;
-  read_from_aggregator: boolean;
-  poll_enabled: boolean;
-  reachable: boolean;
-  latency_ms: number | null;
-  error: string | null;
-}
+export type PingResult = components['schemas']['DeviceHealthStatus'];

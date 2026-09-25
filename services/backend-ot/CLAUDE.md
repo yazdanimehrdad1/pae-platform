@@ -43,7 +43,8 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
 ## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)
 - **Provides** `contracts/openapi/backend-ot.openapi.json`: `make contract` regenerates it, and
   `make test` fails while it is stale (`tests/unit/test_contract.py`). The contract version is
-  `version=` in `create_app()` (`src/app.py`). No consumers yet.
+  `version=` in `create_app()` (`src/app.py`). Consumer: `services/web-plusdas` (generates its
+  TypeScript types from it with `make -C services/web-plusdas api-types`).
 - **Consumes** `contracts/modbus/mock-modbus.devices.json` (dev seed only): seed devices and points
   are built from it (`tests/seed_db/mock_modbus_seed.py`). Never hand-edit seeded devices or points.
   Change the mock and run `make -C services/mock-modbus contract`.

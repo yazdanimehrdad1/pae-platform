@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Save, Trash2, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from "@/shared/types/device-point";
+import type {
+  DevicePoint, DevicePointCreateRequest, DevicePointDataType, DevicePointUpdateRequest,
+} from "@/shared/types/device-point";
 
 type ColumnKey =
   | "name" | "category" | "poll_kind" | "address" | "size" | "data_type"
-  | "unit" | "scale_factor" | "byte_order" | "word_order" | "register_offset";
+  | "unit" | "scale_factor" | "byte_order" | "word_order";
 
 type ColumnKind = "text" | "number" | "enum";
 
@@ -20,7 +22,14 @@ interface Column {
 
 const CATEGORY = ["NATIVE", "STANDARDIZED", "VIRTUAL"];
 const POLL_KIND = ["holding", "input", "coils"];
-const DATA_TYPE = ["int16", "uint16", "int32", "uint32", "float32", "float64", "int64", "uint64"];
+// Every data type backend-ot accepts (its contract enum), common ones first. A Record, so a
+// contract change fails the typecheck until this list matches.
+const DATA_TYPES: Record<DevicePointDataType, true> = {
+  int16: true, uint16: true, int32: true, uint32: true, float32: true, float64: true,
+  int64: true, uint64: true, bool: true, raw: true, enum16: true, enum32: true,
+  bitfield16: true, bitfield32: true, status_word16: true, status_word32: true,
+};
+const DATA_TYPE = Object.keys(DATA_TYPES) as DevicePointDataType[];
 const BYTE_ORDER = ["big", "little"];
 const WORD_ORDER = ["msw_first", "lsw_first"];
 
@@ -35,7 +44,6 @@ const COLUMNS: Column[] = [
   { key: "scale_factor", label: "Scale", kind: "number", minWidth: "min-w-[80px]" },
   { key: "byte_order", label: "Byte Order", kind: "enum", options: BYTE_ORDER, minWidth: "min-w-[110px]" },
   { key: "word_order", label: "Word Order", kind: "enum", options: WORD_ORDER, minWidth: "min-w-[110px]" },
-  { key: "register_offset", label: "Reg Offset", kind: "number", minWidth: "min-w-[90px]" },
 ];
 
 // Number cells accept only numeric (or empty) text; enum cells only their options.
@@ -60,7 +68,7 @@ interface GridRow {
 const EMPTY_VALUES: RowValues = {
   name: "", category: "NATIVE", poll_kind: "holding", address: "", size: "1",
   data_type: "int16", unit: "", scale_factor: "1", byte_order: "big",
-  word_order: "msw_first", register_offset: "0",
+  word_order: "msw_first",
 };
 
 function pointToValues(point: DevicePoint): RowValues {
@@ -75,7 +83,6 @@ function pointToValues(point: DevicePoint): RowValues {
     scale_factor: point.scale_factor != null ? String(point.scale_factor) : "",
     byte_order: point.byte_order || "big",
     word_order: point.word_order || "msw_first",
-    register_offset: point.register_offset != null ? String(point.register_offset) : "",
   };
 }
 
@@ -506,25 +513,24 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
       if (values.name.trim() === "") addError(0);
       const size = Number(values.size);
       if (values.size.trim() === "" || !Number.isInteger(size) || size < 1) addError(4);
-      if (!DATA_TYPE.includes(values.data_type)) addError(5);
+      if (!(DATA_TYPE as string[]).includes(values.data_type)) addError(5);
       if (values.address.trim() !== "") {
         const addressValue = Number(values.address);
         if (!Number.isInteger(addressValue) || addressValue < 0 || addressValue > 65535) addError(3);
       }
       if (values.scale_factor.trim() !== "" && Number.isNaN(Number(values.scale_factor))) addError(7);
-      if (values.register_offset.trim() !== "" && !Number.isInteger(Number(values.register_offset))) addError(10);
       if (!CATEGORY.includes(values.category)) addError(1);
       if (values.poll_kind !== "" && !POLL_KIND.includes(values.poll_kind)) addError(2);
       if (!BYTE_ORDER.includes(values.byte_order)) addError(8);
       if (!WORD_ORDER.includes(values.word_order)) addError(9);
 
-      const rowHasError = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10].some(columnIndex => errors.has(`${rowIndex}:${columnIndex}`));
+      const rowHasError = [0, 1, 2, 3, 4, 5, 7, 8, 9].some(columnIndex => errors.has(`${rowIndex}:${columnIndex}`));
       if (rowHasError) return;
 
       const payload: DevicePointUpdateRequest = {
         name: values.name.trim(),
         size,
-        data_type: values.data_type.trim(),
+        data_type: values.data_type.trim() as DevicePointDataType,
         byte_order: values.byte_order,
         word_order: values.word_order,
         poll_kind: values.poll_kind !== "" ? (values.poll_kind as "holding" | "input" | "coils") : null,
@@ -532,7 +538,6 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
         unit: values.unit.trim() !== "" ? values.unit.trim() : null,
         scale_factor: values.scale_factor.trim() !== "" ? Number(values.scale_factor) : null,
       };
-      if (values.register_offset.trim() !== "") payload.register_offset = Number(values.register_offset);
 
       if (row.id === null) {
         creates.push({ ...payload, category: values.category as DevicePointCreateRequest["category"] } as DevicePointCreateRequest);

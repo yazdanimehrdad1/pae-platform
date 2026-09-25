@@ -1,5 +1,8 @@
-import type { DevicePoint } from './device-point';
+import type { components } from '@contracts/backend-ot';
 
+type Schemas = components['schemas'];
+
+// UI view model (what the pages render); built from DeviceRecord in src/api/devices.ts.
 export interface Device {
   id: string;
   name: string;
@@ -30,61 +33,11 @@ export interface Device {
   };
 }
 
-export interface RegisterRange {
-  start_index: number;
-  count: number;
-}
-
-export interface DeviceScanRanges {
-  holding: RegisterRange[];
-  input: RegisterRange[];
-  coils: RegisterRange[];
-}
-
-export interface DeviceRecord {
-  device_id: number;
-  site_id: number;
-  name: string;
-  type: 'meter' | 'relay' | 'RTAC' | 'inverter' | 'BESS';
-  protocol: 'Modbus' | 'DNP';
-  vendor: string | null;
-  model: string | null;
-  host: string;
-  port: number;
-  timeout: number | null;
-  server_address: number;
-  description: string | null;
-  poll_enabled: boolean;
-  read_from_aggregator: boolean;
-  scan_ranges: DeviceScanRanges | null;
-  scan_ranges_locked: boolean;
-  modbus_address_mode: 'zero_based' | 'one_based';
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  points: { standardized: DevicePoint[]; native: DevicePoint[]; virtual: DevicePoint[] };
-}
-
-export interface DeviceCreateRequest {
-  name: string;
-  type: DeviceRecord['type'];
-  protocol?: DeviceRecord['protocol'];
-  vendor?: string;
-  model?: string;
-  host: string;
-  port?: number;
-  timeout?: number;
-  server_address?: number;
-  description?: string;
-  poll_enabled?: boolean;
-  read_from_aggregator?: boolean;
-  modbus_address_mode?: DeviceRecord['modbus_address_mode'];
-}
-
-export type DeviceUpdateRequest = Partial<DeviceCreateRequest>;
-
-export interface DeviceDeleteResponse {
-  device_id: number;
-  site_id: number;
-  mode: 'soft' | 'hard';
-}
+// Wire types: generated from backend-ot's contract, never hand-written.
+export type RegisterRange = Schemas['RegisterRange'];
+export type DeviceScanRanges = Schemas['DeviceScanRanges'];
+export type DeviceRecord = Schemas['DeviceWithPoints'];
+export type DeviceType = Schemas['DeviceCreateRequest']['type'];
+export type DeviceCreateRequest = Schemas['DeviceCreateRequest'];
+export type DeviceUpdateRequest = Schemas['DeviceUpdate'];
+export type DeviceDeleteResponse = Schemas['DeviceDeleteResponse'];

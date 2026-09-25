@@ -9,6 +9,7 @@ import {
   type CachedSessionMeta,
 } from "../lib/modbusSessionStorage";
 import type {
+  ModbusAddressMode,
   ModbusConnectedEvent,
   ModbusDoneEvent,
   ModbusLiveStreamRequest,
@@ -61,7 +62,8 @@ export function useModbusSessions() {
             kind: summary.kind,
             start_address: summary.start_address,
             end_address: summary.end_address,
-            modbus_address_mode: summary.modbus_address_mode,
+            // The session response types this as a plain string; it echoes the request's enum.
+            modbus_address_mode: summary.modbus_address_mode as ModbusAddressMode,
             interval: summary.interval,
             duration: summary.duration,
             serverStatus: summary.status,

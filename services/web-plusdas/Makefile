@@ -23,7 +23,7 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration build rebuild \
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration api-types build rebuild \
 	up down down-all restart logs ps clean run
 
 # Standalone container. Host port: WEB_PLUSDAS_HTTP_PORT (default 5173). nginx forwards /api to
@@ -45,7 +45,8 @@ help:
 	@echo "  lint / lint-fix  eslint . / auto-fix"
 	@echo "  format           eslint --fix (no formatter configured)"
 	@echo "  typecheck        tsc --noEmit on the app (blocking)"
-	@echo "  test             (no unit tests yet)"
+	@echo "  test             API types match the contract (api-types --check)"
+	@echo "  api-types        regenerate src/api/generated/backend-ot.ts from backend-ot's contract"
 	@echo "  test-integration check the running container: SPA, caching, /api same-origin proxy"
 	@echo "  run              Vite dev server on http://localhost:$(RUN_PORT) (/api -> localhost:8000)"
 	@echo ""
@@ -75,8 +76,14 @@ format: $(NODE_MODULES)
 typecheck: $(NODE_MODULES)
 	npm run typecheck
 
-test:
-	@echo "test: no unit tests configured for web-plusdas yet (see docs/api-types-follow-up.md)"
+# Fails while the generated API types are stale, like backend-ot's test_contract.py: a
+# backend-ot contract change shows up here (root `make check`) until `make api-types` is run.
+test: $(NODE_MODULES)
+	node scripts/api-types.mjs --check
+
+# Regenerate after backend-ot's contract changes (contracts/openapi/backend-ot.openapi.json).
+api-types: $(NODE_MODULES)
+	npm run api-types
 
 # Needs the container running: the root dev stack (`make up` at the repo root) or `make up` here.
 test-integration:

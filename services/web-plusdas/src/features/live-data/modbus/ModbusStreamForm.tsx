@@ -10,10 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Save, Share2, Trash2 } from "lucide-react";
 import { devicesApi } from "@/api";
-import type { ModbusByteOrder, ModbusLiveStreamRequest, ModbusWordOrder } from "@/shared/types/modbusLiveStream";
+import type {
+  ModbusByteOrder, ModbusLiveStreamRequest, ModbusRegisterConfig, ModbusWordOrder,
+} from "@/shared/types/modbusLiveStream";
 
-const DATA_TYPES = ['int16', 'uint16', 'int32', 'uint32', 'float32', 'float64', 'int64', 'uint64'];
-const DEFAULT_DATA_TYPE = 'int16';
+type RegisterDataType = ModbusRegisterConfig['data_type'];
+
+// Every register data type the stream accepts (its contract enum). A Record, so a contract
+// change fails the typecheck until this list matches.
+const DATA_TYPE_SET: Record<RegisterDataType, true> = {
+  int16: true, uint16: true, int32: true, uint32: true, float32: true, float64: true,
+  int64: true, uint64: true, bool: true, raw: true,
+};
+const DATA_TYPES = Object.keys(DATA_TYPE_SET) as RegisterDataType[];
+// backend-ot's default when a config omits data_type; sent explicitly (the contract requires it).
+const DEFAULT_DATA_TYPE: RegisterDataType = 'int16';
 const NONE_VALUE = '__none__';
 
 const registerRowSchema = z.object({
@@ -29,7 +40,7 @@ const formSchema = z.object({
   host: z.string().min(1, 'Host is required'),
   port: z.coerce.number().int().min(1).max(65535),
   server_address: z.coerce.number().int().min(0),
-  kind: z.enum(['holding', 'input', 'coils']),
+  kind: z.enum(['holding', 'input']),
   start_address: z.coerce.number().int().min(0),
   end_address: z.coerce.number().int().min(0),
   modbus_address_mode: z.enum(['zero_based', 'one_based']),
@@ -70,13 +81,14 @@ const defaultValues: FormValues = {
 function toRequest(values: FormValues): ModbusLiveStreamRequest {
   const register_configs: ModbusLiveStreamRequest['register_configs'] = {};
   for (const row of values.registerConfigs) {
-    const config = {
+    // A row with nothing set is not sent; otherwise data_type is always included.
+    if (!row.label && !row.data_type && !row.byte_order && !row.word_order) continue;
+    register_configs[row.address] = {
+      data_type: (row.data_type || DEFAULT_DATA_TYPE) as RegisterDataType,
       ...(row.label ? { label: row.label } : {}),
-      ...(row.data_type ? { data_type: row.data_type } : {}),
       ...(row.byte_order ? { byte_order: row.byte_order as ModbusByteOrder } : {}),
       ...(row.word_order ? { word_order: row.word_order as ModbusWordOrder } : {}),
     };
-    if (Object.keys(config).length > 0) register_configs[row.address] = config;
   }
   const { registerConfigs, alias, ...rest } = values;
   // formSchema requires every field; z.infer only marks them optional because tsconfig has
@@ -223,7 +235,6 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit
               <SelectContent>
                 <SelectItem value="holding">Holding</SelectItem>
                 <SelectItem value="input">Input</SelectItem>
-                <SelectItem value="coils">Coils</SelectItem>
               </SelectContent>
             </Select>
           )} />

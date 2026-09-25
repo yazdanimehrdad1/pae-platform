@@ -10,11 +10,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import type { DeviceRecord, DeviceCreateRequest } from "@/shared/types/device";
+import type { DeviceRecord, DeviceCreateRequest, DeviceType } from "@/shared/types/device";
+
+// Every device type backend-ot accepts (its contract enum). A Record, so adding or removing
+// a type in the contract fails the typecheck until this list matches.
+const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
+  METER: "Meter",
+  RELAY: "Relay",
+  RTAC: "RTAC",
+  IED: "IED",
+  INVERTER: "Inverter",
+  PV: "PV",
+  BESS: "BESS",
+  ES: "Energy storage",
+  GENERATOR: "Generator",
+  LOADBANK: "Load bank",
+};
+const DEVICE_TYPES = Object.keys(DEVICE_TYPE_LABELS) as [DeviceType, ...DeviceType[]];
+
+// Responses carry type/protocol/address mode as plain strings (backend-ot returns them in
+// canonical form); narrow them to the request enums for the form.
+function toDeviceType(value: string): DeviceType {
+  const upper = value.toUpperCase();
+  return (DEVICE_TYPES as string[]).includes(upper) ? (upper as DeviceType) : "METER";
+}
 
 const formSchema = z.object({
   name: z.string().min(1, "Required"),
-  type: z.enum(["meter", "relay", "RTAC", "inverter", "BESS"]),
+  type: z.enum(DEVICE_TYPES),
   protocol: z.enum(["Modbus", "DNP"]),
   vendor: z.string(),
   model: z.string(),
@@ -32,7 +55,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 const emptyValues: FormValues = {
   name: "",
-  type: "meter",
+  type: "METER",
   protocol: "Modbus",
   vendor: "",
   model: "",
@@ -49,8 +72,8 @@ const emptyValues: FormValues = {
 function fromDevice(device: DeviceRecord): FormValues {
   return {
     name: device.name,
-    type: device.type,
-    protocol: device.protocol,
+    type: toDeviceType(device.type),
+    protocol: device.protocol as DeviceCreateRequest["protocol"],
     vendor: device.vendor ?? "",
     model: device.model ?? "",
     host: device.host,
@@ -60,7 +83,7 @@ function fromDevice(device: DeviceRecord): FormValues {
     description: device.description ?? "",
     poll_enabled: device.poll_enabled,
     read_from_aggregator: device.read_from_aggregator,
-    modbus_address_mode: device.modbus_address_mode,
+    modbus_address_mode: device.modbus_address_mode as DeviceCreateRequest["modbus_address_mode"],
   };
 }
 
@@ -123,11 +146,9 @@ export function DeviceFormDialog({ open, onOpenChange, device, onSubmit }: {
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="meter">Meter</SelectItem>
-                    <SelectItem value="relay">Relay</SelectItem>
-                    <SelectItem value="RTAC">RTAC</SelectItem>
-                    <SelectItem value="inverter">Inverter</SelectItem>
-                    <SelectItem value="BESS">BESS</SelectItem>
+                    {DEVICE_TYPES.map((deviceType) => (
+                      <SelectItem key={deviceType} value={deviceType}>{DEVICE_TYPE_LABELS[deviceType]}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               )} />

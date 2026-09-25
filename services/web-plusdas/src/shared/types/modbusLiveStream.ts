@@ -1,30 +1,19 @@
-export type ModbusRegisterKind = 'holding' | 'input' | 'coils';
-export type ModbusAddressMode = 'zero_based' | 'one_based';
-export type ModbusByteOrder = 'big' | 'little';
-export type ModbusWordOrder = 'msw_first' | 'lsw_first';
+import type { components } from '@contracts/backend-ot';
 
-export interface ModbusRegisterConfig {
-  label?: string;
-  data_type?: string;
-  byte_order?: ModbusByteOrder;
-  word_order?: ModbusWordOrder;
-}
+type Schemas = components['schemas'];
+type StreamParams = Schemas['LiveStreamRawRegistersParams'];
 
-export interface ModbusLiveStreamRequest {
-  host: string;
-  port: number;
-  server_address: number;
-  kind: ModbusRegisterKind;
-  start_address: number;
-  end_address: number;
-  modbus_address_mode: ModbusAddressMode;
-  interval: number;
-  duration: number;
-  byte_order: ModbusByteOrder;
-  word_order: ModbusWordOrder;
-  register_configs: Record<string, ModbusRegisterConfig>;
-}
+// Wire types: generated from backend-ot's contract, never hand-written.
+export type ModbusRegisterKind = StreamParams['kind'];
+export type ModbusAddressMode = StreamParams['modbus_address_mode'];
+export type ModbusByteOrder = StreamParams['byte_order'];
+export type ModbusWordOrder = StreamParams['word_order'];
+export type ModbusRegisterConfig = Schemas['LiveStreamRawRegistersRegisterConfig'];
+export type ModbusLiveStreamRequest = StreamParams;
+export type ModbusSessionSummary = Schemas['LiveStreamSessionInfo'];
 
+// Server-sent event payloads of the stream. The OpenAPI contract does not describe SSE
+// bodies, so these stay hand-written (see docs/backend-gaps.md).
 export interface ModbusConnectedEvent {
   session_id: string;
 }
@@ -46,20 +35,7 @@ export interface ModbusDoneEvent {
   duration_s: number;
 }
 
-export interface ModbusSessionSummary {
-  session_id: string;
-  status: string;
-  host: string;
-  port: number;
-  server_address: number;
-  kind: ModbusRegisterKind;
-  start_address: number;
-  end_address: number;
-  interval: number;
-  duration: number;
-  modbus_address_mode: ModbusAddressMode;
-}
-
+// UI state for one attached stream (not a wire type).
 export type ModbusAttachment = 'idle' | 'connecting' | 'streaming' | 'error';
 
 export interface ModbusSessionState {
