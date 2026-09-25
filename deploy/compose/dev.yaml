@@ -13,3 +13,6 @@ include:
       - ../../services/backend-ot/compose.yaml
       - backend-ot.dev.override.yaml
   - path: ../../services/mock-modbus/compose.yaml
+  - path:
+      - ../../services/web-plusdas/compose.yaml
+      - web-plusdas.dev.override.yaml

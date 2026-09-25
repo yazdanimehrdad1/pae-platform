@@ -1,0 +1,25 @@
+import { useEffect, useState } from 'react';
+import { client, getErrorMessage } from '@/api/client';
+import type { BackendHealth } from '@/shared/types/api';
+
+// Starter page: proves the SPA reaches backend-ot on its own origin (/api/healthz).
+export default function App() {
+  const [health, setHealth] = useState<BackendHealth | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    client.get<BackendHealth>('/healthz')
+      .then(setHealth)
+      .catch((caught: unknown) => setError(getErrorMessage(caught, 'backend-ot is unreachable')));
+  }, []);
+
+  return (
+    <main>
+      <h1>__SERVICE__</h1>
+      <p>__DESCRIPTION__</p>
+      {error && <p role="alert">API: {error}</p>}
+      {health && <p>API: {health.ok ? 'healthy' : 'unhealthy'} ({health.detail})</p>}
+      {!health && !error && <p>API: checking…</p>}
+    </main>
+  );
+}

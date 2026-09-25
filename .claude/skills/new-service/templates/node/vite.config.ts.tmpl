@@ -1,0 +1,42 @@
+/// <reference types="vitest/config" />
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import path from "path";
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  server: {
+    host: "::",
+    // `make run` passes --port (RUN_PORT, default __DEV_PORT__); the container owns __PORT__.
+    port: __DEV_PORT__,
+    proxy: {
+      // Same origin in dev as in the container: the browser calls /api on this server,
+      // which forwards to backend-ot (the dev stack's by default). See CLAUDE.md "Same-origin".
+      '/api': {
+        target: process.env.__ENV_PREFIX___DEV_API_TARGET ?? 'http://localhost:8000',
+        changeOrigin: true,
+        // Follow backend slash-redirects server-side so they never reach the
+        // browser as a cross-origin request. Dev only — see CLAUDE.md "Same-origin".
+        followRedirects: true,
+      },
+    },
+  },
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      // Types generated from backend-ot's contract (scripts/api-types.mjs). The one import
+      // path for API types; on extraction it can point at a published contracts package.
+      "@contracts/backend-ot": path.resolve(__dirname, "./src/api/generated/backend-ot.ts"),
+    },
+  },
+  // Unit tests (`make test`): *.test.ts(x) next to the code. Node by default (fast); a test
+  // that needs a DOM starts with `// @vitest-environment jsdom`.
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/test/setup.ts"],
+    restoreMocks: true,
+    unstubGlobals: true,
+  },
+});

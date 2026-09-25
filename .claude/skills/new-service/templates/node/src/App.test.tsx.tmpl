@@ -1,0 +1,31 @@
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import App from './App';
+
+function stubFetch(status: number, body: unknown) {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+describe('App', () => {
+  it('shows backend-ot health, fetched on the same origin', async () => {
+    const fetchMock = stubFetch(200, { ok: true, detail: 'API is healthy', device_id: 1, host: 'h', port: 502 });
+
+    render(<App />);
+
+    expect(await screen.findByText('API: healthy (API is healthy)')).toBeTruthy();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/healthz');
+  });
+
+  it('reports an unreachable backend', async () => {
+    stubFetch(502, { detail: 'Bad Gateway' });
+
+    render(<App />);
+
+    expect((await screen.findByRole('alert')).textContent).toBe('API: Bad Gateway');
+  });
+});

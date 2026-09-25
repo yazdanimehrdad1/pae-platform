@@ -1,0 +1,135 @@
+# __SERVICE__ — service Makefile (__DESCRIPTION__: Vite + React SPA, served by nginx).
+#
+# Run from anywhere with `make -C services/__SERVICE__ <target>` (or from this directory).
+# Standard targets (same names in every service): install lint format typecheck test
+# test-integration build up down logs run. Tooling: npm only; every tool runs from
+# package-lock.json (host targets run `npm ci` first when node_modules is missing or stale).
+
+# ---------------------------------------------------------------------------
+# Shell: POSIX sh everywhere. On Windows, GNU make would otherwise fall back to cmd.exe,
+# so point it at Git for Windows' sh (8.3 path: make can't handle spaces in SHELL).
+# Override with `make GIT_SH=/path/to/sh.exe` if Git lives elsewhere.
+# ---------------------------------------------------------------------------
+ifeq ($(OS),Windows_NT)
+GIT_SH ?= $(firstword $(wildcard C:/PROGRA~1/Git/bin/sh.exe C:/PROGRA~1/Git/usr/bin/sh.exe $(LOCALAPPDATA)/Programs/Git/bin/sh.exe))
+ifeq ($(GIT_SH),)
+$(error Git for Windows sh.exe not found; pass GIT_SH=<path to sh.exe>)
+endif
+SHELL := $(GIT_SH)
+# Stop Git-Bash rewriting container paths like /usr/share/nginx into C:/Program Files/Git/usr/....
+export MSYS_NO_PATHCONV := 1
+export MSYS2_ARG_CONV_EXCL := *
+endif
+.SHELLFLAGS := -ec
+
+.DEFAULT_GOAL := help
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration api-types build rebuild \
+	up down down-all restart logs ps clean run
+
+# Standalone container. Host port: __ENV_PREFIX___HTTP_PORT (default __PORT__). nginx forwards /api to
+# __ENV_PREFIX___API_UPSTREAM (default: backend-ot's host port via host.docker.internal).
+COMPOSE   := docker compose -f compose.yaml
+HTTP_PORT := $(or $(__ENV_PREFIX___HTTP_PORT),__PORT__)
+
+# Port for `make run` (the Vite dev server), so it can run beside the container on __PORT__.
+RUN_PORT ?= __DEV_PORT__
+
+# npm writes this file on every install; it is older than the lockfile when node_modules is stale.
+NODE_MODULES := node_modules/.package-lock.json
+
+help:
+	@echo "__SERVICE__ — make -C services/__SERVICE__ <target>"
+	@echo ""
+	@echo "Develop (host, via npm):"
+	@echo "  install          npm ci (node_modules from package-lock.json)"
+	@echo "  lint / lint-fix  eslint . / auto-fix"
+	@echo "  format           eslint --fix (no formatter configured)"
+	@echo "  typecheck        tsc --noEmit on the app (blocking)"
+	@echo "  test             API types match the contract, then vitest (unit + component, no Docker)"
+	@echo "  api-types        regenerate src/api/generated/backend-ot.ts from backend-ot's contract"
+	@echo "  test-integration check the running container: SPA, caching, /api same-origin proxy"
+	@echo "  run              Vite dev server on http://localhost:$(RUN_PORT) (/api -> localhost:8000)"
+	@echo ""
+	@echo "Containers (docker compose):"
+	@echo "  build / rebuild  build the image (rebuild = no cache)"
+	@echo "  up / down / restart / logs / ps / clean"
+	@echo "  down-all         DESTRUCTIVE: down + delete volumes, images, network"
+
+# ---------------------------------------------------------------------------
+# Develop
+# ---------------------------------------------------------------------------
+$(NODE_MODULES): package.json package-lock.json
+	npm ci --no-audit --no-fund
+
+install:
+	npm ci --no-audit --no-fund
+
+lint: $(NODE_MODULES)
+	npm run lint
+
+lint-fix: $(NODE_MODULES)
+	npm run lint -- --fix
+
+format: $(NODE_MODULES)
+	npm run lint -- --fix
+
+typecheck: $(NODE_MODULES)
+	npm run typecheck
+
+# First fails while the generated API types are stale, like backend-ot's test_contract.py (a
+# backend-ot contract change shows up here, in root `make check`, until `make api-types`);
+# then the vitest suite (src/**/*.test.ts(x)).
+test: $(NODE_MODULES)
+	node scripts/api-types.mjs --check
+	npm run test
+
+# Regenerate after backend-ot's contract changes (contracts/openapi/backend-ot.openapi.json).
+api-types: $(NODE_MODULES)
+	npm run api-types
+
+# Needs the container running: the root dev stack (`make up` at the repo root) or `make up` here.
+test-integration:
+	node scripts/check_same_origin.mjs --url http://localhost:$(HTTP_PORT)
+
+run: $(NODE_MODULES)
+	npm run dev -- --port $(RUN_PORT)
+
+# ---------------------------------------------------------------------------
+# Containers
+# ---------------------------------------------------------------------------
+# The monorepo root takes priority: while its dev stack (compose project pae-dev) is running,
+# this service already runs there. Run `make down` at the repo root before running it alone.
+require-no-dev-stack:
+	@if docker compose ls -q 2>/dev/null | grep -qx pae-dev; then \
+		echo "__SERVICE__: the platform dev stack (pae-dev) is running; run 'make down' at the repo root first" >&2; \
+		exit 1; \
+	fi
+
+build: require-no-dev-stack
+	$(COMPOSE) build
+
+rebuild: require-no-dev-stack
+	$(COMPOSE) build --no-cache
+
+up: require-no-dev-stack
+	$(COMPOSE) up -d --build --wait
+
+down:
+	$(COMPOSE) down
+
+# DESTRUCTIVE: also deletes this stack's volumes (it has none), the images it uses (built and
+# pulled) and its network. `down` keeps them.
+down-all:
+	$(COMPOSE) down --volumes --rmi all --remove-orphans
+
+restart: down up
+
+logs:
+	$(COMPOSE) logs -f __SERVICE__
+
+ps:
+	$(COMPOSE) ps
+
+# Removes this project's containers and the images it built.
+clean:
+	$(COMPOSE) down --rmi local

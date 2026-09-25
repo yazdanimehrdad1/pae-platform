@@ -1,0 +1,141 @@
+{
+  "siteId": "site-001",
+  "siteName": "Main Microgrid Site",
+  "devices": [
+    {
+      "id": "grid-1",
+      "type": "grid",
+      "name": "Utility Grid",
+      "voltage": "13.8 kV",
+      "position": {
+        "x": 500,
+        "y": 0
+      }
+    },
+    {
+      "id": "transformer-1",
+      "type": "transformer",
+      "name": "Main Transformer",
+      "voltage": "13.8/0.48 kV",
+      "properties": {
+        "capacity": "1000 kVA"
+      },
+      "position": {
+        "x": 500,
+        "y": 200
+      }
+    },
+    {
+      "id": "pv-1",
+      "type": "pv",
+      "name": "Solar PV",
+      "voltage": "480V",
+      "properties": {
+        "capacity": "100 kWp"
+      },
+      "position": {
+        "x": 200,
+        "y": 500
+      }
+    },
+    {
+      "id": "wind-1",
+      "type": "wind",
+      "name": "Wind Turbine",
+      "voltage": "480V",
+      "properties": {
+        "capacity": "60 kW"
+      },
+      "position": {
+        "x": 500,
+        "y": 500
+      }
+    },
+    {
+      "id": "bess-1",
+      "type": "bess",
+      "name": "Battery ESS",
+      "voltage": "480V",
+      "properties": {
+        "capacity": "200 kWh"
+      },
+      "position": {
+        "x": 800,
+        "y": 500
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "grid-1",
+      "to": "transformer-1",
+      "flowDirection": "down",
+      "fromPoint": {
+        "side": "bottom"
+      },
+      "toPoint": {
+        "side": "top"
+      }
+    },
+    {
+      "from": "transformer-1",
+      "to": "main-bus",
+      "flowDirection": "down",
+      "fromPoint": {
+        "side": "bottom"
+      },
+      "toPoint": {
+        "side": "top",
+        "position": "center"
+      }
+    },
+    {
+      "from": "main-bus",
+      "to": "pv-1",
+      "flowDirection": "up",
+      "fromPoint": {
+        "side": "top",
+        "position": "left"
+      },
+      "toPoint": {
+        "side": "top"
+      }
+    },
+    {
+      "from": "main-bus",
+      "to": "wind-1",
+      "flowDirection": "up",
+      "fromPoint": {
+        "side": "bottom",
+        "position": "middle"
+      },
+      "toPoint": {
+        "side": "top"
+      }
+    },
+    {
+      "from": "main-bus",
+      "to": "bess-1",
+      "flowDirection": "down",
+      "fromPoint": {
+        "side": "bottom",
+        "position": "right"
+      },
+      "toPoint": {
+        "side": "top"
+      }
+    }
+  ],
+  "buses": [
+    {
+      "id": "main-bus",
+      "label": "MAIN BUS",
+      "voltage": "480V",
+      "position": {
+        "x": 500,
+        "y": 350,
+        "width": 900
+      }
+    }
+  ]
+}

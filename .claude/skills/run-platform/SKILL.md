@@ -29,13 +29,15 @@ production manifest.
 
 ## Default host ports (the registry in the root CLAUDE.md)
 
-backend-ot http **8000**, postgres **5435**, redis **6380** · mock-modbus **502**. Override them
+backend-ot http **8000**, postgres **5435**, redis **6380** · mock-modbus **502** · web-plusdas
+http **5173** (the UI; its Vite dev server `make -C services/web-plusdas run` uses 5174). Override them
 only when something *outside* the platform holds a port:
 - Dev stack: in the root `.env` (copy `.env.example`), or in the shell.
 - One service alone: in the shell, e.g. `BACKEND_OT_HTTP_PORT=18000 make -C services/backend-ot up`.
 - Variables: `BACKEND_OT_HTTP_PORT`, `BACKEND_OT_POSTGRES_PORT`, `BACKEND_OT_REDIS_PORT`,
-  `MOCK_MODBUS_PORT`; standalone backend-ot's Modbus target: `BACKEND_OT_AGGREGATOR_HOST` /
-  `BACKEND_OT_AGGREGATOR_PORT`.
+  `MOCK_MODBUS_PORT`, `WEB_PLUSDAS_HTTP_PORT`; standalone backend-ot's Modbus target:
+  `BACKEND_OT_AGGREGATOR_HOST` / `BACKEND_OT_AGGREGATOR_PORT`; standalone web-plusdas's API
+  upstream: `WEB_PLUSDAS_API_UPSTREAM` (default `http://host.docker.internal:8000`).
 
 "Port is already allocated" after a root `make up` means something *outside* the platform holds
 it: `docker ps --format "{{.Names}} {{.Ports}}"`. Ask the user before stopping anything that

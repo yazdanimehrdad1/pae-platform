@@ -1,7 +1,8 @@
 #!/bin/sh
 # pae-platform pre-commit hook. Enable once per clone with `make hooks`.
 #
-# 1. `make -C services/<svc> lint` for every service with staged changes;
+# 1. `make -C services/<svc> lint` for every service with staged changes (each service's
+#    Makefile owns its toolchain: ruff via uv for Python, eslint via npm for web-plusdas);
 # 2. `make check-boundaries` (no cross-service imports/paths, mock-modbus stays dev-only);
 # 3. `make contracts-check` when a service or contracts/ changed (regenerated contracts must be
 #    staged in the same commit).

@@ -1,0 +1,58 @@
+# __SERVICE__
+
+__DESCRIPTION__
+
+Owns: _(fill in: the pages and user workflows this UI is responsible for)._
+Does NOT own: any API or data (backend-ot owns them), the API contract (backend-ot publishes
+it), or the production reverse proxy in front of it.
+
+## The invariant: this service stays extractable
+It must stay possible to move it into its own repo with
+`git subtree split --prefix=services/__SERVICE__`:
+- It depends only on `contracts/` and its own files. Never import from, reference or read
+  `services/<other>/`. Talk to backend-ot over HTTP, at `/api` only.
+- Nothing outside this directory imports from it (the dev stack's `deploy/compose/` include is
+  the one exception).
+- Everything it needs lives here (package.json, lockfile, tsconfig, eslint, Dockerfile,
+  Makefile, compose.yaml). No root package.json and no workspace.
+- The Docker build context is this directory. `contracts/` is not in it, so the generated API
+  types are committed (`src/api/generated/`), never read from `../../contracts` at build time.
+- The root `make check-boundaries` enforces the path rules for *.ts/*.tsx/*.js/package.json/
+  tsconfig*.json.
+
+## Commands
+Run from the repo root as `make -C services/__SERVICE__ <target>` (or `make <target>` here).
+Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists all. **npm only**:
+dependencies are pinned in `package-lock.json`, and host targets run `npm ci` first when
+`node_modules` is stale. Node 24 (`.nvmrc`). Ask the user before adding a dependency.
+- `make install` (`npm ci`) · `make lint` (eslint, blocking) · `make typecheck` (tsc strict, blocking).
+- `make test`: the API-types drift check, then vitest (`src/**/*.test.ts(x)`, Node by default;
+  add `// @vitest-environment jsdom` to a test that needs a DOM).
+- `make api-types`: regenerate `src/api/generated/backend-ot.ts` after backend-ot's contract changes.
+- `make run`: Vite dev server on http://localhost:__DEV_PORT__, with `/api` proxied to
+  `__ENV_PREFIX___DEV_API_TARGET` (default http://localhost:8000).
+- Development normally uses the whole platform: `make up` at the repo root (UI on
+  http://localhost:__PORT__). Running this service alone is the exception: `make down` at the root
+  first. `build`/`up` refuse while the dev stack runs.
+- `make test-integration`: checks the running container (SPA fallback, cache headers,
+  `/config.js`, `/api/healthz` through this origin). Needs the dev stack up.
+
+## Runtime config and same-origin
+- **No build-time configuration** (no `VITE_*`). Runtime values come from `/config.js`
+  (`window.__APP_CONFIG__`), written at container start by `docker/40-app-config.sh` and read
+  only through `src/shared/config/runtime.ts`. A new value goes there, in
+  `docker/config.js.template` + the script's envsubst list, `public/config.js`, and `.env.example`.
+- **API calls are same-origin `/api/...` only**, through `src/api/client.ts`. Never an absolute
+  URL, never CORS, never a trailing slash (backend-ot redirects it). nginx (container) and the
+  Vite proxy (`make run`) forward `/api` to backend-ot. A streaming (SSE) route needs its own nginx
+  location with buffering off (see the comment in `docker/nginx/default.conf.template`).
+
+## Contracts
+- Consumes `contracts/openapi/backend-ot.openapi.json` through the generated types, imported only
+  as `@contracts/backend-ot`. Wire types in `src/shared/types/` are aliases of generated schemas,
+  never hand-written. `scripts/api-types.mjs` is the one place that knows the contract's path.
+- Provides no contract.
+
+## Gotchas
+- On Windows, a Node script that calls `process.exit()` after `fetch` can crash (libuv
+  assertion). Set `process.exitCode` instead.

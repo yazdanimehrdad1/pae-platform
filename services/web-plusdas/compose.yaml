@@ -1,0 +1,28 @@
+# web-plusdas — standalone: `make -C services/web-plusdas up`.
+# Also included by the monorepo dev stack (deploy/compose/dev.yaml), so it follows the
+# service convention: service name = the service dir, no container_name, no external
+# networks, host port overridable with WEB_PLUSDAS_HTTP_PORT.
+name: web-plusdas
+
+services:
+  web-plusdas:
+    image: web-plusdas:dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      # Host port only; inside the container nginx always listens on 80.
+      - "${WEB_PLUSDAS_HTTP_PORT:-5173}:80"
+    # Runtime settings (APP_API_BASE_URL); optional. See .env.example.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Where nginx forwards /api/*. Standalone default: backend-ot's published host port, so
+      # `make -C services/backend-ot up` + `make -C services/web-plusdas up` work side by side.
+      # The monorepo dev stack overrides this to the `backend-ot` service name.
+      - API_UPSTREAM=${WEB_PLUSDAS_API_UPSTREAM:-http://host.docker.internal:8000}
+    extra_hosts:
+      # Docker Desktop provides host.docker.internal; this makes it resolve on Linux too.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

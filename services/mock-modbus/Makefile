@@ -67,7 +67,7 @@ format:
 	$(UV_RUN) ruff check --fix app tests
 
 typecheck:
-	@echo "typecheck: no type checker configured for mock-modbus yet (see MONOREPO_ROADMAP.md R5)"
+	@echo "typecheck: no type checker configured for mock-modbus yet (see TODO_MONOREPO_TASKS.md, Hardening)"
 
 test:
 	$(UV_RUN) pytest $(or $(TEST_PATH),tests) -v --color=yes -rfE

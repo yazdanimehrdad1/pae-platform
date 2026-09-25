@@ -1,0 +1,145 @@
+{
+  "siteId": "site-001",
+  "devices": [
+    {
+      "id": "grid-1",
+      "status": "online",
+      "power": "13.8 kV",
+      "powerFlow": {
+        "direction": "import",
+        "valueKW": 120
+      }
+    },
+    {
+      "id": "transformer-1",
+      "status": "online",
+      "power": "13.8/0.48 kV"
+    },
+    {
+      "id": "pv-1",
+      "status": "online",
+      "power": "75 kW",
+      "powerFlow": {
+        "direction": "generate",
+        "valueKW": 75
+      }
+    },
+    {
+      "id": "wind-1",
+      "status": "online",
+      "power": "45 kW",
+      "powerFlow": {
+        "direction": "generate",
+        "valueKW": 45
+      }
+    },
+    {
+      "id": "bess-1",
+      "status": "warning",
+      "power": "± 50 kW",
+      "powerFlow": {
+        "direction": "charge",
+        "valueKW": 50
+      },
+      "properties": {
+        "soc": 68
+      }
+    }
+  ],
+  "summary": [
+    {
+      "label": "Total Generation",
+      "value": "120 kW",
+      "subtext": "Solar + Wind",
+      "color": "text-accent",
+      "icon": "Zap",
+      "trend": {
+        "value": 5.2,
+        "direction": "up"
+      }
+    },
+    {
+      "label": "Grid Import",
+      "value": "150 kW",
+      "subtext": "From Utility",
+      "color": "text-primary",
+      "icon": "Power",
+      "trend": {
+        "value": 2.1,
+        "direction": "down"
+      }
+    },
+    {
+      "label": "Battery Status",
+      "value": "Charging",
+      "subtext": "+50 kW",
+      "color": "text-warning",
+      "icon": "Battery"
+    },
+    {
+      "label": "Battery SOC",
+      "value": "68%",
+      "subtext": "200 kWh capacity",
+      "color": "text-warning",
+      "icon": "Battery"
+    },
+    {
+      "label": "Solar PV",
+      "value": "75 kW",
+      "subtext": "100 kWp capacity",
+      "color": "text-solar",
+      "icon": "Sun",
+      "trend": {
+        "value": 8.5,
+        "direction": "up"
+      }
+    },
+    {
+      "label": "Wind Power",
+      "value": "45 kW",
+      "subtext": "60 kW capacity",
+      "color": "text-wind",
+      "icon": "Wind",
+      "trend": {
+        "value": 3.2,
+        "direction": "up"
+      }
+    },
+    {
+      "label": "System Voltage",
+      "value": "480V",
+      "subtext": "Main Bus",
+      "color": "text-foreground",
+      "icon": "Zap"
+    },
+    {
+      "label": "Total Load",
+      "value": "220 kW",
+      "subtext": "Active demand",
+      "color": "text-destructive",
+      "icon": "Building2",
+      "trend": {
+        "value": 1.5,
+        "direction": "up"
+      }
+    },
+    {
+      "label": "Net Export",
+      "value": "-50 kW",
+      "subtext": "Importing from grid",
+      "color": "text-primary",
+      "icon": "ArrowDownUp"
+    },
+    {
+      "label": "System Efficiency",
+      "value": "94.2%",
+      "subtext": "Overall performance",
+      "color": "text-success",
+      "icon": "Zap",
+      "trend": {
+        "value": 0.8,
+        "direction": "up"
+      }
+    }
+  ]
+}
