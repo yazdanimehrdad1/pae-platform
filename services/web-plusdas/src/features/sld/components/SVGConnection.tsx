@@ -50,6 +50,15 @@ export const SVGConnection = ({
     return { minX, minY, width, height, lineX1, lineY1, lineX2, lineY2, pathD, pathId, uniqueId, isReversed };
   }, [x1, y1, x2, y2, flowDirection]);
 
+  // Hooks run on every render, before the early return below (rules of hooks).
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    setIsReady(false);
+    const timer = setTimeout(() => setIsReady(true), 300);
+    return () => clearTimeout(timer);
+  }, [x1, y1, x2, y2]);
+
   if (!connectionData) return null;
 
   const { minX, minY, width, height, lineX1, lineY1, lineX2, lineY2, pathD, pathId } = connectionData;
@@ -58,14 +67,6 @@ export const SVGConnection = ({
                        powerFlowDirection === "generate" ||
                        powerFlowDirection === "discharge";
   const dotColor = isGeneration ? "#22c55e" : "#ef4444";
-
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    setIsReady(false);
-    const timer = setTimeout(() => setIsReady(true), 300);
-    return () => clearTimeout(timer);
-  }, [x1, y1, x2, y2]);
 
   const svgKey = `svg-${Math.round(x1)}-${Math.round(y1)}-${Math.round(x2)}-${Math.round(y2)}`;
 

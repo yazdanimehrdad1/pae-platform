@@ -25,8 +25,11 @@ const getMockValue = (pointName: string, i: number, timeSeed: number) => {
   return base + offset + noise;
 };
 
+// One row per timestamp, with one numeric column per point name.
+type SeriesRow = { timestamp: number } & Record<string, number>;
+
 export const useMockSeries = (points: string[], timeRangeHours: number = 1) => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<SeriesRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const pointsKey = points.join(',');
@@ -34,13 +37,13 @@ export const useMockSeries = (points: string[], timeRangeHours: number = 1) => {
   useEffect(() => {
     const generateSeries = () => {
       const now = Date.now();
-      const seriesData: any[] = [];
+      const seriesData: SeriesRow[] = [];
       const totalMinutes = timeRangeHours * 60;
       const numberOfPoints = Math.floor(totalMinutes / 1);
 
       for (let i = numberOfPoints; i >= 0; i--) {
         const timestamp = now - (i * 60000);
-        const pointData: any = { timestamp };
+        const pointData: SeriesRow = { timestamp };
         points.forEach(point => {
           pointData[point] = getMockValue(point, i, i);
         });
