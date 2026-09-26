@@ -96,6 +96,14 @@ class Site(Base):
         comment="Geographic coordinates as JSON: {lat: float, lng: float}"
     )
 
+    profile: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="default",
+        server_default="default",
+        comment="Site profile key (a package under src/site_profiles/); 'default' offers only the common endpoints"
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -468,6 +476,20 @@ class DevicePoint(Base):
         default="NATIVE",
         server_default="NATIVE",
         comment="Point type: NATIVE (by device), STANDARDIZED, or VIRTUAL"
+    )
+
+    # DB column "class"; `class` is a Python keyword, so the attribute is point_class.
+    point_class: Mapped[str | None] = mapped_column(
+        "class",
+        String(16),
+        nullable=True,
+        comment="Optional signal class: ANALOG, BINARY, ALARM or CONTROL"
+    )
+
+    severity: Mapped[str | None] = mapped_column(
+        String(16),
+        nullable=True,
+        comment="Optional severity: HIGH, MEDIUM or LOW"
     )
 
     deleted_at: Mapped[datetime | None] = mapped_column(

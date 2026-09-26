@@ -2,14 +2,25 @@
 Unit tests for request validation in schemas.api_models.requests.
 
 Guards that the API accepts exactly the supported data_type / device_type vocabulary,
-and that a point's size matches its data_type's register width.
+that a point's size matches its data_type's register width, and that a point's optional
+class / severity accept exactly their vocabulary in any casing, under the wire name "class".
 """
 
 import pytest
 from pydantic import ValidationError
 
-from schemas.api_models.requests import DeviceCreateRequest, DevicePointCreateRequest
-from schemas.api_models.types import SUPPORTED_DATA_TYPES, SUPPORTED_DEVICE_TYPES, register_size
+from schemas.api_models.requests import (
+    DeviceCreateRequest,
+    DevicePointCreateRequest,
+    DevicePointUpdateRequest,
+)
+from schemas.api_models.types import (
+    SUPPORTED_DATA_TYPES,
+    SUPPORTED_DEVICE_TYPES,
+    SUPPORTED_POINT_CLASSES,
+    SUPPORTED_SEVERITIES,
+    register_size,
+)
 
 
 class TestDataTypeValidation:
@@ -61,3 +72,41 @@ class TestDeviceTypeValidation:
     def test_unsupported_device_type_rejected(self, device_type: str):
         with pytest.raises(ValidationError):
             DeviceCreateRequest.model_validate(self._payload(device_type))
+
+class TestPointClassAndSeverity:
+    def _payload(self, **fields: str | None) -> dict[str, str | int | None]:
+        return {"name": "test_point", "size": 1, "data_type": "uint16", **fields}
+
+    def test_both_default_to_none(self):
+        point = DevicePointCreateRequest.model_validate(self._payload())
+        assert point.point_class is None
+        assert point.severity is None
+
+    @pytest.mark.parametrize("point_class", sorted(SUPPORTED_POINT_CLASSES))
+    def test_every_class_accepted_under_wire_name(self, point_class: str):
+        point = DevicePointCreateRequest.model_validate(self._payload(**{"class": point_class}))
+        assert point.point_class == point_class
+
+    @pytest.mark.parametrize("severity", sorted(SUPPORTED_SEVERITIES))
+    def test_every_severity_accepted(self, severity: str):
+        point = DevicePointCreateRequest.model_validate(self._payload(severity=severity))
+        assert point.severity == severity
+
+    @pytest.mark.parametrize("model", [DevicePointCreateRequest, DevicePointUpdateRequest])
+    def test_casing_is_normalized(
+        self, model: type[DevicePointCreateRequest] | type[DevicePointUpdateRequest]
+    ):
+        point = model.model_validate(self._payload(**{"class": "alarm", "severity": "High"}))
+        assert point.point_class == "ALARM"
+        assert point.severity == "HIGH"
+
+    @pytest.mark.parametrize(
+        "fields", [{"class": "METERING"}, {"class": ""}, {"severity": "CRITICAL"}]
+    )
+    def test_unknown_values_rejected(self, fields: dict[str, str]):
+        with pytest.raises(ValidationError):
+            DevicePointCreateRequest.model_validate(self._payload(**fields))
+
+    def test_serializes_as_class_on_the_wire(self):
+        point = DevicePointCreateRequest.model_validate(self._payload(**{"class": "ANALOG"}))
+        assert point.model_dump(by_alias=True)["class"] == "ANALOG"

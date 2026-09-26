@@ -263,6 +263,40 @@
         "title": "DeviceDeleteResponse",
         "type": "object"
       },
+      "DeviceEnergy": {
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "device_name": {
+            "title": "Device Name",
+            "type": "string"
+          },
+          "energy_kwh": {
+            "title": "Energy Kwh",
+            "type": "number"
+          },
+          "point_id": {
+            "description": "The power point that was integrated",
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device_id",
+          "device_name",
+          "point_id",
+          "sample_count",
+          "energy_kwh"
+        ],
+        "title": "DeviceEnergy",
+        "type": "object"
+      },
       "DeviceHealthStatus": {
         "properties": {
           "device_id": {
@@ -373,6 +407,24 @@
             "title": "Category",
             "type": "string"
           },
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
+          },
           "data_type": {
             "description": "Register interpretation. Width is encoded in the type (e.g. enum32, bitfield16); `size` must match register_size(data_type).",
             "enum": [
@@ -443,6 +495,23 @@
             ],
             "title": "Scale Factor"
           },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
+          },
           "size": {
             "minimum": 1.0,
             "title": "Size",
@@ -507,6 +576,24 @@
             "description": "Point category: NATIVE, STANDARDIZED, or VIRTUAL",
             "title": "Category",
             "type": "string"
+          },
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
           },
           "data_type": {
             "description": "Data type",
@@ -579,6 +666,23 @@
             ],
             "description": "Scale factor",
             "title": "Scale Factor"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
           },
           "site_id": {
             "description": "Site ID",
@@ -661,6 +765,24 @@
               }
             ],
             "title": "Byte Order"
+          },
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
           },
           "data_type": {
             "anyOf": [
@@ -745,6 +867,23 @@
               }
             ],
             "title": "Scale Factor"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
           },
           "size": {
             "anyOf": [
@@ -1231,6 +1370,44 @@
         "title": "DeviceWithPoints",
         "type": "object"
       },
+      "EnergySummaryResult": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceEnergy"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "end_time": {
+            "format": "date-time",
+            "title": "End Time",
+            "type": "string"
+          },
+          "energy_kwh": {
+            "description": "Sum over devices",
+            "title": "Energy Kwh",
+            "type": "number"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "start_time",
+          "end_time",
+          "energy_kwh"
+        ],
+        "title": "EnergySummaryResult",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1283,6 +1460,81 @@
           "device_id"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "InverterAvailabilityResult": {
+        "properties": {
+          "availability_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online / total samples x 100; null if no readings",
+            "title": "Availability Pct"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "device_name": {
+            "title": "Device Name",
+            "type": "string"
+          },
+          "end_time": {
+            "format": "date-time",
+            "title": "End Time",
+            "type": "string"
+          },
+          "online_sample_count": {
+            "title": "Online Sample Count",
+            "type": "integer"
+          },
+          "online_states": {
+            "description": "State codes counted as available",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Online States",
+            "type": "array"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "state_points": {
+            "description": "The state points that were evaluated",
+            "items": {
+              "type": "string"
+            },
+            "title": "State Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "site_id",
+          "device_id",
+          "device_name",
+          "start_time",
+          "end_time",
+          "state_points",
+          "online_states",
+          "sample_count",
+          "online_sample_count"
+        ],
+        "title": "InverterAvailabilityResult",
         "type": "object"
       },
       "LatestMeta": {
@@ -1757,8 +2009,79 @@
         "title": "Location",
         "type": "object"
       },
+      "PoiPowerResult": {
+        "properties": {
+          "average_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mean of the samples in the window; null if no readings",
+            "title": "Average Kw"
+          },
+          "end_time": {
+            "format": "date-time",
+            "title": "End Time",
+            "type": "string"
+          },
+          "peak_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest POI active power in the window; null if no readings",
+            "title": "Peak Kw"
+          },
+          "series": {
+            "$ref": "#/components/schemas/PointTimeseries",
+            "description": "POI active power samples, oldest first"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "start_time",
+          "end_time",
+          "series"
+        ],
+        "title": "PoiPowerResult",
+        "type": "object"
+      },
       "PointLatest": {
         "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class"
+          },
           "data_type": {
             "title": "Data Type",
             "type": "string"
@@ -1770,6 +2093,22 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
           },
           "time": {
             "anyOf": [
@@ -1847,6 +2186,23 @@
             ],
             "title": "Bit Labels"
           },
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class"
+          },
           "count": {
             "default": 0,
             "title": "Count",
@@ -1877,6 +2233,22 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
           },
           "timeseries": {
             "items": {
@@ -2092,6 +2464,20 @@
             "minLength": 1,
             "title": "Operator",
             "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints",
+            "title": "Profile"
           }
         },
         "required": [
@@ -2163,6 +2549,69 @@
           "devices"
         ],
         "title": "SiteDevicesHealthResponse",
+        "type": "object"
+      },
+      "SiteEndpointInfo": {
+        "properties": {
+          "kind": {
+            "description": "common/site: /site/{site_id}/{name}; device: /site/{site_id}/device/{device_id}/{name}",
+            "enum": [
+              "common",
+              "site",
+              "device"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "method": {
+            "const": "GET",
+            "title": "Method",
+            "type": "string"
+          },
+          "name": {
+            "description": "Function name, the last URL segment; starts with its kind",
+            "title": "Name",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "method",
+          "summary"
+        ],
+        "title": "SiteEndpointInfo",
+        "type": "object"
+      },
+      "SiteEndpointsResponse": {
+        "properties": {
+          "endpoints": {
+            "description": "Endpoints declared in the site's profile.py",
+            "items": {
+              "$ref": "#/components/schemas/SiteEndpointInfo"
+            },
+            "title": "Endpoints",
+            "type": "array"
+          },
+          "profile": {
+            "description": "The site's profile key",
+            "title": "Profile",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "profile"
+        ],
+        "title": "SiteEndpointsResponse",
         "type": "object"
       },
       "SiteResponse": {
@@ -2252,6 +2701,11 @@
             "title": "Operator",
             "type": "string"
           },
+          "profile": {
+            "description": "Site profile key selecting the site's endpoints; 'default' offers only the common endpoints",
+            "title": "Profile",
+            "type": "string"
+          },
           "site_id": {
             "description": "Site ID (4-digit number)",
             "title": "Site Id",
@@ -2271,6 +2725,7 @@
           "operator",
           "capacity",
           "device_count",
+          "profile",
           "created_at",
           "updated_at",
           "last_update"
@@ -2368,6 +2823,20 @@
             ],
             "description": "Site operator",
             "title": "Operator"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one",
+            "title": "Profile"
           }
         },
         "title": "SiteUpdateRequest",
@@ -3306,6 +3775,53 @@
               "description": "Include soft-deleted points",
               "title": "Include Deleted",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Filter points by signal class: ANALOG, BINARY, ALARM or CONTROL",
+            "in": "query",
+            "name": "class",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ANALOG",
+                    "BINARY",
+                    "ALARM",
+                    "CONTROL"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter points by signal class: ANALOG, BINARY, ALARM or CONTROL",
+              "title": "Class"
+            }
+          },
+          {
+            "description": "Filter points by severity: HIGH, MEDIUM or LOW",
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "HIGH",
+                    "MEDIUM",
+                    "LOW"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter points by severity: HIGH, MEDIUM or LOW",
+              "title": "Severity"
             }
           }
         ],
@@ -4548,6 +5064,579 @@
         "summary": "Redis Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}": {
+      "get": {
+        "operationId": "get_site_endpoints_api_site_functions_site__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteEndpointsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the endpoints a site's profile declares",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/common-energy-summary": {
+      "get": {
+        "operationId": "site_function_common_energy_summary_api_site_functions_site__site_id__common_energy_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnergySummaryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Energy (kWh) per device and in total, integrated from each device's active_power",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/device/{device_id}/device-inverter-availability": {
+      "get": {
+        "operationId": "site_function_device_inverter_availability_api_site_functions_site__site_id__device__device_id__device_inverter_availability_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InverterAvailabilityResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inverter availability (%): share of inverter_state samples in mppt or derating",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/device/{device_id}/device-plant-inverter-availability": {
+      "get": {
+        "operationId": "site_function_device_plant_inverter_availability_api_site_functions_site__site_id__device__device_id__device_plant_inverter_availability_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InverterAvailabilityResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plant inverter availability (%): pooled over the plant controller's inv01..04_mode",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/site-poi-power": {
+      "get": {
+        "operationId": "site_function_site_poi_power_api_site_functions_site__site_id__site_poi_power_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoiPowerResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Point-of-interconnection active power series, with peak and average (kW)",
+        "tags": [
+          "site-functions",
+          "site-functions"
         ]
       }
     },

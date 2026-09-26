@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Plus, Save, Trash2, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
-  DevicePoint, DevicePointCreateRequest, DevicePointDataType, DevicePointUpdateRequest,
+  DevicePoint, DevicePointClass, DevicePointCreateRequest, DevicePointDataType, DevicePointSeverity,
+  DevicePointUpdateRequest,
 } from "@/shared/types/device-point";
 
 type ColumnKey =
   | "name" | "category" | "poll_kind" | "address" | "size" | "data_type"
-  | "unit" | "scale_factor" | "byte_order" | "word_order";
+  | "unit" | "scale_factor" | "byte_order" | "word_order" | "class" | "severity";
 
 type ColumnKind = "text" | "number" | "enum";
 
@@ -30,6 +31,13 @@ const DATA_TYPES: Record<DevicePointDataType, true> = {
   bitfield16: true, bitfield32: true, status_word16: true, status_word32: true,
 };
 const DATA_TYPE = Object.keys(DATA_TYPES) as DevicePointDataType[];
+// Point class / severity (contract enums, optional). Records, so a contract change fails the typecheck.
+const POINT_CLASSES: Record<DevicePointClass, true> = { ANALOG: true, BINARY: true, ALARM: true, CONTROL: true };
+const POINT_CLASS = Object.keys(POINT_CLASSES) as DevicePointClass[];
+const SEVERITIES: Record<DevicePointSeverity, true> = { HIGH: true, MEDIUM: true, LOW: true };
+const SEVERITY = Object.keys(SEVERITIES) as DevicePointSeverity[];
+// Enum columns that may be left empty.
+const OPTIONAL_ENUM_COLUMNS: ColumnKey[] = ["poll_kind", "class", "severity"];
 const BYTE_ORDER = ["big", "little"];
 const WORD_ORDER = ["msw_first", "lsw_first"];
 
@@ -44,6 +52,8 @@ const COLUMNS: Column[] = [
   { key: "scale_factor", label: "Scale", kind: "number", minWidth: "min-w-[80px]" },
   { key: "byte_order", label: "Byte Order", kind: "enum", options: BYTE_ORDER, minWidth: "min-w-[110px]" },
   { key: "word_order", label: "Word Order", kind: "enum", options: WORD_ORDER, minWidth: "min-w-[110px]" },
+  { key: "class", label: "Class", kind: "enum", options: POINT_CLASS, minWidth: "min-w-[100px]" },
+  { key: "severity", label: "Severity", kind: "enum", options: SEVERITY, minWidth: "min-w-[100px]" },
 ];
 
 // Number cells accept only numeric (or empty) text; enum cells only their options.
@@ -51,7 +61,7 @@ function normalizeForColumn(column: Column, rawValue: string): string | null {
   const value = rawValue.trim();
   if (column.kind === "number") return value === "" || !Number.isNaN(Number(value)) ? value : null;
   if (column.kind === "enum") {
-    if (value === "") return column.key === "poll_kind" ? "" : null;
+    if (value === "") return OPTIONAL_ENUM_COLUMNS.includes(column.key) ? "" : null;
     const match = (column.options ?? []).find(option => option.toLowerCase() === value.toLowerCase());
     return match ?? null;
   }
@@ -68,7 +78,7 @@ interface GridRow {
 const EMPTY_VALUES: RowValues = {
   name: "", category: "NATIVE", poll_kind: "holding", address: "", size: "1",
   data_type: "int16", unit: "", scale_factor: "1", byte_order: "big",
-  word_order: "msw_first",
+  word_order: "msw_first", class: "", severity: "",
 };
 
 function pointToValues(point: DevicePoint): RowValues {
@@ -83,6 +93,8 @@ function pointToValues(point: DevicePoint): RowValues {
     scale_factor: point.scale_factor != null ? String(point.scale_factor) : "",
     byte_order: point.byte_order || "big",
     word_order: point.word_order || "msw_first",
+    class: point.class ?? "",
+    severity: point.severity ?? "",
   };
 }
 
@@ -523,8 +535,10 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
       if (values.poll_kind !== "" && !POLL_KIND.includes(values.poll_kind)) addError(2);
       if (!BYTE_ORDER.includes(values.byte_order)) addError(8);
       if (!WORD_ORDER.includes(values.word_order)) addError(9);
+      if (values.class !== "" && !(POINT_CLASS as string[]).includes(values.class)) addError(10);
+      if (values.severity !== "" && !(SEVERITY as string[]).includes(values.severity)) addError(11);
 
-      const rowHasError = [0, 1, 2, 3, 4, 5, 7, 8, 9].some(columnIndex => errors.has(`${rowIndex}:${columnIndex}`));
+      const rowHasError = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11].some(columnIndex => errors.has(`${rowIndex}:${columnIndex}`));
       if (rowHasError) return;
 
       const payload: DevicePointUpdateRequest = {
@@ -537,6 +551,8 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
         address: values.address.trim() !== "" ? Number(values.address) : null,
         unit: values.unit.trim() !== "" ? values.unit.trim() : null,
         scale_factor: values.scale_factor.trim() !== "" ? Number(values.scale_factor) : null,
+        class: values.class !== "" ? (values.class as DevicePointClass) : null,
+        severity: values.severity !== "" ? (values.severity as DevicePointSeverity) : null,
       };
 
       if (row.id === null) {
@@ -711,7 +727,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
                             )
                           ) : (
                             <span className="block truncate">
-                              {column.key === "poll_kind" && cellValue === "" ? "—" : cellValue}
+                              {OPTIONAL_ENUM_COLUMNS.includes(column.key) && cellValue === "" ? "—" : cellValue}
                             </span>
                           )}
                           {isFillCorner && (

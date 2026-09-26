@@ -6,7 +6,10 @@ Guards the device-type vocabulary against the registry it feeds. The original bu
 silently), while ES/PV/GENERATOR/LOADBANK/IED had templates the API rejected outright.
 """
 
-from helpers.device_points.device_standardized_points import _STANDARDIZED_POINTS
+from helpers.device_points.device_standardized_points import (
+    _STANDARDIZED_POINTS,
+    generate_standardized_points,
+)
 from schemas.api_models.types import SUPPORTED_DEVICE_TYPES
 
 
@@ -32,3 +35,20 @@ class TestStandardizedPointsRegistry:
         """Keeps NO_TEMPLATE_YET honest once templates are added."""
         for device_type in self.NO_TEMPLATE_YET:
             assert device_type not in _STANDARDIZED_POINTS
+
+
+class TestStandardizedPointClass:
+    def test_status_and_position_points_are_binary_the_rest_analog(self):
+        for definition in _STANDARDIZED_POINTS.values():
+            for template in definition.points:
+                is_state = template.name.endswith(("_STATUS", "_POSITION"))
+                assert template.point_class == ("BINARY" if is_state else "ANALOG"), template.name
+
+    def test_generated_points_carry_the_class_and_no_severity(self):
+        points = generate_standardized_points("BESS", device_id=1, site_id=1001)
+        assert {point.name: point.point_class for point in points} == {
+            "BESS_ACTIVE_POWER": "ANALOG",
+            "BESS_STATE_OF_CHARGE": "ANALOG",
+            "BESS_STATUS": "BINARY",
+        }
+        assert all(point.severity is None for point in points)

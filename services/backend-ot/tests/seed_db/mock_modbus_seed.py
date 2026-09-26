@@ -20,10 +20,11 @@ Mapping (one device per contract device, one NATIVE point per register):
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 
 from schemas.api_models.requests import DeviceCreateRequest, DevicePointCreateRequest
-from schemas.api_models.types import DataType, DeviceType, register_size
+from schemas.api_models.types import DataType, DeviceType, PointClass, Severity, register_size
 from schemas.tests_models import (
     MockModbusContract,
     MockModbusDevice,
@@ -103,8 +104,37 @@ def build_device(device: MockModbusDevice, site_name: str) -> SeedDevice:
     )
 
 
+_ALARM_WORDS = ("alarm", "fault", "trip", "warning", "protection")
+_CONTROL_WORDS = ("enable", "algorithm", "configuration", "anti_islanding", "charge_mode",
+                  "interaction_mode", "digital_output")
+_BINARY_SUFFIXES = ("_state", "_status", "_flags", "_mode")
+_SEVERITIES: tuple[Severity, ...] = ("HIGH", "MEDIUM", "LOW")
+
+
+def classify_point(register: MockModbusRegister) -> tuple[PointClass | None, Severity | None]:
+    """
+    Dev-seed class and severity for a mock register, from its name:
+    alarm/fault/trip/warning/protection -> ALARM (with a severity), enable/mode settings ->
+    CONTROL, states/flags/enums -> BINARY, anything with a unit -> ANALOG, else unclassified.
+
+    ALARM severity is picked at random, seeded by the register name, so every seed run
+    (and every test) gives the same answer.
+    """
+    name = register.name
+    if any(word in name for word in _ALARM_WORDS):
+        return "ALARM", random.Random(name).choice(_SEVERITIES)
+    if any(word in name for word in _CONTROL_WORDS):
+        return "CONTROL", None
+    if register.enum_values or register.bit_flags or name.endswith(_BINARY_SUFFIXES):
+        return "BINARY", None
+    if register.unit is not None:
+        return "ANALOG", None
+    return None, None
+
+
 def build_point(register: MockModbusRegister) -> DevicePointCreateRequest:
     data_type = point_data_type(register)
+    point_class, severity = classify_point(register)
     return DevicePointCreateRequest(
         address=register.address,
         name=register.name,
@@ -115,6 +145,8 @@ def build_point(register: MockModbusRegister) -> DevicePointCreateRequest:
         unit=register.unit,
         enum_detail=register.enum_values,
         bitfield_detail=register.bit_flags,
+        point_class=point_class,
+        severity=severity,
     )
 
 

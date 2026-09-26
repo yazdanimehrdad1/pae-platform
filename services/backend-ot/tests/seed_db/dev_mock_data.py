@@ -43,6 +43,7 @@ SITES: list[SiteCreateRequest] = [
         capacity="5MW",
         description="Alpha dev site — the mock-modbus devices (PV inverter, BESS, PV plant)",
         coordinates=Coordinates(lat=32.7157, lng=-117.1611),
+        profile="alpha_solar",
     ),
 ]
 

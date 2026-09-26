@@ -23,6 +23,7 @@ def point_shape(point: DevicePointResponse) -> tuple[object, ...]:
     return (
         point.name, point.address, point.size, point.data_type, point.category,
         point.scale_factor, point.unit, point.byte_order, point.word_order,
+        point.point_class, point.severity,
     )
 
 

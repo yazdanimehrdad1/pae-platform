@@ -53,6 +53,7 @@ async def seed() -> None:
                 await session.flush()
                 logger.info("Created site '%s' (id=%s)", site.name, site.id)
             else:
+                site.profile = site_request.profile  # keep older dev DBs in step with the seed
                 logger.info("Site already exists '%s' (id=%s)", site.name, site.id)
             site_by_name[site.name] = site
 
@@ -122,6 +123,8 @@ async def seed() -> None:
                     unit=point.unit,
                     poll_kind=point.poll_kind,
                     category=point.category,
+                    point_class=point.point_class,
+                    severity=point.severity,
                     byte_order=point.byte_order,
                     word_order=point.word_order,
                     bitfield_detail=point.bitfield_detail,

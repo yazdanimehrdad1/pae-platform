@@ -2,14 +2,19 @@
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from schemas.api_models.types import DataType, DeviceType, register_size
+from schemas.api_models.types import DataType, DeviceType, PointClass, Severity, register_size
 
 
 def _normalize_device_type(device_type: object) -> object:
     """Accept any casing for device type; canonical storage form is UPPERCASE."""
     return device_type.upper() if isinstance(device_type, str) else device_type
+
+
+def _normalize_uppercase(value: object) -> object:
+    """Accept any casing for an UPPERCASE enum value (e.g. point class, severity)."""
+    return value.upper() if isinstance(value, str) else value
 
 
 class Coordinates(BaseModel):
@@ -96,6 +101,12 @@ class SiteCreateRequest(BaseModel):
     coordinates: Coordinates | None = Field(
         default=None, description="Geographic coordinates"
     )
+    profile: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints",
+    )
 
 
 class SiteUpdateRequest(BaseModel):
@@ -109,6 +120,12 @@ class SiteUpdateRequest(BaseModel):
     capacity: str | None = Field(None, min_length=1, max_length=255, description="Site capacity")
     description: str | None = Field(None, description="Site description")
     coordinates: Coordinates | None = Field(None, description="Geographic coordinates")
+    profile: str | None = Field(
+        None,
+        min_length=1,
+        max_length=64,
+        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one",
+    )
 
 
 
@@ -151,6 +168,19 @@ class DevicePointCreateRequest(BaseModel):
     bitfield_detail: dict[str, str] | None = None
     enum_detail: dict[str, str] | None = None
     category: Literal["NATIVE", "STANDARDIZED", "VIRTUAL"] = "NATIVE"
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+
+    # "class" on the wire (a Python keyword), point_class in code; accept either on input.
+    model_config = ConfigDict(populate_by_name=True)
+
+    _normalize_class_and_severity = field_validator("point_class", "severity", mode="before")(
+        _normalize_uppercase
+    )
 
     @model_validator(mode="after")
     def _check_size_matches_type(self) -> "DevicePointCreateRequest":
@@ -178,6 +208,19 @@ class DevicePointUpdateRequest(BaseModel):
     word_order: str | None = None
     bitfield_detail: dict[str, str] | None = None
     enum_detail: dict[str, str] | None = None
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+
+    # "class" on the wire (a Python keyword), point_class in code; accept either on input.
+    model_config = ConfigDict(populate_by_name=True)
+
+    _normalize_class_and_severity = field_validator("point_class", "severity", mode="before")(
+        _normalize_uppercase
+    )
 
     @model_validator(mode="after")
     def _check_size_matches_type(self) -> "DevicePointUpdateRequest":

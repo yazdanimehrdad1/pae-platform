@@ -37,3 +37,8 @@ class ValidationError(AppError):
 class InternalError(AppError):
     """Raised for unexpected internal errors."""
     http_status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class SiteProfileConfigError(AppError):
+    """Raised when the site profile registry or a site's profile key is misconfigured."""
+    http_status_code = status.HTTP_500_INTERNAL_SERVER_ERROR

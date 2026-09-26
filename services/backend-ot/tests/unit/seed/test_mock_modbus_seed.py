@@ -12,6 +12,7 @@ from seed_db.mock_modbus_seed import (
     build_device,
     build_point,
     build_seed,
+    classify_point,
     default_contract_path,
     load_contract,
     point_data_type,
@@ -164,3 +165,35 @@ class TestSeedAgreesWithCommittedContract:
                     for point in device_points
                 ]
             )
+
+
+class TestClassifyPoint:
+    @pytest.mark.parametrize(
+        ("overrides", "expected_class"),
+        [
+            ({"name": "active_power", "unit": "W"}, "ANALOG"),
+            ({"name": "inverter_state", "unit": None, "enum_values": {"1": "off"}}, "BINARY"),
+            ({"name": "hardware_health_flags", "unit": None}, "BINARY"),
+            ({"name": "grid_fault_flags", "unit": None}, "ALARM"),
+            ({"name": "protection_trip_flags", "unit": None}, "ALARM"),
+            ({"name": "charge_mode", "unit": None, "enum_values": {"1": "cc"}}, "CONTROL"),
+            ({"name": "feature_enable_flags", "unit": None}, "CONTROL"),
+            ({"name": "power_factor", "unit": None}, None),
+        ],
+    )
+    def test_class_from_name_labels_and_unit(self, overrides, expected_class) -> None:
+        point_class, _severity = classify_point(_register(**overrides))
+        assert point_class == expected_class
+
+    def test_only_alarms_get_a_severity(self) -> None:
+        assert classify_point(_register(name="active_power"))[1] is None
+        assert classify_point(_register(name="alarm_flags", unit=None))[1] in {"HIGH", "MEDIUM", "LOW"}
+
+    def test_alarm_severity_is_repeatable(self) -> None:
+        register = _register(name="inverter_fault_flags", unit=None)
+        assert classify_point(register) == classify_point(register)
+
+    def test_build_point_carries_class_and_severity(self) -> None:
+        point = build_point(_register(name="alarm_flags", unit=None))
+        assert point.point_class == "ALARM"
+        assert point.severity == classify_point(_register(name="alarm_flags", unit=None))[1]

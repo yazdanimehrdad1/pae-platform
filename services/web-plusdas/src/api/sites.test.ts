@@ -11,6 +11,7 @@ const alpha: SiteRecord = {
   capacity: '5 MW',
   device_count: 3,
   description: null,
+  profile: 'alpha_solar',
   created_at: '2026-09-24T00:00:00Z',
   updated_at: '2026-09-25T00:00:00Z',
   last_update: '2026-09-25T00:00:00Z',

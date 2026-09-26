@@ -15,7 +15,7 @@ from helpers.device_points import (
     update_device_point,
 )
 from logger import get_logger
-from schemas.api_models import DevicePointResponse
+from schemas.api_models import DevicePointResponse, PointClass, Severity
 from schemas.api_models.requests import (
     DevicePointsBulkRequest,
     DevicePointUpdateRequest,
@@ -57,11 +57,23 @@ async def get_points_for_device(
         description="Filter points by category",
     ),
     include_deleted: bool = Query(default=False, description="Include soft-deleted points"),
+    point_class: PointClass | None = Query(
+        default=None,
+        alias="class",
+        description="Filter points by signal class: ANALOG, BINARY, ALARM or CONTROL",
+    ),
+    severity: Severity | None = Query(default=None, description="Filter points by severity: HIGH, MEDIUM or LOW"),
 ) -> list[DevicePointResponse]:
     """Get all registered points for a specific device."""
     try:
         await get_device_by_id(site_id, device_id)
-        points = await get_device_points(device_id, category=category, include_deleted=include_deleted)
+        points = await get_device_points(
+            device_id,
+            category=category,
+            include_deleted=include_deleted,
+            point_class=point_class,
+            severity=severity,
+        )
         return [DevicePointResponse.model_validate(p, from_attributes=True) for p in points]
     except HTTPException:
         raise

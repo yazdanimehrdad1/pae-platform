@@ -49,6 +49,8 @@ async def export_raw_register_map_csv(
             "data_type",
             "scale_factor",
             "unit",
+            "class",
+            "severity",
         ]
 
         writer = csv.DictWriter(output, fieldnames=fieldnames)
