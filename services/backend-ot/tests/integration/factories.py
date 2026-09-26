@@ -83,7 +83,7 @@ async def upsert_points(
     body = DevicePointsBulkRequest(points=points)
     response = await client.put(
         f"/api/device-points/site/{site_id}/device/{device_id}/bulk",
-        json=body.model_dump(mode="json"),
+        json=body.model_dump(mode="json", by_alias=True),  # wire names, e.g. "class"
     )
     assert response.status_code == 200, response.text
     return DEVICE_POINT_LIST.validate_python(response.json())

@@ -50,6 +50,49 @@ class TestCreateSite:
         assert response.status_code == 422
 
 
+class TestSiteProfile:
+    async def test_create_with_registered_profile_persists_it(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        assert site.profile == "alpha_solar"
+        fetched = SiteResponse.model_validate((await client.get(f"/api/sites/{site.site_id}")).json())
+        assert fetched.profile == "alpha_solar"
+
+    async def test_create_without_profile_uses_default(self, client):
+        # Deliberately omit profile, as a client that doesn't know about profiles would.
+        payload = site_request().model_dump(mode="json", exclude={"profile"})
+        response = await client.post("/api/sites", json=payload)
+        assert response.status_code == 201
+        assert SiteResponse.model_validate(response.json()).profile == "default"
+
+    async def test_create_with_unknown_profile_is_400(self, client):
+        payload = site_request(profile="no_such_site").model_dump(mode="json")
+        response = await client.post("/api/sites", json=payload)
+        assert response.status_code == 400
+        error = ApiErrorResponse.model_validate(response.json())
+        assert isinstance(error.detail, ApiErrorDetail)
+        assert error.detail.error == "ValidationError"
+
+    async def test_update_switches_default_to_site_profile(self, client):
+        site = await create_site(client)
+        assert site.profile == "default"
+        body = SiteUpdateRequest(profile="alpha_solar").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"/api/sites/{site.site_id}", json=body)
+        assert response.status_code == 200
+        assert SiteResponse.model_validate(response.json()).profile == "alpha_solar"
+
+    async def test_update_without_profile_keeps_it(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        body = SiteUpdateRequest(operator="New Operator").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"/api/sites/{site.site_id}", json=body)
+        assert SiteResponse.model_validate(response.json()).profile == "alpha_solar"
+
+    async def test_update_to_unknown_profile_is_400(self, client):
+        site = await create_site(client)
+        body = SiteUpdateRequest(profile="no_such_site").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"/api/sites/{site.site_id}", json=body)
+        assert response.status_code == 400
+
+
 class TestReadSites:
     async def test_list_excludes_soft_deleted_unless_asked(self, client):
         kept = await create_site(client, name="Kept")

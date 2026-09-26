@@ -16,6 +16,8 @@ from schemas.api_models import (
     SiteResponse,
     SiteUpdateRequest,
 )
+from site_profiles.common.profile import DEFAULT_PROFILE_KEY
+from site_profiles.profile_registry import validate_profile_key
 
 logger = get_logger(__name__)
 
@@ -29,10 +31,14 @@ async def get_site_by_id(site_id: int, include_deleted: bool = False) -> SiteRes
 
 
 async def create_site(site: SiteCreateRequest) -> SiteResponse:
+    if site.profile is None:
+        site = site.model_copy(update={"profile": DEFAULT_PROFILE_KEY})
+    validate_profile_key(site.profile)
     return await sites_db.create_site(site)
 
 
 async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteResponse:
+    validate_profile_key(site_update.profile)
     return await sites_db.update_site(site_id, site_update)
 
 

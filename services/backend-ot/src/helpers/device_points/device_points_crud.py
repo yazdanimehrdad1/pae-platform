@@ -59,8 +59,10 @@ async def get_device_points(
     device_id: int,
     category: str | None = None,
     include_deleted: bool = False,
+    point_class: str | None = None,
+    severity: str | None = None,
 ) -> list[DevicePoint]:
-    """Get all points for a specific device, optionally filtered by category."""
+    """Get all points for a specific device, optionally filtered by category, class and severity."""
     session_factory = get_async_session_factory()
     async with session_factory() as session:
         query = (
@@ -70,6 +72,10 @@ async def get_device_points(
         )
         if category is not None:
             query = query.where(DevicePoint.category == category.upper())
+        if point_class is not None:
+            query = query.where(DevicePoint.point_class == point_class.upper())
+        if severity is not None:
+            query = query.where(DevicePoint.severity == severity.upper())
         if not include_deleted:
             query = query.where(DevicePoint.deleted_at.is_(None))
         result = await session.execute(query)
@@ -167,6 +173,10 @@ async def update_device_point(
             point.bitfield_detail = data.bitfield_detail
         if data.enum_detail is not None:
             point.enum_detail = data.enum_detail
+        if data.point_class is not None:
+            point.point_class = data.point_class
+        if data.severity is not None:
+            point.severity = data.severity
 
         device_id = point.device_id
         await _recompute_scan_ranges(session, device_id)
@@ -303,6 +313,10 @@ async def bulk_upsert_device_points(
                     point.bitfield_detail = data.bitfield_detail
                 if data.enum_detail is not None:
                     point.enum_detail = data.enum_detail
+                if data.point_class is not None:
+                    point.point_class = data.point_class
+                if data.severity is not None:
+                    point.severity = data.severity
                 upserted.append(point)
             else:
                 new_point = DevicePoint(
@@ -320,6 +334,8 @@ async def bulk_upsert_device_points(
                     bitfield_detail=data.bitfield_detail,
                     enum_detail=data.enum_detail,
                     category=data.category,
+                    point_class=data.point_class,
+                    severity=data.severity,
                 )
                 session.add(new_point)
                 upserted.append(new_point)

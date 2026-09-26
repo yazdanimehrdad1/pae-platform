@@ -36,7 +36,7 @@ async def arrange_readings(
         site.site_id,
         device.device_id,
         [
-            point_request(name="active_power", address=100),
+            point_request(name="active_power", address=100, point_class="ANALOG"),
             point_request(
                 name="state", address=110, size=1, data_type="enum16", enum_detail=ENUM_DETAIL
             ),
@@ -168,3 +168,18 @@ class TestQueryValidation:
             params={"start_time": "yesterday", "end_time": BASE_TIME.isoformat()},
         )
         assert response.status_code == 400
+
+
+class TestClassAndSeverity:
+    async def test_latest_and_timeseries_carry_the_points_class(self, client, db):
+        site_id, device_id, power, state = await arrange_readings(client, db)
+
+        latest_response = await client.get(latest_url(site_id, device_id))
+        raw_latest = latest_response.json()["readings"][str(power.id)]
+        assert raw_latest["class"] == "ANALOG"  # wire name, not point_class
+        latest = LatestResponse.model_validate(latest_response.json())
+        assert latest.readings[str(power.id)].point_class == "ANALOG"
+        assert latest.readings[str(state.id)].point_class is None
+
+        timeseries = await get_timeseries(client, timeseries_url(site_id, device_id))
+        assert timeseries.readings[str(power.id)].point_class == "ANALOG"

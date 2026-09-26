@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import AliasChoices, BaseModel, Field
 
 from schemas.api_models.requests import Coordinates, DeviceScanRanges, Location
+from schemas.api_models.types import PointClass, Severity
 
 
 class HealthResponse(BaseModel):
@@ -80,6 +81,7 @@ class SiteResponse(BaseModel):
     device_count: int = Field(..., description="Number of devices at this site")
     description: str | None = Field(None, description="Site description")
     coordinates: Coordinates | None = Field(None, description="Geographic coordinates")
+    profile: str = Field(..., description="Site profile key selecting the site's endpoints; 'default' offers only the common endpoints")
     created_at: datetime = Field(..., description="Timestamp when site was created")
     updated_at: datetime = Field(..., description="Timestamp when site was last updated")
     last_update: datetime = Field(..., description="Timestamp of last update")
@@ -137,10 +139,18 @@ class DevicePointResponse(BaseModel):
     word_order: str = Field("msw_first", description="Word order for multi-register types")
     poll_kind: str | None = Field(None, description="Register type: holding, input, or coils")
     category: str = Field("NATIVE", description="Point category: NATIVE, STANDARDIZED, or VIRTUAL")
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {
         "from_attributes": True,
+        # "class" on the wire (a Python keyword); ORM rows are read by the name point_class.
+        "populate_by_name": True,
     }
 
 
@@ -160,6 +170,8 @@ class PointTimeseries(BaseModel):
     count: int = 0
     enum_map: dict[str, str] | None = None
     bit_labels: list[str] | None = None
+    point_class: PointClass | None = Field(None, alias="class")
+    severity: Severity | None = None
     timeseries: list[TimeseriesPoint] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
@@ -173,6 +185,8 @@ class PointLatest(BaseModel):
     time: datetime | None = Field(None, validation_alias=AliasChoices("time", "timestamp"))
     value: float | None = Field(None, validation_alias=AliasChoices("value", "derived_value"))
     translated_value: str | dict[str, int] | None = None
+    point_class: PointClass | None = Field(None, alias="class")
+    severity: Severity | None = None
 
     model_config = {"populate_by_name": True}
 

@@ -45,6 +45,8 @@ async def get_latest_readings_by_point_ids(
                 DevicePoint.scale_factor,
                 DevicePoint.bitfield_detail,
                 DevicePoint.enum_detail,
+                DevicePoint.point_class,
+                DevicePoint.severity,
                 DevicePointsReading.timestamp,
                 DevicePointsReading.derived_value,
             )
@@ -67,6 +69,8 @@ async def get_latest_readings_by_point_ids(
                 "derived_value": row.derived_value,
                 "bitfield_detail": row.bitfield_detail,
                 "enum_detail": row.enum_detail,
+                "point_class": row.point_class,
+                "severity": row.severity,
             }
             for row in result.all()
         ]
@@ -78,14 +82,14 @@ async def get_timeseries_by_point_ids(
     device_id: int | None = None,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-    limit: int = 1000,
+    limit: int | None = 1000,
 ) -> list[TimeSeriesDevicePointReadingDict]:
     """
     Get time-series readings per point, ordered by (device_point_id, timestamp DESC).
 
     Each point yields its most recent `limit` readings, newest-first. This holds whether
     the window comes from `limit` alone or from start_time/end_time — the most recent
-    reading is always the first element.
+    reading is always the first element. `limit=None` returns every reading in the window.
 
     If point_ids is empty, returns readings for all points belonging to device_id/site_id.
     """
@@ -115,6 +119,8 @@ async def get_timeseries_by_point_ids(
                 DevicePoint.scale_factor,
                 DevicePoint.bitfield_detail,
                 DevicePoint.enum_detail,
+                DevicePoint.point_class,
+                DevicePoint.severity,
                 sql_func.row_number().over(
                     partition_by=DevicePointsReading.device_point_id,
                     order_by=DevicePointsReading.timestamp.desc(),
@@ -124,11 +130,11 @@ async def get_timeseries_by_point_ids(
             .where(and_(*conditions) if conditions else True)
         ).subquery()
 
-        statement = (
-            select(rank_subq)
-            .where(rank_subq.c.rn <= limit)
-            .order_by(rank_subq.c.device_point_id, rank_subq.c.timestamp.desc())
+        statement = select(rank_subq).order_by(
+            rank_subq.c.device_point_id, rank_subq.c.timestamp.desc()
         )
+        if limit is not None:
+            statement = statement.where(rank_subq.c.rn <= limit)
         result = await session.execute(statement)
         return [
             {
@@ -143,6 +149,8 @@ async def get_timeseries_by_point_ids(
                 "scale_factor": row.scale_factor,
                 "bitfield_detail": row.bitfield_detail,
                 "enum_detail": row.enum_detail,
+                "point_class": row.point_class,
+                "severity": row.severity,
             }
             for row in result.all()
         ]

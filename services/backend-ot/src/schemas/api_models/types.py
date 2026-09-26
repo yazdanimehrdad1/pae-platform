@@ -96,6 +96,19 @@ DeviceType = Literal[
 
 SUPPORTED_DEVICE_TYPES: frozenset[str] = frozenset(get_args(DeviceType))
 
+# What kind of signal a device point carries (API/DB name "class"):
+#   ANALOG  - metered and continuous values (power, voltage, SOC, energy, temperature)
+#   BINARY  - state and status: on/off, mode, health and diagnostic flags
+#   ALARM   - anything abnormal: warning, alarm, fault, error, trip
+#   CONTROL - setpoints, commands, configuration
+PointClass = Literal["ANALOG", "BINARY", "ALARM", "CONTROL"]
+
+SUPPORTED_POINT_CLASSES: frozenset[str] = frozenset(get_args(PointClass))
+
+Severity = Literal["HIGH", "MEDIUM", "LOW"]
+
+SUPPORTED_SEVERITIES: frozenset[str] = frozenset(get_args(Severity))
+
 
 class DevicePointData(BaseModel):
     """Pydantic model for a device point row to be written to the database."""
@@ -106,6 +119,8 @@ class DevicePointData(BaseModel):
     size: int
     data_type: DataType
     category: Literal["NATIVE", "STANDARDIZED", "VIRTUAL"] = "NATIVE"
+    point_class: PointClass | None = None
+    severity: Severity | None = None
     scale_factor: float | None = None
     unit: str | None = None
     bitfield_detail: dict[str, str] | None = None

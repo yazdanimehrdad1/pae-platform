@@ -1,7 +1,8 @@
 """
 Integration tests for /api/device-points.
 
-Guards point CRUD against a real database: bulk upsert by name, category filtering,
+Guards point CRUD against a real database: bulk upsert by name, category / class /
+severity filtering, class and severity stored and changed under the wire name "class",
 soft/hard delete and restore, and that the device's scan ranges are recomputed from its
 NATIVE points after each write, unless a manual override locked them.
 """
@@ -51,8 +52,8 @@ async def make_device(client: AsyncClient) -> tuple[int, int]:
 
 
 def update_body(update: DevicePointUpdateRequest) -> dict[str, object]:
-    """Wire body for a partial update: only the fields the test set."""
-    return update.model_dump(mode="json", exclude_unset=True)
+    """Wire body for a partial update: only the fields the test set, under their wire names."""
+    return update.model_dump(mode="json", exclude_unset=True, by_alias=True)
 
 
 class TestBulkUpsert:
@@ -123,6 +124,87 @@ class TestListPoints:
         standardized = await list_points(client, url, category="STANDARDIZED")
         assert standardized
         assert all(point.category == "STANDARDIZED" for point in standardized)
+
+
+class TestClassAndSeverity:
+    async def test_bulk_create_stores_both_and_returns_class_key(self, client):
+        site_id, device_id = await make_device(client)
+        body = DevicePointsBulkRequest(
+            points=[point_request(point_class="ALARM", severity="HIGH")]
+        ).model_dump(mode="json", by_alias=True)
+        response = await client.put(f"{points_url(site_id, device_id)}/bulk", json=body)
+        assert response.status_code == 200, response.text
+        [raw_point] = response.json()
+        assert raw_point["class"] == "ALARM"  # the wire name, not point_class
+        assert "point_class" not in raw_point
+        [point] = DEVICE_POINT_LIST.validate_python(response.json())
+        assert (point.point_class, point.severity) == ("ALARM", "HIGH")
+
+    async def test_both_are_optional(self, client):
+        site_id, device_id = await make_device(client)
+        [point] = await upsert_points(client, site_id, device_id, [point_request()])
+        assert point.point_class is None
+        assert point.severity is None
+
+    async def test_put_changes_them_and_omitting_keeps_them(self, client):
+        site_id, device_id = await make_device(client)
+        [point] = await upsert_points(
+            client, site_id, device_id, [point_request(point_class="ANALOG", severity="LOW")]
+        )
+        url = f"{points_url(site_id, device_id)}/{point.id}"
+
+        response = await client.put(url, json=update_body(DevicePointUpdateRequest(point_class="ALARM")))
+        assert response.status_code == 200
+        updated = DevicePointResponse.model_validate(response.json())
+        assert (updated.point_class, updated.severity) == ("ALARM", "LOW")
+
+        response = await client.put(url, json=update_body(DevicePointUpdateRequest(unit="W")))
+        kept = DevicePointResponse.model_validate(response.json())
+        assert (kept.point_class, kept.severity) == ("ALARM", "LOW")
+
+    async def test_bulk_update_by_name_changes_them(self, client):
+        site_id, device_id = await make_device(client)
+        await upsert_points(client, site_id, device_id, [point_request(point_class="BINARY")])
+        [point] = await upsert_points(
+            client, site_id, device_id, [point_request(point_class="CONTROL", severity="MEDIUM")]
+        )
+        assert (point.point_class, point.severity) == ("CONTROL", "MEDIUM")
+
+    async def test_invalid_values_are_422(self, client):
+        site_id, device_id = await make_device(client)
+        valid = DevicePointsBulkRequest(points=[point_request()]).model_dump(mode="json", by_alias=True)
+        for bad_field in ({"class": "METERING"}, {"severity": "CRITICAL"}):
+            payload = {"points": [valid["points"][0] | bad_field]}
+            response = await client.put(f"{points_url(site_id, device_id)}/bulk", json=payload)
+            assert response.status_code == 422, bad_field
+
+    async def test_list_filters_by_class_and_severity(self, client):
+        site_id, device_id = await make_device(client)
+        await upsert_points(
+            client,
+            site_id,
+            device_id,
+            [
+                point_request(name="power", address=100, point_class="ANALOG"),
+                point_request(name="trip", address=110, point_class="ALARM", severity="HIGH"),
+                point_request(name="warn", address=120, point_class="ALARM", severity="LOW"),
+            ],
+        )
+        url = points_url(site_id, device_id)
+
+        alarms = await list_points(client, url, **{"class": "ALARM"})
+        assert sorted(point.name for point in alarms) == ["trip", "warn"]
+
+        high_alarms = await list_points(client, url, **{"class": "ALARM", "severity": "HIGH"})
+        assert [point.name for point in high_alarms] == ["trip"]
+
+        low = await list_points(client, url, severity="LOW")
+        assert [point.name for point in low] == ["warn"]
+
+    async def test_unknown_filter_value_is_422(self, client):
+        site_id, device_id = await make_device(client)
+        response = await client.get(points_url(site_id, device_id), params={"class": "METERING"})
+        assert response.status_code == 422
 
 
 class TestUpdatePoint:

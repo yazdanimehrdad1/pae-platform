@@ -2,12 +2,13 @@
 
 from pydantic import BaseModel
 
-from schemas.api_models import DevicePointData, DeviceType
+from schemas.api_models import DevicePointData, DeviceType, PointClass
 
 
 class StandardizedPointTemplate(BaseModel):
     name: str
     address: int
+    point_class: PointClass = "ANALOG"
 
 
 class DeviceStandardizedPoints(BaseModel):
@@ -21,7 +22,7 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="BESS_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="BESS_STATE_OF_CHARGE", address=1),
-            StandardizedPointTemplate(name="BESS_STATUS", address=2),
+            StandardizedPointTemplate(name="BESS_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "ES": DeviceStandardizedPoints(
@@ -29,7 +30,7 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="ES_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="ES_REACTIVE_POWER", address=1),
-            StandardizedPointTemplate(name="ES_STATUS", address=2),
+            StandardizedPointTemplate(name="ES_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "INVERTER": DeviceStandardizedPoints(
@@ -37,7 +38,7 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="INVERTER_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="INVERTER_DC_VOLTAGE", address=1),
-            StandardizedPointTemplate(name="INVERTER_STATUS", address=2),
+            StandardizedPointTemplate(name="INVERTER_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "PV": DeviceStandardizedPoints(
@@ -45,7 +46,7 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="PV_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="PV_DC_CURRENT", address=1),
-            StandardizedPointTemplate(name="PV_STATUS", address=2),
+            StandardizedPointTemplate(name="PV_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "GENERATOR": DeviceStandardizedPoints(
@@ -53,7 +54,7 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="GENERATOR_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="GENERATOR_FREQUENCY", address=1),
-            StandardizedPointTemplate(name="GENERATOR_STATUS", address=2),
+            StandardizedPointTemplate(name="GENERATOR_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "LOADBANK": DeviceStandardizedPoints(
@@ -61,15 +62,15 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="LOADBANK_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="LOADBANK_CURRENT", address=1),
-            StandardizedPointTemplate(name="LOADBANK_STATUS", address=2),
+            StandardizedPointTemplate(name="LOADBANK_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "RELAY": DeviceStandardizedPoints(
         device_type="RELAY",
         points=[
-            StandardizedPointTemplate(name="RELAY_POSITION", address=0),
+            StandardizedPointTemplate(name="RELAY_POSITION", address=0, point_class="BINARY"),
             StandardizedPointTemplate(name="RELAY_CURRENT", address=1),
-            StandardizedPointTemplate(name="RELAY_STATUS", address=2),
+            StandardizedPointTemplate(name="RELAY_STATUS", address=2, point_class="BINARY"),
         ],
     ),
     "IED": DeviceStandardizedPoints(
@@ -77,7 +78,7 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
         points=[
             StandardizedPointTemplate(name="IED_ACTIVE_POWER", address=0),
             StandardizedPointTemplate(name="IED_VOLTAGE", address=1),
-            StandardizedPointTemplate(name="IED_STATUS", address=2),
+            StandardizedPointTemplate(name="IED_STATUS", address=2, point_class="BINARY"),
         ],
     ),
 }
@@ -104,6 +105,7 @@ def generate_standardized_points(
             size=1,
             data_type="uint16",
             category="STANDARDIZED",
+            point_class=point.point_class,
         )
         for point in definition.points
     ]

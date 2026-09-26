@@ -15,7 +15,7 @@ class TestRawRegisterMapCsv:
         assert response.headers["content-type"].startswith("text/csv")
         assert "raw-register-map-csv.csv" in response.headers["content-disposition"]
         assert response.text.strip() == (
-            "register_address,register_name,size,data_type,scale_factor,unit"
+            "register_address,register_name,size,data_type,scale_factor,unit,class,severity"
         )
 
     async def test_unsupported_type_is_400(self, client):

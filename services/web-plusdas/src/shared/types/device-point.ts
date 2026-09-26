@@ -6,5 +6,7 @@ type Schemas = components['schemas'];
 export type DevicePoint = Schemas['DevicePointResponse'];
 export type DevicePointCategory = Schemas['DevicePointCreateRequest']['category'];
 export type DevicePointDataType = Schemas['DevicePointCreateRequest']['data_type'];
+export type DevicePointClass = NonNullable<Schemas['DevicePointCreateRequest']['class']>;
+export type DevicePointSeverity = NonNullable<Schemas['DevicePointCreateRequest']['severity']>;
 export type DevicePointCreateRequest = Schemas['DevicePointCreateRequest'];
 export type DevicePointUpdateRequest = Schemas['DevicePointUpdateRequest'];

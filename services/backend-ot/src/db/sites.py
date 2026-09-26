@@ -45,6 +45,7 @@ def _site_to_response(site: Site) -> SiteResponse:
         device_count=site.device_count,
         description=site.description,
         coordinates=coordinates,
+        profile=site.profile,
         created_at=site.created_at,
         updated_at=site.updated_at,
         last_update=site.last_update,
@@ -87,6 +88,7 @@ async def create_site(site: SiteCreateRequest) -> SiteResponse:
                 capacity=site.capacity,
                 description=site.description,
                 coordinates=coordinates_dict,
+                profile=site.profile,
                 device_count=0,
             )
 
@@ -157,6 +159,8 @@ async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteRespo
                 site.description = site_update.description
             if site_update.coordinates is not None:
                 site.coordinates = {"lat": site_update.coordinates.lat, "lng": site_update.coordinates.lng}
+            if site_update.profile is not None:
+                site.profile = site_update.profile
 
             site.last_update = datetime.now(UTC)
 

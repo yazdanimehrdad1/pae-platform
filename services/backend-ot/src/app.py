@@ -20,6 +20,7 @@ from api.routers import (
     health,
     live_stream_raw_registers,
     live_stream_register_snapshot,
+    site_functions,
     sites,
 )
 
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(device_points_readings.router, prefix="/api", tags=["device-point-readings"])
     app.include_router(live_stream_raw_registers.router, prefix="/api", tags=["modbus-live-stream-raw-registers"])
     app.include_router(live_stream_register_snapshot.router, prefix="/api", tags=["modbus-live-stream-register-snapshot"])
+    app.include_router(site_functions.router, prefix="/api", tags=["site-functions"])
 
     logger.info("FastAPI application created")
     return app

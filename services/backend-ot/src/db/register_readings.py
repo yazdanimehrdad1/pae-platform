@@ -29,6 +29,8 @@ class LatestDevicePointReadingDict(TypedDict):
     derived_value: float | None
     bitfield_detail: dict[str, str] | None
     enum_detail: dict[str, str] | None
+    point_class: str | None
+    severity: str | None
 
 
 class TimeSeriesDevicePointReadingDict(TypedDict):
@@ -43,6 +45,8 @@ class TimeSeriesDevicePointReadingDict(TypedDict):
     scale_factor: float | None
     bitfield_detail: dict[str, str] | None
     enum_detail: dict[str, str] | None
+    point_class: str | None
+    severity: str | None
 
 
 async def insert_register_readings_batch(

@@ -723,6 +723,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/site-functions/site/{site_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the endpoints a site's profile declares */
+        get: operations["get_site_endpoints_api_site_functions_site__site_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/common-energy-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Energy (kWh) per device and in total, integrated from each device's active_power */
+        get: operations["site_function_common_energy_summary_api_site_functions_site__site_id__common_energy_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/device/{device_id}/device-inverter-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inverter availability (%): share of inverter_state samples in mppt or derating */
+        get: operations["site_function_device_inverter_availability_api_site_functions_site__site_id__device__device_id__device_inverter_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/device/{device_id}/device-plant-inverter-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plant inverter availability (%): pooled over the plant controller's inv01..04_mode */
+        get: operations["site_function_device_plant_inverter_availability_api_site_functions_site__site_id__device__device_id__device_plant_inverter_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-poi-power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Point-of-interconnection active power series, with peak and average (kW) */
+        get: operations["site_function_site_poi_power_api_site_functions_site__site_id__site_poi_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites": {
         parameters: {
             query?: never;
@@ -963,6 +1048,22 @@ export interface components {
              */
             site_id: number;
         };
+        /** DeviceEnergy */
+        DeviceEnergy: {
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /** Energy Kwh */
+            energy_kwh: number;
+            /**
+             * Point Id
+             * @description The power point that was integrated
+             */
+            point_id: number;
+            /** Sample Count */
+            sample_count: number;
+        };
         /** DeviceHealthStatus */
         DeviceHealthStatus: {
             /** Device Id */
@@ -1007,6 +1108,11 @@ export interface components {
              */
             category: "NATIVE" | "STANDARDIZED" | "VIRTUAL";
             /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+            /**
              * Data Type
              * @description Register interpretation. Width is encoded in the type (e.g. enum32, bitfield16); `size` must match register_size(data_type).
              * @enum {string}
@@ -1022,6 +1128,11 @@ export interface components {
             poll_kind?: ("holding" | "input" | "coils") | null;
             /** Scale Factor */
             scale_factor?: number | null;
+            /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             /** Size */
             size: number;
             /** Unit */
@@ -1061,6 +1172,11 @@ export interface components {
              * @default NATIVE
              */
             category: string;
+            /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
             /**
              * Data Type
              * @description Data type
@@ -1104,6 +1220,11 @@ export interface components {
              */
             scale_factor?: number | null;
             /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /**
              * Site Id
              * @description Site ID
              */
@@ -1139,6 +1260,11 @@ export interface components {
             /** Byte Order */
             byte_order?: string | null;
             /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+            /**
              * Data Type
              * @description Register interpretation. Width is encoded in the type (e.g. enum32, bitfield16); `size` must match register_size(data_type).
              */
@@ -1153,6 +1279,11 @@ export interface components {
             poll_kind?: ("holding" | "input" | "coils") | null;
             /** Scale Factor */
             scale_factor?: number | null;
+            /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             /** Size */
             size?: number | null;
             /** Unit */
@@ -1375,6 +1506,28 @@ export interface components {
              */
             vendor?: string | null;
         };
+        /** EnergySummaryResult */
+        EnergySummaryResult: {
+            /** Devices */
+            devices?: components["schemas"]["DeviceEnergy"][];
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Energy Kwh
+             * @description Sum over devices
+             */
+            energy_kwh: number;
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1398,6 +1551,44 @@ export interface components {
             ok: boolean;
             /** Port */
             port: number;
+        };
+        /** InverterAvailabilityResult */
+        InverterAvailabilityResult: {
+            /**
+             * Availability Pct
+             * @description online / total samples x 100; null if no readings
+             */
+            availability_pct?: number | null;
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /** Online Sample Count */
+            online_sample_count: number;
+            /**
+             * Online States
+             * @description State codes counted as available
+             */
+            online_states: number[];
+            /** Sample Count */
+            sample_count: number;
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * State Points
+             * @description The state points that were evaluated
+             */
+            state_points: string[];
         };
         /** LatestMeta */
         LatestMeta: {
@@ -1605,14 +1796,45 @@ export interface components {
              */
             zip_code: number;
         };
+        /** PoiPowerResult */
+        PoiPowerResult: {
+            /**
+             * Average Kw
+             * @description Mean of the samples in the window; null if no readings
+             */
+            average_kw?: number | null;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Peak Kw
+             * @description Highest POI active power in the window; null if no readings
+             */
+            peak_kw?: number | null;
+            /** @description POI active power samples, oldest first */
+            series: components["schemas"]["PointTimeseries"];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+        };
         /** PointLatest */
         PointLatest: {
+            /** Class */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
             /** Data Type */
             data_type: string;
             /** Id */
             id: number;
             /** Name */
             name: string;
+            /** Severity */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             /** Time */
             time?: string | null;
             /** Translated Value */
@@ -1628,6 +1850,8 @@ export interface components {
         PointTimeseries: {
             /** Bit Labels */
             bit_labels?: string[] | null;
+            /** Class */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
             /**
              * Count
              * @default 0
@@ -1643,6 +1867,8 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** Severity */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             /** Timeseries */
             timeseries?: components["schemas"]["TimeseriesPoint"][];
             /** Unit */
@@ -1760,6 +1986,11 @@ export interface components {
              * @description Site operator
              */
             operator: string;
+            /**
+             * Profile
+             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints
+             */
+            profile?: string | null;
         };
         /**
          * SiteDeleteResponse
@@ -1790,6 +2021,42 @@ export interface components {
             total: number;
             /** Unreachable */
             unreachable: number;
+        };
+        /** SiteEndpointInfo */
+        SiteEndpointInfo: {
+            /**
+             * Kind
+             * @description common/site: /site/{site_id}/{name}; device: /site/{site_id}/device/{device_id}/{name}
+             * @enum {string}
+             */
+            kind: "common" | "site" | "device";
+            /**
+             * Method
+             * @constant
+             */
+            method: "GET";
+            /**
+             * Name
+             * @description Function name, the last URL segment; starts with its kind
+             */
+            name: string;
+            /** Summary */
+            summary: string;
+        };
+        /** SiteEndpointsResponse */
+        SiteEndpointsResponse: {
+            /**
+             * Endpoints
+             * @description Endpoints declared in the site's profile.py
+             */
+            endpoints?: components["schemas"]["SiteEndpointInfo"][];
+            /**
+             * Profile
+             * @description The site's profile key
+             */
+            profile: string;
+            /** Site Id */
+            site_id: number;
         };
         /**
          * SiteResponse
@@ -1848,6 +2115,11 @@ export interface components {
              */
             operator: string;
             /**
+             * Profile
+             * @description Site profile key selecting the site's endpoints; 'default' offers only the common endpoints
+             */
+            profile: string;
+            /**
              * Site Id
              * @description Site ID (4-digit number)
              */
@@ -1893,6 +2165,11 @@ export interface components {
              * @description Site operator
              */
             operator?: string | null;
+            /**
+             * Profile
+             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one
+             */
+            profile?: string | null;
         };
         /** TimeseriesMeta */
         TimeseriesMeta: {
@@ -2299,6 +2576,10 @@ export interface operations {
                 category?: ("NATIVE" | "STANDARDIZED" | "VIRTUAL") | null;
                 /** @description Include soft-deleted points */
                 include_deleted?: boolean;
+                /** @description Filter points by signal class: ANALOG, BINARY, ALARM or CONTROL */
+                class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+                /** @description Filter points by severity: HIGH, MEDIUM or LOW */
+                severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             };
             header?: never;
             path: {
@@ -3132,6 +3413,199 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_site_endpoints_api_site_functions_site__site_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteEndpointsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_common_energy_summary_api_site_functions_site__site_id__common_energy_summary_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnergySummaryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_device_inverter_availability_api_site_functions_site__site_id__device__device_id__device_inverter_availability_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InverterAvailabilityResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_device_plant_inverter_availability_api_site_functions_site__site_id__device__device_id__device_plant_inverter_availability_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InverterAvailabilityResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_poi_power_api_site_functions_site__site_id__site_poi_power_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoiPowerResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
