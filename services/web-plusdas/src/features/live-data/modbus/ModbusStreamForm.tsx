@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Save, Share2, Trash2 } from "lucide-react";
+import { Save, Share2 } from "lucide-react";
 import { devicesApi } from "@/api";
+import { cellKey, newRowKey, type GridColumn, type GridRow } from "@/shared/components/spreadsheet/grid";
+import { SpreadsheetGrid } from "@/shared/components/spreadsheet/SpreadsheetGrid";
 import type {
   ModbusByteOrder, ModbusLiveStreamRequest, ModbusRegisterConfig, ModbusWordOrder,
 } from "@/shared/types/modbusLiveStream";
@@ -25,9 +26,9 @@ const DATA_TYPE_SET: Record<RegisterDataType, true> = {
 const DATA_TYPES = Object.keys(DATA_TYPE_SET) as RegisterDataType[];
 // backend-ot's default when a config omits data_type; sent explicitly (the contract requires it).
 const DEFAULT_DATA_TYPE: RegisterDataType = 'int16';
-const NONE_VALUE = '__none__';
 
 const registerRowSchema = z.object({
+  key: z.string(), // grid row identity; never sent
   address: z.string().min(1, 'Required'),
   label: z.string(),
   data_type: z.string(),
@@ -61,6 +62,47 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type RegisterRow = FormValues['registerConfigs'][number];
+type RegisterColumnKey = 'address' | 'label' | 'data_type' | 'byte_order' | 'word_order';
+
+// Empty enum cells mean "not set": int16 for data type, the session-wide order for byte/word order.
+const REGISTER_COLUMNS: GridColumn<RegisterColumnKey>[] = [
+  { key: 'address', label: 'Address', kind: 'number', minWidth: 'min-w-[90px]' },
+  { key: 'label', label: 'Label', kind: 'text', minWidth: 'min-w-[160px]' },
+  { key: 'data_type', label: 'Data Type', kind: 'enum', options: DATA_TYPES, optional: true, emptyLabel: `${DEFAULT_DATA_TYPE} (default)`, minWidth: 'min-w-[130px]' },
+  { key: 'byte_order', label: 'Byte Order', kind: 'enum', options: ['big', 'little'], optional: true, emptyLabel: 'inherit', minWidth: 'min-w-[110px]' },
+  { key: 'word_order', label: 'Word Order', kind: 'enum', options: ['msw_first', 'lsw_first'], optional: true, emptyLabel: 'inherit', minWidth: 'min-w-[110px]' },
+];
+
+const EMPTY_REGISTER_VALUES: Record<RegisterColumnKey, string> = {
+  address: '', label: '', data_type: '', byte_order: '', word_order: '',
+};
+
+function emptyRow(address: string): RegisterRow {
+  return { key: newRowKey(), address, label: '', data_type: '', byte_order: '', word_order: '' };
+}
+
+function toGridRow(row: RegisterRow): GridRow<RegisterColumnKey> {
+  return {
+    key: row.key,
+    values: {
+      address: row.address ?? '',
+      label: row.label ?? '',
+      data_type: row.data_type ?? '',
+      byte_order: row.byte_order ?? '',
+      word_order: row.word_order ?? '',
+    },
+  };
+}
+
+function fromGridRow(row: GridRow<RegisterColumnKey>): RegisterRow {
+  return {
+    key: row.key,
+    ...row.values,
+    byte_order: row.values.byte_order as RegisterRow['byte_order'],
+    word_order: row.values.word_order as RegisterRow['word_order'],
+  };
+}
 
 const defaultValues: FormValues = {
   alias: '',
@@ -103,6 +145,7 @@ function fromRequest(request: ModbusLiveStreamRequest, alias: string): FormValue
     const key = String(addr);
     const config = register_configs[key];
     registerConfigs.push({
+      key: newRowKey(),
       address: key,
       label: config?.label ?? '',
       data_type: config?.data_type ?? '',
@@ -122,31 +165,48 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit
   onSubmit: (request: ModbusLiveStreamRequest, alias: string) => Promise<void>;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const { register, control, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, control, handleSubmit, setValue, getValues, watch, formState: { errors, isSubmitting, isSubmitted } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialValues ? fromRequest(initialValues, initialAlias ?? '') : defaultValues,
   });
-  const { fields, append, remove, replace } = useFieldArray({ control, name: 'registerConfigs' });
 
   const startAddress = Number(watch('start_address'));
   const endAddress = Number(watch('end_address'));
+  const registerConfigs = watch('registerConfigs');
 
+  const setRegisterRows = (rows: RegisterRow[]) =>
+    setValue('registerConfigs', rows, { shouldDirty: true, shouldValidate: isSubmitted });
+
+  // One row per address in start..end; rows already there (matched by address) keep their settings.
   useEffect(() => {
     if (!Number.isFinite(startAddress) || !Number.isFinite(endAddress) || endAddress < startAddress) return;
     if (endAddress - startAddress + 1 > MAX_AUTO_ROWS) return;
-    const existingByAddress = new Map(fields.map(row => [row.address, row]));
-    const next = [];
+    const existingByAddress = new Map(getValues('registerConfigs').map(row => [row.address, row]));
+    const next: RegisterRow[] = [];
     for (let addr = startAddress; addr <= endAddress; addr++) {
       const key = String(addr);
-      const existingRow = existingByAddress.get(key);
-      next.push(existingRow
-        ? { address: existingRow.address, label: existingRow.label, data_type: existingRow.data_type, byte_order: existingRow.byte_order, word_order: existingRow.word_order }
-        : { address: key, label: '', data_type: '', byte_order: '' as const, word_order: '' as const });
+      next.push(existingByAddress.get(key) ?? emptyRow(key));
     }
-    replace(next);
-    // Intentionally re-runs only when the address range changes, not when `fields`/`replace` identity changes (replace() itself updates `fields`).
+    setValue('registerConfigs', next);
+    // Intentionally re-runs only when the address range changes, not on every row edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startAddress, endAddress]);
+
+  const gridRows = useMemo(() => registerConfigs.map(toGridRow), [registerConfigs]);
+
+  // Per-cell errors: a missing address from the schema, and (once submitted) any address outside start..end.
+  const errorCells = useMemo(() => {
+    const cells = new Set<string>();
+    registerConfigs.forEach((row, index) => {
+      if (errors.registerConfigs?.[index]?.address) cells.add(cellKey(index, 'address'));
+      if (!isSubmitted) return;
+      const address = Number(row.address);
+      if (row.address === '' || Number.isNaN(address) || address < startAddress || address > endAddress) {
+        cells.add(cellKey(index, 'address'));
+      }
+    });
+    return cells;
+  }, [registerConfigs, errors.registerConfigs, isSubmitted, startAddress, endAddress]);
 
   const { data: devices = [] } = useQuery({
     queryKey: ['site-devices', siteId],
@@ -298,79 +358,23 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Register Configs</Label>
-            <p className="text-xs text-muted-foreground">Auto-filled from Start/End Address. Override label/type per register, or leave as default.</p>
-          </div>
-          <Button type="button" variant="outline" size="sm" className="gap-1"
-            onClick={() => append({ address: '', label: '', data_type: '', byte_order: '', word_order: '' })}>
-            <Plus className="w-3 h-3" />Add Row
-          </Button>
+        <div>
+          <Label>Register Configs</Label>
+          <p className="text-xs text-muted-foreground">Auto-filled from Start/End Address. Override label/type per register, or leave as default.</p>
         </div>
-        {errors.registerConfigs?.root && <p className="text-xs text-destructive">{errors.registerConfigs.root.message}</p>}
-        {fields.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Address</TableHead>
-                <TableHead>Label (optional)</TableHead>
-                <TableHead>Data Type</TableHead>
-                <TableHead>Byte Order</TableHead>
-                <TableHead>Word Order</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fields.map((field, index) => (
-                <TableRow key={field.id}>
-                  <TableCell><Input className="h-8 w-20" {...register(`registerConfigs.${index}.address`)} /></TableCell>
-                  <TableCell><Input className="h-8 w-32" placeholder="(optional)" {...register(`registerConfigs.${index}.label`)} /></TableCell>
-                  <TableCell>
-                    <Controller control={control} name={`registerConfigs.${index}.data_type`} render={({ field: f }) => (
-                      <Select value={f.value || NONE_VALUE} onValueChange={(v) => f.onChange(v === NONE_VALUE ? '' : v)}>
-                        <SelectTrigger className="h-8 w-28"><SelectValue placeholder={DEFAULT_DATA_TYPE} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_VALUE}>{DEFAULT_DATA_TYPE}</SelectItem>
-                          {DATA_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    )} />
-                  </TableCell>
-                  <TableCell>
-                    <Controller control={control} name={`registerConfigs.${index}.byte_order`} render={({ field: f }) => (
-                      <Select value={f.value || NONE_VALUE} onValueChange={(v) => f.onChange(v === NONE_VALUE ? '' : v)}>
-                        <SelectTrigger className="h-8 w-24"><SelectValue placeholder="inherit" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_VALUE}>inherit</SelectItem>
-                          <SelectItem value="big">big</SelectItem>
-                          <SelectItem value="little">little</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )} />
-                  </TableCell>
-                  <TableCell>
-                    <Controller control={control} name={`registerConfigs.${index}.word_order`} render={({ field: f }) => (
-                      <Select value={f.value || NONE_VALUE} onValueChange={(v) => f.onChange(v === NONE_VALUE ? '' : v)}>
-                        <SelectTrigger className="h-8 w-28"><SelectValue placeholder="inherit" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_VALUE}>inherit</SelectItem>
-                          <SelectItem value="msw_first">msw_first</SelectItem>
-                          <SelectItem value="lsw_first">lsw_first</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )} />
-                  </TableCell>
-                  <TableCell>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)}>
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        {/* The range refine lands on the array itself (not .root: the rows aren't a useFieldArray). */}
+        {(errors.registerConfigs?.root?.message ?? errors.registerConfigs?.message) && (
+          <p className="text-xs text-destructive">{errors.registerConfigs?.root?.message ?? errors.registerConfigs?.message}</p>
         )}
+        <SpreadsheetGrid
+          columns={REGISTER_COLUMNS}
+          rows={gridRows}
+          onRowsChange={(rows) => setRegisterRows(rows.map(fromGridRow))}
+          newRowValues={EMPTY_REGISTER_VALUES}
+          errorCells={errorCells}
+          emptyMessage='No registers. Set a Start/End Address or click "Add Row".'
+          noMatchMessage="No registers match the filters."
+        />
       </div>
 
     </form>
