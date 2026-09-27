@@ -1,0 +1,896 @@
+{
+  "contract": "powerflow/points",
+  "naming": "<asset_type>.<asset_id>.<point>; poi uses asset_id 'meter', site 'sim'",
+  "point_lists": {
+    "bess": [
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Active power setpoint. + discharge, − charge. Clamped to the P ratings and the S circle on write.",
+        "enum_values": null,
+        "name": "p_setpoint_kw",
+        "scale_hint": 1.0,
+        "source": "setpoint",
+        "unit": "kW"
+      },
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Reactive power setpoint. + injecting vars.",
+        "enum_values": null,
+        "name": "q_setpoint_kvar",
+        "scale_hint": 1.0,
+        "source": "setpoint",
+        "unit": "kvar"
+      },
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Operating mode command.",
+        "enum_values": {
+          "0": "idle",
+          "1": "pq",
+          "2": "offline"
+        },
+        "name": "mode_cmd",
+        "scale_hint": null,
+        "source": "setpoint",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "P the inverter is commanded (after mode and static limits).",
+        "enum_values": null,
+        "name": "p_cmd_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Q the inverter is commanded.",
+        "enum_values": null,
+        "name": "q_cmd_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Actual active power. + discharge, − charge.",
+        "enum_values": null,
+        "name": "p_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Actual reactive power. + injecting vars.",
+        "enum_values": null,
+        "name": "q_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Actual apparent power.",
+        "enum_values": null,
+        "name": "s_kva",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kVA"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "State of charge.",
+        "enum_values": null,
+        "name": "soc_pct",
+        "scale_hint": 0.1,
+        "source": "measurement",
+        "unit": "%"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "AC energy until SOC min.",
+        "enum_values": null,
+        "name": "energy_available_discharge_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "AC energy until SOC max.",
+        "enum_values": null,
+        "name": "energy_available_charge_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Max discharge P now (ratings and SOC).",
+        "enum_values": null,
+        "name": "p_available_discharge_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Max charge P now (ratings and SOC), ≥ 0.",
+        "enum_values": null,
+        "name": "p_available_charge_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Operating status.",
+        "enum_values": {
+          "0": "IDLE",
+          "1": "RUNNING",
+          "2": "OFFLINE",
+          "3": "FAULT"
+        },
+        "name": "status",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "P_LIMIT",
+          "1": "S_LIMIT",
+          "2": "SOC_LIMIT",
+          "3": "RAMP_LIMIT"
+        },
+        "data_type": "bitfield16",
+        "description": "Limits active this step.",
+        "enum_values": null,
+        "name": "limit_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Auxiliary load, drawn from the LV bus.",
+        "enum_values": null,
+        "name": "aux_p_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter terminal (LV bus) voltage.",
+        "enum_values": null,
+        "name": "v_lv_pu",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "pu"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter terminal voltage, line-to-line.",
+        "enum_values": null,
+        "name": "v_lv_kv",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "kV"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Operating state (derived from mode and P).",
+        "enum_values": {
+          "0": "OFF",
+          "1": "STANDBY",
+          "2": "CHARGING",
+          "3": "DISCHARGING",
+          "4": "FAULT"
+        },
+        "name": "operating_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "SOC_LOW_WARNING",
+          "1": "SOC_HIGH_WARNING",
+          "2": "UNDERVOLTAGE",
+          "3": "OVERVOLTAGE",
+          "4": "TRANSFORMER_OVERLOAD",
+          "5": "OVER_TEMPERATURE",
+          "6": "COMM_LOSS"
+        },
+        "data_type": "bitfield16",
+        "description": "Alarms: SOC within 5 % of a limit, voltage outside 0.95-1.05 pu, transformer > 100 %. Bits marked reserved in the model aren't set by the simulator yet.",
+        "enum_values": null,
+        "name": "alarm_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Max discharge P.",
+        "enum_values": null,
+        "name": "p_rated_discharge_kw",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Max charge P (magnitude).",
+        "enum_values": null,
+        "name": "p_rated_charge_kw",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter apparent power rating.",
+        "enum_values": null,
+        "name": "s_rated_kva",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kVA"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Energy capacity.",
+        "enum_values": null,
+        "name": "capacity_kwh",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "SOC lower limit.",
+        "enum_values": null,
+        "name": "soc_min_pct",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "%"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "SOC upper limit.",
+        "enum_values": null,
+        "name": "soc_max_pct",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "%"
+      }
+    ],
+    "load": [
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Active power. + consuming.",
+        "enum_values": null,
+        "name": "p_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Reactive power. + consuming vars (lagging).",
+        "enum_values": null,
+        "name": "q_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Apparent power.",
+        "enum_values": null,
+        "name": "s_kva",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kVA"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Power factor, signed with Q (+ lagging).",
+        "enum_values": null,
+        "name": "pf",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Voltage at the load's bus.",
+        "enum_values": null,
+        "name": "v_pu",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "pu"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Whether the load's bus is energized.",
+        "enum_values": {
+          "0": "DE_ENERGIZED",
+          "1": "ENERGIZED"
+        },
+        "name": "supply_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "UNDERVOLTAGE",
+          "1": "OVERVOLTAGE"
+        },
+        "data_type": "bitfield16",
+        "description": "Alarms: voltage outside 0.95-1.05 pu.",
+        "enum_values": null,
+        "name": "alarm_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      }
+    ],
+    "poi": [
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Active power. + export to the utility, − import.",
+        "enum_values": null,
+        "name": "p_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Reactive power. + export.",
+        "enum_values": null,
+        "name": "q_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Apparent power.",
+        "enum_values": null,
+        "name": "s_kva",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kVA"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Power factor, signed with Q (+ exporting vars).",
+        "enum_values": null,
+        "name": "pf",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "POI voltage, line-to-line.",
+        "enum_values": null,
+        "name": "v_kv",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "kV"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "POI voltage.",
+        "enum_values": null,
+        "name": "v_pu",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "pu"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "POI voltage angle (source = 0).",
+        "enum_values": null,
+        "name": "angle_deg",
+        "scale_hint": 0.01,
+        "source": "measurement",
+        "unit": "deg"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "POI current.",
+        "enum_values": null,
+        "name": "i_a",
+        "scale_hint": 0.1,
+        "source": "measurement",
+        "unit": "A"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Site losses: transformers + collector feeders.",
+        "enum_values": null,
+        "name": "p_loss_total_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Site reactive losses.",
+        "enum_values": null,
+        "name": "q_loss_total_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "STALE when the power flow didn't converge (last good values).",
+        "enum_values": {
+          "0": "OK",
+          "1": "STALE"
+        },
+        "name": "meter_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "UNDERVOLTAGE",
+          "1": "OVERVOLTAGE",
+          "2": "EXPORTING",
+          "3": "IMPORTING",
+          "4": "LOW_POWER_FACTOR"
+        },
+        "data_type": "bitfield16",
+        "description": "Alarms: voltage outside 0.95-1.05 pu, exporting / importing (|P| > 1 kW), |pf| < 0.9.",
+        "enum_values": null,
+        "name": "alarm_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      }
+    ],
+    "pv": [
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Curtailment: max active power. Writing it replaces p_limit_pct.",
+        "enum_values": null,
+        "name": "p_limit_kw",
+        "scale_hint": 1.0,
+        "source": "setpoint",
+        "unit": "kW"
+      },
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Curtailment as % of p_max_kw. Writing it replaces p_limit_kw.",
+        "enum_values": null,
+        "name": "p_limit_pct",
+        "scale_hint": 0.1,
+        "source": "setpoint",
+        "unit": "%"
+      },
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Reactive power setpoint (+ injecting). Writing it selects Q mode.",
+        "enum_values": null,
+        "name": "q_setpoint_kvar",
+        "scale_hint": 1.0,
+        "source": "setpoint",
+        "unit": "kvar"
+      },
+      {
+        "access": "RW",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Power factor setpoint: + injecting vars, − absorbing; |pf| in [0.8, 1]. Writing it selects PF mode.",
+        "enum_values": null,
+        "name": "pf_setpoint",
+        "scale_hint": 0.001,
+        "source": "setpoint",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Active reactive power control mode.",
+        "enum_values": {
+          "0": "Q",
+          "1": "PF"
+        },
+        "name": "q_mode",
+        "scale_hint": null,
+        "source": "setpoint",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Available AC power (after losses and clipping).",
+        "enum_values": null,
+        "name": "p_available_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Curtailment limit applied this step.",
+        "enum_values": null,
+        "name": "p_limit_active_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Actual active power.",
+        "enum_values": null,
+        "name": "p_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Actual reactive power. + injecting vars.",
+        "enum_values": null,
+        "name": "q_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Actual apparent power.",
+        "enum_values": null,
+        "name": "s_kva",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kVA"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Power factor, signed with Q.",
+        "enum_values": null,
+        "name": "pf",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Available minus actual P.",
+        "enum_values": null,
+        "name": "curtailment_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Irradiance (irradiance source; else 0).",
+        "enum_values": null,
+        "name": "irradiance_wm2",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "W/m2"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Operating status.",
+        "enum_values": {
+          "0": "OFF",
+          "1": "PRODUCING",
+          "2": "CURTAILED",
+          "3": "OFFLINE"
+        },
+        "name": "status",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "CURTAILED",
+          "1": "S_LIMIT",
+          "2": "CLIPPED"
+        },
+        "data_type": "bitfield16",
+        "description": "Limits active this step.",
+        "enum_values": null,
+        "name": "limit_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter terminal (LV bus) voltage.",
+        "enum_values": null,
+        "name": "v_lv_pu",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "pu"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter terminal voltage, line-to-line.",
+        "enum_values": null,
+        "name": "v_lv_kv",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "kV"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Inverter state (derived from availability and curtailment).",
+        "enum_values": {
+          "0": "OFF",
+          "1": "SLEEPING",
+          "2": "MPPT",
+          "3": "THROTTLED",
+          "4": "FAULT"
+        },
+        "name": "inverter_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "UNDERVOLTAGE",
+          "1": "OVERVOLTAGE",
+          "2": "TRANSFORMER_OVERLOAD",
+          "3": "GROUND_FAULT",
+          "4": "DC_OVERVOLTAGE"
+        },
+        "data_type": "bitfield16",
+        "description": "Alarms: voltage outside 0.95-1.05 pu, transformer > 100 %. Bits marked reserved in the model aren't set by the simulator yet.",
+        "enum_values": null,
+        "name": "alarm_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "DC capacity.",
+        "enum_values": null,
+        "name": "dc_kwp",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kWp"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter max AC active power.",
+        "enum_values": null,
+        "name": "p_max_kw",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Inverter apparent power rating.",
+        "enum_values": null,
+        "name": "s_rated_kva",
+        "scale_hint": 1.0,
+        "source": "nameplate",
+        "unit": "kVA"
+      }
+    ],
+    "site": [
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "uint64",
+        "description": "Sim tick of the latest snapshot (gaps = skipped ticks).",
+        "enum_values": null,
+        "name": "step_id",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "uint64",
+        "description": "Sim time of the latest snapshot (Unix s).",
+        "enum_values": null,
+        "name": "sim_time_epoch_s",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": "s"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "uint16",
+        "description": "1 if the latest power flow converged.",
+        "enum_values": null,
+        "name": "converged",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Engine state.",
+        "enum_values": {
+          "0": "stopped",
+          "1": "running",
+          "2": "paused"
+        },
+        "name": "state",
+        "scale_hint": null,
+        "source": "simulation",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "uint32",
+        "description": "Real-time ticks skipped because a step overran.",
+        "enum_values": null,
+        "name": "overrun_count",
+        "scale_hint": null,
+        "source": "simulation",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": {
+          "0": "NOT_CONVERGED",
+          "1": "OVERRUN",
+          "2": "TEST_MODE"
+        },
+        "data_type": "bitfield16",
+        "description": "Alarms: latest power flow not converged, a real-time overrun since reset, test mode.",
+        "enum_values": null,
+        "name": "alarm_flags",
+        "scale_hint": null,
+        "source": "simulation",
+        "unit": ""
+      }
+    ]
+  },
+  "scale": "engineering value = raw register value × scale (scale_hint)",
+  "version": 1
+}

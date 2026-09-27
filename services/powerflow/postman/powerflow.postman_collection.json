@@ -1,0 +1,999 @@
+{
+  "info": {
+    "_postman_id": "6f1f5c4e-8a53-4c1e-9f44-70f0f10e0001",
+    "name": "powerflow 0.1.0",
+    "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8020"
+    }
+  ],
+  "item": [
+    {
+      "name": "health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Versions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/version",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "version"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "simulation",
+      "item": [
+        {
+          "name": "Engine state and counters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start or resume real-time",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "start"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pause",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "pause"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stop (state kept)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "stop"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stop and return to the initial state",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "reset"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Advance N steps at once (test mode only)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/step?count=60",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "step"
+              ],
+              "query": [
+                {
+                  "key": "count",
+                  "value": "60"
+                }
+              ]
+            },
+            "description": "Only with `simulation.test_mode: true` and while not running; otherwise 409. Returns the last step's snapshot."
+          }
+        }
+      ]
+    },
+    {
+      "name": "config",
+      "item": [
+        {
+          "name": "The active site config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config"
+              ]
+            },
+            "description": "To change it: PUT /api/sites/{name}, then POST /api/sites/{name}/activate."
+          }
+        },
+        {
+          "name": "JSON Schema of a site config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/config/schema",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "schema"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "sites",
+      "item": [
+        {
+          "name": "Stored sites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Site",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "reference_2bess_1pv"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create or replace a stored site",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "my_site"
+                }
+              ]
+            },
+            "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it, so the simulation must be stopped (409 otherwise).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": 1,\n  \"site\": {\n    \"name\": \"My site (copy of small_1bess_1pv)\"\n  },\n  \"simulation\": {\n    \"step_s\": 1.0,\n    \"start_time\": \"2026-06-21T06:00:00Z\",\n    \"autostart\": false,\n    \"test_mode\": false,\n    \"seed\": 1,\n    \"history_size\": 3600\n  },\n  \"grid\": {\n    \"vn_kv\": 12.47,\n    \"vm_pu\": 1.0,\n    \"sc_mva\": 100.0,\n    \"x_r\": 5.0\n  },\n  \"bess\": [\n    {\n      \"id\": \"bess1\",\n      \"inverter\": {\n        \"s_rated_kva\": 2750,\n        \"p_discharge_max_kw\": 2500,\n        \"p_charge_max_kw\": 2500,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\",\n        \"ramp_kw_per_s\": 500\n      },\n      \"battery\": {\n        \"capacity_kwh\": 10000,\n        \"soc_initial_pct\": 50,\n        \"efficiency\": {\n          \"round_trip\": 0.9\n        }\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 2750,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 5.75,\n        \"x_r\": 7.0\n      }\n    }\n  ],\n  \"pv\": [\n    {\n      \"id\": \"pv1\",\n      \"dc_kwp\": 6500,\n      \"loss_factor\": 0.05,\n      \"inverter\": {\n        \"s_rated_kva\": 5500,\n        \"p_max_kw\": 5000,\n        \"v_lv_kv\": 0.69\n      },\n      \"availability\": {\n        \"scenario\": \"cloudy_dynamic\",\n        \"source\": \"irradiance\"\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 5500,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 6.0,\n        \"x_r\": 8.0\n      }\n    }\n  ],\n  \"loads\": [\n    {\n      \"id\": \"load1\",\n      \"profile\": {\n        \"scenario\": \"low_demand\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a site",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "my_site"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Load a stored site (only while stopped)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:name/activate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":name",
+                "activate"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "reference_2bess_1pv"
+                }
+              ]
+            },
+            "description": "Rebuilds the network, resets the simulation and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start."
+          }
+        }
+      ]
+    },
+    {
+      "name": "modbus maps",
+      "item": [
+        {
+          "name": "A site's per-asset Modbus maps",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "modbus-maps"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "reference_2bess_1pv"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "One asset's map (asset = <asset_type>.<asset_id>, e.g. pv.pv1, poi.meter)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps/:asset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "modbus-maps",
+                ":asset"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "reference_2bess_1pv"
+                },
+                {
+                  "key": "asset",
+                  "value": "bess.bess1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create or replace an asset's map",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps/:asset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "modbus-maps",
+                ":asset"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "reference_2bess_1pv"
+                },
+                {
+                  "key": "asset",
+                  "value": "bess.bess1"
+                }
+              ]
+            },
+            "description": "Rejected (422) if the site has no such asset, the body's `asset` differs from the path, registers overlap, a point isn't in the asset type's point list, a writable point isn't on a holding register/coil (or vice versa), or the unit_id+port is already used by another map of the site.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"map_version\": 1,\n  \"asset\": \"bess.bess1\",\n  \"unit_id\": 1,\n  \"port\": 502,\n  \"register_numbering\": \"zero_based\",\n  \"points\": [\n    {\n      \"point\": \"p_setpoint_kw\",\n      \"register_type\": \"holding\",\n      \"address\": 0,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"q_setpoint_kvar\",\n      \"register_type\": \"holding\",\n      \"address\": 2,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"mode_cmd\",\n      \"register_type\": \"holding\",\n      \"address\": 4,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"enum_values\": {\n        \"0\": \"idle\",\n        \"1\": \"pq\",\n        \"2\": \"offline\"\n      }\n    },\n    {\n      \"point\": \"p_cmd_kw\",\n      \"register_type\": \"input\",\n      \"address\": 0,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"q_cmd_kvar\",\n      \"register_type\": \"input\",\n      \"address\": 2,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_kw\",\n      \"register_type\": \"input\",\n      \"address\": 4,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"q_kvar\",\n      \"register_type\": \"input\",\n      \"address\": 6,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"s_kva\",\n      \"register_type\": \"input\",\n      \"address\": 8,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"soc_pct\",\n      \"register_type\": \"input\",\n      \"address\": 10,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 0.1\n    },\n    {\n      \"point\": \"energy_available_discharge_kwh\",\n      \"register_type\": \"input\",\n      \"address\": 12,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"energy_available_charge_kwh\",\n      \"register_type\": \"input\",\n      \"address\": 14,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_available_discharge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 16,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_available_charge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 18,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"status\",\n      \"register_type\": \"input\",\n      \"address\": 20,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"enum_values\": {\n        \"0\": \"IDLE\",\n        \"1\": \"RUNNING\",\n        \"2\": \"OFFLINE\",\n        \"3\": \"FAULT\"\n      }\n    },\n    {\n      \"point\": \"limit_flags\",\n      \"register_type\": \"input\",\n      \"address\": 21,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"bit_flags\": {\n        \"0\": \"P_LIMIT\",\n        \"1\": \"S_LIMIT\",\n        \"2\": \"SOC_LIMIT\",\n        \"3\": \"RAMP_LIMIT\"\n      }\n    },\n    {\n      \"point\": \"aux_p_kw\",\n      \"register_type\": \"input\",\n      \"address\": 22,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"v_lv_pu\",\n      \"register_type\": \"input\",\n      \"address\": 24,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 0.001\n    },\n    {\n      \"point\": \"v_lv_kv\",\n      \"register_type\": \"input\",\n      \"address\": 26,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 0.001\n    },\n    {\n      \"point\": \"operating_state\",\n      \"register_type\": \"input\",\n      \"address\": 28,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"enum_values\": {\n        \"0\": \"OFF\",\n        \"1\": \"STANDBY\",\n        \"2\": \"CHARGING\",\n        \"3\": \"DISCHARGING\",\n        \"4\": \"FAULT\"\n      }\n    },\n    {\n      \"point\": \"alarm_flags\",\n      \"register_type\": \"input\",\n      \"address\": 29,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"bit_flags\": {\n        \"0\": \"SOC_LOW_WARNING\",\n        \"1\": \"SOC_HIGH_WARNING\",\n        \"2\": \"UNDERVOLTAGE\",\n        \"3\": \"OVERVOLTAGE\",\n        \"4\": \"TRANSFORMER_OVERLOAD\",\n        \"5\": \"OVER_TEMPERATURE\",\n        \"6\": \"COMM_LOSS\"\n      }\n    },\n    {\n      \"point\": \"p_rated_discharge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 100,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_rated_charge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 102,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"s_rated_kva\",\n      \"register_type\": \"input\",\n      \"address\": 104,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"capacity_kwh\",\n      \"register_type\": \"input\",\n      \"address\": 106,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"soc_min_pct\",\n      \"register_type\": \"input\",\n      \"address\": 108,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"soc_max_pct\",\n      \"register_type\": \"input\",\n      \"address\": 110,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete an asset's map",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps/:asset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "modbus-maps",
+                ":asset"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "reference_2bess_1pv"
+                },
+                {
+                  "key": "asset",
+                  "value": "bess.bess1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "profiles",
+      "item": [
+        {
+          "name": "Profile scenarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "A profile scenario's CSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/:folder/:scenario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                ":folder",
+                ":scenario"
+              ],
+              "variable": [
+                {
+                  "key": "folder",
+                  "value": "load"
+                },
+                {
+                  "key": "scenario",
+                  "value": "typical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create or replace a profile scenario (CSV body)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/csv"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/:folder/:scenario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                ":folder",
+                ":scenario"
+              ],
+              "variable": [
+                {
+                  "key": "folder",
+                  "value": "load"
+                },
+                {
+                  "key": "scenario",
+                  "value": "my_scenario"
+                }
+              ]
+            },
+            "description": "Validated before it's written. Active-site assets using the scenario pick it up on the next step, even while running (their configured scale/loop still apply).",
+            "body": {
+              "mode": "raw",
+              "raw": "timestamp,p_kw,q_kvar\n2026-06-21T00:00:00Z,800,260\n2026-06-21T12:00:00Z,1500,490\n2026-06-21T23:59:00Z,800,260\n"
+            }
+          }
+        },
+        {
+          "name": "Delete a profile scenario (409 while any stored site uses it)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/:folder/:scenario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                ":folder",
+                ":scenario"
+              ],
+              "variable": [
+                {
+                  "key": "folder",
+                  "value": "load"
+                },
+                {
+                  "key": "scenario",
+                  "value": "my_scenario"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "schemas",
+      "item": [
+        {
+          "name": "Stored JSON Schemas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/schemas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "schemas"
+              ]
+            }
+          }
+        },
+        {
+          "name": "One JSON Schema, e.g. site-config or modbus-map",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/schemas/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "schemas",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "site-config"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "defaults",
+      "item": [
+        {
+          "name": "The shipped default sites and Modbus maps",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/defaults",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "defaults"
+              ]
+            },
+            "description": "Seeded into an empty database at startup. Restore them with POST /api/defaults/restore."
+          }
+        },
+        {
+          "name": "Import the default sites and maps into the database",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/defaults/restore?overwrite=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "defaults",
+                "restore"
+              ],
+              "query": [
+                {
+                  "key": "overwrite",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Without overwrite, sites and maps already stored are kept (reported as skipped). With overwrite=true they're replaced; the simulation must be stopped (409), and the active site is reloaded if it was replaced. The active-site choice is unchanged."
+          }
+        }
+      ]
+    },
+    {
+      "name": "assets",
+      "item": [
+        {
+          "name": "All assets, static parameters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Bess",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/bess/:asset_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "bess",
+                ":asset_id"
+              ],
+              "variable": [
+                {
+                  "key": "asset_id",
+                  "value": "bess1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set a BESS's P/Q/mode (+P discharge, −P charge)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/bess/:asset_id/setpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "bess",
+                ":asset_id",
+                "setpoint"
+              ],
+              "variable": [
+                {
+                  "key": "asset_id",
+                  "value": "bess1"
+                }
+              ]
+            },
+            "description": "Partial update: omitted fields keep their value. Invalid values → 422; out-of-range values are clamped to the static limits (P ratings, S circle) and reported in `flags`. SOC and ramp limits apply every step and show up in the measurements' `limit_flags`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_kw\": 1500,\n  \"q_kvar\": 0,\n  \"mode\": \"pq\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Pv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/pv/:asset_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "pv",
+                ":asset_id"
+              ],
+              "variable": [
+                {
+                  "key": "asset_id",
+                  "value": "pv1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set a PV's curtailment (kW or %) and Q or power factor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/pv/:asset_id/setpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "pv",
+                ":asset_id",
+                "setpoint"
+              ],
+              "variable": [
+                {
+                  "key": "asset_id",
+                  "value": "pv1"
+                }
+              ]
+            },
+            "description": "Partial update: omitted fields keep their value. Invalid values → 422; out-of-range values are clamped to the static limits (P ratings, S circle) and reported in `flags`. SOC and ramp limits apply every step and show up in the measurements' `limit_flags`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"p_limit_pct\": 80,\n  \"pf\": 0.95\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Load",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/load/:asset_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "load",
+                ":asset_id"
+              ],
+              "variable": [
+                {
+                  "key": "asset_id",
+                  "value": "load1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Protocol-neutral point lists",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/points",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "points"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read one point by name, e.g. bess.bess1.soc_pct",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/points/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "points",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "bess.bess1.soc_pct"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "measurements",
+      "item": [
+        {
+          "name": "The full latest snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/measurements/latest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "measurements",
+                "latest"
+              ]
+            },
+            "description": "POI, every bus, every transformer, every asset (commanded vs actual), losses and the convergence flag. `step_id` increases by one per sim tick, so a poller can spot missed steps and backfill from /measurements/history."
+          }
+        },
+        {
+          "name": "The POI meter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/measurements/poi",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "measurements",
+                "poi"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Snapshots from the in-memory ring buffer, as rows of point values",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/measurements/history?fields=poi.meter.p_kw,bess.bess1.soc_pct&format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "measurements",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-06-21T06:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-06-21T07:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "fields",
+                  "value": "poi.meter.p_kw,bess.bess1.soc_pct"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

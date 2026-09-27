@@ -45,9 +45,9 @@ every future service gets the fix.
 
 - **Name:** lowercase kebab-case, starting with a letter (it's also the compose project name,
   the compose service name and, with `-` → `_`, the Python package / the env prefix).
-- **Port:** take it from the port registry in the root `CLAUDE.md`. Reserved: optimizer 8010,
-  powerflow 8020. Taken: 5173/5174 by web-plusdas. A Node service takes two ports: `--port`
-  for the container and the next one for its Vite dev server (`make run`). For anything else,
+- **Port:** take it from the port registry in the root `CLAUDE.md`. Reserved: optimizer 8010.
+  Taken: 5173/5174 by web-plusdas, 8020/5436 by powerflow. A Node service takes two ports:
+  `--port` for the container and the next one for its Vite dev server (`make run`). For anything else,
   ask the user and pick ports that aren't in the registry.
 - **Dependencies:** the templates use only packages the repo already uses (Python: fastapi,
   uvicorn, pydantic-settings; dev: pytest, ruff, httpx. Node: react, react-dom; dev: the

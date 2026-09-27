@@ -1,0 +1,55 @@
+# powerflow — standalone: `make -C services/powerflow up`.
+# Also included by the monorepo dev stack (deploy/compose/dev.yaml), so it follows the service
+# convention:
+#   - service and volume names are prefixed `powerflow-` (unique once every service's compose
+#     file is included into one project);
+#   - no container_name and no external networks;
+#   - host ports are overridable: POWERFLOW_HTTP_PORT / POWERFLOW_POSTGRES_PORT;
+#   - container-network values (hostnames, internal ports) are set in `environment:`, which
+#     overrides anything the optional .env supplies for host-side runs.
+name: powerflow
+
+services:
+  powerflow-postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POWERFLOW_POSTGRES_PORT:-5436}:5432"
+    environment:
+      - POSTGRES_DB=powerflow
+      - POSTGRES_USER=powerflow
+      - POSTGRES_PASSWORD=${POWERFLOW_POSTGRES_PASSWORD:-powerflow}
+    # Sites, Modbus maps and the active site. `make down-all` deletes it (back to the defaults).
+    volumes:
+      - powerflow-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powerflow -d powerflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  powerflow:
+    image: powerflow:dev
+    build: .
+    ports:
+      - "${POWERFLOW_HTTP_PORT:-8020}:8000"
+    # Service settings; optional. See .env.example.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DATABASE_URL=postgresql+asyncpg://powerflow:${POWERFLOW_POSTGRES_PASSWORD:-powerflow}@powerflow-postgres:5432/powerflow
+    # Profile scenario CSVs (not in the database yet). Docker seeds the volume from the image's
+    # site_config/profiles on first use; `make down-all` deletes it (back to the shipped CSVs).
+    volumes:
+      - powerflow-profiles:/app/site_config/profiles
+    depends_on:
+      powerflow-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  powerflow-postgres-data:
+  powerflow-profiles:

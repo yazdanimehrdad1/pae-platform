@@ -10,6 +10,8 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
   backend-ot/        Modbus poller + historian API (FastAPI, Postgres, Redis)
   mock-modbus/       DEV-ONLY Modbus TCP simulator standing in for the site devices
   web-plusdas/       the UI: Vite + React SPA served by nginx, /api proxied same-origin to backend-ot
+  powerflow/         microgrid power flow simulator (pandapower) for EMS development: setpoints in,
+                     measurements out; site configs + Modbus maps in its own Postgres, via the API
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
@@ -56,9 +58,10 @@ the root, and `make -C services/<svc> help` in each service.
   `down`, `ps`, `logs`, `seed`, `e2e`. See the `run-platform` skill. **The root takes priority:**
   `make up` resets, stopping every platform container (including services started on their own)
   before starting the dev stack, and `make down` stops them all (data volumes kept). `make down-all`
-  is the destructive clean slate: it also deletes volumes (postgres/redis data), images and
-  networks. To run one service alone, `make down` here first; a service's `up`/`build` refuses
-  while the dev stack runs.
+  is the destructive clean slate: it also deletes volumes (postgres/redis data, including
+  powerflow's stored sites, Modbus maps and profile edits), images and networks. To run one
+  service alone, `make down` here first; a service's `up`/`build` refuses while the dev stack
+  runs.
 
 ## Port registry (host ports; override in the root `.env`, see `.env.example`)
 | Service | Port(s) |
@@ -67,7 +70,7 @@ the root, and `make -C services/<svc> help` in each service.
 | mock-modbus | 502 |
 | web-plusdas | 5173 (http; `make -C services/web-plusdas run` dev server: 5174) |
 | optimizer (reserved) | 8010 |
-| powerflow (reserved) | 8020 |
+| powerflow | 8020 (http), 5436 (postgres) |
 
 ## Contracts
 Rules and the contract list are in `contracts/README.md`. For a change that alters what a service

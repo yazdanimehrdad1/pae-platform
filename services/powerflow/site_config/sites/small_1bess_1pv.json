@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "site": {
+    "name": "Small site: 1 x 2.5 MW / 10 MWh BESS + 5 MWac PV (irradiance) + load"
+  },
+  "simulation": {
+    "step_s": 1.0,
+    "start_time": "2026-06-21T06:00:00Z",
+    "autostart": true,
+    "test_mode": false,
+    "seed": 1,
+    "history_size": 3600
+  },
+  "grid": {
+    "vn_kv": 12.47,
+    "vm_pu": 1.0,
+    "sc_mva": 100.0,
+    "x_r": 5.0
+  },
+  "bess": [
+    {
+      "id": "bess1",
+      "inverter": {
+        "s_rated_kva": 2750,
+        "p_discharge_max_kw": 2500,
+        "p_charge_max_kw": 2500,
+        "v_lv_kv": 0.69,
+        "priority": "p",
+        "ramp_kw_per_s": 500
+      },
+      "battery": {
+        "capacity_kwh": 10000,
+        "soc_initial_pct": 50,
+        "efficiency": {
+          "round_trip": 0.9
+        }
+      },
+      "transformer": {
+        "s_rated_kva": 2750,
+        "vn_hv_kv": 12.47,
+        "vn_lv_kv": 0.69,
+        "z_pct": 5.75,
+        "x_r": 7.0
+      }
+    }
+  ],
+  "pv": [
+    {
+      "id": "pv1",
+      "dc_kwp": 6500,
+      "loss_factor": 0.05,
+      "inverter": {
+        "s_rated_kva": 5500,
+        "p_max_kw": 5000,
+        "v_lv_kv": 0.69
+      },
+      "availability": {
+        "scenario": "cloudy_dynamic",
+        "source": "irradiance"
+      },
+      "transformer": {
+        "s_rated_kva": 5500,
+        "vn_hv_kv": 12.47,
+        "vn_lv_kv": 0.69,
+        "z_pct": 6.0,
+        "x_r": 8.0
+      }
+    }
+  ],
+  "loads": [
+    {
+      "id": "load1",
+      "profile": {
+        "scenario": "low_demand"
+      }
+    }
+  ]
+}

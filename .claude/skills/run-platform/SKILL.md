@@ -15,11 +15,13 @@ from the root. Running a single service on its own is the exception.
 
 - Root `make down` stops every platform container in both modes. Data volumes are kept.
 - Root `make down-all` (DESTRUCTIVE) also deletes every platform stack's volumes (postgres and
-  redis data), images (built and pulled) and networks; the next `make up` re-pulls, rebuilds and
-  starts from empty databases (then `make seed`). **Only run it when the user asks for it.**
+  redis data, including powerflow's stored sites, Modbus maps and profile edits), images
+  (built and pulled) and networks; the next `make up` re-pulls, rebuilds and starts from empty
+  databases (then `make seed`; powerflow re-seeds its defaults by itself). **Only run it when the user asks for it.**
   Each service also has its own `make -C services/<svc> down-all`.
 - Only the platform's own compose projects are touched: `pae-dev` and each service's project.
-  Other Docker containers, and the integration-test stacks `backend-ot-test-*`, never are.
+  Other Docker containers, and the integration-test stacks `backend-ot-test-*` and
+  `powerflow-test-*`, never are.
 - Root `make up`/`make down` **will stop services the user started on their own**. That's the
   intended rule, but if `docker compose ls` shows standalone stacks you didn't start, tell the
   user before running it.
@@ -30,7 +32,8 @@ production manifest.
 ## Default host ports (the registry in the root CLAUDE.md)
 
 backend-ot http **8000**, postgres **5435**, redis **6380** · mock-modbus **502** · web-plusdas
-http **5173** (the UI; its Vite dev server `make -C services/web-plusdas run` uses 5174). Override them
+http **5173** (the UI; its Vite dev server `make -C services/web-plusdas run` uses 5174) ·
+powerflow http **8020**, postgres **5436**. Override them
 only when something *outside* the platform holds a port:
 - Dev stack: in the root `.env` (copy `.env.example`), or in the shell.
 - One service alone: in the shell, e.g. `BACKEND_OT_HTTP_PORT=18000 make -C services/backend-ot up`.

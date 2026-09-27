@@ -1,0 +1,250 @@
+{
+  "map_version": 1,
+  "asset": "bess.bess1",
+  "unit_id": 1,
+  "port": 502,
+  "register_numbering": "zero_based",
+  "points": [
+    {
+      "point": "p_setpoint_kw",
+      "register_type": "holding",
+      "address": 0,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "q_setpoint_kvar",
+      "register_type": "holding",
+      "address": 2,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "mode_cmd",
+      "register_type": "holding",
+      "address": 4,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "enum_values": {
+        "0": "idle",
+        "1": "pq",
+        "2": "offline"
+      }
+    },
+    {
+      "point": "p_cmd_kw",
+      "register_type": "input",
+      "address": 0,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "q_cmd_kvar",
+      "register_type": "input",
+      "address": 2,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "p_kw",
+      "register_type": "input",
+      "address": 4,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "q_kvar",
+      "register_type": "input",
+      "address": 6,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "s_kva",
+      "register_type": "input",
+      "address": 8,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "soc_pct",
+      "register_type": "input",
+      "address": 10,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.1
+    },
+    {
+      "point": "energy_available_discharge_kwh",
+      "register_type": "input",
+      "address": 12,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "energy_available_charge_kwh",
+      "register_type": "input",
+      "address": 14,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "p_available_discharge_kw",
+      "register_type": "input",
+      "address": 16,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "p_available_charge_kw",
+      "register_type": "input",
+      "address": 18,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "status",
+      "register_type": "input",
+      "address": 20,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "enum_values": {
+        "0": "IDLE",
+        "1": "RUNNING",
+        "2": "OFFLINE",
+        "3": "FAULT"
+      }
+    },
+    {
+      "point": "limit_flags",
+      "register_type": "input",
+      "address": 21,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "bit_flags": {
+        "0": "P_LIMIT",
+        "1": "S_LIMIT",
+        "2": "SOC_LIMIT",
+        "3": "RAMP_LIMIT"
+      }
+    },
+    {
+      "point": "aux_p_kw",
+      "register_type": "input",
+      "address": 22,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "v_lv_pu",
+      "register_type": "input",
+      "address": 24,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.001
+    },
+    {
+      "point": "v_lv_kv",
+      "register_type": "input",
+      "address": 26,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.001
+    },
+    {
+      "point": "operating_state",
+      "register_type": "input",
+      "address": 28,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "enum_values": {
+        "0": "OFF",
+        "1": "STANDBY",
+        "2": "CHARGING",
+        "3": "DISCHARGING",
+        "4": "FAULT"
+      }
+    },
+    {
+      "point": "alarm_flags",
+      "register_type": "input",
+      "address": 29,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "bit_flags": {
+        "0": "SOC_LOW_WARNING",
+        "1": "SOC_HIGH_WARNING",
+        "2": "UNDERVOLTAGE",
+        "3": "OVERVOLTAGE",
+        "4": "TRANSFORMER_OVERLOAD",
+        "5": "OVER_TEMPERATURE",
+        "6": "COMM_LOSS"
+      }
+    },
+    {
+      "point": "p_rated_discharge_kw",
+      "register_type": "input",
+      "address": 100,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "p_rated_charge_kw",
+      "register_type": "input",
+      "address": 102,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "s_rated_kva",
+      "register_type": "input",
+      "address": 104,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "capacity_kwh",
+      "register_type": "input",
+      "address": 106,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "soc_min_pct",
+      "register_type": "input",
+      "address": 108,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "soc_max_pct",
+      "register_type": "input",
+      "address": 110,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    }
+  ]
+}

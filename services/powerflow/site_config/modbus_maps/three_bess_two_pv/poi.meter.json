@@ -1,0 +1,116 @@
+{
+  "map_version": 1,
+  "asset": "poi.meter",
+  "unit_id": 7,
+  "port": 502,
+  "register_numbering": "zero_based",
+  "points": [
+    {
+      "point": "p_kw",
+      "register_type": "input",
+      "address": 0,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "q_kvar",
+      "register_type": "input",
+      "address": 2,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "s_kva",
+      "register_type": "input",
+      "address": 4,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "pf",
+      "register_type": "input",
+      "address": 6,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.001
+    },
+    {
+      "point": "v_kv",
+      "register_type": "input",
+      "address": 8,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.001
+    },
+    {
+      "point": "v_pu",
+      "register_type": "input",
+      "address": 10,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.001
+    },
+    {
+      "point": "angle_deg",
+      "register_type": "input",
+      "address": 12,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.01
+    },
+    {
+      "point": "i_a",
+      "register_type": "input",
+      "address": 14,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 0.1
+    },
+    {
+      "point": "p_loss_total_kw",
+      "register_type": "input",
+      "address": 16,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "q_loss_total_kvar",
+      "register_type": "input",
+      "address": 18,
+      "data_type": "int32",
+      "word_order": "big",
+      "scale": 1.0
+    },
+    {
+      "point": "meter_state",
+      "register_type": "input",
+      "address": 20,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "enum_values": {
+        "0": "OK",
+        "1": "STALE"
+      }
+    },
+    {
+      "point": "alarm_flags",
+      "register_type": "input",
+      "address": 21,
+      "data_type": "uint16",
+      "word_order": "big",
+      "scale": 1.0,
+      "bit_flags": {
+        "0": "UNDERVOLTAGE",
+        "1": "OVERVOLTAGE",
+        "2": "EXPORTING",
+        "3": "IMPORTING",
+        "4": "LOW_POWER_FACTOR"
+      }
+    }
+  ]
+}

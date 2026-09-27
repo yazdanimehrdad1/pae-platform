@@ -1,0 +1,52 @@
+# Throwaway stack for integration tests. Run it via `make test-integration`, never by hand
+# against the dev stack: postgres here lives in tmpfs, publishes no host port, and is destroyed
+# after every run, so tests can truncate freely.
+#
+# The Makefile passes a per-worktree project name (-p powerflow-test-<worktree>), so parallel
+# worktrees each get their own isolated stack.
+
+services:
+  powerflow-postgres-test:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=powerflow_test
+      - POSTGRES_USER=powerflow_test
+      - POSTGRES_PASSWORD=powerflow_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powerflow_test -d powerflow_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    # Same Python as the app image; uv installs exactly what uv.lock pins (incl. dev group).
+    image: ghcr.io/astral-sh/uv:0.11.15-python3.11-trixie-slim
+    working_dir: /repo/services/powerflow
+    volumes:
+      - .:/repo/services/powerflow
+      - uv-cache:/root/.cache/uv
+    environment:
+      # Venv lives outside the bind mount so the host's .venv is never overwritten.
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
+      - UV_LINK_MODE=copy
+      - POWERFLOW_TEST_DATABASE_URL=postgresql+asyncpg://powerflow_test:powerflow_test@powerflow-postgres-test:5432/powerflow_test
+      # tests/integration/conftest.py refuses to truncate unless this is set.
+      - INTEGRATION_DB_RESET_ALLOWED=1
+      - PYTEST_TARGET=${PYTEST_TARGET:-tests/integration}
+    depends_on:
+      powerflow-postgres-test:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - >-
+        uv sync --frozen --quiet &&
+        uv run --frozen pytest $$PYTEST_TARGET -v --color=yes -rfE
+
+volumes:
+  # External so `compose down` never removes it; `make test-integration` creates it if missing.
+  uv-cache:
+    name: powerflow-uv-cache
+    external: true

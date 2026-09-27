@@ -1,0 +1,4263 @@
+{
+  "components": {
+    "schemas": {
+      "Access": {
+        "enum": [
+          "R",
+          "RW"
+        ],
+        "title": "Access",
+        "type": "string"
+      },
+      "AssetsResponse": {
+        "description": "Every asset with its static parameters (as configured).",
+        "properties": {
+          "bess": {
+            "items": {
+              "$ref": "#/components/schemas/BessConfig"
+            },
+            "title": "Bess",
+            "type": "array"
+          },
+          "loads": {
+            "items": {
+              "$ref": "#/components/schemas/LoadConfig"
+            },
+            "title": "Loads",
+            "type": "array"
+          },
+          "pv": {
+            "items": {
+              "$ref": "#/components/schemas/PvConfig"
+            },
+            "title": "Pv",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bess",
+          "pv",
+          "loads"
+        ],
+        "title": "AssetsResponse",
+        "type": "object"
+      },
+      "BatteryConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "aux_load_kw": {
+            "default": 0.0,
+            "description": "Auxiliary load, drawn from the LV bus (not the cells).",
+            "minimum": 0.0,
+            "title": "Aux Load Kw",
+            "type": "number"
+          },
+          "capacity_kwh": {
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity Kwh",
+            "type": "number"
+          },
+          "efficiency": {
+            "$ref": "#/components/schemas/EfficiencyConfig"
+          },
+          "soc_initial_pct": {
+            "default": 50.0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Soc Initial Pct",
+            "type": "number"
+          },
+          "soc_max_pct": {
+            "default": 95.0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Soc Max Pct",
+            "type": "number"
+          },
+          "soc_min_pct": {
+            "default": 5.0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Soc Min Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "capacity_kwh"
+        ],
+        "title": "BatteryConfig",
+        "type": "object"
+      },
+      "BessAssetResponse": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/BessConfig"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BessMeasurement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null before the first step."
+          },
+          "setpoint": {
+            "$ref": "#/components/schemas/BessSetpointState"
+          }
+        },
+        "required": [
+          "config",
+          "setpoint",
+          "measurement"
+        ],
+        "title": "BessAssetResponse",
+        "type": "object"
+      },
+      "BessConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "battery": {
+            "$ref": "#/components/schemas/BatteryConfig"
+          },
+          "collector": {
+            "default": "mv1",
+            "title": "Collector",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inverter": {
+            "$ref": "#/components/schemas/BessInverterConfig"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "transformer": {
+            "$ref": "#/components/schemas/TransformerConfig"
+          }
+        },
+        "required": [
+          "id",
+          "inverter",
+          "battery",
+          "transformer"
+        ],
+        "title": "BessConfig",
+        "type": "object"
+      },
+      "BessInverterConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "p_charge_max_kw": {
+            "exclusiveMinimum": 0.0,
+            "title": "P Charge Max Kw",
+            "type": "number"
+          },
+          "p_discharge_max_kw": {
+            "exclusiveMinimum": 0.0,
+            "title": "P Discharge Max Kw",
+            "type": "number"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority",
+            "default": "p"
+          },
+          "ramp_kw_per_s": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = unlimited.",
+            "title": "Ramp Kw Per S"
+          },
+          "s_rated_kva": {
+            "exclusiveMinimum": 0.0,
+            "title": "S Rated Kva",
+            "type": "number"
+          },
+          "v_lv_kv": {
+            "default": 0.69,
+            "exclusiveMinimum": 0.0,
+            "title": "V Lv Kv",
+            "type": "number"
+          }
+        },
+        "required": [
+          "s_rated_kva",
+          "p_discharge_max_kw",
+          "p_charge_max_kw"
+        ],
+        "title": "BessInverterConfig",
+        "type": "object"
+      },
+      "BessMeasurement": {
+        "description": "Generator convention: P > 0 discharging.",
+        "properties": {
+          "alarm_flag_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alarm Flag Names",
+            "type": "array"
+          },
+          "alarm_flags": {
+            "title": "Alarm Flags",
+            "type": "integer"
+          },
+          "aux_p_kw": {
+            "title": "Aux P Kw",
+            "type": "number"
+          },
+          "energy_available_charge_kwh": {
+            "title": "Energy Available Charge Kwh",
+            "type": "number"
+          },
+          "energy_available_discharge_kwh": {
+            "title": "Energy Available Discharge Kwh",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limit_flag_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limit Flag Names",
+            "type": "array"
+          },
+          "limit_flags": {
+            "title": "Limit Flags",
+            "type": "integer"
+          },
+          "operating_state": {
+            "title": "Operating State",
+            "type": "integer"
+          },
+          "operating_state_name": {
+            "title": "Operating State Name",
+            "type": "string"
+          },
+          "p_available_charge_kw": {
+            "title": "P Available Charge Kw",
+            "type": "number"
+          },
+          "p_available_discharge_kw": {
+            "title": "P Available Discharge Kw",
+            "type": "number"
+          },
+          "p_cmd_kw": {
+            "title": "P Cmd Kw",
+            "type": "number"
+          },
+          "p_kw": {
+            "title": "P Kw",
+            "type": "number"
+          },
+          "q_cmd_kvar": {
+            "title": "Q Cmd Kvar",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          },
+          "s_kva": {
+            "title": "S Kva",
+            "type": "number"
+          },
+          "soc_pct": {
+            "title": "Soc Pct",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "status_name": {
+            "title": "Status Name",
+            "type": "string"
+          },
+          "v_lv_kv": {
+            "title": "V Lv Kv",
+            "type": "number"
+          },
+          "v_lv_pu": {
+            "title": "V Lv Pu",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "p_cmd_kw",
+          "q_cmd_kvar",
+          "p_kw",
+          "q_kvar",
+          "s_kva",
+          "soc_pct",
+          "energy_available_discharge_kwh",
+          "energy_available_charge_kwh",
+          "p_available_discharge_kw",
+          "p_available_charge_kw",
+          "status",
+          "status_name",
+          "limit_flags",
+          "limit_flag_names",
+          "aux_p_kw",
+          "v_lv_pu",
+          "v_lv_kv",
+          "operating_state",
+          "operating_state_name",
+          "alarm_flags",
+          "alarm_flag_names"
+        ],
+        "title": "BessMeasurement",
+        "type": "object"
+      },
+      "BessMode": {
+        "enum": [
+          "idle",
+          "pq",
+          "offline"
+        ],
+        "title": "BessMode",
+        "type": "string"
+      },
+      "BessSetpointRequest": {
+        "additionalProperties": false,
+        "description": "A partial BESS setpoint: omitted fields keep their current value.",
+        "properties": {
+          "mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BessMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "p_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "+ discharge, − charge (kW).",
+            "title": "P Kw"
+          },
+          "q_kvar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "+ injecting vars (kvar).",
+            "title": "Q Kvar"
+          }
+        },
+        "title": "BessSetpointRequest",
+        "type": "object"
+      },
+      "BessSetpointState": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/BessMode"
+          },
+          "p_kw": {
+            "title": "P Kw",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          }
+        },
+        "required": [
+          "p_kw",
+          "q_kvar",
+          "mode"
+        ],
+        "title": "BessSetpointState",
+        "type": "object"
+      },
+      "BusMeasurement": {
+        "properties": {
+          "angle_deg": {
+            "title": "Angle Deg",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "v_kv": {
+            "description": "Line-to-line voltage (kV).",
+            "title": "V Kv",
+            "type": "number"
+          },
+          "v_pu": {
+            "title": "V Pu",
+            "type": "number"
+          },
+          "vn_kv": {
+            "title": "Vn Kv",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "vn_kv",
+          "v_kv",
+          "v_pu",
+          "angle_deg"
+        ],
+        "title": "BusMeasurement",
+        "type": "object"
+      },
+      "CollectorConfig": {
+        "additionalProperties": false,
+        "description": "An MV collector bus. Without a feeder it is tied to the POI bus by a closed switch.",
+        "properties": {
+          "feeder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CollectorConfig",
+        "type": "object"
+      },
+      "DataType": {
+        "enum": [
+          "float32",
+          "uint16",
+          "uint32",
+          "uint64",
+          "enum16",
+          "bitfield16"
+        ],
+        "title": "DataType",
+        "type": "string"
+      },
+      "DefaultsInfo": {
+        "properties": {
+          "active_site": {
+            "description": "The site made active on a fresh database.",
+            "title": "Active Site",
+            "type": "string"
+          },
+          "sites": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "Default sites and their Modbus map assets.",
+            "title": "Sites",
+            "type": "object"
+          }
+        },
+        "required": [
+          "active_site",
+          "sites"
+        ],
+        "title": "DefaultsInfo",
+        "type": "object"
+      },
+      "DefaultsRestoreResult": {
+        "properties": {
+          "active_site_reloaded": {
+            "title": "Active Site Reloaded",
+            "type": "boolean"
+          },
+          "maps_skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Maps Skipped",
+            "type": "array"
+          },
+          "maps_written": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Maps Written",
+            "type": "array"
+          },
+          "overwrite": {
+            "title": "Overwrite",
+            "type": "boolean"
+          },
+          "sites_skipped": {
+            "description": "Already stored; pass overwrite=true.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Sites Skipped",
+            "type": "array"
+          },
+          "sites_written": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sites Written",
+            "type": "array"
+          }
+        },
+        "required": [
+          "overwrite",
+          "sites_written",
+          "sites_skipped",
+          "maps_written",
+          "maps_skipped",
+          "active_site_reloaded"
+        ],
+        "title": "DefaultsRestoreResult",
+        "type": "object"
+      },
+      "EfficiencyConfig": {
+        "additionalProperties": false,
+        "description": "Either charge + discharge efficiencies, or a round-trip efficiency split evenly.",
+        "properties": {
+          "charge": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charge"
+          },
+          "discharge": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge"
+          },
+          "round_trip": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round Trip"
+          }
+        },
+        "title": "EfficiencyConfig",
+        "type": "object"
+      },
+      "EngineStatus": {
+        "properties": {
+          "history_count": {
+            "title": "History Count",
+            "type": "integer"
+          },
+          "history_size": {
+            "title": "History Size",
+            "type": "integer"
+          },
+          "last_converged": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Converged"
+          },
+          "last_step_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Step Duration Ms"
+          },
+          "nonconverged_count": {
+            "title": "Nonconverged Count",
+            "type": "integer"
+          },
+          "overrun_count": {
+            "title": "Overrun Count",
+            "type": "integer"
+          },
+          "sim_time": {
+            "format": "date-time",
+            "title": "Sim Time",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "step_id": {
+            "title": "Step Id",
+            "type": "integer"
+          },
+          "step_s": {
+            "title": "Step S",
+            "type": "number"
+          },
+          "test_mode": {
+            "title": "Test Mode",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "test_mode",
+          "step_s",
+          "step_id",
+          "sim_time",
+          "last_converged",
+          "overrun_count",
+          "nonconverged_count",
+          "last_step_duration_ms",
+          "history_count",
+          "history_size"
+        ],
+        "title": "EngineStatus",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "GridConfig": {
+        "additionalProperties": false,
+        "description": "The utility feeder: an ideal source behind its short-circuit impedance.",
+        "properties": {
+          "sc_mva": {
+            "default": 100.0,
+            "description": "Short-circuit power at the POI.",
+            "exclusiveMinimum": 0.0,
+            "title": "Sc Mva",
+            "type": "number"
+          },
+          "va_degree": {
+            "default": 0.0,
+            "description": "Source voltage angle (deg).",
+            "title": "Va Degree",
+            "type": "number"
+          },
+          "vm_pu": {
+            "default": 1.0,
+            "description": "Source voltage (pu).",
+            "maximum": 1.2,
+            "minimum": 0.8,
+            "title": "Vm Pu",
+            "type": "number"
+          },
+          "vn_kv": {
+            "default": 12.47,
+            "description": "Nominal voltage, line-to-line (kV).",
+            "exclusiveMinimum": 0.0,
+            "title": "Vn Kv",
+            "type": "number"
+          },
+          "x_r": {
+            "default": 5.0,
+            "description": "Source impedance X/R ratio.",
+            "exclusiveMinimum": 0.0,
+            "title": "X R",
+            "type": "number"
+          }
+        },
+        "title": "GridConfig",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          }
+        },
+        "required": [
+          "ok",
+          "state"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "HistoryFormat": {
+        "enum": [
+          "json",
+          "csv"
+        ],
+        "title": "HistoryFormat",
+        "type": "string"
+      },
+      "HistoryResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "rows": {
+            "description": "One row per snapshot: sim_time, step_id and the requested fields.",
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "fields",
+          "rows"
+        ],
+        "title": "HistoryResponse",
+        "type": "object"
+      },
+      "HttpInterfaceConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "const": true,
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "HttpInterfaceConfig",
+        "type": "object"
+      },
+      "InterfaceToggle": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "InterfaceToggle",
+        "type": "object"
+      },
+      "InterfacesConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "dnp3": {
+            "$ref": "#/components/schemas/InterfaceToggle"
+          },
+          "http": {
+            "$ref": "#/components/schemas/HttpInterfaceConfig"
+          },
+          "modbus": {
+            "$ref": "#/components/schemas/ModbusInterfaceConfig"
+          }
+        },
+        "title": "InterfacesConfig",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "LineConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "c_nf_per_km": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "C Nf Per Km",
+            "type": "number"
+          },
+          "length_km": {
+            "exclusiveMinimum": 0.0,
+            "title": "Length Km",
+            "type": "number"
+          },
+          "max_i_ka": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Max I Ka",
+            "type": "number"
+          },
+          "r_ohm_per_km": {
+            "minimum": 0.0,
+            "title": "R Ohm Per Km",
+            "type": "number"
+          },
+          "x_ohm_per_km": {
+            "minimum": 0.0,
+            "title": "X Ohm Per Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "length_km",
+          "r_ohm_per_km",
+          "x_ohm_per_km"
+        ],
+        "title": "LineConfig",
+        "type": "object"
+      },
+      "LoadAssetResponse": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/LoadConfig"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoadMeasurement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "config",
+          "measurement"
+        ],
+        "title": "LoadAssetResponse",
+        "type": "object"
+      },
+      "LoadConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "bus": {
+            "default": "poi",
+            "description": "\"poi\" or a collector id.",
+            "title": "Bus",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "noise": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoiseConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileRef"
+          },
+          "transformer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransformerConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional transformer; its LV side feeds the load."
+          }
+        },
+        "required": [
+          "id",
+          "profile"
+        ],
+        "title": "LoadConfig",
+        "type": "object"
+      },
+      "LoadMeasurement": {
+        "description": "Load convention: P > 0 consuming.",
+        "properties": {
+          "alarm_flag_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alarm Flag Names",
+            "type": "array"
+          },
+          "alarm_flags": {
+            "title": "Alarm Flags",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "p_kw": {
+            "title": "P Kw",
+            "type": "number"
+          },
+          "pf": {
+            "title": "Pf",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          },
+          "s_kva": {
+            "title": "S Kva",
+            "type": "number"
+          },
+          "supply_state": {
+            "title": "Supply State",
+            "type": "integer"
+          },
+          "supply_state_name": {
+            "title": "Supply State Name",
+            "type": "string"
+          },
+          "v_pu": {
+            "title": "V Pu",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "p_kw",
+          "q_kvar",
+          "s_kva",
+          "pf",
+          "v_pu",
+          "supply_state",
+          "supply_state_name",
+          "alarm_flags",
+          "alarm_flag_names"
+        ],
+        "title": "LoadMeasurement",
+        "type": "object"
+      },
+      "ModbusDataType": {
+        "enum": [
+          "bool",
+          "int16",
+          "uint16",
+          "int32",
+          "uint32",
+          "float32",
+          "uint64"
+        ],
+        "title": "ModbusDataType",
+        "type": "string"
+      },
+      "ModbusInterfaceConfig": {
+        "additionalProperties": false,
+        "description": "The maps are the files in site_config/modbus_maps/<site>/ (one per asset).",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "ModbusInterfaceConfig",
+        "type": "object"
+      },
+      "ModbusMap": {
+        "additionalProperties": false,
+        "description": "One asset's map. `asset` is `<asset_type>.<asset_id>`, e.g. `bess.bess1`.",
+        "properties": {
+          "asset": {
+            "pattern": "^(bess|pv|load|poi|site)\\.[A-Za-z0-9_-]+$",
+            "title": "Asset",
+            "type": "string"
+          },
+          "map_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Map Version",
+            "type": "integer"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ModbusPointMap"
+            },
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          },
+          "port": {
+            "default": 502,
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "register_numbering": {
+            "default": "zero_based",
+            "enum": [
+              "zero_based",
+              "one_based"
+            ],
+            "title": "Register Numbering",
+            "type": "string"
+          },
+          "unit_id": {
+            "maximum": 247.0,
+            "minimum": 1.0,
+            "title": "Unit Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "asset",
+          "unit_id",
+          "points"
+        ],
+        "title": "ModbusMap",
+        "type": "object"
+      },
+      "ModbusMapSummary": {
+        "properties": {
+          "asset": {
+            "title": "Asset",
+            "type": "string"
+          },
+          "orphaned": {
+            "description": "True if the site no longer has this asset.",
+            "title": "Orphaned",
+            "type": "boolean"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "unit_id": {
+            "title": "Unit Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "asset",
+          "unit_id",
+          "port",
+          "points",
+          "orphaned"
+        ],
+        "title": "ModbusMapSummary",
+        "type": "object"
+      },
+      "ModbusPointMap": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Address",
+            "type": "integer"
+          },
+          "bit_flags": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For an alarm/flag word: bit number (0 = LSB) → flag name.",
+            "title": "Bit Flags"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/ModbusDataType"
+          },
+          "enum_values": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a status enum: register value → state name.",
+            "title": "Enum Values"
+          },
+          "point": {
+            "description": "Point name from the asset type's point list.",
+            "title": "Point",
+            "type": "string"
+          },
+          "register_type": {
+            "$ref": "#/components/schemas/RegisterType"
+          },
+          "scale": {
+            "default": 1.0,
+            "description": "Engineering value = raw × scale.",
+            "title": "Scale",
+            "type": "number"
+          },
+          "word_order": {
+            "$ref": "#/components/schemas/WordOrder",
+            "default": "big"
+          }
+        },
+        "required": [
+          "point",
+          "register_type",
+          "address",
+          "data_type"
+        ],
+        "title": "ModbusPointMap",
+        "type": "object"
+      },
+      "NoiseConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "p_std_pct": {
+            "default": 0.0,
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "P Std Pct",
+            "type": "number"
+          },
+          "q_std_pct": {
+            "default": 0.0,
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Q Std Pct",
+            "type": "number"
+          }
+        },
+        "title": "NoiseConfig",
+        "type": "object"
+      },
+      "PoiConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "line": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional POI line/cable between the POI and the grid."
+          }
+        },
+        "title": "PoiConfig",
+        "type": "object"
+      },
+      "PoiMeasurement": {
+        "description": "The POI meter. Positive P/Q = export to the utility.",
+        "properties": {
+          "alarm_flag_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alarm Flag Names",
+            "type": "array"
+          },
+          "alarm_flags": {
+            "title": "Alarm Flags",
+            "type": "integer"
+          },
+          "angle_deg": {
+            "title": "Angle Deg",
+            "type": "number"
+          },
+          "i_a": {
+            "title": "I A",
+            "type": "number"
+          },
+          "meter_state": {
+            "title": "Meter State",
+            "type": "integer"
+          },
+          "meter_state_name": {
+            "title": "Meter State Name",
+            "type": "string"
+          },
+          "p_kw": {
+            "title": "P Kw",
+            "type": "number"
+          },
+          "p_loss_total_kw": {
+            "description": "Site losses: transformers + collector feeders.",
+            "title": "P Loss Total Kw",
+            "type": "number"
+          },
+          "pf": {
+            "description": "|P|/S signed with Q (positive = exporting vars).",
+            "title": "Pf",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          },
+          "q_loss_total_kvar": {
+            "title": "Q Loss Total Kvar",
+            "type": "number"
+          },
+          "s_kva": {
+            "title": "S Kva",
+            "type": "number"
+          },
+          "v_kv": {
+            "title": "V Kv",
+            "type": "number"
+          },
+          "v_pu": {
+            "title": "V Pu",
+            "type": "number"
+          }
+        },
+        "required": [
+          "p_kw",
+          "q_kvar",
+          "s_kva",
+          "pf",
+          "v_kv",
+          "v_pu",
+          "angle_deg",
+          "i_a",
+          "p_loss_total_kw",
+          "q_loss_total_kvar",
+          "meter_state",
+          "meter_state_name",
+          "alarm_flags",
+          "alarm_flag_names"
+        ],
+        "title": "PoiMeasurement",
+        "type": "object"
+      },
+      "PoiResponse": {
+        "properties": {
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "poi": {
+            "$ref": "#/components/schemas/PoiMeasurement"
+          },
+          "sim_time": {
+            "format": "date-time",
+            "title": "Sim Time",
+            "type": "string"
+          },
+          "step_id": {
+            "title": "Step Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step_id",
+          "sim_time",
+          "converged",
+          "poi"
+        ],
+        "title": "PoiResponse",
+        "type": "object"
+      },
+      "PointDef": {
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/Access"
+          },
+          "bit_flags": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bit Flags"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/DataType"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "enum_values": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enum Values"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scale_hint": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Hint"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PointSource"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "unit",
+          "data_type",
+          "access",
+          "source"
+        ],
+        "title": "PointDef",
+        "type": "object"
+      },
+      "PointSource": {
+        "description": "Where a point's value comes from.",
+        "enum": [
+          "measurement",
+          "setpoint",
+          "nameplate",
+          "simulation"
+        ],
+        "title": "PointSource",
+        "type": "string"
+      },
+      "PointValueResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit"
+        ],
+        "title": "PointValueResponse",
+        "type": "object"
+      },
+      "PointsResponse": {
+        "properties": {
+          "names": {
+            "description": "Every point name for the current site config.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "naming": {
+            "default": "<asset_type>.<asset_id>.<point>",
+            "title": "Naming",
+            "type": "string"
+          },
+          "point_lists": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/PointDef"
+              },
+              "type": "array"
+            },
+            "title": "Point Lists",
+            "type": "object"
+          }
+        },
+        "required": [
+          "point_lists",
+          "names"
+        ],
+        "title": "PointsResponse",
+        "type": "object"
+      },
+      "Priority": {
+        "description": "Which of P and Q is kept when a setpoint exceeds the apparent power rating.",
+        "enum": [
+          "p",
+          "q"
+        ],
+        "title": "Priority",
+        "type": "string"
+      },
+      "ProfileFolder": {
+        "enum": [
+          "load",
+          "pv"
+        ],
+        "title": "ProfileFolder",
+        "type": "string"
+      },
+      "ProfileRef": {
+        "additionalProperties": false,
+        "properties": {
+          "loop": {
+            "default": true,
+            "description": "Repeat the profile; else hold the ends.",
+            "title": "Loop",
+            "type": "boolean"
+          },
+          "scale": {
+            "default": 1.0,
+            "description": "Multiplies every profile value.",
+            "minimum": 0.0,
+            "title": "Scale",
+            "type": "number"
+          },
+          "scenario": {
+            "description": "Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.",
+            "pattern": "^[a-z0-9_]+$",
+            "title": "Scenario",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario"
+        ],
+        "title": "ProfileRef",
+        "type": "object"
+      },
+      "ProfileSaveResult": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "folder": {
+            "$ref": "#/components/schemas/ProfileFolder"
+          },
+          "reloaded_assets": {
+            "description": "Active-site assets now using the new data.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reloaded Assets",
+            "type": "array"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "scenario": {
+            "title": "Scenario",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "folder",
+          "scenario",
+          "rows",
+          "start",
+          "end",
+          "columns",
+          "reloaded_assets"
+        ],
+        "title": "ProfileSaveResult",
+        "type": "object"
+      },
+      "ProfileScenarios": {
+        "properties": {
+          "load": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Load",
+            "type": "array"
+          },
+          "pv": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pv",
+            "type": "array"
+          }
+        },
+        "required": [
+          "load",
+          "pv"
+        ],
+        "title": "ProfileScenarios",
+        "type": "object"
+      },
+      "PvAssetResponse": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/PvConfig"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PvMeasurement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "setpoint": {
+            "$ref": "#/components/schemas/PvSetpointState"
+          }
+        },
+        "required": [
+          "config",
+          "setpoint",
+          "measurement"
+        ],
+        "title": "PvAssetResponse",
+        "type": "object"
+      },
+      "PvAvailabilityConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "loop": {
+            "default": true,
+            "description": "Repeat the profile; else hold the ends.",
+            "title": "Loop",
+            "type": "boolean"
+          },
+          "scale": {
+            "default": 1.0,
+            "description": "Multiplies every profile value.",
+            "minimum": 0.0,
+            "title": "Scale",
+            "type": "number"
+          },
+          "scenario": {
+            "description": "Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.",
+            "pattern": "^[a-z0-9_]+$",
+            "title": "Scenario",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PvAvailabilitySource",
+            "default": "ac_kw"
+          }
+        },
+        "required": [
+          "scenario"
+        ],
+        "title": "PvAvailabilityConfig",
+        "type": "object"
+      },
+      "PvAvailabilitySource": {
+        "enum": [
+          "ac_kw",
+          "irradiance"
+        ],
+        "title": "PvAvailabilitySource",
+        "type": "string"
+      },
+      "PvConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/PvAvailabilityConfig"
+          },
+          "collector": {
+            "default": "mv1",
+            "title": "Collector",
+            "type": "string"
+          },
+          "dc_kwp": {
+            "exclusiveMinimum": 0.0,
+            "title": "Dc Kwp",
+            "type": "number"
+          },
+          "id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inverter": {
+            "$ref": "#/components/schemas/PvInverterConfig"
+          },
+          "loss_factor": {
+            "default": 0.0,
+            "description": "Fraction lost before AC.",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Loss Factor",
+            "type": "number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "transformer": {
+            "$ref": "#/components/schemas/TransformerConfig"
+          }
+        },
+        "required": [
+          "id",
+          "dc_kwp",
+          "inverter",
+          "availability",
+          "transformer"
+        ],
+        "title": "PvConfig",
+        "type": "object"
+      },
+      "PvInverterConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "p_max_kw": {
+            "exclusiveMinimum": 0.0,
+            "title": "P Max Kw",
+            "type": "number"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority",
+            "default": "p"
+          },
+          "s_rated_kva": {
+            "exclusiveMinimum": 0.0,
+            "title": "S Rated Kva",
+            "type": "number"
+          },
+          "v_lv_kv": {
+            "default": 0.69,
+            "exclusiveMinimum": 0.0,
+            "title": "V Lv Kv",
+            "type": "number"
+          }
+        },
+        "required": [
+          "s_rated_kva",
+          "p_max_kw"
+        ],
+        "title": "PvInverterConfig",
+        "type": "object"
+      },
+      "PvMeasurement": {
+        "properties": {
+          "alarm_flag_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alarm Flag Names",
+            "type": "array"
+          },
+          "alarm_flags": {
+            "title": "Alarm Flags",
+            "type": "integer"
+          },
+          "curtailment_kw": {
+            "title": "Curtailment Kw",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inverter_state": {
+            "title": "Inverter State",
+            "type": "integer"
+          },
+          "inverter_state_name": {
+            "title": "Inverter State Name",
+            "type": "string"
+          },
+          "irradiance_wm2": {
+            "title": "Irradiance Wm2",
+            "type": "number"
+          },
+          "limit_flag_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limit Flag Names",
+            "type": "array"
+          },
+          "limit_flags": {
+            "title": "Limit Flags",
+            "type": "integer"
+          },
+          "p_available_kw": {
+            "title": "P Available Kw",
+            "type": "number"
+          },
+          "p_kw": {
+            "title": "P Kw",
+            "type": "number"
+          },
+          "p_limit_active_kw": {
+            "title": "P Limit Active Kw",
+            "type": "number"
+          },
+          "pf": {
+            "title": "Pf",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          },
+          "s_kva": {
+            "title": "S Kva",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "status_name": {
+            "title": "Status Name",
+            "type": "string"
+          },
+          "v_lv_kv": {
+            "title": "V Lv Kv",
+            "type": "number"
+          },
+          "v_lv_pu": {
+            "title": "V Lv Pu",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "p_available_kw",
+          "p_limit_active_kw",
+          "p_kw",
+          "q_kvar",
+          "s_kva",
+          "pf",
+          "curtailment_kw",
+          "irradiance_wm2",
+          "status",
+          "status_name",
+          "limit_flags",
+          "limit_flag_names",
+          "v_lv_pu",
+          "v_lv_kv",
+          "inverter_state",
+          "inverter_state_name",
+          "alarm_flags",
+          "alarm_flag_names"
+        ],
+        "title": "PvMeasurement",
+        "type": "object"
+      },
+      "PvSetpointRequest": {
+        "additionalProperties": false,
+        "description": "A partial PV setpoint: at most one of p_limit_kw / p_limit_pct and one of q_kvar / pf.\nOmitted fields keep their current value.",
+        "properties": {
+          "p_limit_kw": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Curtailment limit (kW).",
+            "title": "P Limit Kw"
+          },
+          "p_limit_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Curtailment limit (% of p_max_kw).",
+            "title": "P Limit Pct"
+          },
+          "pf": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": -1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Power factor; + injecting vars, − absorbing; |pf| ≥ 0.8. Selects PF mode.",
+            "title": "Pf"
+          },
+          "q_kvar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Q setpoint; selects Q mode.",
+            "title": "Q Kvar"
+          }
+        },
+        "title": "PvSetpointRequest",
+        "type": "object"
+      },
+      "PvSetpointState": {
+        "properties": {
+          "p_limit_kw": {
+            "title": "P Limit Kw",
+            "type": "number"
+          },
+          "p_limit_pct": {
+            "title": "P Limit Pct",
+            "type": "number"
+          },
+          "pf": {
+            "title": "Pf",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          },
+          "q_mode": {
+            "description": "\"q\" or \"pf\".",
+            "title": "Q Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_limit_kw",
+          "p_limit_pct",
+          "q_mode",
+          "q_kvar",
+          "pf"
+        ],
+        "title": "PvSetpointState",
+        "type": "object"
+      },
+      "RegisterType": {
+        "enum": [
+          "holding",
+          "input",
+          "coil",
+          "discrete_input"
+        ],
+        "title": "RegisterType",
+        "type": "string"
+      },
+      "RunState": {
+        "enum": [
+          "stopped",
+          "running",
+          "paused"
+        ],
+        "title": "RunState",
+        "type": "string"
+      },
+      "SetpointResult": {
+        "properties": {
+          "accepted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BessSetpointState"
+              },
+              {
+                "$ref": "#/components/schemas/PvSetpointState"
+              }
+            ],
+            "title": "Accepted"
+          },
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "asset_type": {
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "clamped": {
+            "title": "Clamped",
+            "type": "boolean"
+          },
+          "flags": {
+            "description": "Static limits that clamped the request.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "requested": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Requested",
+            "type": "object"
+          }
+        },
+        "required": [
+          "asset_type",
+          "asset_id",
+          "requested",
+          "accepted",
+          "clamped",
+          "flags"
+        ],
+        "title": "SetpointResult",
+        "type": "object"
+      },
+      "SimulationConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "autostart": {
+            "default": true,
+            "description": "Start the real-time loop at startup.",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "history_size": {
+            "default": 3600,
+            "description": "Snapshots kept in the history buffer.",
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "History Size",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed for the load noise.",
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "start_time": {
+            "default": "2026-01-01T00:00:00Z",
+            "description": "Sim clock origin (timezone-aware ISO 8601). Sim time then advances 1:1 with wall-clock.",
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "step_s": {
+            "default": 1.0,
+            "description": "Simulation step (s).",
+            "exclusiveMinimum": 0.0,
+            "maximum": 3600.0,
+            "title": "Step S",
+            "type": "number"
+          },
+          "test_mode": {
+            "default": false,
+            "description": "Enables POST /sim/step (manual stepping, tests only).",
+            "title": "Test Mode",
+            "type": "boolean"
+          }
+        },
+        "title": "SimulationConfig",
+        "type": "object"
+      },
+      "SiteConfig": {
+        "additionalProperties": false,
+        "description": "A grid-connected site: the utility feeder, the POI, MV collectors and N BESS/PV/loads.",
+        "properties": {
+          "bess": {
+            "items": {
+              "$ref": "#/components/schemas/BessConfig"
+            },
+            "title": "Bess",
+            "type": "array"
+          },
+          "collectors": {
+            "items": {
+              "$ref": "#/components/schemas/CollectorConfig"
+            },
+            "minItems": 1,
+            "title": "Collectors",
+            "type": "array"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/GridConfig"
+          },
+          "interfaces": {
+            "$ref": "#/components/schemas/InterfacesConfig"
+          },
+          "loads": {
+            "items": {
+              "$ref": "#/components/schemas/LoadConfig"
+            },
+            "title": "Loads",
+            "type": "array"
+          },
+          "poi": {
+            "$ref": "#/components/schemas/PoiConfig"
+          },
+          "pv": {
+            "items": {
+              "$ref": "#/components/schemas/PvConfig"
+            },
+            "title": "Pv",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "simulation": {
+            "$ref": "#/components/schemas/SimulationConfig"
+          },
+          "site": {
+            "$ref": "#/components/schemas/SiteInfo"
+          }
+        },
+        "title": "SiteConfig",
+        "type": "object"
+      },
+      "SiteInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "default": "Site",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "SiteInfo",
+        "type": "object"
+      },
+      "SiteList": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "string"
+          },
+          "sites": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sites",
+            "type": "array"
+          }
+        },
+        "required": [
+          "active",
+          "sites"
+        ],
+        "title": "SiteList",
+        "type": "object"
+      },
+      "Snapshot": {
+        "properties": {
+          "bess": {
+            "items": {
+              "$ref": "#/components/schemas/BessMeasurement"
+            },
+            "title": "Bess",
+            "type": "array"
+          },
+          "buses": {
+            "items": {
+              "$ref": "#/components/schemas/BusMeasurement"
+            },
+            "title": "Buses",
+            "type": "array"
+          },
+          "converged": {
+            "description": "False: the power flow failed this step and the values are the last good ones.",
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "loads": {
+            "items": {
+              "$ref": "#/components/schemas/LoadMeasurement"
+            },
+            "title": "Loads",
+            "type": "array"
+          },
+          "poi": {
+            "$ref": "#/components/schemas/PoiMeasurement"
+          },
+          "pv": {
+            "items": {
+              "$ref": "#/components/schemas/PvMeasurement"
+            },
+            "title": "Pv",
+            "type": "array"
+          },
+          "sim_time": {
+            "format": "date-time",
+            "title": "Sim Time",
+            "type": "string"
+          },
+          "step_id": {
+            "description": "Sim tick number; increases by 1 per step (gaps = skipped).",
+            "title": "Step Id",
+            "type": "integer"
+          },
+          "transformers": {
+            "items": {
+              "$ref": "#/components/schemas/TransformerMeasurement"
+            },
+            "title": "Transformers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "step_id",
+          "sim_time",
+          "converged",
+          "poi",
+          "buses",
+          "transformers",
+          "bess",
+          "pv",
+          "loads"
+        ],
+        "title": "Snapshot",
+        "type": "object"
+      },
+      "TransformerConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "i0_pct": {
+            "default": 0.0,
+            "description": "No-load current (%).",
+            "minimum": 0.0,
+            "title": "I0 Pct",
+            "type": "number"
+          },
+          "no_load_loss_kw": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "No Load Loss Kw",
+            "type": "number"
+          },
+          "s_rated_kva": {
+            "exclusiveMinimum": 0.0,
+            "title": "S Rated Kva",
+            "type": "number"
+          },
+          "vn_hv_kv": {
+            "exclusiveMinimum": 0.0,
+            "title": "Vn Hv Kv",
+            "type": "number"
+          },
+          "vn_lv_kv": {
+            "exclusiveMinimum": 0.0,
+            "title": "Vn Lv Kv",
+            "type": "number"
+          },
+          "x_r": {
+            "default": 7.0,
+            "exclusiveMinimum": 0.0,
+            "title": "X R",
+            "type": "number"
+          },
+          "z_pct": {
+            "description": "Short-circuit impedance (%Z).",
+            "exclusiveMinimum": 0.0,
+            "maximum": 30.0,
+            "title": "Z Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "s_rated_kva",
+          "vn_hv_kv",
+          "vn_lv_kv",
+          "z_pct"
+        ],
+        "title": "TransformerConfig",
+        "type": "object"
+      },
+      "TransformerMeasurement": {
+        "description": "Positive P/Q = flowing toward the grid (LV → HV).",
+        "properties": {
+          "loading_pct": {
+            "title": "Loading Pct",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "p_hv_kw": {
+            "description": "P leaving at the HV terminal.",
+            "title": "P Hv Kw",
+            "type": "number"
+          },
+          "p_loss_kw": {
+            "title": "P Loss Kw",
+            "type": "number"
+          },
+          "p_lv_kw": {
+            "description": "P entering at the LV terminal.",
+            "title": "P Lv Kw",
+            "type": "number"
+          },
+          "q_hv_kvar": {
+            "title": "Q Hv Kvar",
+            "type": "number"
+          },
+          "q_loss_kvar": {
+            "title": "Q Loss Kvar",
+            "type": "number"
+          },
+          "q_lv_kvar": {
+            "title": "Q Lv Kvar",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "p_hv_kw",
+          "q_hv_kvar",
+          "p_lv_kw",
+          "q_lv_kvar",
+          "p_loss_kw",
+          "q_loss_kvar",
+          "loading_pct"
+        ],
+        "title": "TransformerMeasurement",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionResponse": {
+        "properties": {
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "pandapower_version": {
+            "title": "Pandapower Version",
+            "type": "string"
+          },
+          "python_version": {
+            "title": "Python Version",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "api_version",
+          "pandapower_version",
+          "python_version"
+        ],
+        "title": "VersionResponse",
+        "type": "object"
+      },
+      "WordOrder": {
+        "enum": [
+          "big",
+          "little"
+        ],
+        "title": "WordOrder",
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
+    "title": "powerflow",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/assets": {
+      "get": {
+        "operationId": "list_assets_api_assets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "All assets, static parameters",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/assets/bess/{asset_id}": {
+      "get": {
+        "operationId": "get_bess_api_assets_bess__asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BessAssetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown asset or point."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Bess",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/assets/bess/{asset_id}/setpoint": {
+      "put": {
+        "description": "Partial update: omitted fields keep their value. Invalid values → 422; out-of-range values are clamped to the static limits (P ratings, S circle) and reported in `flags`. SOC and ramp limits apply every step and show up in the measurements' `limit_flags`.",
+        "operationId": "put_bess_setpoint_api_assets_bess__asset_id__setpoint_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BessSetpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetpointResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown asset or point."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a BESS's P/Q/mode (+P discharge, −P charge)",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/assets/load/{asset_id}": {
+      "get": {
+        "operationId": "get_load_api_assets_load__asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoadAssetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown asset or point."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Load",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/assets/pv/{asset_id}": {
+      "get": {
+        "operationId": "get_pv_api_assets_pv__asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvAssetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown asset or point."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pv",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/assets/pv/{asset_id}/setpoint": {
+      "put": {
+        "description": "Partial update: omitted fields keep their value. Invalid values → 422; out-of-range values are clamped to the static limits (P ratings, S circle) and reported in `flags`. SOC and ramp limits apply every step and show up in the measurements' `limit_flags`.",
+        "operationId": "put_pv_setpoint_api_assets_pv__asset_id__setpoint_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PvSetpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetpointResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown asset or point."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a PV's curtailment (kW or %) and Q or power factor",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/config": {
+      "get": {
+        "description": "To change it: PUT /api/sites/{name}, then POST /api/sites/{name}/activate.",
+        "operationId": "get_config_api_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The active site config",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/api/config/schema": {
+      "get": {
+        "operationId": "config_schema_api_config_schema_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Config Schema Api Config Schema Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "JSON Schema of a site config",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/api/defaults": {
+      "get": {
+        "description": "Seeded into an empty database at startup. Restore them with POST /api/defaults/restore.",
+        "operationId": "get_defaults_api_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultsInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The shipped default sites and Modbus maps",
+        "tags": [
+          "defaults"
+        ]
+      }
+    },
+    "/api/defaults/restore": {
+      "post": {
+        "description": "Without overwrite, sites and maps already stored are kept (reported as skipped). With overwrite=true they're replaced; the simulation must be stopped (409), and the active site is reloaded if it was replaced. The active-site choice is unchanged.",
+        "operationId": "restore_defaults_api_defaults_restore_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "overwrite",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Overwrite",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultsRestoreResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Import the default sites and maps into the database",
+        "tags": [
+          "defaults"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/measurements/history": {
+      "get": {
+        "operationId": "history_api_measurements_history_get",
+        "parameters": [
+          {
+            "description": "Sim time ≥ from.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sim time ≥ from.",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Sim time ≤ to.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sim time ≤ to.",
+              "title": "To"
+            }
+          },
+          {
+            "description": "Comma-separated measurement point names (e.g. `poi.meter.p_kw,bess.bess1.soc_pct`). Default: every measurement point.",
+            "in": "query",
+            "name": "fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated measurement point names (e.g. `poi.meter.p_kw,bess.bess1.soc_pct`). Default: every measurement point.",
+              "title": "Fields"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/HistoryFormat",
+              "default": "json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown field."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Field is not a measurement point."
+          }
+        },
+        "summary": "Snapshots from the in-memory ring buffer, as rows of point values",
+        "tags": [
+          "measurements"
+        ]
+      }
+    },
+    "/api/measurements/latest": {
+      "get": {
+        "description": "POI, every bus, every transformer, every asset (commanded vs actual), losses and the convergence flag. `step_id` increases by one per sim tick, so a poller can spot missed steps and backfill from /measurements/history.",
+        "operationId": "latest_api_measurements_latest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No step has run yet."
+          }
+        },
+        "summary": "The full latest snapshot",
+        "tags": [
+          "measurements"
+        ]
+      }
+    },
+    "/api/measurements/poi": {
+      "get": {
+        "operationId": "poi_api_measurements_poi_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No step has run yet."
+          }
+        },
+        "summary": "The POI meter",
+        "tags": [
+          "measurements"
+        ]
+      }
+    },
+    "/api/points": {
+      "get": {
+        "operationId": "list_points_api_points_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Protocol-neutral point lists",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/points/{name}": {
+      "get": {
+        "operationId": "read_point_api_points__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointValueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown asset or point."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one point by name, e.g. bess.bess1.soc_pct",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/api/profiles": {
+      "get": {
+        "operationId": "list_profiles_api_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileScenarios"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Profile scenarios",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/profiles/{folder}/{scenario}": {
+      "delete": {
+        "operationId": "delete_profile_api_profiles__folder___scenario__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileFolder"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scenario",
+            "required": true,
+            "schema": {
+              "title": "Scenario",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Delete a profile scenario (409 while any stored site uses it)",
+        "tags": [
+          "profiles"
+        ]
+      },
+      "get": {
+        "operationId": "get_profile_api_profiles__folder___scenario__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileFolder"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scenario",
+            "required": true,
+            "schema": {
+              "title": "Scenario",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "A profile scenario's CSV",
+        "tags": [
+          "profiles"
+        ]
+      },
+      "put": {
+        "description": "Validated before it's written. Active-site assets using the scenario pick it up on the next step, even while running (their configured scale/loop still apply).",
+        "operationId": "put_profile_api_profiles__folder___scenario__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileFolder"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scenario",
+            "required": true,
+            "schema": {
+              "title": "Scenario",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Load: timestamp,p_kw,q_kvar (or timestamp,p_kw,pf). PV: timestamp and p_kw (ac_kw source) and/or ghi_wm2 (irradiance source). Timestamps ISO 8601.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSaveResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Create or replace a profile scenario (CSV body)",
+        "tags": [
+          "profiles"
+        ]
+      }
+    },
+    "/api/schemas": {
+      "get": {
+        "operationId": "list_schemas_api_schemas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Schemas Api Schemas Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stored JSON Schemas",
+        "tags": [
+          "schemas"
+        ]
+      }
+    },
+    "/api/schemas/{name}": {
+      "get": {
+        "operationId": "get_schema_api_schemas__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Get Schema Api Schemas  Name  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "One JSON Schema, e.g. site-config or modbus-map",
+        "tags": [
+          "schemas"
+        ]
+      }
+    },
+    "/api/sim/pause": {
+      "post": {
+        "operationId": "pause_api_sim_pause_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed in the current state."
+          }
+        },
+        "summary": "Pause",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sim/reset": {
+      "post": {
+        "operationId": "reset_api_sim_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop and return to the initial state",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sim/start": {
+      "post": {
+        "operationId": "start_api_sim_start_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Start or resume real-time",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sim/status": {
+      "get": {
+        "operationId": "status_api_sim_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Engine state and counters",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sim/step": {
+      "post": {
+        "description": "Only with `simulation.test_mode: true` and while not running; otherwise 409. Returns the last step's snapshot.",
+        "operationId": "step_api_sim_step_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "title": "Count",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed in the current state."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance N steps at once (test mode only)",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sim/stop": {
+      "post": {
+        "operationId": "stop_api_sim_stop_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop (state kept)",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sites": {
+      "get": {
+        "operationId": "list_sites_api_sites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stored sites",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{name}": {
+      "delete": {
+        "operationId": "delete_site_api_sites__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Delete a site",
+        "tags": [
+          "sites"
+        ]
+      },
+      "get": {
+        "operationId": "get_site_api_sites__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Get Site",
+        "tags": [
+          "sites"
+        ]
+      },
+      "put": {
+        "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it, so the simulation must be stopped (409 otherwise).",
+        "operationId": "put_site_api_sites__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Create or replace a stored site",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{name}/activate": {
+      "post": {
+        "description": "Rebuilds the network, resets the simulation and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start.",
+        "operationId": "activate_site_api_sites__name__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Load a stored site (only while stopped)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site}/modbus-maps": {
+      "get": {
+        "operationId": "list_maps_api_sites__site__modbus_maps_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModbusMapSummary"
+                  },
+                  "title": "Response List Maps Api Sites  Site  Modbus Maps Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "A site's per-asset Modbus maps",
+        "tags": [
+          "modbus maps"
+        ]
+      }
+    },
+    "/api/sites/{site}/modbus-maps/{asset}": {
+      "delete": {
+        "operationId": "delete_map_api_sites__site__modbus_maps__asset__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset",
+            "required": true,
+            "schema": {
+              "title": "Asset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Delete an asset's map",
+        "tags": [
+          "modbus maps"
+        ]
+      },
+      "get": {
+        "operationId": "get_map_api_sites__site__modbus_maps__asset__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset",
+            "required": true,
+            "schema": {
+              "title": "Asset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModbusMap"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "One asset's map (asset = <asset_type>.<asset_id>, e.g. pv.pv1, poi.meter)",
+        "tags": [
+          "modbus maps"
+        ]
+      },
+      "put": {
+        "description": "Rejected (422) if the site has no such asset, the body's `asset` differs from the path, registers overlap, a point isn't in the asset type's point list, a writable point isn't on a holding register/coil (or vice versa), or the unit_id+port is already used by another map of the site.",
+        "operationId": "put_map_api_sites__site__modbus_maps__asset__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset",
+            "required": true,
+            "schema": {
+              "title": "Asset",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModbusMap"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModbusMap"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site, map or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed now (running, or in use)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name or content."
+          }
+        },
+        "summary": "Create or replace an asset's map",
+        "tags": [
+          "modbus maps"
+        ]
+      }
+    },
+    "/api/version": {
+      "get": {
+        "operationId": "get_version_api_version_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Versions",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}

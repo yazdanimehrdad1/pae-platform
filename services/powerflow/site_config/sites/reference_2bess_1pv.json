@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "site": {
+    "name": "Reference site: 2 x 2.5 MW / 10 MWh BESS + 5 MWac PV + 3 MW load"
+  },
+  "simulation": {
+    "step_s": 1.0,
+    "start_time": "2026-06-21T06:00:00Z",
+    "autostart": true,
+    "test_mode": false,
+    "seed": 42,
+    "history_size": 3600
+  },
+  "grid": {
+    "vn_kv": 12.47,
+    "vm_pu": 1.0,
+    "va_degree": 0.0,
+    "sc_mva": 100.0,
+    "x_r": 5.0
+  },
+  "poi": {
+    "line": {
+      "length_km": 0.5,
+      "r_ohm_per_km": 0.306,
+      "x_ohm_per_km": 0.35,
+      "c_nf_per_km": 0.0,
+      "max_i_ka": 0.6
+    }
+  },
+  "collectors": [
+    {
+      "id": "mv1"
+    }
+  ],
+  "bess": [
+    {
+      "id": "bess1",
+      "name": "BESS 1",
+      "collector": "mv1",
+      "inverter": {
+        "s_rated_kva": 2750,
+        "p_discharge_max_kw": 2500,
+        "p_charge_max_kw": 2500,
+        "v_lv_kv": 0.69,
+        "priority": "p",
+        "ramp_kw_per_s": 500
+      },
+      "battery": {
+        "capacity_kwh": 10000,
+        "soc_min_pct": 5,
+        "soc_max_pct": 95,
+        "soc_initial_pct": 50,
+        "efficiency": {
+          "charge": 0.95,
+          "discharge": 0.95
+        },
+        "aux_load_kw": 15
+      },
+      "transformer": {
+        "s_rated_kva": 2750,
+        "vn_hv_kv": 12.47,
+        "vn_lv_kv": 0.69,
+        "z_pct": 5.75,
+        "x_r": 7.0,
+        "no_load_loss_kw": 2.5,
+        "i0_pct": 0.2
+      }
+    },
+    {
+      "id": "bess2",
+      "name": "BESS 2",
+      "collector": "mv1",
+      "inverter": {
+        "s_rated_kva": 2750,
+        "p_discharge_max_kw": 2500,
+        "p_charge_max_kw": 2500,
+        "v_lv_kv": 0.69,
+        "priority": "p",
+        "ramp_kw_per_s": 500
+      },
+      "battery": {
+        "capacity_kwh": 10000,
+        "soc_min_pct": 5,
+        "soc_max_pct": 95,
+        "soc_initial_pct": 50,
+        "efficiency": {
+          "charge": 0.95,
+          "discharge": 0.95
+        },
+        "aux_load_kw": 15
+      },
+      "transformer": {
+        "s_rated_kva": 2750,
+        "vn_hv_kv": 12.47,
+        "vn_lv_kv": 0.69,
+        "z_pct": 5.75,
+        "x_r": 7.0,
+        "no_load_loss_kw": 2.5,
+        "i0_pct": 0.2
+      }
+    }
+  ],
+  "pv": [
+    {
+      "id": "pv1",
+      "name": "PV 1",
+      "collector": "mv1",
+      "dc_kwp": 6500,
+      "loss_factor": 0.0,
+      "inverter": {
+        "s_rated_kva": 5500,
+        "p_max_kw": 5000,
+        "v_lv_kv": 0.69,
+        "priority": "p"
+      },
+      "availability": {
+        "scenario": "clear_sky_high",
+        "source": "ac_kw",
+        "scale": 1.0,
+        "loop": true
+      },
+      "transformer": {
+        "s_rated_kva": 5500,
+        "vn_hv_kv": 12.47,
+        "vn_lv_kv": 0.69,
+        "z_pct": 6.0,
+        "x_r": 8.0,
+        "no_load_loss_kw": 4.5,
+        "i0_pct": 0.2
+      }
+    }
+  ],
+  "loads": [
+    {
+      "id": "load1",
+      "name": "Site load",
+      "bus": "poi",
+      "profile": {
+        "scenario": "high_demand",
+        "scale": 1.0,
+        "loop": true
+      },
+      "noise": {
+        "p_std_pct": 1.0,
+        "q_std_pct": 1.0
+      }
+    }
+  ],
+  "interfaces": {
+    "http": {
+      "enabled": true
+    },
+    "modbus": {
+      "enabled": false
+    },
+    "dnp3": {
+      "enabled": false
+    }
+  }
+}

@@ -23,7 +23,7 @@ endif
 .DEFAULT_GOAL := help
 
 # Every service under services/. A new service is added here (the new-service skill does it).
-SERVICES := backend-ot mock-modbus web-plusdas
+SERVICES := backend-ot mock-modbus web-plusdas powerflow
 # `svc=<name>` narrows fan-out targets and dev-stack targets to one service.
 TARGET_SERVICES := $(or $(svc),$(SERVICES))
 
@@ -45,7 +45,8 @@ help:
 	@echo "  down               stop every platform container, both modes (volumes kept)."
 	@echo "                     Run it before starting a single service with make -C services/<svc> up"
 	@echo "  down-all           DESTRUCTIVE: stop every platform container AND delete their volumes"
-	@echo "                     (postgres/redis data), images (built and pulled) and networks"
+	@echo "                     (postgres/redis data, incl. powerflow's sites/maps/profile edits),"
+	@echo "                     images (built and pulled) and networks"
 	@echo "  restart / ps / logs [svc=...]"
 	@echo "  seed               load backend-ot's dev data (built from mock-modbus's contract)"
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
@@ -77,8 +78,8 @@ down: stop-all
 # DESTRUCTIVE clean slate: every platform stack (dev stack + each service's standalone stack,
 # through that service's own `down-all`) loses its containers, data volumes, images and
 # network. The next `make up` re-pulls/rebuilds images and starts with empty databases (seed
-# again). Not touched: other Docker projects, the backend-ot-test-* stacks and the external
-# backend-ot-uv-cache volume.
+# again). Not touched: other Docker projects, the *-test-* stacks and the external
+# backend-ot-uv-cache / powerflow-uv-cache volumes.
 down-all:
 	@echo "==> dev stack (pae-dev): down, deleting volumes, images, network"
 	@$(DEV_COMPOSE) down --volumes --rmi all --remove-orphans
@@ -89,7 +90,8 @@ down-all:
 
 # Every platform container: the dev stack, then each service's standalone stack via that
 # service's own `down` (the root never touches a service's compose file directly). Other
-# Docker projects, including the integration-test stacks (backend-ot-test-*), are left alone.
+# Docker projects, including the integration-test stacks (backend-ot-test-*, powerflow-test-*),
+# are left alone.
 stop-all:
 	@echo "==> dev stack (pae-dev): down"
 	@$(DEV_COMPOSE) down --remove-orphans
