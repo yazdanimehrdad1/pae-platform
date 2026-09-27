@@ -1,9 +1,4 @@
-export interface Note {
-  id: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Note } from "../types";
 
 const STORAGE_KEY = "user_notes";
 const MAX_NOTES = 10;

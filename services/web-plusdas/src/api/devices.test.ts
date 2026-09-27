@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DeviceRecord } from '@/shared/types/device';
+import type { DeviceRecord } from '@/api/types/devices';
 import { devicesApi } from './devices';
 
 function stubFetch(status: number, body: unknown) {

@@ -1,4 +1,4 @@
-import { Notes } from "@/shared/components/Notes";
+import { Notes } from "./components/Notes";
 
 const NotesPage = () => {
   return (

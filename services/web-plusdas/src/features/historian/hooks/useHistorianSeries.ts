@@ -2,14 +2,8 @@ import { useMemo } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { devicesApi } from '@/api/devices';
 import { historianApi } from '@/api/historian';
-import type { BackendPointReadings, TimeRange } from '@/shared/types/api';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ChartRow = Record<string, any>;
-
-export type TimeWindow =
-  | { preset: TimeRange }
-  | { startTime: string; endTime: string };
+import type { BackendPointReadings } from '@/api/types/historian';
+import type { ChartRow, TimeWindow } from '../types';
 
 export function useHistorianSeries(
   siteId: string | null,

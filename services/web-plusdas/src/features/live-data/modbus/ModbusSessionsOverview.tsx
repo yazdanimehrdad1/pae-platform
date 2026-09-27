@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDisplayStatus } from "./ModbusSessionCard";
-import type { ModbusSessionState } from "@/shared/types/modbusLiveStream";
+import type { ModbusSessionState } from "../types";
 
 export function ModbusSessionsOverview({ sessions, aliasBySlot, onSelect }: {
   sessions: ModbusSessionState[];

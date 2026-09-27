@@ -41,3 +41,11 @@ export type DeviceType = Schemas['DeviceCreateRequest']['type'];
 export type DeviceCreateRequest = Schemas['DeviceCreateRequest'];
 export type DeviceUpdateRequest = Schemas['DeviceUpdate'];
 export type DeviceDeleteResponse = Schemas['DeviceDeleteResponse'];
+export type PingResult = Schemas['DeviceHealthStatus'];
+
+// Points of one device, as the asset tree lists them (built in src/api/devices.ts).
+export interface DevicePointsEntry {
+  deviceId: number;
+  deviceName: string;
+  points: Array<{ id: number; name: string; category: string }>;
+}

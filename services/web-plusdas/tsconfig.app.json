@@ -27,5 +27,5 @@
       "@contracts/backend-ot": ["./src/api/generated/backend-ot.ts"]
     }
   },
-  "include": ["src", "Tests/devices.ts", "Tests/sites.ts"]
+  "include": ["src"]
 }

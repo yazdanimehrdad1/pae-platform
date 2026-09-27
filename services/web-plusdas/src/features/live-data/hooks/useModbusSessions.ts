@@ -14,8 +14,8 @@ import type {
   ModbusDoneEvent,
   ModbusLiveStreamRequest,
   ModbusPollEvent,
-  ModbusSessionState,
-} from "@/shared/types/modbusLiveStream";
+} from "@/api/types/modbusStream";
+import type { ModbusSessionState } from "../types";
 
 export function useModbusSessions() {
   const { user } = useAuth();

@@ -1,4 +1,4 @@
-import type { ModbusLiveStreamRequest } from "@/shared/types/modbusLiveStream";
+import type { ModbusLiveStreamRequest } from "@/api/types/modbusStream";
 
 export interface ModbusConfigEntry {
   alias: string;

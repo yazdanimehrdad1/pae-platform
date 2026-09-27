@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import type { DeviceRecord, DeviceCreateRequest, DeviceType } from "@/shared/types/device";
+import type { DeviceRecord, DeviceCreateRequest, DeviceType } from "@/api/types/devices";
 
 // Every device type backend-ot accepts (its contract enum). A Record, so adding or removing
 // a type in the contract fails the typecheck until this list matches.

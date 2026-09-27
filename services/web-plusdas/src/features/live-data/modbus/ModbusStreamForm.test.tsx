@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ModbusLiveStreamRequest } from '@/shared/types/modbusLiveStream';
+import type { ModbusLiveStreamRequest } from '@/api/types/modbusStream';
 import { ModbusStreamForm } from './ModbusStreamForm';
 
 const request = {

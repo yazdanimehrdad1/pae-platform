@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Copy, RotateCw, Square, Trash2 } from "lucide-react";
 import { RegisterValuesTable } from "./RegisterValuesTable";
 import { toast } from "@/shared/hooks/use-toast";
-import type { ModbusSessionState } from "@/shared/types/modbusLiveStream";
+import type { ModbusSessionState } from "../types";
 
 const ATTACHMENT_STYLES: Record<string, string> = {
   connecting: "bg-warning/10 text-warning border-warning",

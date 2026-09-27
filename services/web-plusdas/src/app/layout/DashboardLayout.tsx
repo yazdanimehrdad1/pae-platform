@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/shared/contexts/auth";
 import { AppSidebar } from "./AppSidebar";
-import { Notes } from "@/shared/components/Notes";
+import { Notes } from "@/features/notes/components/Notes";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";

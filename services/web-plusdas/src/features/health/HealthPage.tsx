@@ -3,16 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, AlertTriangle, CheckCircle, XCircle, Clock, Filter, TestTube } from "lucide-react";
-import { useMockHealth } from "./hooks/useMockHealth";
-
-const deviceList = [
-  "Transformer T1", "Transformer T2", "Generator G1", "Feeder F1",
-  "Protection P1", "Protection P2", "Switch S1", "Switch S2"
-];
+import { Activity, CheckCircle, XCircle, Filter, TestTube } from "lucide-react";
+import { MOCK_HEALTH_DEVICE_NAMES as deviceList, MOCK_PASSED_SYSTEMS } from "@/mocks/health";
+import { useHealthHistory } from "./hooks/useHealthHistory";
 
 function HealthTimeline() {
-  const { data: healthData, isLoading } = useMockHealth(deviceList);
+  const { data: healthData, isLoading } = useHealthHistory(deviceList);
   const [timeRange, setTimeRange] = useState("24h");
 
   if (isLoading) {
@@ -136,14 +132,6 @@ function HealthTimeline() {
 }
 
 function PerformanceInformation() {
-  const passedSystems = [
-    { name: 'BESS Unit 1', test: 'Self Discharge', status: 'PASS', lastRun: 'Dec 12, 2024 14:30', reportId: 'report-1' },
-    { name: 'BESS Unit 2', test: 'Self Discharge', status: 'PASS', lastRun: 'Dec 12, 2024 14:30', reportId: 'report-2' },
-    { name: 'BESS Unit 3', test: 'Self Discharge', status: 'PASS', lastRun: 'Dec 12, 2024 14:30', reportId: 'report-3' },
-    { name: 'Transformer T1', test: 'Thermal Performance', status: 'PASS', lastRun: 'Dec 11, 2024 16:45', reportId: 'report-4' },
-    { name: 'Transformer T2', test: 'Thermal Performance', status: 'PASS', lastRun: 'Dec 11, 2024 16:45', reportId: 'report-5' },
-  ];
-
   const handleGoToReport = (reportId: string) => {
     console.log('Navigate to report:', reportId);
   };
@@ -163,7 +151,7 @@ function PerformanceInformation() {
             <h3 className="text-lg font-semibold">Systems Passed Tests</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {passedSystems.map((system, index) => {
+            {MOCK_PASSED_SYSTEMS.map((system, index) => {
               const isPass = system.status === 'PASS';
               return (
                 <div key={index} className={`p-4 rounded-lg border ${isPass ? 'bg-success/5 border-success/20' : 'bg-destructive/5 border-destructive/20'}`}>
@@ -206,54 +194,6 @@ function PerformanceInformation() {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function HealthSummary() {
-  const { data: healthData } = useMockHealth(deviceList);
-
-  const latestStates = deviceList.map(deviceId => {
-    const deviceData = healthData.filter(h => h.deviceId === deviceId);
-    return deviceData.length > 0 ? deviceData[0].state : 2;
-  });
-
-  const okCount = latestStates.filter(s => s === 2).length;
-  const warningCount = latestStates.filter(s => s === 1).length;
-  const downCount = latestStates.filter(s => s === 0).length;
-
-  const stats = [
-    { title: "Online", value: okCount, total: deviceList.length, icon: CheckCircle, color: "text-success", bgColor: "bg-success/10" },
-    { title: "Warnings", value: warningCount, total: deviceList.length, icon: AlertTriangle, color: "text-warning", bgColor: "bg-warning/10" },
-    { title: "Offline", value: downCount, total: deviceList.length, icon: XCircle, color: "text-destructive", bgColor: "bg-destructive/10" },
-    { title: "Uptime", value: Math.round((okCount / deviceList.length) * 100), unit: "%", icon: Clock, color: "text-primary", bgColor: "bg-primary/10" }
-  ];
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {stats.map((stat) => (
-        <Card key={stat.title} className="card-industrial">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="data-label">{stat.title}</p>
-                <div className="flex items-baseline space-x-1">
-                  <span className="data-metric">{stat.value}</span>
-                  {stat.total && (
-                    <span className="text-sm text-muted-foreground">/ {stat.total}</span>
-                  )}
-                  {stat.unit && (
-                    <span className="text-sm text-muted-foreground">{stat.unit}</span>
-                  )}
-                </div>
-              </div>
-              <div className={`w-12 h-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                <stat.icon className={`w-6 h-6 ${stat.color}`} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
   );
 }
 

@@ -6,7 +6,7 @@ import { SpreadsheetGrid } from "@/shared/components/spreadsheet/SpreadsheetGrid
 import type {
   DevicePoint, DevicePointClass, DevicePointCreateRequest, DevicePointDataType, DevicePointSeverity,
   DevicePointUpdateRequest,
-} from "@/shared/types/device-point";
+} from "@/api/types/devicePoints";
 
 type ColumnKey =
   | "name" | "category" | "poll_kind" | "address" | "size" | "data_type"

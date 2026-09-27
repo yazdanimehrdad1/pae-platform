@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SiteRecord } from '@/shared/types/site';
+import type { SiteRecord } from '@/api/types/sites';
 import { sitesApi } from './sites';
 
 const alpha: SiteRecord = {

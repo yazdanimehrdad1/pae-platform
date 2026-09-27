@@ -1,4 +1,4 @@
-import type { ModbusRegisterConfig } from "@/shared/types/modbusLiveStream";
+import type { ModbusRegisterConfig } from "@/api/types/modbusStream";
 
 export interface CachedSessionMeta {
   slot: number;

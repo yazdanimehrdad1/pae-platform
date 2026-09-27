@@ -1,4 +1,4 @@
-import type { ApiError } from '@/shared/types/api';
+import type { ApiError } from './types/errors';
 import { getRuntimeConfig } from '@/shared/config/runtime';
 
 // Same-origin API base from runtime config (default `/api`), never a build-time value.

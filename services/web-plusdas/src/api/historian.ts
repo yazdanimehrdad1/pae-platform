@@ -1,4 +1,4 @@
-import type { DevicePointReadingsRequest, BackendPointReadings } from '@/shared/types/api';
+import type { DevicePointReadingsRequest, BackendPointReadings } from './types/historian';
 import { client } from './client';
 
 export const historianApi = {

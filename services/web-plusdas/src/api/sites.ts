@@ -1,4 +1,4 @@
-import type { Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse } from '@/shared/types/site';
+import type { Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse } from './types/sites';
 import { client, request } from './client';
 
 // backend-ot has no site type or status yet (see docs/backend-gaps.md), so the UI defaults them.

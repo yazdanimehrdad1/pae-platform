@@ -11,6 +11,7 @@ export type ModbusWordOrder = StreamParams['word_order'];
 export type ModbusRegisterConfig = Schemas['LiveStreamRawRegistersRegisterConfig'];
 export type ModbusLiveStreamRequest = StreamParams;
 export type ModbusSessionSummary = Schemas['LiveStreamSessionInfo'];
+export type ModbusSessionsResponse = Schemas['LiveStreamSessionsResponse'];
 
 // Server-sent event payloads of the stream. The OpenAPI contract does not describe SSE
 // bodies, so these stay hand-written (see docs/backend-gaps.md).
@@ -33,29 +34,4 @@ export interface ModbusPollEvent {
 export interface ModbusDoneEvent {
   total_polls: number;
   duration_s: number;
-}
-
-// UI state for one attached stream (not a wire type).
-export type ModbusAttachment = 'idle' | 'connecting' | 'streaming' | 'error';
-
-export interface ModbusSessionState {
-  sessionId: string;
-  slot: number;
-  host: string;
-  port: number;
-  server_address: number;
-  kind: ModbusRegisterKind;
-  start_address: number;
-  end_address: number;
-  modbus_address_mode: ModbusAddressMode;
-  interval: number;
-  duration: number;
-  serverStatus: string;
-  attachment: ModbusAttachment;
-  pollCount: number;
-  lastTimestamp: string | null;
-  registers: Record<string, ModbusPolledRegister>;
-  registerConfigs: Record<string, ModbusRegisterConfig>;
-  error: string | null;
-  startedAt: string | null;
 }

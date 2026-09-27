@@ -6,7 +6,7 @@ import {
   saveModbusConfigCache,
   type ModbusConfigCache,
 } from "../lib/modbusConfigStorage";
-import type { ModbusLiveStreamRequest } from "@/shared/types/modbusLiveStream";
+import type { ModbusLiveStreamRequest } from "@/api/types/modbusStream";
 
 export const MAX_MODBUS_SLOTS = 5;
 

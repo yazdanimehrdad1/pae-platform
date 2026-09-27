@@ -16,7 +16,7 @@ import {
 import { toast } from "@/shared/hooks/use-toast";
 import { sitesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
-import type { SiteCreateRequest, SiteRecord } from "@/shared/types/site";
+import type { SiteCreateRequest, SiteRecord } from "@/api/types/sites";
 import { Plus, Pencil, Trash2, RotateCcw, AlertTriangle } from "lucide-react";
 import { SiteFormDialog } from "./SiteFormDialog";
 

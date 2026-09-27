@@ -7,8 +7,8 @@ import {
   addNote,
   updateNote,
   deleteNote,
-  type Note,
-} from "@/lib/notesStorage";
+} from "../lib/notesStorage";
+import type { Note } from "../types";
 import { cn } from "@/lib/utils";
 
 interface NotesProps {

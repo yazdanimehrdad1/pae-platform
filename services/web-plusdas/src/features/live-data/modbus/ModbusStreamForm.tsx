@@ -13,7 +13,7 @@ import { cellKey, newRowKey, type GridColumn, type GridRow } from "@/shared/comp
 import { SpreadsheetGrid } from "@/shared/components/spreadsheet/SpreadsheetGrid";
 import type {
   ModbusByteOrder, ModbusLiveStreamRequest, ModbusRegisterConfig, ModbusWordOrder,
-} from "@/shared/types/modbusLiveStream";
+} from "@/api/types/modbusStream";
 
 type RegisterDataType = ModbusRegisterConfig['data_type'];
 

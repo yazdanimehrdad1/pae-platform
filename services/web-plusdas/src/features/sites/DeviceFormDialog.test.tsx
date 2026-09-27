@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { DeviceRecord } from '@/shared/types/device';
+import type { DeviceRecord } from '@/api/types/devices';
 import { DeviceFormDialog } from './DeviceFormDialog';
 
 // backend-ot returns canonical uppercase types; the seeded devices are PV and BESS, which the

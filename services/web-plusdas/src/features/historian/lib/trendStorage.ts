@@ -1,8 +1,4 @@
-export interface Trend {
-  id: string;
-  name: string;
-  points: string[];
-}
+import type { Trend } from "../types";
 
 const STORAGE_KEY_PREFIX = "historian_trends_";
 

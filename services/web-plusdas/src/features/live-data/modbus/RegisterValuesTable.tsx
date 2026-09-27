@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { GridColumn, GridRow } from "@/shared/components/spreadsheet/grid";
 import { SpreadsheetGrid } from "@/shared/components/spreadsheet/SpreadsheetGrid";
-import type { ModbusPolledRegister, ModbusRegisterConfig } from "@/shared/types/modbusLiveStream";
+import type { ModbusPolledRegister, ModbusRegisterConfig } from "@/api/types/modbusStream";
 
 type ValueColumnKey = "address" | "label" | "data_type" | "value";
 
