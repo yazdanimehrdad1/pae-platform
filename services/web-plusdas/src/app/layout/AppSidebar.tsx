@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Building2,
-  Activity,
+  BellRing,
   BarChart3,
   PlayCircle,
   FileText,
@@ -31,10 +31,10 @@ const navigationItems = [
     roles: ['engineer', 'admin', 'monitor']
   },
   {
-    id: 'health',
-    title: 'Health',
-    icon: Activity,
-    path: '/health',
+    id: 'alarms',
+    title: 'System alarms',
+    icon: BellRing,
+    path: '/alarms',
     roles: ['monitor', 'admin', 'engineer']
   },
   {

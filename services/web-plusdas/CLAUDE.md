@@ -66,7 +66,7 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
   `add-api-call` skill.
 - `src/features/<feature>/`: page(s) plus their `components/`, `hooks/`, `lib/` and `types.ts`
   (types only that feature uses). A type used by one file stays in that file.
-- `src/mocks/`: **all** fake data and fake behavior (auth, health, SLD fixtures, reports, tasks).
+- `src/mocks/`: **all** fake data and fake behavior (auth, system alarms, SLD fixtures, reports, tasks).
   `grep -r "@/mocks" src` shows what is still mocked, and `src/mocks/README.md` lists each mock
   with the backend gap it waits on. ESLint blocks `@/mocks` in `src/api` and `src/components`.
 - `src/shared/`: what 2+ features use: `components/` (asset tree, spreadsheet grid, theme),
@@ -104,7 +104,7 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
 ## Gotchas
 - `strict: false` and `noImplicitAny: false` in tsconfig (inherited): the compiler won't catch
   nulls, and `z.infer` marks every zod field optional (hence the cast in `ModbusStreamForm.toRequest`).
-- Mocked, not wired to backend-ot (the backend has no API for them yet): auth, Health, SLD,
+- Mocked, not wired to backend-ot (the backend has no API for them yet): auth, System alarms, SLD,
   Reports and Task Builder lists, all from `src/mocks/` (see its README), and Notes
   (localStorage). See `docs/backend-gaps.md`.
 - `.env.development` / `.env.production` may exist locally (untracked, gitignored) from the old

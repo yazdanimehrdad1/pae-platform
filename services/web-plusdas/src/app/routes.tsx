@@ -6,7 +6,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 const Login = lazy(() => import("@/features/auth/LoginPage"));
 const Historian = lazy(() => import("@/features/historian/HistorianPage"));
 const LiveData = lazy(() => import("@/features/live-data/LiveDataPage"));
-const Health = lazy(() => import("@/features/health/HealthPage"));
+const Alarms = lazy(() => import("@/features/alarms/AlarmsPage"));
 const Sites = lazy(() => import("@/features/sites/SitesPage"));
 const ManageSites = lazy(() => import("@/features/sites/ManageSitesPage"));
 const SiteDevices = lazy(() => import("@/features/sites/SiteDevicesPage"));
@@ -36,7 +36,8 @@ export const AppRoutes = () => {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Navigate to="/sites" replace />} />
-          <Route path="/health" element={<DashboardLayout><Health /></DashboardLayout>} />
+          <Route path="/alarms" element={<DashboardLayout><Alarms /></DashboardLayout>} />
+          <Route path="/health" element={<Navigate to="/alarms" replace />} />
           <Route path="/historian" element={<DashboardLayout><Historian /></DashboardLayout>} />
           <Route path="/live-data" element={<DashboardLayout><LiveData /></DashboardLayout>} />
           <Route path="/sites" element={<DashboardLayout><Sites /></DashboardLayout>} />

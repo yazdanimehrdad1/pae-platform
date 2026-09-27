@@ -42,6 +42,9 @@ export default {
 					DEFAULT: 'hsl(var(--success))',
 					foreground: 'hsl(var(--success-foreground))'
 				},
+				// System alarms severities (features/alarms): color is only for abnormal states.
+				'alarm-fault': 'hsl(var(--alarm-fault))',
+				'alarm-warning': 'hsl(var(--alarm-warning))',
 				warning: {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
