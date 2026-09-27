@@ -4975,7 +4975,7 @@
     },
     "/api/modbus-live-stream-register-snapshot/registers": {
       "get": {
-        "description": "Return the last 5 decoded register reads for a live stream session.\n\nSnapshots are ordered newest-first. timestamps[j] corresponds to registers[i].values[j].\nReturns empty lists if no polls have been recorded yet.\nReturns 404 if the session is unknown or its data has expired (TTL elapsed).",
+        "description": "Return the last 10 decoded register reads for a live stream session.\n\nSnapshots are ordered newest-first. timestamps[j] corresponds to registers[i].values[j].\nReturns empty lists if no polls have been recorded yet.\nReturns 404 if the session is unknown or its data has expired (TTL elapsed).",
         "operationId": "get_live_stream_register_snapshot_api_modbus_live_stream_register_snapshot_registers_get",
         "parameters": [
           {

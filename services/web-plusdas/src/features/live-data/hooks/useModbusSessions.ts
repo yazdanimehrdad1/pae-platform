@@ -12,10 +12,11 @@ import type {
   ModbusAddressMode,
   ModbusConnectedEvent,
   ModbusDoneEvent,
+  ModbusErrorEvent,
   ModbusLiveStreamRequest,
   ModbusPollEvent,
 } from "@/api/types/modbusStream";
-import type { ModbusSessionState } from "../types";
+import type { ModbusSessionState, ModbusViewMode } from "../types";
 
 export function useModbusSessions() {
   const { user } = useAuth();
@@ -56,6 +57,7 @@ export function useModbusSessions() {
           return {
             sessionId: summary.session_id,
             slot: knownSlots[i] ?? resolveFallbackSlot(),
+            viewMode: existing?.viewMode ?? cached?.viewMode ?? 'live',
             host: summary.host,
             port: summary.port,
             server_address: summary.server_address,
@@ -94,8 +96,16 @@ export function useModbusSessions() {
     };
   }, []);
 
-  const handlePollOrDone = (sessionId: string, evt: SseEvent) => {
-    if (evt.event === 'poll') {
+  // Events after `connected` (for a resume, `connected` too: it confirms polling restarted).
+  const handleStreamEvent = (sessionId: string, evt: SseEvent) => {
+    if (evt.event === 'connected') {
+      setSessions(prev => prev.map(s => s.sessionId === sessionId
+        ? { ...s, serverStatus: 'active', attachment: 'streaming', error: null }
+        : s));
+    } else if (evt.event === 'error') {
+      const data = JSON.parse(evt.data) as ModbusErrorEvent;
+      setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, error: data.error } : s));
+    } else if (evt.event === 'poll') {
       const data = JSON.parse(evt.data) as ModbusPollEvent;
       setSessions(prev => prev.map(s => s.sessionId === sessionId
         ? { ...s, attachment: 'streaming', pollCount: data.poll, lastTimestamp: data.timestamp, registers: data.registers }
@@ -118,7 +128,7 @@ export function useModbusSessions() {
     }));
   };
 
-  const startSession = (slot: number, request: ModbusLiveStreamRequest): Promise<string> => {
+  const startSession = (slot: number, request: ModbusLiveStreamRequest, viewMode: ModbusViewMode): Promise<string> => {
     const controller = new AbortController();
     let sessionId: string | null = null;
 
@@ -130,11 +140,12 @@ export function useModbusSessions() {
           sessionId = newSessionId;
           abortControllersRef.current.set(newSessionId, controller);
           const startedAt = new Date().toISOString();
-          cacheRef.current = { ...cacheRef.current, [newSessionId]: { slot, registerConfigs: request.register_configs, startedAt } };
+          cacheRef.current = { ...cacheRef.current, [newSessionId]: { slot, registerConfigs: request.register_configs, startedAt, viewMode } };
           persistCache();
           setSessions(prev => [...prev, {
             sessionId: newSessionId,
             slot,
+            viewMode,
             host: request.host,
             port: request.port,
             server_address: request.server_address,
@@ -155,7 +166,7 @@ export function useModbusSessions() {
           }]);
           resolve(newSessionId);
         } else if (sessionId) {
-          handlePollOrDone(sessionId, evt);
+          handleStreamEvent(sessionId, evt);
         }
       };
 
@@ -168,10 +179,10 @@ export function useModbusSessions() {
     });
   };
 
-  const relaunchSlot = async (slot: number, request: ModbusLiveStreamRequest): Promise<string> => {
+  const relaunchSlot = async (slot: number, request: ModbusLiveStreamRequest, viewMode: ModbusViewMode): Promise<string> => {
     const existing = sessions.find(s => s.slot === slot);
     if (existing) await deleteSession(existing.sessionId);
-    return startSession(slot, request);
+    return startSession(slot, request, viewMode);
   };
 
   const resumeSession = (sessionId: string) => {
@@ -179,17 +190,21 @@ export function useModbusSessions() {
     abortControllersRef.current.set(sessionId, controller);
     setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, attachment: 'connecting', error: null } : s));
 
-    modbusStreamApi.resume(sessionId, (evt) => handlePollOrDone(sessionId, evt), controller.signal)
+    modbusStreamApi.resume(sessionId, (evt) => handleStreamEvent(sessionId, evt), controller.signal)
       .then(() => finishAttach(sessionId, null))
       .catch((err) => finishAttach(sessionId, err));
   };
 
+  // backend-ot's stop endpoint cancels the polling (its stream then sends `done` and ends), so it
+  // is called before this tab closes its side: closing first would end the session by disconnect
+  // and turn the stop call into a 404. A failed stop (404: nothing polling any more) is not an
+  // error here; the refresh reads the real status back from backend-ot.
   const stopSession = async (sessionId: string) => {
+    await modbusStreamApi.stop(sessionId).catch(() => {});
     abortControllersRef.current.get(sessionId)?.abort();
     abortControllersRef.current.delete(sessionId);
-    setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, attachment: 'idle', serverStatus: 'stopped' } : s));
-    await modbusStreamApi.stop(sessionId).catch(() => {});
-    refresh();
+    setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, attachment: 'idle' } : s));
+    await refresh();
   };
 
   const deleteSession = async (sessionId: string) => {

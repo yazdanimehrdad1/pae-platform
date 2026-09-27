@@ -1,8 +1,11 @@
 import type { ModbusLiveStreamRequest } from "@/api/types/modbusStream";
+import type { ModbusViewMode } from "../types";
 
 export interface ModbusConfigEntry {
   alias: string;
   request: ModbusLiveStreamRequest;
+  // Missing in configs saved before view modes existed: read as "live".
+  viewMode?: ModbusViewMode;
 }
 
 export type ModbusConfigCache = Record<number, ModbusConfigEntry>;

@@ -5,12 +5,17 @@ import type {
   ModbusRegisterKind,
 } from '@/api/types/modbusStream';
 
+// How a session tab shows its data: every poll as it streams in, or the last polls kept by
+// backend-ot (the register snapshot endpoint). Either way the session streams the same.
+export type ModbusViewMode = 'live' | 'snapshot';
+
 // UI state for one attached stream (not a wire type).
 export type ModbusAttachment = 'idle' | 'connecting' | 'streaming' | 'error';
 
 export interface ModbusSessionState {
   sessionId: string;
   slot: number;
+  viewMode: ModbusViewMode;
   host: string;
   port: number;
   server_address: number;

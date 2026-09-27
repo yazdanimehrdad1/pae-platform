@@ -35,3 +35,13 @@ export interface ModbusDoneEvent {
   total_polls: number;
   duration_s: number;
 }
+
+// A connection or read failure; the stream goes on unless it can't reach the device at all.
+export interface ModbusErrorEvent {
+  error: string;
+  poll: number;
+}
+
+// Last polls of a session, newest first: timestamps[j] matches every entry's values[j].
+export type ModbusRegisterSnapshot = Schemas['LiveStreamRegisterSnapshotResponse'];
+export type ModbusRegisterSnapshotEntry = Schemas['LiveStreamRegisterSnapshotEntry'];

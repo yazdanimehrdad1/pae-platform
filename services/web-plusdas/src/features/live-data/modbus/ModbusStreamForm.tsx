@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, Share2 } from "lucide-react";
 import { devicesApi } from "@/api";
@@ -14,6 +15,7 @@ import { SpreadsheetGrid } from "@/shared/components/spreadsheet/SpreadsheetGrid
 import type {
   ModbusByteOrder, ModbusLiveStreamRequest, ModbusRegisterConfig, ModbusWordOrder,
 } from "@/api/types/modbusStream";
+import type { ModbusViewMode } from "../types";
 
 type RegisterDataType = ModbusRegisterConfig['data_type'];
 
@@ -38,6 +40,7 @@ const registerRowSchema = z.object({
 
 const formSchema = z.object({
   alias: z.string(),
+  viewMode: z.enum(['live', 'snapshot']),
   host: z.string().min(1, 'Host is required'),
   port: z.coerce.number().int().min(1).max(65535),
   server_address: z.coerce.number().int().min(0),
@@ -106,6 +109,7 @@ function fromGridRow(row: GridRow<RegisterColumnKey>): RegisterRow {
 
 const defaultValues: FormValues = {
   alias: '',
+  viewMode: 'live',
   host: '',
   port: 502,
   server_address: 1,
@@ -132,13 +136,13 @@ function toRequest(values: FormValues): ModbusLiveStreamRequest {
       ...(row.word_order ? { word_order: row.word_order as ModbusWordOrder } : {}),
     };
   }
-  const { registerConfigs, alias, ...rest } = values;
+  const { registerConfigs, alias, viewMode, ...rest } = values;
   // formSchema requires every field; z.infer only marks them optional because tsconfig has
   // strictNullChecks off, so the cast restores what the schema already guarantees.
   return { ...(rest as Omit<ModbusLiveStreamRequest, 'register_configs'>), register_configs };
 }
 
-function fromRequest(request: ModbusLiveStreamRequest, alias: string): FormValues {
+function fromRequest(request: ModbusLiveStreamRequest, alias: string, viewMode: ModbusViewMode): FormValues {
   const { register_configs, ...rest } = request;
   const registerConfigs: FormValues['registerConfigs'] = [];
   for (let addr = rest.start_address; addr <= rest.end_address; addr++) {
@@ -153,21 +157,24 @@ function fromRequest(request: ModbusLiveStreamRequest, alias: string): FormValue
       word_order: config?.word_order ?? '',
     });
   }
-  return { ...rest, registerConfigs, alias };
+  return { ...rest, registerConfigs, alias, viewMode };
 }
 
 const MAX_AUTO_ROWS = 500;
 
-export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit }: {
+export function ModbusStreamForm({ siteId, initialValues, initialAlias, initialViewMode, onSubmit }: {
   siteId: string | null;
   initialValues?: ModbusLiveStreamRequest;
   initialAlias?: string;
-  onSubmit: (request: ModbusLiveStreamRequest, alias: string) => Promise<void>;
+  initialViewMode?: ModbusViewMode;
+  onSubmit: (request: ModbusLiveStreamRequest, alias: string, viewMode: ModbusViewMode) => Promise<void>;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { register, control, handleSubmit, setValue, getValues, watch, formState: { errors, isSubmitting, isSubmitted } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialValues ? fromRequest(initialValues, initialAlias ?? '') : defaultValues,
+    defaultValues: initialValues
+      ? fromRequest(initialValues, initialAlias ?? '', initialViewMode ?? 'live')
+      : defaultValues,
   });
 
   const startAddress = Number(watch('start_address'));
@@ -229,7 +236,7 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit
   const onValid = async (values: FormValues) => {
     setSubmitError(null);
     try {
-      await onSubmit(toRequest(values), values.alias.trim());
+      await onSubmit(toRequest(values), values.alias.trim(), values.viewMode);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to start session');
     }
@@ -251,9 +258,26 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, onSubmit
       </div>
       {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
-      <div className="space-y-1 max-w-sm">
-        <Label htmlFor="alias">Alias (optional)</Label>
-        <Input id="alias" placeholder="e.g. Plant A Boiler" {...register('alias')} />
+      <div className="flex flex-wrap items-end gap-6">
+        <div className="space-y-1 w-full max-w-sm">
+          <Label htmlFor="alias">Alias (optional)</Label>
+          <Input id="alias" placeholder="e.g. Plant A Boiler" {...register('alias')} />
+        </div>
+        <div className="space-y-2">
+          <Label>Session view</Label>
+          <Controller control={control} name="viewMode" render={({ field }) => (
+            <RadioGroup value={field.value} onValueChange={field.onChange} className="flex gap-4 h-10 items-center">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="live" id="view-mode-live" />
+                <Label htmlFor="view-mode-live" className="font-normal">Live data</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="snapshot" id="view-mode-snapshot" />
+                <Label htmlFor="view-mode-snapshot" className="font-normal">Snapshot (last 10 polls)</Label>
+              </div>
+            </RadioGroup>
+          )} />
+        </div>
       </div>
 
       {modbusDevices.length > 0 && (

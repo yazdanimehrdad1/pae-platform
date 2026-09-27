@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDisplayStatus } from "./ModbusSessionCard";
+import { VIEW_MODE_LABELS } from "../lib/viewMode";
 import type { ModbusSessionState } from "../types";
 
 export function ModbusSessionsOverview({ sessions, aliasBySlot, onSelect }: {
@@ -22,6 +23,7 @@ export function ModbusSessionsOverview({ sessions, aliasBySlot, onSelect }: {
           <TableHead>Slot</TableHead>
           <TableHead>Alias</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>View</TableHead>
           <TableHead>Host</TableHead>
           <TableHead>Kind</TableHead>
           <TableHead>Address Range</TableHead>
@@ -38,6 +40,7 @@ export function ModbusSessionsOverview({ sessions, aliasBySlot, onSelect }: {
               <TableCell>Slot {session.slot}</TableCell>
               <TableCell>{aliasBySlot[session.slot] || '—'}</TableCell>
               <TableCell><Badge variant="outline" className={status.className}>{status.label}</Badge></TableCell>
+              <TableCell>{VIEW_MODE_LABELS[session.viewMode]}</TableCell>
               <TableCell>{session.host}:{session.port}</TableCell>
               <TableCell>{session.kind}</TableCell>
               <TableCell>{session.start_address}–{session.end_address}</TableCell>

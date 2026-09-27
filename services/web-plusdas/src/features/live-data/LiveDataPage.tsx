@@ -252,7 +252,7 @@ export default function LiveData() {
                   </TabsList>
                   <div className="flex items-center gap-2 pb-2">
                     <Button variant="outline" size="sm" className="gap-1" onClick={() => refresh()} disabled={isLoading}>
-                      <RotateCw className="w-3 h-3" />Refresh
+                      <RotateCw className="w-3 h-3" />Refresh Sessions
                     </Button>
                     <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive"
                       onClick={() => setIsDeleteAllDialogOpen(true)} disabled={sessions.length === 0 && Object.keys(configsBySlot).length === 0}>
@@ -274,9 +274,10 @@ export default function LiveData() {
                           siteId={selectedSiteId || null}
                           initialValues={configsBySlot[slot]?.request}
                           initialAlias={configsBySlot[slot]?.alias}
-                          onSubmit={async (request, alias) => {
-                            saveConfig(slot, request, alias);
-                            const sessionId = await relaunchSlot(slot, request);
+                          initialViewMode={configsBySlot[slot]?.viewMode}
+                          onSubmit={async (request, alias, viewMode) => {
+                            saveConfig(slot, request, alias, viewMode);
+                            const sessionId = await relaunchSlot(slot, request, viewMode);
                             setModbusSubTab(sessionId);
                           }}
                         />

@@ -1,4 +1,4 @@
-"""Live stream register snapshot endpoint — returns last 5 decoded register reads for a session."""
+"""Live stream register snapshot endpoint — returns the last 10 decoded register reads for a session."""
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -21,7 +21,7 @@ _store = LiveStreamHistoryStore()
 @router.get("/registers", response_model=LiveStreamRegisterSnapshotResponse)
 async def get_live_stream_register_snapshot(session_id: str = Query(..., description="session_id from the connected SSE event")):
     """
-    Return the last 5 decoded register reads for a live stream session.
+    Return the last 10 decoded register reads for a live stream session.
 
     Snapshots are ordered newest-first. timestamps[j] corresponds to registers[i].values[j].
     Returns empty lists if no polls have been recorded yet.

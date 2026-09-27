@@ -659,7 +659,7 @@ export interface paths {
         };
         /**
          * Get Live Stream Register Snapshot
-         * @description Return the last 5 decoded register reads for a live stream session.
+         * @description Return the last 10 decoded register reads for a live stream session.
          *
          *     Snapshots are ordered newest-first. timestamps[j] corresponds to registers[i].values[j].
          *     Returns empty lists if no polls have been recorded yet.

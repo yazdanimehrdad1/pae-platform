@@ -21,7 +21,8 @@ const request = {
 } as ModbusLiveStreamRequest;
 
 const cell = (rowIndex: number, key: string) => document.querySelector(`[data-cell="${rowIndex}:${key}"]`) as HTMLElement;
-const grid = () => document.querySelector('[tabindex="0"]') as HTMLElement;
+// The grid's focusable container (the form has other tabindex=0 elements, e.g. the radio group).
+const grid = () => document.querySelector('table')!.parentElement as HTMLElement;
 
 function editCell(rowIndex: number, key: string, value: string) {
   fireEvent.mouseDown(cell(rowIndex, key));
@@ -88,5 +89,25 @@ describe('ModbusStreamForm register configs grid', () => {
 
     await waitFor(() => expect(cell(3, 'address').textContent).toBe('3'));
     expect(cell(1, 'label').textContent).toBe('power');
+  });
+});
+
+describe('ModbusStreamForm session view', () => {
+  it('submits live data by default', async () => {
+    const onSubmit = renderForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Session' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][2]).toBe('live');
+  });
+
+  it('submits snapshot when chosen, and keeps it out of the request body', async () => {
+    const onSubmit = renderForm();
+    fireEvent.click(screen.getByLabelText('Snapshot (last 10 polls)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Start Session' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][2]).toBe('snapshot');
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('viewMode');
   });
 });

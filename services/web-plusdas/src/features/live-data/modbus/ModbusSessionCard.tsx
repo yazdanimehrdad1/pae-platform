@@ -1,9 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Copy, RotateCw, Square, Trash2 } from "lucide-react";
+import { Camera, Copy, RotateCw, Square, Trash2 } from "lucide-react";
+import { RegisterSnapshotTable } from "./RegisterSnapshotTable";
 import { RegisterValuesTable } from "./RegisterValuesTable";
 import { toast } from "@/shared/hooks/use-toast";
+import { useRegisterSnapshot } from "../hooks/useRegisterSnapshot";
+import { VIEW_MODE_LABELS } from "../lib/viewMode";
 import type { ModbusSessionState } from "../types";
 
 const ATTACHMENT_STYLES: Record<string, string> = {
@@ -44,9 +47,12 @@ export function ModbusSessionCard({ session, alias, onResume, onStop, onDelete }
   onStop: () => void;
   onDelete: () => void;
 }) {
-  const canResume = session.attachment === 'idle' || session.attachment === 'error';
+  // Resume restarts polling on backend-ot, so only for a session that isn't polling there (409 otherwise).
+  const canResume = (session.attachment === 'idle' || session.attachment === 'error') && session.serverStatus !== 'active';
   const canStop = session.serverStatus === 'active';
   const displayStatus = getDisplayStatus(session);
+  const isSnapshot = session.viewMode === 'snapshot';
+  const snapshot = useRegisterSnapshot(session.sessionId, isSnapshot);
 
   const handleCopySessionId = () => {
     navigator.clipboard.writeText(session.sessionId);
@@ -60,15 +66,24 @@ export function ModbusSessionCard({ session, alias, onResume, onStop, onDelete }
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold">Session {session.slot}{alias && <span className="text-muted-foreground font-normal"> · {alias}</span>}</h3>
             <Badge variant="outline" className={displayStatus.className}>{displayStatus.label}</Badge>
+            <Badge variant="secondary">{VIEW_MODE_LABELS[session.viewMode]}</Badge>
             <span className="text-sm text-muted-foreground">{session.host}:{session.port}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1" onClick={onResume} disabled={!canResume}>
-              <RotateCw className="w-3 h-3" />Resume
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1" onClick={onStop} disabled={!canStop}>
-              <Square className="w-3 h-3" />Stop
-            </Button>
+            {isSnapshot ? (
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => snapshot.refetch()} disabled={snapshot.isFetching}>
+                <Camera className="w-3 h-3" />{snapshot.isFetching ? 'Taking...' : 'Take Snapshot'}
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" className="gap-1" onClick={onResume} disabled={!canResume}>
+                  <RotateCw className="w-3 h-3" />Resume
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1" onClick={onStop} disabled={!canStop}>
+                  <Square className="w-3 h-3" />Stop
+                </Button>
+              </>
+            )}
             <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive" onClick={onDelete}>
               <Trash2 className="w-3 h-3" />Delete
             </Button>
@@ -105,10 +120,22 @@ export function ModbusSessionCard({ session, alias, onResume, onStop, onDelete }
           </div>
         </div>
 
-        <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Live Registers</h4>
-          <RegisterValuesTable registerConfigs={session.registerConfigs} registers={session.registers} />
-        </div>
+        {isSnapshot ? (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Register Snapshot</h4>
+            <RegisterSnapshotTable
+              session={session}
+              snapshot={snapshot.data}
+              error={snapshot.error}
+              takenAt={snapshot.dataUpdatedAt}
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Live Registers</h4>
+            <RegisterValuesTable registerConfigs={session.registerConfigs} registers={session.registers} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
