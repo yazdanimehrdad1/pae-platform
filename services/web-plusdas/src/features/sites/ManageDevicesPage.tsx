@@ -16,7 +16,7 @@ import {
 import { toast } from "@/shared/hooks/use-toast";
 import { devicesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
-import type { DeviceCreateRequest, DeviceRecord } from "@/shared/types/device";
+import type { DeviceCreateRequest, DeviceRecord } from "@/api/types/devices";
 import { Plus, Pencil, Trash2, RotateCcw, AlertTriangle, ArrowLeft } from "lucide-react";
 import { DeviceFormDialog } from "./DeviceFormDialog";
 

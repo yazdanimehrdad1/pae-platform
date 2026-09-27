@@ -52,16 +52,30 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
 - Checks: the root `test-runner` agent runs lint/tests and reports only failures.
 
 ## Layout
+Dependencies point one way: `app` → `features` → `api` / `shared` / `components` / `lib`.
+`src/mocks` is imported only by features (and `shared/contexts/auth.tsx`).
+- `src/main.tsx`: entry. `src/app/`: the shell. `App.tsx` composes `providers.tsx` (React Query,
+  theme, auth, notes sidebar, toasters) and `routes.tsx` (lazy pages, wrapped in an
+  `ErrorBoundary` keyed on the path). Also `layout/` (`DashboardLayout`, `AppSidebar`) and
+  `NotFoundPage.tsx`. Only `app/` may import across features.
 - `src/api/`: the only place that calls the backend. `client.ts` (`request`, `client.get/post/put/
   delete/action`, `getErrorMessage` for FastAPI `detail`), one module per resource (`sites.ts`,
   `devices.ts`, `historian.ts`, `modbusStream.ts`), `sse.ts` (fetch-based server-sent events),
-  `generated/backend-ot.ts` (generated, don't edit). Pages use them through React Query. To add
-  or change a call, use the `add-api-call` skill.
-- `src/features/<feature>/`: pages + their hooks/lib. `src/shared/`: layout, contexts (auth,
-  notes), types, config. `src/components/ui/`: shadcn components (generated; keep edits minimal).
+  `types/<resource>.ts` (wire aliases, view models, SSE payloads), `generated/backend-ot.ts`
+  (generated, don't edit). Pages use them through React Query. To add or change a call, use the
+  `add-api-call` skill.
+- `src/features/<feature>/`: page(s) plus their `components/`, `hooks/`, `lib/` and `types.ts`
+  (types only that feature uses). A type used by one file stays in that file.
+- `src/mocks/`: **all** fake data and fake behavior (auth, system alarms, SLD fixtures, reports, tasks).
+  `grep -r "@/mocks" src` shows what is still mocked, and `src/mocks/README.md` lists each mock
+  with the backend gap it waits on. ESLint blocks `@/mocks` in `src/api` and `src/components`.
+- `src/shared/`: what 2+ features use: `components/` (asset tree, spreadsheet grid, theme),
+  `contexts/` (auth, notes sidebar), `hooks/`, `config/` (runtime config, device-type icons).
+  It never imports features.
+- `src/components/ui/`: shadcn components (generated, keep edits minimal; `components.json`
+  hooks alias is `@/shared/hooks`). `src/lib/utils.ts`: shadcn's `cn`.
 - `docker/`: `Dockerfile` (node:24 build → nginx:1.30 serve), `nginx/default.conf.template`,
   `config.js.template` + `40-app-config.sh` (writes `/config.js` at container start).
-- `Tests/`, `src/shared/test/`, `src/features/sld/test/`: static mock data, not tests.
 - `docs/`: `same-origin.md` (why no CORS), `backend-gaps.md` (what the mocked pages need from
   backend-ot).
 
@@ -78,7 +92,7 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
 
 ## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)
 - **Consumes** `contracts/openapi/backend-ot.openapi.json` through generated types (openapi-typescript),
-  imported only as `@contracts/backend-ot`. Wire types in `src/shared/types/` are aliases of
+  imported only as `@contracts/backend-ot`. Wire types in `src/api/types/` are aliases of
   generated schemas (`components['schemas'][...]`), never hand-written. The exceptions are UI view
   models (`Site`, `Device`, ...) and the SSE event payloads, which the contract doesn't describe.
 - Option lists for contract enums are `Record<Enum, Label>` (e.g. `DEVICE_TYPE_LABELS`), so an
@@ -90,9 +104,9 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
 ## Gotchas
 - `strict: false` and `noImplicitAny: false` in tsconfig (inherited): the compiler won't catch
   nulls, and `z.infer` marks every zod field optional (hence the cast in `ModbusStreamForm.toRequest`).
-- Mocked, not wired to backend-ot (the backend has no API for them yet): auth
-  (`src/shared/contexts/auth.tsx` accepts anything), HealthPage, SLD, and Notes (localStorage).
-  See `docs/backend-gaps.md`.
+- Mocked, not wired to backend-ot (the backend has no API for them yet): auth, System alarms, SLD,
+  Reports and Task Builder lists, all from `src/mocks/` (see its README), and Notes
+  (localStorage). See `docs/backend-gaps.md`.
 - `.env.development` / `.env.production` may exist locally (untracked, gitignored) from the old
   repo. No code reads them; never read or edit them.
 - On Windows, a Node script that calls `process.exit()` after `fetch` can crash (libuv assertion).

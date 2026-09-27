@@ -25,5 +25,16 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  {
+    // Mock data stays at the feature edge (src/mocks/README.md): the API layer and the UI
+    // kit never depend on it, so deleting a mock only touches the features that use it.
+    files: ["src/api/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ group: ["@/mocks", "@/mocks/*"], message: "src/api and src/components must not import mocks." }] },
+      ],
+    },
   }
 );

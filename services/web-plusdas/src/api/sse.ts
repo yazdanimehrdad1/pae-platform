@@ -33,7 +33,9 @@ export async function streamSse(url: string, init: StreamSseInit, onEvent: (evt:
   });
 
   if (!response.ok) {
-    throw new Error(`Modbus stream request failed: ${response.status} ${response.statusText}`);
+    // FastAPI's `detail` (e.g. "Session is already active") says more than the status line.
+    const detail = await response.json().then(body => body?.detail).catch(() => undefined);
+    throw new Error(typeof detail === 'string' ? detail : `Modbus stream request failed: ${response.status} ${response.statusText}`);
   }
   if (!response.body) {
     throw new Error('Modbus stream response has no body');

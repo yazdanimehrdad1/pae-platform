@@ -15,9 +15,10 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { ArrowLeft, Activity, Info, Radio, Pencil, Plus, Trash2, RotateCcw, Save, Database } from "lucide-react";
-import type { Device, DeviceCreateRequest, DeviceScanRanges } from "@/shared/types/device";
-import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from "@/shared/types/device-point";
-import { devicesApi, type PingResult } from "@/api/devices";
+import type { Device, DeviceCreateRequest, DeviceScanRanges } from "@/api/types/devices";
+import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from "@/api/types/devicePoints";
+import { devicesApi } from "@/api/devices";
+import type { PingResult } from "@/api/types/devices";
 import { getErrorMessage } from "@/api/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { DeviceFormDialog } from "@/features/sites/DeviceFormDialog";

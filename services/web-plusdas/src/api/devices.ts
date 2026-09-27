@@ -1,6 +1,14 @@
-import type { Device, DeviceRecord, DeviceCreateRequest, DeviceUpdateRequest, DeviceDeleteResponse, DeviceScanRanges } from '@/shared/types/device';
-import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from '@/shared/types/device-point';
-import type { components } from '@contracts/backend-ot';
+import type {
+  Device,
+  DeviceRecord,
+  DeviceCreateRequest,
+  DeviceUpdateRequest,
+  DeviceDeleteResponse,
+  DevicePointsEntry,
+  DeviceScanRanges,
+  PingResult,
+} from './types/devices';
+import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from './types/devicePoints';
 import { client, request } from './client';
 
 function toDevice(device: DeviceRecord): Device {
@@ -38,12 +46,6 @@ function toDevice(device: DeviceRecord): Device {
       } : null,
     } : undefined,
   };
-}
-
-export interface DevicePointsEntry {
-  deviceId: number;
-  deviceName: string;
-  points: Array<{ id: number; name: string; category: string }>;
 }
 
 export const devicesApi = {
@@ -139,5 +141,3 @@ export const devicesApi = {
   restorePoint: (siteId: string, deviceId: number, pointId: number): Promise<DevicePoint> =>
     client.post(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/restore`, {}),
 };
-
-export type PingResult = components['schemas']['DeviceHealthStatus'];

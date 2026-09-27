@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import type { Device } from "@/shared/types/device";
+import type { Device } from "@/api/types/devices";
 import { devicesApi } from "@/api";
 import { deviceTypeConfig } from "@/shared/config/device-types";
 import {

@@ -9,10 +9,11 @@ import { MicrogridSLD } from "./components/MicrogridSLD";
 import { SummaryCard } from "./components/SummaryCard";
 import { fetchCompleteSLDData } from "./lib/sldDataMerger";
 import type { SLDData } from "./types";
+import { MOCK_SLD_DIAGRAMS, MOCK_SLD_SITE_ID } from "@/mocks/sld";
 
 const SLD = () => {
   const location = useLocation();
-  const siteId = location.state?.siteId || "site-001";
+  const siteId = location.state?.siteId || MOCK_SLD_SITE_ID;
 
   const [sldData, setSldData] = useState<SLDData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,9 +118,9 @@ const SLD = () => {
               <SelectValue placeholder="Select Diagram" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="main">Main Distribution</SelectItem>
-              <SelectItem value="emergency">Emergency System</SelectItem>
-              <SelectItem value="solar">Solar Integration</SelectItem>
+              {MOCK_SLD_DIAGRAMS.map(diagram => (
+                <SelectItem key={diagram.value} value={diagram.value}>{diagram.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button variant="outline" size="icon" onClick={handleRefresh}>

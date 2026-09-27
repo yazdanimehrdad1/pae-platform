@@ -1,3 +1,4 @@
+import { loadMockSLDData, loadMockSLDLayout } from "@/mocks/sld";
 import type { SLDLayout, SLDDataInfo, SLDData, SLDDevice, SLDDeviceLayout, SLDDeviceData } from "../types";
 
 export function mergeSLDData(layout: SLDLayout, data: SLDDataInfo): SLDData {
@@ -33,14 +34,12 @@ export function mergeSLDData(layout: SLDLayout, data: SLDDataInfo): SLDData {
 
 export async function fetchSLDLayout(siteId: string): Promise<SLDLayout> {
   // TODO: replace with real API call: GET /api/sites/${siteId}/sld/layout
-  const layoutModule = await import("../test/sld-layout.json");
-  return layoutModule.default as SLDLayout;
+  return loadMockSLDLayout();
 }
 
 export async function fetchSLDData(siteId: string): Promise<SLDDataInfo> {
   // TODO: replace with real API call: GET /api/sites/${siteId}/sld/data
-  const dataModule = await import("../test/sld-data.json");
-  return dataModule.default as SLDDataInfo;
+  return loadMockSLDData();
 }
 
 export async function fetchCompleteSLDData(siteId: string): Promise<SLDData> {

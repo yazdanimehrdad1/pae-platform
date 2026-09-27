@@ -5,7 +5,7 @@ import json
 from cache.connection import get_redis_client
 from config import settings
 
-_HISTORY_MAX = 5
+_HISTORY_MAX = 10
 _SESSION_TTL = 3600  # 1 hour — data accessible after stream ends
 
 

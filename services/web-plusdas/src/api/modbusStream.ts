@@ -1,10 +1,15 @@
 import { BASE_URL, client } from './client';
 import { streamSse, type SseEvent } from './sse';
-import type { components } from '@contracts/backend-ot';
-import type { ModbusLiveStreamRequest, ModbusSessionSummary } from '@/shared/types/modbusLiveStream';
+import type {
+  ModbusLiveStreamRequest,
+  ModbusRegisterSnapshot,
+  ModbusSessionSummary,
+  ModbusSessionsResponse,
+} from './types/modbusStream';
 
 const STREAM_PATH = '/modbus-live-stream-raw-registers/stream';
 const SESSIONS_PATH = '/modbus-live-stream-raw-registers/sessions';
+const SNAPSHOT_PATH = '/modbus-live-stream-register-snapshot/registers';
 
 export const modbusStreamApi = {
   start: (request: ModbusLiveStreamRequest, onEvent: (evt: SseEvent) => void, signal: AbortSignal) =>
@@ -15,7 +20,7 @@ export const modbusStreamApi = {
 
   list: async (status?: 'active'): Promise<ModbusSessionSummary[]> => {
     const query = status ? `?status=${status}` : '';
-    const data = await client.get<components['schemas']['LiveStreamSessionsResponse']>(`${SESSIONS_PATH}${query}`);
+    const data = await client.get<ModbusSessionsResponse>(`${SESSIONS_PATH}${query}`);
     return data.sessions;
   },
 
@@ -24,4 +29,7 @@ export const modbusStreamApi = {
   delete: (sessionId: string) => client.delete(`${STREAM_PATH}/${sessionId}`),
 
   deleteAll: () => client.delete(SESSIONS_PATH),
+
+  getSnapshot: (sessionId: string): Promise<ModbusRegisterSnapshot> =>
+    client.get(`${SNAPSHOT_PATH}?session_id=${encodeURIComponent(sessionId)}`),
 };

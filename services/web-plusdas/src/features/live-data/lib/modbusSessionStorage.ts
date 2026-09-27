@@ -1,9 +1,12 @@
-import type { ModbusRegisterConfig } from "@/shared/types/modbusLiveStream";
+import type { ModbusRegisterConfig } from "@/api/types/modbusStream";
+import type { ModbusViewMode } from "../types";
 
 export interface CachedSessionMeta {
   slot: number;
   registerConfigs: Record<string, ModbusRegisterConfig>;
   startedAt: string;
+  // Missing in sessions cached before view modes existed: read as "live".
+  viewMode?: ModbusViewMode;
 }
 
 type ModbusSessionCache = Record<string, CachedSessionMeta>;

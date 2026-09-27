@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import type { SiteRecord, SiteCreateRequest } from "@/shared/types/site";
+import type { SiteRecord, SiteCreateRequest } from "@/api/types/sites";
 
 const formSchema = z.object({
   client_id: z.string().min(1, "Required"),

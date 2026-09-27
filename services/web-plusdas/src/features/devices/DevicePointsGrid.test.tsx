@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { DevicePoint } from '@/shared/types/device-point';
+import type { DevicePoint } from '@/api/types/devicePoints';
 import { DevicePointsGrid } from './DevicePointsGrid';
 
 // Regression net for moving the grid onto the shared SpreadsheetGrid: saving, validation

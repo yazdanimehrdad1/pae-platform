@@ -20,16 +20,17 @@ config and same-origin", "Contracts"). This skill is the order to apply them in.
 - If the contract changed since the last `make api-types`, run it: `make -C services/web-plusdas api-types`.
 
 ## 2. Types: from the contract, never hand-written
-- Wire types live in `src/shared/types/<resource>.ts` as aliases:
+- Wire types live in `src/api/types/<resource>.ts` as aliases:
   `export type X = components['schemas']['XResponse'];` (import from `@contracts/backend-ot`,
   never a relative path into `src/api/generated/`). Enum-like values (device types, data types,
   kinds) come from the schema too, e.g. `Schemas['DeviceCreateRequest']['type']`.
 - A UI option list for an enum is a `Record<ThatEnum, Label>`, so a contract change fails the
   typecheck (see `DEVICE_TYPE_LABELS` in `src/features/sites/DeviceFormDialog.tsx`).
-- UI view models (what a page renders, e.g. `Site`, `Device`) stay hand-written, next to their
-  mapping function (`toSite`, `toDevice` in `src/api/`).
+- UI view models (what a page renders, e.g. `Site`, `Device`) stay hand-written in the same
+  `src/api/types/<resource>.ts`; their mapping functions (`toSite`, `toDevice`) are in `src/api/`.
 - Server-sent-event payloads aren't in the OpenAPI contract, so those stay hand-written in
-  `src/shared/types/`, with a comment saying so.
+  `src/api/types/`, with a comment saying so. Types only one feature uses (UI state, not wire
+  data) go in `src/features/<feature>/types.ts`.
 
 ## 3. The client function (`src/api/<resource>.ts`)
 - Use `client.get/post/put/delete/action` or `request` from `./client`. The base URL is already
@@ -48,6 +49,9 @@ config and same-origin", "Contracts"). This skill is the order to apply them in.
 - Through React Query (`useQuery` for reads, `useMutation` + `invalidateQueries` for writes),
   like the existing pages (`src/features/sites/`, `src/features/devices/`). Show errors with
   `getErrorMessage(error)` (it reads FastAPI's `detail`).
+- Replacing a mock: swap it at the feature's hook or lib function that imports `@/mocks/...`,
+  then delete the mock file (or its export) and its row in `src/mocks/README.md`, and update
+  `docs/backend-gaps.md`.
 
 ## 5. Tests
 - `src/api/<resource>.test.ts`: stub `fetch` with `vi.stubGlobal` and assert the URL (path,

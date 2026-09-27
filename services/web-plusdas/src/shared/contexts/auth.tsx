@@ -1,4 +1,5 @@
 import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { mockLogin } from '@/mocks/auth';
 
 export type UserRole = 'engineer' | 'admin' | 'monitor';
 
@@ -41,15 +42,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
     setIsLoading(true);
     // TODO: replace with real auth (Keycloak / OAuth)
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const user = await mockLogin(email, password, role);
 
-    if (email && password) {
-      const user: User = {
-        id: '1',
-        email,
-        name: email.split('@')[0],
-        role
-      };
+    if (user) {
       setUser(user);
       localStorage.setItem('user', JSON.stringify(user));
       setIsLoading(false);

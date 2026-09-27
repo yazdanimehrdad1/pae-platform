@@ -28,6 +28,5 @@ compose*.yaml
 docker-compose*.yaml
 Makefile
 
-# Host-side checks and unused mock fixtures are not shipped
+# Host-side checks are not shipped
 scripts/
-Tests/

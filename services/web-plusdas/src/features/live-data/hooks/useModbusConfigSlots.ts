@@ -6,7 +6,8 @@ import {
   saveModbusConfigCache,
   type ModbusConfigCache,
 } from "../lib/modbusConfigStorage";
-import type { ModbusLiveStreamRequest } from "@/shared/types/modbusLiveStream";
+import type { ModbusLiveStreamRequest } from "@/api/types/modbusStream";
+import type { ModbusViewMode } from "../types";
 
 export const MAX_MODBUS_SLOTS = 5;
 
@@ -18,9 +19,9 @@ export function useModbusConfigSlots() {
     if (user?.id) setConfigsBySlot(loadModbusConfigCache(user.id));
   }, [user?.id]);
 
-  const saveConfig = useCallback((slot: number, request: ModbusLiveStreamRequest, alias: string) => {
+  const saveConfig = useCallback((slot: number, request: ModbusLiveStreamRequest, alias: string, viewMode: ModbusViewMode) => {
     setConfigsBySlot(prev => {
-      const next = { ...prev, [slot]: { alias, request } };
+      const next = { ...prev, [slot]: { alias, request, viewMode } };
       if (user?.id) saveModbusConfigCache(user.id, next);
       return next;
     });
