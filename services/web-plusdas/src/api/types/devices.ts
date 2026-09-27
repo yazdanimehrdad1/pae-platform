@@ -1,4 +1,5 @@
 import type { components } from '@contracts/backend-ot';
+import type { DevicePoint } from './devicePoints';
 
 type Schemas = components['schemas'];
 
@@ -43,9 +44,16 @@ export type DeviceUpdateRequest = Schemas['DeviceUpdate'];
 export type DeviceDeleteResponse = Schemas['DeviceDeleteResponse'];
 export type PingResult = Schemas['DeviceHealthStatus'];
 
+// Point categories in the order the asset tree lists them.
+export const POINT_GROUP_ORDER = ['standardized', 'virtual', 'native'] as const;
+export type PointGroup = (typeof POINT_GROUP_ORDER)[number];
+
 // Points of one device, as the asset tree lists them (built in src/api/devices.ts).
+// `groups` is sorted by name within each category; `points` is the same items flattened
+// in POINT_GROUP_ORDER.
 export interface DevicePointsEntry {
   deviceId: number;
   deviceName: string;
-  points: Array<{ id: number; name: string; category: string }>;
+  groups: Record<PointGroup, DevicePoint[]>;
+  points: DevicePoint[];
 }

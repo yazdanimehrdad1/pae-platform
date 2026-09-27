@@ -55,6 +55,29 @@ describe('devicesApi.deletePoints', () => {
   });
 });
 
+describe('devicesApi.getBySiteWithPoints', () => {
+  const point = (id: number, name: string, category: string) => ({
+    ...pvDevice.points.native[0], id, name, category,
+  });
+
+  it('groups points by category, sorts each group by name, and flattens standardized → virtual → native', async () => {
+    stubFetch(200, [{
+      ...pvDevice,
+      points: {
+        standardized: [point(1, 'PV_POWER', 'STANDARDIZED'), point(2, 'pv_energy', 'STANDARDIZED')],
+        native: [point(3, 'reg_10', 'NATIVE'), point(4, 'reg_2', 'NATIVE'), point(5, 'Reg_1', 'NATIVE')],
+        virtual: [point(6, 'calc_power', 'VIRTUAL')],
+      },
+    }]);
+
+    const [entry] = await devicesApi.getBySiteWithPoints('1001');
+
+    expect(entry.groups.standardized.map(p => p.name)).toEqual(['pv_energy', 'PV_POWER']);
+    expect(entry.groups.native.map(p => p.name)).toEqual(['Reg_1', 'reg_2', 'reg_10']);
+    expect(entry.points.map(p => p.id)).toEqual([2, 1, 6, 5, 4, 3]);
+  });
+});
+
 describe('devicesApi.getBySite', () => {
   it('maps devices to the UI model', async () => {
     stubFetch(200, [pvDevice]);

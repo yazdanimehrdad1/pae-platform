@@ -7,9 +7,26 @@ import type {
   DevicePointsEntry,
   DeviceScanRanges,
   PingResult,
+  PointGroup,
 } from './types/devices';
+import { POINT_GROUP_ORDER } from './types/devices';
 import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from './types/devicePoints';
 import { client, request } from './client';
+
+const byPointName = (left: DevicePoint, right: DevicePoint) =>
+  left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' });
+
+function toPointsEntry(device: DeviceRecord): DevicePointsEntry {
+  const groups = Object.fromEntries(
+    POINT_GROUP_ORDER.map(group => [group, [...device.points[group]].sort(byPointName)]),
+  ) as Record<PointGroup, DevicePoint[]>;
+  return {
+    deviceId: device.device_id,
+    deviceName: device.name,
+    groups,
+    points: POINT_GROUP_ORDER.flatMap(group => groups[group]),
+  };
+}
 
 function toDevice(device: DeviceRecord): Device {
   const points = [
@@ -66,15 +83,7 @@ export const devicesApi = {
   getBySiteWithPoints: async (siteId: string): Promise<DevicePointsEntry[]> => {
     try {
       const data = await client.get<DeviceRecord[]>(`/devices/site/${siteId}/devices`);
-      return data.map(device => ({
-        deviceId: device.device_id,
-        deviceName: device.name,
-        points: [
-          ...device.points.standardized,
-          ...device.points.native,
-          ...device.points.virtual,
-        ],
-      }));
+      return data.map(toPointsEntry);
     } catch (error: unknown) {
       const apiError = error as { detail?: string };
       if (apiError?.detail?.toLowerCase().startsWith('no devices found')) return [];
