@@ -63,26 +63,44 @@ describe('DeviceAssetTree', () => {
     await openFolder('Standardized');
     fireEvent.click(screen.getByText('BESS_ACTIVE_POWER'));
 
-    expect(onSelect).toHaveBeenCalledWith(['1'], { '1': 'BESS_ACTIVE_POWER' });
+    expect(onSelect).toHaveBeenCalledWith(['1'], { '1': 'bess-1-BESS_ACTIVE_POWER' });
   });
 
-  it('with expandBitfields, selects one bit of a bitfield point', async () => {
+  it('with expandBitfields, clicking a bitfield point selects its raw value', async () => {
     const { onSelect } = renderTree({ expandBitfields: true });
     await openFolder('Native');
     fireEvent.click(screen.getByText('fault_flags'));
-    fireEvent.click(screen.getByText('1 · undervoltage'));
 
-    expect(onSelect).toHaveBeenCalledWith(['3:bit1'], { '3:bit1': 'fault_flags · undervoltage' });
+    expect(onSelect).toHaveBeenCalledWith(['3'], { '3': 'bess-1-fault_flags' });
+    expect(screen.queryByText('0 · overvoltage')).toBeNull();
   });
 
-  it('with expandBitfields, the point checkbox toggles all its bits and shows partial selection', async () => {
-    const { onSelect } = renderTree({ expandBitfields: true, selectedPoints: ['3:bit0'] });
+  it('with expandBitfields, the chevron opens the bits as a subtree to select one', async () => {
+    const { onSelect } = renderTree({ expandBitfields: true });
     await openFolder('Native');
-    const allBits = screen.getByLabelText('All bits of fault_flags');
-    expect(allBits.getAttribute('data-state')).toBe('indeterminate');
+    fireEvent.click(screen.getByRole('button', { name: 'Bits of fault_flags' }));
+    expect(onSelect).not.toHaveBeenCalled();
 
-    fireEvent.click(allBits.parentElement!);
-    expect(onSelect).toHaveBeenCalledWith(['3:bit0', '3:bit1'], { '3:bit1': 'fault_flags · undervoltage' });
+    fireEvent.click(screen.getByText('1 · undervoltage'));
+    expect(onSelect).toHaveBeenCalledWith(['3:bit1'], { '3:bit1': 'bess-1-fault_flags · undervoltage' });
+  });
+
+  it('with expandBitfields, a collapsed bitfield says how many of its bits are selected', async () => {
+    renderTree({ expandBitfields: true, selectedPoints: ['3:bit0', '3:bit1'] });
+    await openFolder('Native');
+
+    expect(screen.getByText('2 bits selected')).toBeTruthy();
+  });
+
+  it('lines every point row up: plain points get an empty expander slot of the same width', async () => {
+    renderTree({ expandBitfields: true });
+    await openFolder('Native');
+
+    const rowOf = (name: string) => screen.getByText(name).parentElement!;
+    for (const name of ['fault_flags', 'inverter_state', 'reg_1']) {
+      expect(rowOf(name).style.paddingLeft).toBe('60px');
+      expect(rowOf(name).firstElementChild!.className).toContain('w-4');
+    }
   });
 
   it('refuses a selection past the limit and says why', async () => {
@@ -106,6 +124,17 @@ describe('DeviceAssetTree', () => {
     renderTree();
     const clearButton = await screen.findByRole('button', { name: /clear selection/i });
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('reveals a requested selection: expands down to it, scrolls to it and highlights it', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderTree({ expandBitfields: true, selectedPoints: ['3:bit1'], revealRequest: { selectionId: '3:bit1', requestId: 1 } });
+
+    const bitRow = (await screen.findByText('1 · undervoltage')).parentElement!;
+    expect(bitRow.className).toContain('ring-2');
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(screen.getByText('fault_flags')).toBeTruthy();
   });
 
   it('marks enum points, and without expandBitfields lists a bitfield as one point', async () => {

@@ -7,7 +7,7 @@ import { toStateSegments } from "./stateSegments";
 const ENUM_STATE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4", "#EC4899", "#84CC16"];
 const TIME_TICK_COUNT = 5;
 
-export function StateLanes({ series, rows, domain, plotLeft, plotRight, formatTime, showTimeAxis }: {
+export function StateLanes({ series, rows, domain, plotLeft, plotRight, formatTime, showTimeAxis, onLaneNameClick }: {
   series: DiscreteSeries[];
   rows: ChartRow[];
   domain: [number, number];
@@ -16,6 +16,7 @@ export function StateLanes({ series, rows, domain, plotLeft, plotRight, formatTi
   formatTime: (timestamp: number) => string;
   // Drawn when there is no analog chart above to carry the time axis.
   showTimeAxis: boolean;
+  onLaneNameClick?: (selectionId: string) => void;
 }) {
   const [domainStart, domainEnd] = domain;
   const span = Math.max(domainEnd - domainStart, 1);
@@ -33,7 +34,10 @@ export function StateLanes({ series, rows, domain, plotLeft, plotRight, formatTi
         <div key={lane.key}>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: lane.color }} />
-            <span className="truncate">{lane.name}</span>
+            <button type="button" className="truncate hover:text-foreground hover:underline" title="Show in Trends panel"
+              onMouseDown={event => event.stopPropagation()} onClick={() => onLaneNameClick?.(lane.key)}>
+              {lane.name}
+            </button>
           </div>
           <div className="relative h-5 overflow-hidden rounded-sm bg-muted/40">
             {toStateSegments(rows, lane.key, domain).map(segment => {

@@ -24,6 +24,8 @@ export interface StepLayout {
   addPlotValues: (rows: ChartRow[]) => ChartRow[];
   // The state label for a plotted tooltip value, or undefined when the entry isn't a step series.
   tooltipLabel: (dataKey: unknown, plottedValue: number) => string | undefined;
+  // The selection id a plotted line stands for, or undefined when it isn't a step series.
+  selectionKey: (dataKey: unknown) => string | undefined;
 }
 
 export function buildStepLayout(series: DiscreteSeries[]): StepLayout {
@@ -46,6 +48,7 @@ export function buildStepLayout(series: DiscreteSeries[]): StepLayout {
       }
       return plotted;
     }),
+    selectionKey: dataKey => (typeof dataKey === "string" ? bandsByPlotKey.get(dataKey)?.series.key : undefined),
     tooltipLabel: (dataKey, plottedValue) => {
       const band = typeof dataKey === "string" ? bandsByPlotKey.get(dataKey) : undefined;
       if (!band) return undefined;

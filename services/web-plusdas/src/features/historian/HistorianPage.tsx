@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw } from "lucide-react";
+import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useHistorianSeries } from "./hooks/useHistorianSeries";
 import type { ChartRow, TimeWindow, Trend } from "./types";
@@ -27,7 +27,7 @@ import { StateLanes } from "./components/discrete/StateLanes";
 import { buildStepLayout, renderStepSeries, STATE_AXIS_WIDTH } from "./components/discrete/stepSeries";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNotesSidebar } from "@/shared/contexts/NotesSidebarContext";
-import { DeviceAssetTree } from "@/shared/components/DeviceAssetTree";
+import { DeviceAssetTree, type RevealRequest } from "@/shared/components/DeviceAssetTree";
 import { useQuery } from "@tanstack/react-query";
 import { sitesApi } from "@/api";
 
@@ -137,13 +137,15 @@ function formatTimestamp(ts: number, spanMs: number): string {
 const CHART_MARGIN = { top: 5, right: 40, left: 0, bottom: 5 };
 const Y_AXIS_WIDTH = 60;
 
-function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteMode, onDiscreteModeChange }: {
+function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
   selectedPoints: string[];
   timeWindow: TimeWindow;
   pointLabels: Record<string, string>;
   siteId: string | null;
   discreteMode: DiscreteModeId;
   onDiscreteModeChange: (mode: DiscreteModeId) => void;
+  // A series name was clicked: show that selection in the Trends panel.
+  onRevealPoint: (selectionId: string) => void;
 }) {
   const { data, isLoading, isError } = useHistorianSeries(siteId, selectedPoints, timeWindow);
   const { pointsById } = usePointCatalog(siteId);
@@ -262,7 +264,12 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
                   labelFormatter={(timestamp: number) => formatTime(timestamp)}
                   formatter={(value: number, name, item) => stepLayout?.tooltipLabel(item.dataKey, value) ?? value}
                 />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="line" formatter={(value) => value.includes(' - ') ? value.replace(' - ', '-') : value} />
+                <Legend
+                  wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
+                  iconType="line"
+                  formatter={(value) => <span title="Show in Trends panel">{value.includes(' - ') ? value.replace(' - ', '-') : value}</span>}
+                  onClick={(entry) => { const key = stepLayout?.selectionKey(entry.dataKey) ?? entry.dataKey; if (typeof key === 'string') onRevealPoint(key); }}
+                />
                 {analogKeys.map(point => (
                   <Line key={point} type="monotone" dataKey={point} stroke={colorByKey.get(point)} strokeWidth={2} dot={false} name={pointLabels[point] ?? point} />
                 ))}
@@ -280,6 +287,7 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
             plotRight={plotRight}
             formatTime={formatTime}
             showTimeAxis={!showLineChart}
+            onLaneNameClick={onRevealPoint}
           />
         )}
       </div>
@@ -295,6 +303,8 @@ export default function Historian() {
   const [trends, setTrends] = useState<Trend[]>([]);
   const [currentTrendId, setCurrentTrendId] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Wide = 1.5x the default panel width (20rem → 30rem), for long device and point names.
+  const [isSidebarWide, setIsSidebarWide] = useState(false);
   const previousSidebarStateRef = useRef<boolean | null>(null);
   const previousNotesStateRef = useRef<boolean | null>(null);
 
@@ -322,6 +332,15 @@ export default function Historian() {
     } else {
       setIsSidebarOpen(!isSidebarOpen);
     }
+  };
+
+  // A series name in a chart was clicked: make that chart's trend current (the tree edits the
+  // current trend), open the Trends panel, and have the tree scroll to the point.
+  const [revealRequest, setRevealRequest] = useState<RevealRequest | null>(null);
+  const handleRevealPoint = (trendId: string, selectionId: string) => {
+    setCurrentTrendId(trendId);
+    if (!isSidebarOpen) handleTrendsPanelToggle();
+    setRevealRequest({ selectionId, requestId: Date.now() });
   };
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -562,10 +581,22 @@ export default function Historian() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'w-80' : 'w-0 opacity-0'}`}>
-          <div className="flex-1 overflow-hidden min-w-[20rem] flex flex-col">
-            <div className="shrink-0 border-b border-border px-4 py-3">
+        <div className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col ${!isSidebarOpen ? 'w-0 opacity-0' : isSidebarWide ? 'w-[30rem]' : 'w-80'}`}>
+          <div className={`flex-1 overflow-hidden flex flex-col ${isSidebarWide ? 'min-w-[30rem]' : 'min-w-[20rem]'}`}>
+            <div className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Trends Panel</h2>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-pressed={isSidebarWide}
+                      aria-label={isSidebarWide ? "Narrow the trends panel" : "Widen the trends panel"}
+                      onClick={() => setIsSidebarWide(wide => !wide)}>
+                      {isSidebarWide ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>{isSidebarWide ? "Narrow panel" : "Widen panel"}</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <section>
@@ -628,6 +659,7 @@ export default function Historian() {
                   onResolveLabels={handleResolveLabels}
                   pointIdsToResolve={trends.flatMap(t => t.points)}
                   expandBitfields
+                  revealRequest={revealRequest}
                 />
               </section>
             </div>
@@ -755,25 +787,25 @@ export default function Historian() {
                               </Select>
                             )}
                           </div>
-                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
                         <div ref={middleTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
                         <div ref={bottomTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
                         <div ref={fourthTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
                         </div>
                       )}
                     </div>
