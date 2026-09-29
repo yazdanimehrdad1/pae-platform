@@ -12,7 +12,8 @@ type ColumnKey =
   | "name" | "category" | "poll_kind" | "address" | "size" | "data_type"
   | "unit" | "scale_factor" | "byte_order" | "word_order" | "class" | "severity";
 
-const CATEGORY = ["NATIVE", "STANDARDIZED", "VIRTUAL"];
+// VIRTUAL points are created with their own dialog (features/devices/virtual), not as grid rows.
+const CATEGORY = ["NATIVE", "STANDARDIZED"];
 const POLL_KIND = ["holding", "input", "coils"];
 // Every data type backend-ot accepts (its contract enum), common ones first. A Record, so a
 // contract change fails the typecheck until this list matches.

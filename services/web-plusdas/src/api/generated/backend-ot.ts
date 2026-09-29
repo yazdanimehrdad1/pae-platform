@@ -353,6 +353,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a virtual point
+         * @description Create a VIRTUAL point computed on read from other points' stored readings (any device on the site):
+         *     a condition (cases of ALL/ANY groups; the first match sets the state) or a calculation
+         *     (sum/avg/min/max/difference/ratio × scale + offset). Inputs must be active, non-virtual
+         *     points on this site; bit conditions need a bitfield input.
+         */
+        post: operations["create_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual/{point_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a virtual point
+         * @description Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.
+         */
+        put: operations["update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device-points/site/{site_id}/device/{device_id}/{point_id}": {
         parameters: {
             query?: never;
@@ -1239,6 +1282,11 @@ export interface components {
              * @description Unit
              */
             unit?: string | null;
+            /**
+             * Virtual Definition
+             * @description VIRTUAL points only: how the value is computed from other points
+             */
+            virtual_definition?: (components["schemas"]["VirtualConditionDefinition-Output"] | components["schemas"]["VirtualCalculationDefinition"]) | null;
             /**
              * Word Order
              * @description Word order for multi-register types
@@ -2221,6 +2269,255 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VirtualCalculationDefinition */
+        VirtualCalculationDefinition: {
+            /**
+             * Function
+             * @description difference = inputs[0] - inputs[1], ratio = inputs[0] / inputs[1]
+             * @enum {string}
+             */
+            function: "sum" | "avg" | "min" | "max" | "difference" | "ratio";
+            /**
+             * Inputs
+             * @description Point IDs
+             */
+            inputs: number[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "calculation";
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Scale
+             * @description Applied after the function: result * scale + offset
+             * @default 1
+             */
+            scale: number;
+        };
+        /**
+         * VirtualCase
+         * @description When ``when`` holds, the point takes ``output``.
+         */
+        "VirtualCase-Input": {
+            /**
+             * Label
+             * @description State name, stored in enum_detail
+             */
+            label?: string | null;
+            /**
+             * Output
+             * @description State value this case sets
+             */
+            output: number;
+            when: components["schemas"]["VirtualConditionGroup-Input"];
+        };
+        /**
+         * VirtualCase
+         * @description When ``when`` holds, the point takes ``output``.
+         */
+        "VirtualCase-Output": {
+            /**
+             * Label
+             * @description State name, stored in enum_detail
+             */
+            label?: string | null;
+            /**
+             * Output
+             * @description State value this case sets
+             */
+            output: number;
+            when: components["schemas"]["VirtualConditionGroup-Output"];
+        };
+        /**
+         * VirtualCondition
+         * @description One test on one point: compare it to a value or another point, or test one of its bits.
+         * @example {
+         *       "operator": ">=",
+         *       "point_id": 7,
+         *       "type": "condition",
+         *       "value": 20
+         *     }
+         * @example {
+         *       "bit": 1,
+         *       "operator": "bit_set",
+         *       "point_id": 71,
+         *       "type": "condition"
+         *     }
+         */
+        VirtualCondition: {
+            /**
+             * Bit
+             * @description Bit test: the bit index (0 = LSB)
+             */
+            bit?: number | null;
+            /**
+             * Compare Point Id
+             * @description Comparison: another point to compare against, instead of value
+             */
+            compare_point_id?: number | null;
+            /**
+             * Operator
+             * @description Comparison (>, <, >=, <=, ==, !=) or bit test (bit_set, bit_clear). Enum states compare with == / != on the raw state value.
+             */
+            operator: (">" | "<" | ">=" | "<=" | "==" | "!=") | ("bit_set" | "bit_clear");
+            /**
+             * Point Id
+             * @description Point the condition reads
+             */
+            point_id: number;
+            /**
+             * Type
+             * @default condition
+             * @constant
+             */
+            type: "condition";
+            /**
+             * Value
+             * @description Comparison: the constant to compare against
+             */
+            value?: number | null;
+        };
+        /** VirtualConditionDefinition */
+        "VirtualConditionDefinition-Input": {
+            /**
+             * Cases
+             * @description Checked in order; the first match wins
+             */
+            cases: components["schemas"]["VirtualCase-Input"][];
+            /**
+             * Default Label
+             * @description State name of default_output
+             */
+            default_label?: string | null;
+            /**
+             * Default Output
+             * @description Output when no case matches
+             * @default 0
+             */
+            default_output: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+        };
+        /** VirtualConditionDefinition */
+        "VirtualConditionDefinition-Output": {
+            /**
+             * Cases
+             * @description Checked in order; the first match wins
+             */
+            cases: components["schemas"]["VirtualCase-Output"][];
+            /**
+             * Default Label
+             * @description State name of default_output
+             */
+            default_label?: string | null;
+            /**
+             * Default Output
+             * @description Output when no case matches
+             * @default 0
+             */
+            default_output: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+        };
+        /**
+         * VirtualConditionGroup
+         * @description Conditions and nested groups combined with ALL (and) or ANY (or).
+         */
+        "VirtualConditionGroup-Input": {
+            /** Items */
+            items: (components["schemas"]["VirtualCondition"] | components["schemas"]["VirtualConditionGroup-Input"])[];
+            /**
+             * Match
+             * @description all = every item holds, any = at least one
+             * @enum {string}
+             */
+            match: "all" | "any";
+            /**
+             * Type
+             * @default group
+             * @constant
+             */
+            type: "group";
+        };
+        /**
+         * VirtualConditionGroup
+         * @description Conditions and nested groups combined with ALL (and) or ANY (or).
+         */
+        "VirtualConditionGroup-Output": {
+            /** Items */
+            items: (components["schemas"]["VirtualCondition"] | components["schemas"]["VirtualConditionGroup-Output"])[];
+            /**
+             * Match
+             * @description all = every item holds, any = at least one
+             * @enum {string}
+             */
+            match: "all" | "any";
+            /**
+             * Type
+             * @default group
+             * @constant
+             */
+            type: "group";
+        };
+        /**
+         * VirtualPointCreateRequest
+         * @description Create a VIRTUAL point. The server derives data_type/size from the definition's kind
+         *     (condition → enum16 with enum_detail from the case labels, calculation → float32).
+         */
+        VirtualPointCreateRequest: {
+            /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+            /**
+             * Definition
+             * @description How the value is computed from other points on the site (computed on read, not stored)
+             */
+            definition: components["schemas"]["VirtualConditionDefinition-Input"] | components["schemas"]["VirtualCalculationDefinition"];
+            /** Name */
+            name: string;
+            /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * VirtualPointUpdateRequest
+         * @description Update a VIRTUAL point; omitted fields keep their value. A new definition may change the kind.
+         */
+        VirtualPointUpdateRequest: {
+            /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+            /** Definition */
+            definition?: (components["schemas"]["VirtualConditionDefinition-Input"] | components["schemas"]["VirtualCalculationDefinition"]) | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /** Unit */
+            unit?: string | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -2772,6 +3069,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceScanRanges"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VirtualPointCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VirtualPointUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
                 };
             };
             /** @description Validation Error */

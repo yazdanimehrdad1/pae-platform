@@ -10,6 +10,10 @@ from helpers.device_points.device_points_crud import (
     update_device_point,
 )
 from helpers.device_points.scan_range_computation import compute_device_scan_ranges
+from helpers.device_points.virtual_points import (
+    create_virtual_point,
+    update_virtual_point,
+)
 from schemas.api_models import DevicePointData
 
 __all__ = [
@@ -22,4 +26,6 @@ __all__ = [
     "bulk_upsert_device_points",
     "compute_device_scan_ranges",
     "DevicePointData",
+    "create_virtual_point",
+    "update_virtual_point",
 ]

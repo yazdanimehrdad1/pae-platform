@@ -38,6 +38,9 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   `backend-ot-redis`.
 - Run on the host: `make run` (needs pg+redis reachable) · `make migrate`.
 - Schema changes: use the `add-migration` skill. API changes: use the `add-endpoint` skill.
+- Postman: `make postman` writes `postman/backend-ot.postman_collection.json` from the app's OpenAPI
+  spec (`src/postman_collection.py`). The folder is gitignored: each developer generates it locally.
+  Rerun it after route changes; requests use `{{baseUrl}}`.
 - Checks: the root `test-runner` agent runs lint/tests and reports only failures.
 
 ## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)

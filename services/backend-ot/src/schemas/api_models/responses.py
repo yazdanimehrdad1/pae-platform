@@ -7,6 +7,7 @@ from pydantic import AliasChoices, BaseModel, Field
 
 from schemas.api_models.requests import Coordinates, DeviceScanRanges, Location
 from schemas.api_models.types import PointClass, Severity
+from schemas.api_models.virtual_points import VirtualPointDefinition
 
 
 class HealthResponse(BaseModel):
@@ -145,6 +146,9 @@ class DevicePointResponse(BaseModel):
         description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
     )
     severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    virtual_definition: VirtualPointDefinition | None = Field(
+        None, description="VIRTUAL points only: how the value is computed from other points"
+    )
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {

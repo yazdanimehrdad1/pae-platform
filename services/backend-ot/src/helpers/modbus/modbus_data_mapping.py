@@ -216,6 +216,10 @@ def map_modbus_data_to_device_points(
     readings = []
 
     for point in device_points_list:
+        # Only NATIVE points have a register. STANDARDIZED and VIRTUAL points are derived from
+        # stored readings (helpers.virtual_points), never decoded from the register map.
+        if point.category != "NATIVE":
+            continue
         extraction = _extract_register_values(
             register_map=register_map.values,
             point_address=point.address,

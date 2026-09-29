@@ -109,6 +109,22 @@ describe('RuleBuilder threshold', () => {
     expect(onSave.mock.calls[0][0].notify).toEqual({ mobile: true, email: true });
   });
 
+  it('a discrete point offers its states instead of a number, and saves the chosen state', async () => {
+    const { devices, points, rules } = await createMockAlarmSource({ now: () => ANCHOR }).getSnapshot();
+    const onSave = vi.fn();
+    render(
+      <RuleBuilder devices={devices} points={points} existingNames={rules.map(rule => rule.name)}
+        defaultPointId="p2.trip" onSave={onSave} onCancel={vi.fn()} />,
+    );
+    expect(screen.getByLabelText('Operator').textContent).toBe('is');
+    expect(screen.getByLabelText('Threshold').textContent).toBe('normal');
+
+    typeName('p2_trip_state');
+    save();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toMatchObject({ pointId: 'p2.trip', operator: '=', threshold: 0 });
+  });
+
   it('asks for a device for a comms-stale rule', async () => {
     const onSave = await renderBuilder();
     typeName('t2_silent');

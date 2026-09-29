@@ -16,11 +16,17 @@ from httpx import AsyncClient
 from integration.factories import (
     create_device,
     create_site,
+    create_virtual_point,
     insert_reading,
     point_request,
     upsert_points,
 )
-from schemas.api_models import DevicePointCreateRequest, DevicePointResponse
+from schemas.api_models import (
+    DevicePointCreateRequest,
+    DevicePointResponse,
+    VirtualCalculationDefinition,
+    VirtualPointCreateRequest,
+)
 from schemas.site_profiles import (
     EnergySummaryResult,
     SiteEndpointsResponse,
@@ -118,6 +124,28 @@ class TestCommonEnergySummary:
         assert by_device["device_1"].sample_count == 3
         assert by_device["device_3"].energy_kwh == pytest.approx(2.0)
         assert result.energy_kwh == pytest.approx(3.0)
+
+    async def test_a_virtual_power_point_is_computed_from_its_inputs(self, client, db):
+        """A profile function reading a VIRTUAL point by name gets values computed on read."""
+        site = await create_site(client, profile="alpha_solar")
+        meter = await create_device(client, site.site_id, name="meter")
+        plant = await create_device(client, site.site_id, name="plant", host="10.0.0.11")
+        (meter_watts,) = await upsert_points(
+            client, site.site_id, meter.device_id, [point_request(name="meter_power", unit="W")]
+        )
+        await create_virtual_point(client, site.site_id, plant.device_id, VirtualPointCreateRequest(
+            name="active_power", unit="W",
+            definition=VirtualCalculationDefinition(kind="calculation", function="sum", inputs=[meter_watts.id], scale=2.0),
+        ))
+        # 500 W doubled = 1000 W for 1 h = 1 kWh, although nothing is stored for the virtual point.
+        await insert_series(db, meter_watts, [500.0, 500.0, 500.0], timedelta(minutes=30))
+
+        response = await client.get(url(site.site_id, "common-energy-summary"), params=WINDOW)
+        assert response.status_code == 200, response.text
+        result = EnergySummaryResult.model_validate(response.json())
+        (plant_energy,) = [device for device in result.devices if device.device_name == "plant"]
+        assert plant_energy.sample_count == 3
+        assert plant_energy.energy_kwh == pytest.approx(1.0)
 
     async def test_ignores_readings_outside_the_window(self, client, db):
         site = await create_site(client, profile="alpha_solar")

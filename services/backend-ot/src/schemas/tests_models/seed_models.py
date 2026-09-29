@@ -7,7 +7,7 @@ TEST-ONLY: used by the seeder and its mock data. App code must never import
 
 from pydantic import BaseModel, Field
 
-from schemas.api_models.requests import DeviceCreateRequest
+from schemas.api_models.requests import DeviceCreateRequest, VirtualPointCreateRequest
 
 
 class SeedDevice(BaseModel):
@@ -15,3 +15,10 @@ class SeedDevice(BaseModel):
 
     site_name: str = Field(..., min_length=1)
     device: DeviceCreateRequest
+
+
+class SeedVirtualPoint(BaseModel):
+    """A virtual point to seed on a device (by name); its inputs are resolved to point IDs first."""
+
+    device_name: str = Field(..., min_length=1)
+    point: VirtualPointCreateRequest

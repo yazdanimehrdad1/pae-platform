@@ -47,22 +47,22 @@ async def get_latest_readings(
     display_tz = resolve_display_tz(tz)
 
     try:
-        rows = await get_latest_readings_by_point_ids(ids, site_id=site_id, device_id=device_id)
+        latest_readings = await get_latest_readings_by_point_ids(ids, site_id=site_id, device_id=device_id)
     except Exception as e:
         logger.error("get_latest_readings failed site=%s device=%s point_ids=%s: %s", site_id, device_id, ids, e, exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve readings") from e
 
     readings = {
-        str(row["device_point_id"]): PointLatest.model_validate({
-            **row,
-            "timestamp": in_display_tz(row["timestamp"], display_tz),
+        str(reading.device_point_id): PointLatest.model_validate({
+            **reading.model_dump(),
+            "timestamp": in_display_tz(reading.timestamp, display_tz),
             "translated_value": translate_reading(
-                row["derived_value"],
-                row["bitfield_detail"],
-                row["enum_detail"],
+                reading.derived_value,
+                reading.bitfield_detail,
+                reading.enum_detail,
             ) if translate else None,
         })
-        for row in rows
+        for reading in latest_readings
     }
     return LatestResponse(
         meta=LatestMeta(
@@ -123,7 +123,7 @@ async def get_timeseries_readings(
         )
 
     try:
-        rows = await get_timeseries_by_point_ids(
+        point_readings = await get_timeseries_by_point_ids(
             ids, site_id=site_id, device_id=device_id,
             start_time=start_time, end_time=end_time, limit=limit,
         )
@@ -132,24 +132,24 @@ async def get_timeseries_readings(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve timeseries") from e
 
     readings: dict[str, PointTimeseries] = {}
-    for row in rows:
-        key = str(row["device_point_id"])
+    for reading in point_readings:
+        key = str(reading.device_point_id)
         if key not in readings:
-            extra: dict = {}
+            series = PointTimeseries.model_validate(reading.model_dump())
             if translate:
-                extra["enum_map"] = row["enum_detail"] or None
-                if row["bitfield_detail"]:
-                    extra["bit_labels"] = list(
-                        translate_bitfield_to_named_map(0.0, row["bitfield_detail"]).keys()
+                series.enum_map = reading.enum_detail or None
+                if reading.bitfield_detail:
+                    series.bit_labels = list(
+                        translate_bitfield_to_named_map(0.0, reading.bitfield_detail).keys()
                     )
-            readings[key] = PointTimeseries.model_validate({**row, **extra})
+            readings[key] = series
         readings[key].timeseries.append(TimeseriesPoint.model_validate({
-            **row,
-            "timestamp": in_display_tz(row["timestamp"], display_tz),
+            **reading.model_dump(),
+            "timestamp": in_display_tz(reading.timestamp, display_tz),
             "translated_value": translate_reading(
-                row["derived_value"],
-                row["bitfield_detail"],
-                row["enum_detail"],
+                reading.derived_value,
+                reading.bitfield_detail,
+                reading.enum_detail,
             ) if translate else None,
         }))
         readings[key].count += 1
@@ -159,7 +159,7 @@ async def get_timeseries_readings(
             site_id=site_id,
             device_id=device_id,
             point_ids=ids or None,
-            total_count=len(rows),
+            total_count=len(point_readings),
             start_time=in_display_tz(start_time, display_tz),
             end_time=in_display_tz(end_time, display_tz),
         ),

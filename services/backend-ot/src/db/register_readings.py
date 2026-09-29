@@ -7,46 +7,12 @@ Handles CRUD operations for device_points_readings time-series table.
 from datetime import datetime
 
 from sqlalchemy.dialects.postgresql import insert
-from typing_extensions import TypedDict
 
 from db.session import get_session
 from logger import get_logger
-from schemas.api_models import DataType
 from schemas.db_models.orm_models import DevicePointsReading
 
 logger = get_logger(__name__)
-
-
-class LatestDevicePointReadingDict(TypedDict):
-    device_point_id: int
-    register_address: int
-    name: str
-    data_type: DataType
-    size: int
-    unit: str | None
-    scale_factor: float | None
-    timestamp: datetime
-    derived_value: float | None
-    bitfield_detail: dict[str, str] | None
-    enum_detail: dict[str, str] | None
-    point_class: str | None
-    severity: str | None
-
-
-class TimeSeriesDevicePointReadingDict(TypedDict):
-    timestamp: datetime
-    derived_value: float | None
-    device_point_id: int
-    register_address: int
-    name: str
-    data_type: DataType
-    size: int
-    unit: str | None
-    scale_factor: float | None
-    bitfield_detail: dict[str, str] | None
-    enum_detail: dict[str, str] | None
-    point_class: str | None
-    severity: str | None
 
 
 async def insert_register_readings_batch(

@@ -25,12 +25,13 @@ from helpers.device_points.device_standardized_points import (  # noqa: E402
 from helpers.device_points.scan_range_computation import (  # noqa: E402
     compute_device_scan_ranges,
 )
+from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
 from schemas.db_models.orm_models import Device, DevicePoint, Site  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dev_mock_data import DEVICE_POINTS, DEVICES, SITES  # noqa: E402
+from dev_mock_data import DEVICE_POINTS, DEVICES, SITES, virtual_points  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -84,7 +85,8 @@ async def seed() -> None:
         #    them, so ids follow the same pattern as API-created devices:     #
         #    STANDARDIZED (POST /api/devices/site/{id}/devices creates them   #
         #    with the device, via the same helper), then NATIVE (added       #
-        #    afterwards), then VIRTUAL (none in the seed data yet). A flush   #
+        #    afterwards). VIRTUAL points come last, after every device, since  #
+        #    they read points on other devices. A flush                        #
         #    after each category makes the database assign ids in that order. #
         # ------------------------------------------------------------------ #
         async def point_exists(device: Device, name: str) -> bool:
@@ -136,7 +138,20 @@ async def seed() -> None:
                 )
             await session.flush()
 
-            # VIRTUAL: the seed data defines none. Add them here, after NATIVE, if it ever does.
+        # VIRTUAL: after every device's NATIVE points, since they read points on other devices.
+        # Built with the create path's own builder, so a seeded point equals an API-created one.
+        point_ids: dict[tuple[str, str], int] = {}
+        for device_name, device in device_by_name.items():
+            result = await session.execute(select(DevicePoint).where(DevicePoint.device_id == device.device_id))
+            point_ids.update({(device_name, point.name): point.id for point in result.scalars().all()})
+        for seed_point in virtual_points(lambda device_name, point_name: point_ids[(device_name, point_name)]):
+            device = device_by_name[seed_point.device_name]
+            if await point_exists(device, seed_point.point.name):
+                logger.info("Device point already exists '%s.%s'", device.name, seed_point.point.name)
+                continue
+            session.add(new_virtual_point(device.site_id, device.device_id, seed_point.point))
+            logger.info("Created virtual point '%s.%s'", device.name, seed_point.point.name)
+        await session.flush()
 
         # ------------------------------------------------------------------ #
         # 4. Recompute scan_ranges from each device's active NATIVE points    #

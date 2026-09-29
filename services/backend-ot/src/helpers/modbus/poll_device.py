@@ -96,6 +96,8 @@ async def poll_single_device_modbus(site_name: str, device: DeviceWithPoints) ->
     """
     Poll a single device using its scan_ranges.
     If scan_ranges is None the device is skipped (no ranges configured yet).
+    Only NATIVE points are polled: STANDARDIZED and VIRTUAL points are derived from stored
+    readings, never from registers.
     """
     device_name = device.name
     result: PollResult = {
@@ -140,7 +142,7 @@ async def poll_single_device_modbus(site_name: str, device: DeviceWithPoints) ->
     total_db_successful = 0
     total_db_failed = 0
     try:
-        device_points_all = await get_device_points(device.device_id)
+        device_points_all = await get_device_points(device.device_id, category="NATIVE")
         timestamp_dt = datetime.now(UTC)
 
         scan_poll_result: DevicePollResult = await _poll_device_scan_ranges(

@@ -109,16 +109,19 @@ export default function LiveData() {
             <h1 className="text-3xl font-bold text-foreground">Live Data</h1>
             <p className="text-muted-foreground mt-1">Real-time monitoring of selected signals via WebSocket</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-warning/10 text-warning border-warning">
-              <Radio className="w-3 h-3 mr-1" />
-              Coming Soon
-            </Badge>
-            <Badge variant="outline" className="gap-2">
-              <Zap className="w-3 h-3" />
-              {selectedPoints.length}/{MAX_SIGNALS} Signals
-            </Badge>
-          </div>
+          {/* Point Monitoring status only; Modbus Debug doesn't use the selected signals. */}
+          {activeTab !== 'modbus' && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-warning/10 text-warning border-warning">
+                <Radio className="w-3 h-3 mr-1" />
+                Coming Soon
+              </Badge>
+              <Badge variant="outline" className="gap-2">
+                <Zap className="w-3 h-3" />
+                {selectedPoints.length}/{MAX_SIGNALS} Signals
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 

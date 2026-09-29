@@ -706,6 +706,32 @@
             "description": "Unit",
             "title": "Unit"
           },
+          "virtual_definition": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calculation": "#/components/schemas/VirtualCalculationDefinition",
+                    "condition": "#/components/schemas/VirtualConditionDefinition-Output"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/VirtualConditionDefinition-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VirtualCalculationDefinition"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "VIRTUAL points only: how the value is computed from other points",
+            "title": "Virtual Definition"
+          },
           "word_order": {
             "default": "msw_first",
             "description": "Word order for multi-register types",
@@ -3004,6 +3030,573 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VirtualCalculationDefinition": {
+        "properties": {
+          "function": {
+            "description": "difference = inputs[0] - inputs[1], ratio = inputs[0] / inputs[1]",
+            "enum": [
+              "sum",
+              "avg",
+              "min",
+              "max",
+              "difference",
+              "ratio"
+            ],
+            "title": "Function",
+            "type": "string"
+          },
+          "inputs": {
+            "description": "Point IDs",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Inputs",
+            "type": "array"
+          },
+          "kind": {
+            "const": "calculation",
+            "title": "Kind",
+            "type": "string"
+          },
+          "offset": {
+            "default": 0.0,
+            "title": "Offset",
+            "type": "number"
+          },
+          "scale": {
+            "default": 1.0,
+            "description": "Applied after the function: result * scale + offset",
+            "title": "Scale",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "function",
+          "inputs"
+        ],
+        "title": "VirtualCalculationDefinition",
+        "type": "object"
+      },
+      "VirtualCase-Input": {
+        "description": "When ``when`` holds, the point takes ``output``.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name, stored in enum_detail",
+            "title": "Label"
+          },
+          "output": {
+            "description": "State value this case sets",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Output",
+            "type": "integer"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Input"
+          }
+        },
+        "required": [
+          "output",
+          "when"
+        ],
+        "title": "VirtualCase",
+        "type": "object"
+      },
+      "VirtualCase-Output": {
+        "description": "When ``when`` holds, the point takes ``output``.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name, stored in enum_detail",
+            "title": "Label"
+          },
+          "output": {
+            "description": "State value this case sets",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Output",
+            "type": "integer"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Output"
+          }
+        },
+        "required": [
+          "output",
+          "when"
+        ],
+        "title": "VirtualCase",
+        "type": "object"
+      },
+      "VirtualCondition": {
+        "description": "One test on one point: compare it to a value or another point, or test one of its bits.",
+        "examples": [
+          {
+            "operator": ">=",
+            "point_id": 7,
+            "type": "condition",
+            "value": 20
+          },
+          {
+            "bit": 1,
+            "operator": "bit_set",
+            "point_id": 71,
+            "type": "condition"
+          }
+        ],
+        "properties": {
+          "bit": {
+            "anyOf": [
+              {
+                "maximum": 63.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bit test: the bit index (0 = LSB)",
+            "title": "Bit"
+          },
+          "compare_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Comparison: another point to compare against, instead of value",
+            "title": "Compare Point Id"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "enum": [
+                  ">",
+                  "<",
+                  ">=",
+                  "<=",
+                  "==",
+                  "!="
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "bit_set",
+                  "bit_clear"
+                ],
+                "type": "string"
+              }
+            ],
+            "description": "Comparison (>, <, >=, <=, ==, !=) or bit test (bit_set, bit_clear). Enum states compare with == / != on the raw state value.",
+            "title": "Operator"
+          },
+          "point_id": {
+            "description": "Point the condition reads",
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "type": {
+            "const": "condition",
+            "default": "condition",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Comparison: the constant to compare against",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "point_id",
+          "operator"
+        ],
+        "title": "VirtualCondition",
+        "type": "object"
+      },
+      "VirtualConditionDefinition-Input": {
+        "properties": {
+          "cases": {
+            "description": "Checked in order; the first match wins",
+            "items": {
+              "$ref": "#/components/schemas/VirtualCase-Input"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "default_label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name of default_output",
+            "title": "Default Label"
+          },
+          "default_output": {
+            "default": 0,
+            "description": "Output when no case matches",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Default Output",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "cases"
+        ],
+        "title": "VirtualConditionDefinition",
+        "type": "object"
+      },
+      "VirtualConditionDefinition-Output": {
+        "properties": {
+          "cases": {
+            "description": "Checked in order; the first match wins",
+            "items": {
+              "$ref": "#/components/schemas/VirtualCase-Output"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "default_label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name of default_output",
+            "title": "Default Label"
+          },
+          "default_output": {
+            "default": 0,
+            "description": "Output when no case matches",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Default Output",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "cases"
+        ],
+        "title": "VirtualConditionDefinition",
+        "type": "object"
+      },
+      "VirtualConditionGroup-Input": {
+        "description": "Conditions and nested groups combined with ALL (and) or ANY (or).",
+        "properties": {
+          "items": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/VirtualCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/VirtualConditionGroup-Input"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "match": {
+            "description": "all = every item holds, any = at least one",
+            "enum": [
+              "all",
+              "any"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "type": {
+            "const": "group",
+            "default": "group",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match",
+          "items"
+        ],
+        "title": "VirtualConditionGroup",
+        "type": "object"
+      },
+      "VirtualConditionGroup-Output": {
+        "description": "Conditions and nested groups combined with ALL (and) or ANY (or).",
+        "properties": {
+          "items": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/VirtualCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/VirtualConditionGroup-Output"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "match": {
+            "description": "all = every item holds, any = at least one",
+            "enum": [
+              "all",
+              "any"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "type": {
+            "const": "group",
+            "default": "group",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match",
+          "items"
+        ],
+        "title": "VirtualConditionGroup",
+        "type": "object"
+      },
+      "VirtualPointCreateRequest": {
+        "description": "Create a VIRTUAL point. The server derives data_type/size from the definition's kind\n(condition → enum16 with enum_detail from the case labels, calculation → float32).",
+        "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
+          },
+          "definition": {
+            "description": "How the value is computed from other points on the site (computed on read, not stored)",
+            "discriminator": {
+              "mapping": {
+                "calculation": "#/components/schemas/VirtualCalculationDefinition",
+                "condition": "#/components/schemas/VirtualConditionDefinition-Input"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VirtualConditionDefinition-Input"
+              },
+              {
+                "$ref": "#/components/schemas/VirtualCalculationDefinition"
+              }
+            ],
+            "title": "Definition"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "name",
+          "definition"
+        ],
+        "title": "VirtualPointCreateRequest",
+        "type": "object"
+      },
+      "VirtualPointUpdateRequest": {
+        "description": "Update a VIRTUAL point; omitted fields keep their value. A new definition may change the kind.",
+        "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calculation": "#/components/schemas/VirtualCalculationDefinition",
+                    "condition": "#/components/schemas/VirtualConditionDefinition-Input"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/VirtualConditionDefinition-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VirtualCalculationDefinition"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "title": "VirtualPointUpdateRequest",
+        "type": "object"
       }
     }
   },
@@ -4090,6 +4683,141 @@
           }
         },
         "summary": "Override and lock a device's scan ranges",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual": {
+      "post": {
+        "description": "Create a VIRTUAL point computed on read from other points' stored readings (any device on the site):\na condition (cases of ALL/ANY groups; the first match sets the state) or a calculation\n(sum/avg/min/max/difference/ratio × scale + offset). Inputs must be active, non-virtual\npoints on this site; bit conditions need a bitfield input.",
+        "operationId": "create_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VirtualPointCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a virtual point",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual/{point_id}": {
+      "put": {
+        "description": "Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.",
+        "operationId": "update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VirtualPointUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a virtual point",
         "tags": [
           "device-points",
           "device-points"

@@ -14,6 +14,8 @@ from schemas.api_models.requests import (
     RegisterRange,
     SiteCreateRequest,
     SiteUpdateRequest,
+    VirtualPointCreateRequest,
+    VirtualPointUpdateRequest,
 )
 from schemas.api_models.responses import (
     CacheGetResponse,
@@ -53,6 +55,14 @@ from schemas.api_models.types import (
     PollResult,
     Severity,
     register_size,
+)
+from schemas.api_models.virtual_points import (
+    VirtualCalculationDefinition,
+    VirtualCase,
+    VirtualCondition,
+    VirtualConditionDefinition,
+    VirtualConditionGroup,
+    VirtualPointDefinition,
 )
 
 __all__ = [
@@ -97,4 +107,12 @@ __all__ = [
     "DeviceHealthStatus",
     "SiteDevicesHealthResponse",
     "CacheGetResponse",
+    "VirtualPointCreateRequest",
+    "VirtualPointUpdateRequest",
+    "VirtualCalculationDefinition",
+    "VirtualCase",
+    "VirtualCondition",
+    "VirtualConditionDefinition",
+    "VirtualConditionGroup",
+    "VirtualPointDefinition",
 ]

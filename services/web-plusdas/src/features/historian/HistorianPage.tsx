@@ -23,6 +23,7 @@ import { describeDiscreteSeries } from "./lib/discreteSeries";
 import { usePointCatalog } from "./hooks/usePointCatalog";
 import { DEFAULT_DISCRETE_MODE, type DiscreteModeId } from "./components/discrete/discreteModes";
 import { DiscreteModeToggle } from "./components/discrete/DiscreteModeToggle";
+import { RefreshReadingsButton } from "./components/RefreshReadingsButton";
 import { StateLanes } from "./components/discrete/StateLanes";
 import { buildStepLayout, renderStepSeries, STATE_AXIS_WIDTH } from "./components/discrete/stepSeries";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -760,6 +761,7 @@ export default function Historian() {
                               ))}
                             </SelectContent>
                           </Select>
+                          <RefreshReadingsButton siteId={selectedSiteId || null} />
                         </div>
                         {timeRange === 'custom' && (
                           <div className="flex items-center gap-2">

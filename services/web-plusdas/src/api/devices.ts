@@ -10,7 +10,13 @@ import type {
   PointGroup,
 } from './types/devices';
 import { POINT_GROUP_ORDER } from './types/devices';
-import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from './types/devicePoints';
+import type {
+  DevicePoint,
+  DevicePointCreateRequest,
+  DevicePointUpdateRequest,
+  VirtualPointCreateRequest,
+  VirtualPointUpdateRequest,
+} from './types/devicePoints';
 import { client, request } from './client';
 
 const byPointName = (left: DevicePoint, right: DevicePoint) =>
@@ -149,4 +155,10 @@ export const devicesApi = {
 
   restorePoint: (siteId: string, deviceId: number, pointId: number): Promise<DevicePoint> =>
     client.post(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/restore`, {}),
+
+  createVirtualPoint: (siteId: string, deviceId: number, payload: VirtualPointCreateRequest): Promise<DevicePoint> =>
+    client.post(`/device-points/site/${siteId}/device/${deviceId}/virtual`, payload),
+
+  updateVirtualPoint: (siteId: string, deviceId: number, pointId: number, payload: VirtualPointUpdateRequest): Promise<DevicePoint> =>
+    client.put(`/device-points/site/${siteId}/device/${deviceId}/virtual/${pointId}`, payload),
 };

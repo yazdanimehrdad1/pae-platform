@@ -3,6 +3,7 @@ Integration tests for /api/device-point-readings.
 
 Guards the read side of stored readings against a real database: latest-per-point,
 timeseries ordering (newest first) and limits, time-window filtering, enum translation,
+virtual points computed on read from their inputs' stored readings (never stored themselves),
 display-timezone rendering, and the query validation rules (both at the endpoint and in
 the global validate_time_range middleware).
 """
@@ -15,11 +16,22 @@ from httpx import AsyncClient
 from integration.factories import (
     create_device,
     create_site,
+    create_virtual_point,
     insert_reading,
     point_request,
     upsert_points,
 )
-from schemas.api_models import DevicePointResponse, LatestResponse, TimeseriesResponse
+from schemas.api_models import (
+    DevicePointResponse,
+    LatestResponse,
+    TimeseriesResponse,
+    VirtualCalculationDefinition,
+    VirtualCase,
+    VirtualCondition,
+    VirtualConditionDefinition,
+    VirtualConditionGroup,
+    VirtualPointCreateRequest,
+)
 
 BASE_TIME = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
 ENUM_DETAIL = {"0": "OFF", "1": "ON"}
@@ -183,3 +195,128 @@ class TestClassAndSeverity:
 
         timeseries = await get_timeseries(client, timeseries_url(site_id, device_id))
         assert timeseries.readings[str(power.id)].point_class == "ANALOG"
+
+
+# --- Virtual points: computed on read from their inputs' stored readings ------------------
+
+
+class VirtualArrangement:
+    """Two devices polled 0.3 s apart every 10 s. On device A: SITE_POWER = power_a + power_b,
+    and HIGH = 1 "high" while power_b >= 20, else 0 "low". Nothing is stored for either."""
+
+    def __init__(self, site_id: int, device_id: int, power_a: DevicePointResponse,
+                 power_b: DevicePointResponse, site_power: DevicePointResponse, high: DevicePointResponse):
+        self.site_id, self.device_id = site_id, device_id
+        self.power_a, self.power_b, self.site_power, self.high = power_a, power_b, site_power, high
+
+
+async def arrange_virtual(client: AsyncClient, db: asyncpg.Connection) -> VirtualArrangement:
+    site = await create_site(client)
+    device_a = await create_device(client, site.site_id, name="meter-a")
+    device_b = await create_device(client, site.site_id, name="meter-b", host="10.0.0.11")
+    (power_a,) = await upsert_points(client, site.site_id, device_a.device_id, [point_request(name="power_a")])
+    (power_b,) = await upsert_points(client, site.site_id, device_b.device_id, [point_request(name="power_b")])
+    for cycle, (value_a, value_b) in enumerate([(1.0, 10.0), (2.0, 20.0), (3.0, 30.0)]):
+        cycle_start = BASE_TIME + timedelta(seconds=10 * cycle)
+        await insert_reading(db, power_a, cycle_start, value_a, value_a)
+        await insert_reading(db, power_b, cycle_start + timedelta(seconds=0.3), value_b, value_b)
+
+    site_power = await create_virtual_point(client, site.site_id, device_a.device_id, VirtualPointCreateRequest(
+        name="SITE_POWER", unit="kW",
+        definition=VirtualCalculationDefinition(kind="calculation", function="sum", inputs=[power_a.id, power_b.id]),
+    ))
+    high = await create_virtual_point(client, site.site_id, device_a.device_id, VirtualPointCreateRequest(
+        name="HIGH",
+        definition=VirtualConditionDefinition(
+            kind="condition",
+            cases=[VirtualCase(output=1, label="high", when=VirtualConditionGroup(match="all", items=[
+                VirtualCondition(point_id=power_b.id, operator=">=", value=20),
+            ]))],
+            default_output=0,
+            default_label="low",
+        ),
+    ))
+    return VirtualArrangement(site.site_id, device_a.device_id, power_a, power_b, site_power, high)
+
+
+def series_of(response: TimeseriesResponse, point: DevicePointResponse) -> list[tuple[float, float | None]]:
+    return [
+        ((sample.time - BASE_TIME).total_seconds(), sample.value)
+        for sample in response.readings[str(point.id)].timeseries
+    ]
+
+
+class TestVirtualTimeseries:
+    async def test_computed_from_inputs_on_other_devices_newest_first(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        response = await get_timeseries(
+            client, timeseries_url(arranged.site_id, arranged.device_id), point_ids=str(arranged.site_power.id)
+        )
+        # One sample per poll cycle, at the later device's time.
+        assert series_of(response, arranged.site_power) == [(20.3, 33.0), (10.3, 22.0), (0.3, 11.0)]
+        assert response.readings[str(arranged.site_power.id)].count == 3
+        assert response.readings[str(arranged.site_power.id)].unit == "kW"
+
+    async def test_limit_and_window_apply_to_computed_values(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        url = timeseries_url(arranged.site_id, arranged.device_id)
+        point_id = str(arranged.site_power.id)
+
+        limited = await get_timeseries(client, url, point_ids=point_id, limit=2)
+        assert series_of(limited, arranged.site_power) == [(20.3, 33.0), (10.3, 22.0)]
+
+        # The window starts after power_a's reading at 10 s: its value is carried in from before.
+        windowed = await get_timeseries(
+            client, url, point_ids=point_id,
+            start_time=(BASE_TIME + timedelta(seconds=10.2)).isoformat(),
+            end_time=(BASE_TIME + timedelta(seconds=15)).isoformat(),
+        )
+        assert series_of(windowed, arranged.site_power) == [(10.3, 22.0)]
+
+    async def test_mixed_with_stored_points_and_all_points_of_the_device(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        url = timeseries_url(arranged.site_id, arranged.device_id)
+        mixed = await get_timeseries(client, url, point_ids=f"{arranged.power_a.id},{arranged.site_power.id}")
+        assert series_of(mixed, arranged.power_a) == [(20.0, 3.0), (10.0, 2.0), (0.0, 1.0)]
+        assert series_of(mixed, arranged.site_power)[0] == (20.3, 33.0)
+
+        everything = await get_timeseries(client, url)
+        assert set(everything.readings) == {str(arranged.power_a.id), str(arranged.site_power.id), str(arranged.high.id)}
+
+    async def test_rows_stored_under_a_virtual_point_are_ignored(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        await insert_reading(db, arranged.site_power, BASE_TIME + timedelta(seconds=5), 999.0, 999.0)
+        response = await get_timeseries(
+            client, timeseries_url(arranged.site_id, arranged.device_id), point_ids=str(arranged.site_power.id)
+        )
+        assert 999.0 not in [value for _, value in series_of(response, arranged.site_power)]
+
+    async def test_condition_values_translate_to_their_state_names(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        response = await get_timeseries(
+            client, timeseries_url(arranged.site_id, arranged.device_id), point_ids=str(arranged.high.id), translate="true"
+        )
+        readings = response.readings[str(arranged.high.id)]
+        assert [sample.translated_value for sample in readings.timeseries] == ["high", "high", "low"]
+
+
+class TestVirtualLatest:
+    async def test_latest_is_computed_from_the_newest_inputs(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        latest = await get_latest(
+            client, latest_url(arranged.site_id, arranged.device_id),
+            point_ids=f"{arranged.site_power.id},{arranged.high.id}", translate="true",
+        )
+        site_power = latest.readings[str(arranged.site_power.id)]
+        assert (site_power.value, site_power.time) == (33.0, BASE_TIME + timedelta(seconds=20.3))
+        assert latest.readings[str(arranged.high.id)].translated_value == "high"
+
+    async def test_latest_is_empty_when_an_input_is_stale(self, client, db):
+        arranged = await arrange_virtual(client, db)
+        # power_a moves an hour ahead; power_b's newest reading is far older than the max gap.
+        await insert_reading(db, arranged.power_a, BASE_TIME + timedelta(hours=1), 4.0, 4.0)
+        latest = await get_latest(
+            client, latest_url(arranged.site_id, arranged.device_id), point_ids=str(arranged.site_power.id)
+        )
+        reading = latest.readings[str(arranged.site_power.id)]
+        assert (reading.value, reading.time) == (None, None)

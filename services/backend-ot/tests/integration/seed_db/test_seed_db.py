@@ -4,13 +4,14 @@ Integration tests for the dev seeder (tests/seed_db/seed_db.py).
 Invariant guarded: a device the seeder creates ends up with the same STANDARDIZED points as a
 device of the same type created through POST /api/devices/site/{site_id}/devices. The seeder
 writes rows directly rather than calling the API, so without this check any create-time
-behaviour added to the API is silently missing from the dev data. Also guards idempotency.
+behaviour added to the API is silently missing from the dev data. Likewise for VIRTUAL points,
+which the seeder builds with the create path's own builder. Also guards idempotency.
 """
 
 from pydantic import TypeAdapter
-from seed_db.seed_db import DEVICES, SITES, seed
+from seed_db.seed_db import DEVICES, SITES, seed, virtual_points
 
-from integration.factories import create_device, create_site
+from integration.factories import create_device, create_site, create_virtual_point
 from schemas.api_models import DevicePointResponse, DeviceWithPoints, SiteResponse
 
 SITE_LIST = TypeAdapter(list[SiteResponse])
@@ -68,18 +69,62 @@ class TestSeedStandardizedPoints:
             assert len(names) == len(set(names)) == 3, device.name
 
     async def test_points_are_created_in_api_order(self, client):
-        """Per device, STANDARDIZED then NATIVE (then VIRTUAL), device after device: the ids the
-        API produces when a device is created and its native points are added afterwards."""
+        """Per device, STANDARDIZED then NATIVE, device after device: the ids the API produces
+        when a device is created and its native points are added afterwards. VIRTUAL points come
+        after every device's points, since they read points on other devices."""
         await seed()
-        category_rank = {"STANDARDIZED": 0, "NATIVE": 1, "VIRTUAL": 2}
+        category_rank = {"STANDARDIZED": 0, "NATIVE": 1}
         previous_device_max_id = 0
+        virtual_ids: list[int] = []
         for device in sorted(await seeded_devices(client), key=lambda device: device.device_id):
             response = await client.get(
                 f"/api/device-points/site/{device.site_id}/device/{device.device_id}"
             )
             assert response.status_code == 200, response.text
-            points = sorted(POINT_LIST.validate_python(response.json()), key=lambda p: p.id)
+            all_points = POINT_LIST.validate_python(response.json())
+            virtual_ids += [point.id for point in all_points if point.category == "VIRTUAL"]
+            points = sorted((p for p in all_points if p.category != "VIRTUAL"), key=lambda p: p.id)
             ranks = [category_rank[point.category] for point in points]
             assert ranks == sorted(ranks), f"{device.name}: categories out of order by id"
             assert points[0].id > previous_device_max_id, f"{device.name}: ids interleave"
             previous_device_max_id = points[-1].id
+        assert virtual_ids, "the seed defines virtual points"
+        assert min(virtual_ids) > previous_device_max_id, "virtual points must come after every device's points"
+
+
+class TestSeedVirtualPoints:
+    """A seeded virtual point equals one created through POST .../virtual with the same request."""
+
+    async def test_seeded_virtual_points_match_points_created_through_the_api(self, client):
+        await seed()
+        devices = {device.name: device for device in await seeded_devices(client)}
+        ids_by_name: dict[tuple[str, str], int] = {}
+        for device in devices.values():
+            response = await client.get(f"/api/device-points/site/{device.site_id}/device/{device.device_id}")
+            for point in POINT_LIST.validate_python(response.json()):
+                ids_by_name[(device.name, point.name)] = point.id
+
+        for seed_point in virtual_points(lambda device_name, point_name: ids_by_name[(device_name, point_name)]):
+            device = devices[seed_point.device_name]
+            response = await client.get(
+                f"/api/device-points/site/{device.site_id}/device/{device.device_id}",
+                params={"category": "VIRTUAL"},
+            )
+            (seeded,) = [p for p in POINT_LIST.validate_python(response.json()) if p.name == seed_point.point.name]
+
+            api_request = seed_point.point.model_copy(update={"name": f"api_{seed_point.point.name}"})
+            via_api = await create_virtual_point(client, device.site_id, device.device_id, api_request)
+
+            assert point_shape(seeded)[1:] == point_shape(via_api)[1:], seed_point.point.name
+            assert (seeded.enum_detail, seeded.virtual_definition) == (via_api.enum_detail, via_api.virtual_definition)
+
+    async def test_reseeding_creates_no_duplicate_virtual_points(self, client):
+        await seed()
+        await seed()
+        for device in await seeded_devices(client):
+            response = await client.get(
+                f"/api/device-points/site/{device.site_id}/device/{device.device_id}",
+                params={"category": "VIRTUAL"},
+            )
+            names = [point.name for point in POINT_LIST.validate_python(response.json())]
+            assert len(names) == len(set(names)), device.name

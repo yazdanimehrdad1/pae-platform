@@ -5,6 +5,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from schemas.api_models.types import DataType, DeviceType, PointClass, Severity, register_size
+from schemas.api_models.virtual_points import VirtualPointDefinition
 
 
 def _normalize_device_type(device_type: object) -> object:
@@ -238,6 +239,47 @@ class DevicePointUpdateRequest(BaseModel):
 class DevicePointsBulkRequest(BaseModel):
     """Bulk upsert: create new points and update existing ones (matched by name) in one call."""
     points: list[DevicePointCreateRequest] = Field(..., min_length=1)
+
+
+class VirtualPointCreateRequest(BaseModel):
+    """Create a VIRTUAL point. The server derives data_type/size from the definition's kind
+    (condition → enum16 with enum_detail from the case labels, calculation → float32)."""
+    name: str = Field(..., min_length=1, max_length=255)
+    unit: str | None = Field(None, max_length=50)
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    definition: VirtualPointDefinition = Field(
+        ..., description="How the value is computed from other points on the site (computed on read, not stored)"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    _normalize_class_and_severity = field_validator("point_class", "severity", mode="before")(
+        _normalize_uppercase
+    )
+
+
+class VirtualPointUpdateRequest(BaseModel):
+    """Update a VIRTUAL point; omitted fields keep their value. A new definition may change the kind."""
+    name: str | None = Field(None, min_length=1, max_length=255)
+    unit: str | None = Field(None, max_length=50)
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    definition: VirtualPointDefinition | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    _normalize_class_and_severity = field_validator("point_class", "severity", mode="before")(
+        _normalize_uppercase
+    )
 
 
 class CacheSetRequest(BaseModel):

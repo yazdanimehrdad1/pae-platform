@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DeviceRecord } from '@/api/types/devices';
+import type { VirtualPointCreateRequest } from '@/api/types/devicePoints';
 import { devicesApi } from './devices';
 
 function stubFetch(status: number, body: unknown) {
@@ -75,6 +76,34 @@ describe('devicesApi.getBySiteWithPoints', () => {
     expect(entry.groups.standardized.map(p => p.name)).toEqual(['pv_energy', 'PV_POWER']);
     expect(entry.groups.native.map(p => p.name)).toEqual(['Reg_1', 'reg_2', 'reg_10']);
     expect(entry.points.map(p => p.id)).toEqual([2, 1, 6, 5, 4, 3]);
+  });
+});
+
+describe('devicesApi virtual points', () => {
+  const request: VirtualPointCreateRequest = {
+    name: 'SITE_POWER',
+    definition: { kind: 'calculation', function: 'sum', inputs: [4, 5], scale: 1, offset: 0 },
+  };
+
+  it('creates through POST .../virtual with the definition in the body', async () => {
+    const fetchMock = stubFetch(201, { ...pvDevice.points.native[0], id: 9, name: 'SITE_POWER', category: 'VIRTUAL' });
+
+    const point = await devicesApi.createVirtualPoint('1001', 1, request);
+
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://web.test').pathname).toBe('/api/device-points/site/1001/device/1/virtual');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(request);
+    expect(point.category).toBe('VIRTUAL');
+  });
+
+  it('updates through PUT .../virtual/{point_id}', async () => {
+    const fetchMock = stubFetch(200, { ...pvDevice.points.native[0], id: 9 });
+
+    await devicesApi.updateVirtualPoint('1001', 1, 9, { unit: null });
+
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://web.test').pathname).toBe('/api/device-points/site/1001/device/1/virtual/9');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ unit: null });
   });
 });
 

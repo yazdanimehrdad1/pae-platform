@@ -23,6 +23,8 @@ import { getErrorMessage } from "@/api/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { DeviceFormDialog } from "@/features/sites/DeviceFormDialog";
 import { DevicePointsGrid } from "@/features/devices/DevicePointsGrid";
+import { VirtualPointDialog } from "@/features/devices/virtual/VirtualPointDialog";
+import { VirtualPointsList } from "@/features/devices/virtual/VirtualPointsList";
 
 type ScanRangeKind = 'holding' | 'input' | 'coils';
 const SCAN_RANGE_KINDS: ScanRangeKind[] = ['holding', 'input', 'coils'];
@@ -80,6 +82,10 @@ export default function DeviceDetails() {
     enabled: !!selectedSite?.id && Number.isFinite(deviceIdNum),
   });
   const activePoints = allPoints.filter(p => !p.deleted_at);
+  // Virtual points have no register, so they get their own list and editor instead of the grid.
+  const registerPoints = activePoints.filter(p => p.category !== 'VIRTUAL');
+  const virtualPoints = activePoints.filter(p => p.category === 'VIRTUAL');
+  const [virtualDialog, setVirtualDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
   const deletedPoints = allPoints.filter(p => p.deleted_at);
 
   const invalidatePoints = () => {
@@ -523,11 +529,15 @@ export default function DeviceDetails() {
         </div>
 
         <Card className="mt-6">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2">
               <Database className="w-5 h-5" />
               Device Points
             </CardTitle>
+            <Button variant="outline" size="sm" className="gap-1" disabled={!liveDevice}
+              onClick={() => setVirtualDialog({ open: true, point: null })}>
+              <Plus className="w-4 h-4" />Add virtual point
+            </Button>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="active">
@@ -538,12 +548,21 @@ export default function DeviceDetails() {
 
               <TabsContent value="active">
                 <DevicePointsGrid
-                  points={activePoints}
+                  points={registerPoints}
                   disabled={!liveDevice}
                   isSaving={savePointsMutation.isPending}
                   onSave={(changes) => savePointsMutation.mutateAsync(changes)}
                   onRequestDelete={(p) => setDeletingPoint(p)}
                 />
+                <div className="mt-6 space-y-2">
+                  <h3 className="text-sm font-semibold">Virtual points ({virtualPoints.length})</h3>
+                  <VirtualPointsList
+                    siteId={selectedSite?.id}
+                    points={virtualPoints}
+                    onEdit={(p) => setVirtualDialog({ open: true, point: p })}
+                    onDelete={(p) => setDeletingPoint(p)}
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="deleted">
@@ -589,6 +608,16 @@ export default function DeviceDetails() {
           </CardContent>
         </Card>
       </div>
+
+      {selectedSite?.id && Number.isFinite(deviceIdNum) && (
+        <VirtualPointDialog
+          open={virtualDialog.open}
+          onOpenChange={(open) => setVirtualDialog(previous => ({ ...previous, open }))}
+          siteId={selectedSite.id}
+          deviceId={deviceIdNum}
+          point={virtualDialog.point}
+        />
+      )}
 
       <DeviceFormDialog
         open={editDeviceOpen}

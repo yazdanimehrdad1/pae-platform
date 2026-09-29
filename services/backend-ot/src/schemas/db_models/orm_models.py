@@ -22,6 +22,9 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from schemas.api_models.virtual_points import VirtualDefinition
+from schemas.db_models.column_types import VirtualDefinitionJSON
+
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
@@ -490,6 +493,13 @@ class DevicePoint(Base):
         String(16),
         nullable=True,
         comment="Optional severity: HIGH, MEDIUM or LOW"
+    )
+
+    # VIRTUAL points only. Stored as JSON, loaded as the parsed definition model.
+    virtual_definition: Mapped[VirtualDefinition | None] = mapped_column(
+        VirtualDefinitionJSON,
+        nullable=True,
+        comment="VIRTUAL points only: the condition or calculation its values are computed from, on read"
     )
 
     deleted_at: Mapped[datetime | None] = mapped_column(

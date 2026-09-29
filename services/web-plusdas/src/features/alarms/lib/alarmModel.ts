@@ -1,6 +1,8 @@
+import { operatorText } from "@/shared/components/conditions/conditionModel";
 import type { AlarmSnapshot } from "../data/AlarmDataSource";
 import type { AlarmEvent, Device, DeviceStatus, Point, Rule } from "../types";
 import { compareActiveAlarms } from "./alarmSort";
+import { toConditionOperator } from "./conditionPoints";
 import { worstSeverity } from "./severity";
 
 /** An alarm event with what the tables show next to it. */
@@ -65,7 +67,6 @@ export function buildAlarmModel(snapshot: AlarmSnapshot): AlarmModel {
   return { devicesById, pointsById, rulesById, active, recentlyCleared, deviceStatus, sortedDevices, devicesWithRecentEvents };
 }
 
-const OPERATOR_TEXT: Record<string, string> = { ">": ">", "<": "<", ">=": "≥", "<=": "≤", "=": "=", "!=": "≠" };
 
 /** A point value without its unit: a discrete point's state label, or a rounded number. */
 export function formatPointNumber(point: Point, value: number = point.value): string {
@@ -82,8 +83,8 @@ export function formatPointValue(point: Point, value: number = point.value): str
 
 export function formatLimit(rule: Rule, point: Point | null): string {
   if (rule.type === "comms_stale") return `${rule.staleAfterSec} s`;
-  if (point?.kind === "discrete") return `${OPERATOR_TEXT[rule.operator]} ${point.states?.[rule.threshold] ?? rule.threshold}`;
-  return `${OPERATOR_TEXT[rule.operator]} ${rule.threshold}${point?.unit ? ` ${point.unit}` : ""}`;
+  if (point?.kind === "discrete") return `${operatorText(toConditionOperator(rule.operator))} ${point.states?.[rule.threshold] ?? rule.threshold}`;
+  return `${operatorText(toConditionOperator(rule.operator))} ${rule.threshold}${point?.unit ? ` ${point.unit}` : ""}`;
 }
 
 /** "Phase B current > 600 A", "Top-oil temperature > 85 °C for 5 min", "No successful poll > 60 s". */

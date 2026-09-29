@@ -24,6 +24,7 @@ from schemas.api_models import (
     Location,
     SiteCreateRequest,
     SiteResponse,
+    VirtualPointCreateRequest,
 )
 
 DEVICE_POINT_LIST = TypeAdapter(list[DevicePointResponse])
@@ -109,3 +110,14 @@ async def insert_reading(
         raw_value,
         derived_value,
     )
+
+
+async def create_virtual_point(
+    client: AsyncClient, site_id: int, device_id: int, request: VirtualPointCreateRequest
+) -> DevicePointResponse:
+    response = await client.post(
+        f"/api/device-points/site/{site_id}/device/{device_id}/virtual",
+        json=request.model_dump(mode="json", by_alias=True),
+    )
+    assert response.status_code == 201, response.text
+    return DevicePointResponse.model_validate(response.json())

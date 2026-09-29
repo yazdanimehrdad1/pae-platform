@@ -30,3 +30,6 @@ logs/
 
 # GCloud
 gcloud-notes.md
+
+# Postman collection (generated locally by `make postman`)
+/postman/

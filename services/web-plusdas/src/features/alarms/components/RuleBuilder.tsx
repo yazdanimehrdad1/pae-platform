@@ -1,19 +1,16 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { ConditionRow } from "@/shared/components/conditions/ConditionRow";
+import { newCondition, withPoint, type ComparisonOperator, type ConditionDraft } from "@/shared/components/conditions/conditionModel";
 import { describeCondition } from "../lib/alarmModel";
+import { ALARM_OPERATORS, toAlarmOperator, toConditionPointOptions } from "../lib/conditionPoints";
 import { RULE_NAME_HINT, RULE_NAME_MAX_LENGTH, validateRuleName } from "../lib/ruleName";
-import type { Device, NotificationSettings, Operator, Point, Rule, Severity } from "../types";
+import type { Device, NotificationSettings, Point, Rule, Severity } from "../types";
 import { NotificationToggles } from "./NotificationToggles";
-
-const OPERATORS: Operator[] = [">", "<", ">=", "<=", "=", "!="];
 const DELAY_PRESETS = [
   { value: "0", label: "0 s" },
   { value: "30", label: "30 s" },
@@ -51,10 +48,7 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
   const [name, setName] = useState("");
   const [hasTriedSave, setHasTriedSave] = useState(false);
   const [type, setType] = useState<RuleType>("threshold");
-  const [pointId, setPointId] = useState<string | null>(defaultPointId ?? null);
   const [deviceId, setDeviceId] = useState<string>("");
-  const [operator, setOperator] = useState<Operator>(">");
-  const [threshold, setThreshold] = useState("");
   const [delayPreset, setDelayPreset] = useState("0");
   const [customDelay, setCustomDelay] = useState("");
   const [deadband, setDeadband] = useState("0");
@@ -63,21 +57,14 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
   const [message, setMessage] = useState("");
   const [notify, setNotify] = useState<NotificationSettings>({ mobile: true, email: false });
   const [errors, setErrors] = useState<Errors>({});
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const devicesById = useMemo(() => new Map(devices.map(device => [device.id, device])), [devices]);
-  const pointGroups = useMemo(() => {
-    const groups = new Map<string, Point[]>();
-    for (const point of points) {
-      const group = point.deviceId ? devicesById.get(point.deviceId)?.name ?? point.deviceId : "Calculated (site)";
-      groups.set(group, [...(groups.get(group) ?? []), point]);
-    }
-    return [...groups];
-  }, [points, devicesById]);
-  const selectedPoint = points.find(point => point.id === pointId) ?? null;
-  const pointLabel = (point: Point) =>
-    `${point.deviceId ? devicesById.get(point.deviceId)?.name ?? point.deviceId : "Site (calculated)"} · ${point.name}`;
+  const pointOptions = useMemo(() => toConditionPointOptions(points, devicesById), [points, devicesById]);
+  // The threshold condition, edited with the shared condition row (value operand only).
+  const [condition, setCondition] = useState<ConditionDraft>(() =>
+    withPoint(newCondition(), pointOptions.find(option => option.id === defaultPointId), ALARM_OPERATORS));
+  const selectedPoint: Point | null = points.find(point => point.id === condition.pointId) ?? null;
 
   const handleSave = async () => {
     setHasTriedSave(true);
@@ -89,7 +76,7 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
 
     if (type === "threshold") {
       if (!selectedPoint) nextErrors.point = "Choose a point";
-      const thresholdValue = parseNumber(threshold);
+      const thresholdValue = parseNumber(condition.value);
       if (typeof thresholdValue === "string") nextErrors.threshold = thresholdValue;
       const delayValue = delayPreset === "custom" ? parseNumber(customDelay, { min: 0 }) : Number(delayPreset);
       if (typeof delayValue === "string") nextErrors.delay = delayValue;
@@ -97,13 +84,13 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
       if (typeof deadbandValue === "string") nextErrors.deadband = deadbandValue;
       if (Object.keys(nextErrors).length === 0) {
         const draft = {
-          id, type: "threshold" as const, name, pointId: selectedPoint!.id, operator,
+          id, type: "threshold" as const, name, pointId: selectedPoint!.id, operator: toAlarmOperator(condition.operator as ComparisonOperator),
           threshold: thresholdValue as number, delaySec: delayValue as number, deadband: deadbandValue as number,
           severity, message: "", enabled: true, notify,
         };
-        const condition = describeCondition(draft, selectedPoint);
+        const conditionText = describeCondition(draft, selectedPoint);
         const source = selectedPoint!.deviceId ? devicesById.get(selectedPoint!.deviceId)?.name : "Site";
-        rule = { ...draft, name, message: message.trim() || `${source}: ${condition}` };
+        rule = { ...draft, name, message: message.trim() || `${source}: ${conditionText}` };
       }
     } else {
       if (!deviceId) nextErrors.device = "Choose a device";
@@ -171,52 +158,17 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
 
       {type === "threshold" ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-          <div className="space-y-1 md:col-span-3">
-            <Label id="rule-point-label">Point</Label>
-            <Popover open={isPickerOpen} onOpenChange={setIsPickerOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" aria-labelledby="rule-point-label" aria-expanded={isPickerOpen}
-                  aria-invalid={!!errors.point} aria-describedby="rule-point-error" className="w-full justify-between font-normal">
-                  <span className="truncate">{selectedPoint ? pointLabel(selectedPoint) : "Choose a device point or a calculated point"}</span>
-                  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search devices and points" />
-                  <CommandList>
-                    <CommandEmpty>No point found.</CommandEmpty>
-                    {pointGroups.map(([group, groupPoints]) => (
-                      <CommandGroup key={group} heading={group}>
-                        {groupPoints.map(point => (
-                          <CommandItem key={point.id} value={`${group} ${point.name} ${point.register ?? ""}`}
-                            onSelect={() => { setPointId(point.id); setIsPickerOpen(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", point.id === pointId ? "opacity-100" : "opacity-0")} />
-                            {point.name}
-                            <span className="ml-auto text-xs text-muted-foreground">{point.register ?? "calc"}{point.unit && ` · ${point.unit}`}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    ))}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <FieldError id="rule-point-error" message={errors.point} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="rule-operator">Operator</Label>
-            <Select value={operator} onValueChange={value => setOperator(value as Operator)}>
-              <SelectTrigger id="rule-operator"><SelectValue /></SelectTrigger>
-              <SelectContent>{OPERATORS.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label htmlFor="rule-threshold">Threshold{selectedPoint?.unit && ` (${selectedPoint.unit})`}</Label>
-            <Input id="rule-threshold" inputMode="decimal" value={threshold} onChange={e => setThreshold(e.target.value)}
-              aria-invalid={!!errors.threshold} aria-describedby="rule-threshold-error" />
-            <FieldError id="rule-threshold-error" message={errors.threshold} />
-          </div>
+          <ConditionRow
+            className="md:col-span-6"
+            condition={condition}
+            onChange={setCondition}
+            points={pointOptions}
+            operators={ALARM_OPERATORS}
+            showLabels
+            labels={{ point: "Point", operator: "Operator", value: "Threshold" }}
+            ids={{ point: "rule-point", operator: "rule-operator", value: "rule-threshold" }}
+            errors={{ point: errors.point, value: errors.threshold }}
+          />
           <div className="space-y-1 md:col-span-2">
             <Label htmlFor="rule-delay">Delay (for)</Label>
             <div className="flex gap-2">
