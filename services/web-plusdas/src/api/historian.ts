@@ -1,4 +1,4 @@
-import type { DevicePointReadingsRequest, BackendPointReadings } from './types/historian';
+import type { DevicePointReadingsRequest, BackendPointReadings, LatestPointReadings } from './types/historian';
 import { client } from './client';
 
 export const historianApi = {
@@ -14,4 +14,12 @@ export const historianApi = {
       `/device-point-readings/timeseries/site/${req.siteId}/device/${req.deviceId}?${params}`
     );
   },
+
+  /** The newest `limit` readings of every point of a device (virtual points computed), newest first. */
+  getRecentReadings: (siteId: string, deviceId: string, limit: number): Promise<BackendPointReadings> =>
+    client.get(`/device-point-readings/timeseries/site/${siteId}/device/${deviceId}?${new URLSearchParams({ limit: String(limit) })}`),
+
+  /** The newest stored reading of each of a device's points. */
+  getLatestReadings: (siteId: string, deviceId: string): Promise<LatestPointReadings> =>
+    client.get(`/device-point-readings/site/${siteId}/device/${deviceId}/latest`),
 };

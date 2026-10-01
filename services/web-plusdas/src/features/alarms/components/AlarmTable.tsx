@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { AlarmView } from "../lib/alarmModel";
+import type { AlarmModel, AlarmView } from "../lib/alarmModel";
 import { describeCondition, formatLimit, formatPointValue } from "../lib/alarmModel";
 import { SEVERITY } from "../lib/severity";
 import { formatDuration, formatSiteTime } from "../lib/siteTime";
@@ -10,15 +10,17 @@ import { NotificationToggles } from "./NotificationToggles";
 import { SeverityIndicator } from "./SeverityIndicator";
 
 function currentValue(view: AlarmView, now: number): string {
-  if (view.rule.type === "comms_stale") {
-    return view.device ? `${Math.round((now - Date.parse(view.device.lastPollAt)) / 1000)} s` : "—";
+  if (view.rule.kind === "comms_stale") {
+    return view.device?.lastPollAt ? `${Math.round((now - Date.parse(view.device.lastPollAt)) / 1000)} s` : "never polled";
   }
-  return view.point ? formatPointValue(view.point) : "—";
+  if (view.point) return formatPointValue(view.point);
+  return view.event.valueAtRaise !== null ? String(view.event.valueAtRaise) : "—";
 }
 
-/** Active rule violations only (not devices), faults first, then longest active. */
-export function AlarmTable({ alarms, now, timeZone, selectedEventId, lastClearedAt, clearedCount, onSelect, onChangeNotify, onOpenHistory }: {
+/** Active alarms of the enabled rules, faults first, then longest active. */
+export function AlarmTable({ alarms, model, now, timeZone, selectedEventId, lastClearedAt, clearedCount, onSelect, onChangeNotify, onOpenHistory }: {
   alarms: AlarmView[];
+  model: AlarmModel;
   now: number;
   timeZone: string;
   selectedEventId: string | null;
@@ -65,7 +67,7 @@ export function AlarmTable({ alarms, now, timeZone, selectedEventId, lastCleared
           </TableHeader>
           <TableBody>
             {alarms.map(alarm => {
-              const { event, rule, device, point } = alarm;
+              const { event, rule, device } = alarm;
               return (
                 <TableRow
                   key={event.id}
@@ -82,11 +84,11 @@ export function AlarmTable({ alarms, now, timeZone, selectedEventId, lastCleared
                   )}
                 >
                   <TableCell className="pl-5"><SeverityIndicator severity={event.severity} /></TableCell>
-                  <TableCell className="font-medium">{describeCondition(rule, point)}</TableCell>
-                  <TableCell className={cn(!device && "text-muted-foreground")}>{device ? device.name : "Site (calculated)"}</TableCell>
+                  <TableCell className="font-medium">{describeCondition(rule, model.pointsById, model.devicesById)}</TableCell>
+                  <TableCell className={cn(!device && "text-muted-foreground")}>{device ? device.name : "Site"}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     <span className={SEVERITY[event.severity].textClass}>{currentValue(alarm, now)}</span>
-                    <span className="text-muted-foreground"> / {formatLimit(rule, point)}</span>
+                    <span className="text-muted-foreground"> / {formatLimit(rule, model.pointsById)}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatDuration(now - Date.parse(event.raisedAt))}</TableCell>
                   <TableCell onClick={clickEvent => clickEvent.stopPropagation()} onKeyDown={keyEvent => keyEvent.stopPropagation()}>

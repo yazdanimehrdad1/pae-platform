@@ -155,3 +155,20 @@ class EnergySummaryResult(BaseModel):
     end_time: datetime
     energy_kwh: float = Field(..., description="Sum over devices")
     devices: list[DeviceEnergy] = Field(default_factory=list)
+
+
+# --- Profile alarms ------------------------------------------------------------------------
+
+
+class AlarmContext(SiteContext):
+    """What a profile alarm's check gets: the site, its devices and points, and the evaluation time."""
+
+    now: datetime = Field(..., description="When this evaluation runs (UTC)")
+
+
+class AlarmCheck(BaseModel):
+    """A profile alarm's verdict for one evaluation: active or not, and what it is about."""
+
+    active: bool
+    value: float | None = Field(None, description="The value that decided it, recorded when the alarm raises")
+    device_id: int | None = Field(None, description="The device the alarm is about; None for a site-level alarm")

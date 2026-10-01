@@ -2,6 +2,102 @@
 // Do not edit: run `make api-types`. Import it as `@contracts/backend-ot`.
 
 export interface paths {
+    "/api/alarms/site/{site_id}/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a site's alarms (user and profile) */
+        get: operations["list_definitions_api_alarms_site__site_id__definitions_get"];
+        put?: never;
+        /**
+         * Create a user alarm
+         * @description A threshold (a point against a value or another point, or a bit test; with delay and
+         *     deadband), a comms-stale check on a device, or a multi-point condition (ALL/ANY groups, with a
+         *     delay). The points or device must be active on this site (400); the name is unique per site
+         *     ignoring case (409); at most 20 alarms per site can be enabled (409). An enabled alarm is
+         *     evaluated and shown in Active alarms.
+         */
+        post: operations["create_definition_api_alarms_site__site_id__definitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alarms/site/{site_id}/definitions/{alarm_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an alarm
+         * @description Omitted fields keep their value. A profile alarm (defined in code) accepts only enabled,
+         *     notify_mobile and notify_email (400 otherwise). Enabling more than 20 alarms on the site
+         *     is 409. Disabling an alarm clears its active event. Changing a user alarm's rule (what it
+         *     checks) clears its active event and restarts its delay; the new rule raises again on the next
+         *     evaluation if it holds. Sending the same rule again changes nothing.
+         */
+        put: operations["update_definition_api_alarms_site__site_id__definitions__alarm_id__put"];
+        post?: never;
+        /**
+         * Delete a user alarm
+         * @description Permanently delete a user alarm and all its alarm events (its history). Returns the alarm as
+         *     it was. Profile alarms can't be deleted (400); disable them instead.
+         */
+        delete: operations["delete_definition_api_alarms_site__site_id__definitions__alarm_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alarms/site/{site_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alarm events over a time range (history)
+         * @description Events that overlap [start_time, end_time]: raised before the end and cleared after the
+         *     start, or still active. Newest raise first. A reversed range is 400 (the time-range middleware).
+         */
+        get: operations["list_events_api_alarms_site__site_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alarms/site/{site_id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The alarms page for now: alarms, active and recent events, recent log
+         * @description The site's alarms (user and profile), active events plus those cleared within 6 h, and the
+         *     raise/clear log of those 6 h. `now` is server time, so durations don't depend on a browser clock.
+         */
+        get: operations["get_snapshot_api_alarms_site__site_id__snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cache/clear": {
         parameters: {
             query?: never;
@@ -930,6 +1026,217 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AlarmDefinitionCreateRequest
+         * @description A new USER alarm. (PROFILE alarms come from code, never from this route.)
+         */
+        AlarmDefinitionCreateRequest: {
+            /**
+             * Enabled
+             * @description Evaluated and shown in Active alarms (at most 20 enabled per site)
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Message
+             * @description Shown in the alarm list and event log
+             * @default
+             */
+            message: string;
+            /**
+             * Name
+             * @description Identifier: letters, digits and underscore, not starting with a digit; unique per site ignoring case
+             */
+            name: string;
+            /**
+             * Notify Email
+             * @default false
+             */
+            notify_email: boolean;
+            /**
+             * Notify Mobile
+             * @default false
+             */
+            notify_mobile: boolean;
+            /** Rule */
+            rule: components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Input"];
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+        };
+        /**
+         * AlarmDefinitionResponse
+         * @description One alarm of a site.
+         */
+        AlarmDefinitionResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "threshold" | "comms_stale" | "condition" | "profile";
+            /** Message */
+            message: string;
+            /** Name */
+            name: string;
+            /** Notify Email */
+            notify_email: boolean;
+            /** Notify Mobile */
+            notify_mobile: boolean;
+            /**
+             * Profile Alarm Key
+             * @description PROFILE only: the alarm's key in the site profile
+             */
+            profile_alarm_key?: string | null;
+            /**
+             * Rule
+             * @description USER only: what the alarm checks
+             */
+            rule?: (components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Output"]) | null;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+            /** Site Id */
+            site_id: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "USER" | "PROFILE";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AlarmDefinitionUpdateRequest
+         * @description Fields to change; omitted ones keep their value. A PROFILE alarm accepts only
+         *     enabled, notify_mobile and notify_email.
+         */
+        AlarmDefinitionUpdateRequest: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Message */
+            message?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Notify Email */
+            notify_email?: boolean | null;
+            /** Notify Mobile */
+            notify_mobile?: boolean | null;
+            /** Rule */
+            rule?: (components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Input"]) | null;
+            /** Severity */
+            severity?: ("fault" | "warning") | null;
+        };
+        /**
+         * AlarmEventResponse
+         * @description One raise of an alarm and its clear (cleared_at None while active).
+         */
+        AlarmEventResponse: {
+            /** Cleared At */
+            cleared_at?: string | null;
+            /** Definition Id */
+            definition_id: number;
+            /**
+             * Device Id
+             * @description The device the alarm is about; None for a site-level alarm
+             */
+            device_id?: number | null;
+            /** Id */
+            id: number;
+            /** Message */
+            message: string;
+            /**
+             * Raised At
+             * Format: date-time
+             */
+            raised_at: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+            /** Site Id */
+            site_id: number;
+            /** Value At Raise */
+            value_at_raise?: number | null;
+        };
+        /**
+         * AlarmLogEntry
+         * @description One line of the event log: a raise or a clear.
+         */
+        AlarmLogEntry: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Definition Id */
+            definition_id: number;
+            /** Device Id */
+            device_id?: number | null;
+            /** Event Id */
+            event_id: number;
+            /**
+             * Id
+             * @description '<event id>:raised' or '<event id>:cleared'
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "raised" | "cleared";
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+        };
+        /**
+         * AlarmSnapshotResponse
+         * @description Everything the alarms page shows for "now".
+         */
+        AlarmSnapshotResponse: {
+            /** Definitions */
+            definitions: components["schemas"]["AlarmDefinitionResponse"][];
+            /**
+             * Events
+             * @description Active events plus those cleared within the last 6 h, newest raise first
+             */
+            events: components["schemas"]["AlarmEventResponse"][];
+            /**
+             * Log
+             * @description Raises and clears within the last 6 h, newest first
+             */
+            log: components["schemas"]["AlarmLogEntry"][];
+            /**
+             * Now
+             * Format: date-time
+             * @description Server time; durations are measured against it
+             */
+            now: string;
+            /** Site Id */
+            site_id: number;
+        };
+        /**
          * CacheGetResponse
          * @description Response model for retrieving a value from the cache.
          */
@@ -970,6 +1277,57 @@ export interface components {
              * @description Value to cache
              */
             value: unknown;
+        };
+        /**
+         * CommsStaleAlarm
+         * @description A device with no successful poll for more than `stale_after_sec`.
+         */
+        CommsStaleAlarm: {
+            /** Device Id */
+            device_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "comms_stale";
+            /** Stale After Sec */
+            stale_after_sec: number;
+        };
+        /**
+         * ConditionAlarm
+         * @description ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.
+         */
+        "ConditionAlarm-Input": {
+            /**
+             * Delay Sec
+             * @description The group must hold this long before the alarm raises
+             * @default 0
+             */
+            delay_sec: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+            when: components["schemas"]["VirtualConditionGroup-Input"];
+        };
+        /**
+         * ConditionAlarm
+         * @description ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.
+         */
+        "ConditionAlarm-Output": {
+            /**
+             * Delay Sec
+             * @description The group must hold this long before the alarm raises
+             * @default 0
+             */
+            delay_sec: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+            when: components["schemas"]["VirtualConditionGroup-Output"];
         };
         /**
          * Coordinates
@@ -2219,6 +2577,30 @@ export interface components {
              */
             profile?: string | null;
         };
+        /**
+         * ThresholdAlarm
+         * @description One comparison: `point <op> value`, `point <op> other point`, or a bit test.
+         */
+        ThresholdAlarm: {
+            condition: components["schemas"]["VirtualCondition"];
+            /**
+             * Deadband
+             * @description Clear hysteresis: the value must come back past the limit by this much. For a point-vs-point comparison it applies to the other point's value. Not used by bit tests.
+             * @default 0
+             */
+            deadband: number;
+            /**
+             * Delay Sec
+             * @description The condition must hold this long before the alarm raises
+             * @default 0
+             */
+            delay_sec: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "threshold";
+        };
         /** TimeseriesMeta */
         TimeseriesMeta: {
             /** Device Id */
@@ -2527,6 +2909,214 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_definitions_api_alarms_site__site_id__definitions_get: {
+        parameters: {
+            query?: {
+                /** @description Include deleted user alarms and retired profile alarms */
+                include_deleted?: boolean;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_definition_api_alarms_site__site_id__definitions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlarmDefinitionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_definition_api_alarms_site__site_id__definitions__alarm_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                alarm_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlarmDefinitionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_definition_api_alarms_site__site_id__definitions__alarm_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                alarm_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_alarms_site__site_id__events_get: {
+        parameters: {
+            query: {
+                /** @description Start (ISO, with a UTC offset) */
+                start_time: string;
+                /** @description End (ISO, with a UTC offset) */
+                end_time: string;
+                device_id?: number | null;
+                severity?: ("fault" | "warning") | null;
+                /** @description One alarm's events */
+                definition_id?: number | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_snapshot_api_alarms_site__site_id__snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmSnapshotResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cache_clear_all_api_cache_clear_delete: {
         parameters: {
             query?: never;

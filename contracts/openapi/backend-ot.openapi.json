@@ -1,6 +1,521 @@
 {
   "components": {
     "schemas": {
+      "AlarmDefinitionCreateRequest": {
+        "description": "A new USER alarm. (PROFILE alarms come from code, never from this route.)",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Evaluated and shown in Active alarms (at most 20 enabled per site)",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "",
+            "description": "Shown in the alarm list and event log",
+            "maxLength": 500,
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "description": "Identifier: letters, digits and underscore, not starting with a digit; unique per site ignoring case",
+            "maxLength": 150,
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "notify_email": {
+            "default": false,
+            "title": "Notify Email",
+            "type": "boolean"
+          },
+          "notify_mobile": {
+            "default": false,
+            "title": "Notify Mobile",
+            "type": "boolean"
+          },
+          "rule": {
+            "discriminator": {
+              "mapping": {
+                "comms_stale": "#/components/schemas/CommsStaleAlarm",
+                "condition": "#/components/schemas/ConditionAlarm-Input",
+                "threshold": "#/components/schemas/ThresholdAlarm"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ThresholdAlarm"
+              },
+              {
+                "$ref": "#/components/schemas/CommsStaleAlarm"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionAlarm-Input"
+              }
+            ],
+            "title": "Rule"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "severity",
+          "rule"
+        ],
+        "title": "AlarmDefinitionCreateRequest",
+        "type": "object"
+      },
+      "AlarmDefinitionResponse": {
+        "description": "One alarm of a site.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "threshold",
+              "comms_stale",
+              "condition",
+              "profile"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notify_email": {
+            "title": "Notify Email",
+            "type": "boolean"
+          },
+          "notify_mobile": {
+            "title": "Notify Mobile",
+            "type": "boolean"
+          },
+          "profile_alarm_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PROFILE only: the alarm's key in the site profile",
+            "title": "Profile Alarm Key"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "comms_stale": "#/components/schemas/CommsStaleAlarm",
+                    "condition": "#/components/schemas/ConditionAlarm-Output",
+                    "threshold": "#/components/schemas/ThresholdAlarm"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ThresholdAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommsStaleAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConditionAlarm-Output"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "USER only: what the alarm checks",
+            "title": "Rule"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "USER",
+              "PROFILE"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "source",
+          "name",
+          "kind",
+          "severity",
+          "message",
+          "enabled",
+          "notify_mobile",
+          "notify_email",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AlarmDefinitionResponse",
+        "type": "object"
+      },
+      "AlarmDefinitionUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Fields to change; omitted ones keep their value. A PROFILE alarm accepts only\nenabled, notify_mobile and notify_email.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "description": "Identifier: letters, digits and underscore, not starting with a digit; unique per site ignoring case",
+                "maxLength": 150,
+                "minLength": 1,
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notify_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Email"
+          },
+          "notify_mobile": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Mobile"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "comms_stale": "#/components/schemas/CommsStaleAlarm",
+                    "condition": "#/components/schemas/ConditionAlarm-Input",
+                    "threshold": "#/components/schemas/ThresholdAlarm"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ThresholdAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommsStaleAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConditionAlarm-Input"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fault",
+                  "warning"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          }
+        },
+        "title": "AlarmDefinitionUpdateRequest",
+        "type": "object"
+      },
+      "AlarmEventResponse": {
+        "description": "One raise of an alarm and its clear (cleared_at None while active).",
+        "properties": {
+          "cleared_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared At"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "integer"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The device the alarm is about; None for a site-level alarm",
+            "title": "Device Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "raised_at": {
+            "format": "date-time",
+            "title": "Raised At",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "value_at_raise": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value At Raise"
+          }
+        },
+        "required": [
+          "id",
+          "definition_id",
+          "site_id",
+          "severity",
+          "raised_at",
+          "message"
+        ],
+        "title": "AlarmEventResponse",
+        "type": "object"
+      },
+      "AlarmLogEntry": {
+        "description": "One line of the event log: a raise or a clear.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "integer"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "id": {
+            "description": "'<event id>:raised' or '<event id>:cleared'",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "raised",
+              "cleared"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "definition_id",
+          "kind",
+          "severity",
+          "at",
+          "message"
+        ],
+        "title": "AlarmLogEntry",
+        "type": "object"
+      },
+      "AlarmSnapshotResponse": {
+        "description": "Everything the alarms page shows for \"now\".",
+        "properties": {
+          "definitions": {
+            "items": {
+              "$ref": "#/components/schemas/AlarmDefinitionResponse"
+            },
+            "title": "Definitions",
+            "type": "array"
+          },
+          "events": {
+            "description": "Active events plus those cleared within the last 6 h, newest raise first",
+            "items": {
+              "$ref": "#/components/schemas/AlarmEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "log": {
+            "description": "Raises and clears within the last 6 h, newest first",
+            "items": {
+              "$ref": "#/components/schemas/AlarmLogEntry"
+            },
+            "title": "Log",
+            "type": "array"
+          },
+          "now": {
+            "description": "Server time; durations are measured against it",
+            "format": "date-time",
+            "title": "Now",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "now",
+          "definitions",
+          "events",
+          "log"
+        ],
+        "title": "AlarmSnapshotResponse",
+        "type": "object"
+      },
       "CacheGetResponse": {
         "description": "Response model for retrieving a value from the cache.",
         "properties": {
@@ -57,6 +572,84 @@
           "value"
         ],
         "title": "CacheSetRequest",
+        "type": "object"
+      },
+      "CommsStaleAlarm": {
+        "description": "A device with no successful poll for more than `stale_after_sec`.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "comms_stale",
+            "title": "Kind",
+            "type": "string"
+          },
+          "stale_after_sec": {
+            "minimum": 1.0,
+            "title": "Stale After Sec",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "device_id",
+          "stale_after_sec"
+        ],
+        "title": "CommsStaleAlarm",
+        "type": "object"
+      },
+      "ConditionAlarm-Input": {
+        "description": "ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.",
+        "properties": {
+          "delay_sec": {
+            "default": 0,
+            "description": "The group must hold this long before the alarm raises",
+            "minimum": 0.0,
+            "title": "Delay Sec",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Input"
+          }
+        },
+        "required": [
+          "kind",
+          "when"
+        ],
+        "title": "ConditionAlarm",
+        "type": "object"
+      },
+      "ConditionAlarm-Output": {
+        "description": "ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.",
+        "properties": {
+          "delay_sec": {
+            "default": 0,
+            "description": "The group must hold this long before the alarm raises",
+            "minimum": 0.0,
+            "title": "Delay Sec",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Output"
+          }
+        },
+        "required": [
+          "kind",
+          "when"
+        ],
+        "title": "ConditionAlarm",
         "type": "object"
       },
       "Coordinates": {
@@ -2868,6 +3461,39 @@
         "title": "SiteUpdateRequest",
         "type": "object"
       },
+      "ThresholdAlarm": {
+        "description": "One comparison: `point <op> value`, `point <op> other point`, or a bit test.",
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/VirtualCondition"
+          },
+          "deadband": {
+            "default": 0.0,
+            "description": "Clear hysteresis: the value must come back past the limit by this much. For a point-vs-point comparison it applies to the other point's value. Not used by bit tests.",
+            "minimum": 0.0,
+            "title": "Deadband",
+            "type": "number"
+          },
+          "delay_sec": {
+            "default": 0,
+            "description": "The condition must hold this long before the alarm raises",
+            "minimum": 0.0,
+            "title": "Delay Sec",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "threshold",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "condition"
+        ],
+        "title": "ThresholdAlarm",
+        "type": "object"
+      },
       "TimeseriesMeta": {
         "properties": {
           "device_id": {
@@ -3607,6 +4233,401 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/alarms/site/{site_id}/definitions": {
+      "get": {
+        "operationId": "list_definitions_api_alarms_site__site_id__definitions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include deleted user alarms and retired profile alarms",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include deleted user alarms and retired profile alarms",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                  },
+                  "title": "Response List Definitions Api Alarms Site  Site Id  Definitions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a site's alarms (user and profile)",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      },
+      "post": {
+        "description": "A threshold (a point against a value or another point, or a bit test; with delay and\ndeadband), a comms-stale check on a device, or a multi-point condition (ALL/ANY groups, with a\ndelay). The points or device must be active on this site (400); the name is unique per site\nignoring case (409); at most 20 alarms per site can be enabled (409). An enabled alarm is\nevaluated and shown in Active alarms.",
+        "operationId": "create_definition_api_alarms_site__site_id__definitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlarmDefinitionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a user alarm",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
+    "/api/alarms/site/{site_id}/definitions/{alarm_id}": {
+      "delete": {
+        "description": "Permanently delete a user alarm and all its alarm events (its history). Returns the alarm as\nit was. Profile alarms can't be deleted (400); disable them instead.",
+        "operationId": "delete_definition_api_alarms_site__site_id__definitions__alarm_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "title": "Alarm Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a user alarm",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      },
+      "put": {
+        "description": "Omitted fields keep their value. A profile alarm (defined in code) accepts only enabled,\nnotify_mobile and notify_email (400 otherwise). Enabling more than 20 alarms on the site\nis 409. Disabling an alarm clears its active event. Changing a user alarm's rule (what it\nchecks) clears its active event and restarts its delay; the new rule raises again on the next\nevaluation if it holds. Sending the same rule again changes nothing.",
+        "operationId": "update_definition_api_alarms_site__site_id__definitions__alarm_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "title": "Alarm Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlarmDefinitionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update an alarm",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
+    "/api/alarms/site/{site_id}/events": {
+      "get": {
+        "description": "Events that overlap [start_time, end_time]: raised before the end and cleared after the\nstart, or still active. Newest raise first. A reversed range is 400 (the time-range middleware).",
+        "operationId": "list_events_api_alarms_site__site_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Start (ISO, with a UTC offset)",
+            "in": "query",
+            "name": "start_time",
+            "required": true,
+            "schema": {
+              "description": "Start (ISO, with a UTC offset)",
+              "format": "date-time",
+              "title": "Start Time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "End (ISO, with a UTC offset)",
+            "in": "query",
+            "name": "end_time",
+            "required": true,
+            "schema": {
+              "description": "End (ISO, with a UTC offset)",
+              "format": "date-time",
+              "title": "End Time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "device_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Device Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "fault",
+                    "warning"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "description": "One alarm's events",
+            "in": "query",
+            "name": "definition_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One alarm's events",
+              "title": "Definition Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlarmEventResponse"
+                  },
+                  "title": "Response List Events Api Alarms Site  Site Id  Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alarm events over a time range (history)",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
+    "/api/alarms/site/{site_id}/snapshot": {
+      "get": {
+        "description": "The site's alarms (user and profile), active events plus those cleared within 6 h, and the\nraise/clear log of those 6 h. `now` is server time, so durations don't depend on a browser clock.",
+        "operationId": "get_snapshot_api_alarms_site__site_id__snapshot_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The alarms page for now: alarms, active and recent events, recent log",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
     "/api/cache/clear": {
       "delete": {
         "description": "Delete all cache keys and associated data.\n\nWARNING: This is a destructive operation that will permanently delete\nall cached data. Use with caution.\n\nReturns:\n    Dictionary with number of keys deleted",

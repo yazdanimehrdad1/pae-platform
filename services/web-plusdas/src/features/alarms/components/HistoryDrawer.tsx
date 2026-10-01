@@ -21,7 +21,8 @@ const CORRELATION_WINDOW_MS = 60_000;
 const ALL = "all";
 const SITE_LANE = "site";
 
-export function HistoryDrawer({ open, onOpenChange, model, devices, now, timeZone, initialDeviceId }: {
+export function HistoryDrawer({ siteId, open, onOpenChange, model, devices, now, timeZone, initialDeviceId }: {
+  siteId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   model: AlarmModel;
@@ -46,7 +47,7 @@ export function HistoryDrawer({ open, onOpenChange, model, devices, now, timeZon
     ...(severity !== ALL ? { severity: severity as Severity } : {}),
     ...(ruleId !== ALL ? { ruleId } : {}),
   };
-  const { data: events = [], isLoading } = useAlarmHistory(filter, open);
+  const { data: events = [], isLoading } = useAlarmHistory(siteId, filter, open);
 
   const sortedEvents = useMemo(() => [...events].sort((a, b) => Date.parse(b.raisedAt) - Date.parse(a.raisedAt)), [events]);
   const lanes = useMemo(() => {
@@ -60,11 +61,11 @@ export function HistoryDrawer({ open, onOpenChange, model, devices, now, timeZon
     !selectedEvent || Math.abs(Date.parse(event.raisedAt) - Date.parse(selectedEvent.raisedAt)) <= CORRELATION_WINDOW_MS;
   const dimmed = (event: AlarmEvent) => showCorrelated && selectedEvent !== null && !isCorrelated(event);
 
-  const laneName = (lane: string) => (lane === SITE_LANE ? "Site (calculated)" : model.devicesById.get(lane)?.name ?? lane);
+  const laneName = (lane: string) => (lane === SITE_LANE ? "Site" : model.devicesById.get(lane)?.name ?? lane);
   const conditionOf = (event: AlarmEvent) => {
     const rule = model.rulesById.get(event.ruleId);
-    if (!rule) return event.ruleId;
-    return describeCondition(rule, rule.type === "threshold" ? model.pointsById.get(rule.pointId) ?? null : null);
+    if (!rule) return event.message;
+    return `${rule.name}: ${describeCondition(rule, model.pointsById, model.devicesById)}`;
   };
   const position = (event: AlarmEvent) => {
     const start = Math.max(Date.parse(event.raisedAt), from);

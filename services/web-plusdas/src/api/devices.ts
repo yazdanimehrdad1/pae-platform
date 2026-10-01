@@ -97,6 +97,17 @@ export const devicesApi = {
     }
   },
 
+  /** The site's active devices as backend-ot sends them, with their points. */
+  getRecords: async (siteId: string): Promise<DeviceRecord[]> => {
+    try {
+      return await client.get<DeviceRecord[]>(`/devices/site/${siteId}/devices`);
+    } catch (error: unknown) {
+      const apiError = error as { detail?: string };
+      if (apiError?.detail?.toLowerCase().startsWith('no devices found')) return [];
+      throw error;
+    }
+  },
+
   list: async (siteId: string): Promise<DeviceRecord[]> => {
     try {
       return await client.get<DeviceRecord[]>(`/devices/site/${siteId}/devices?include_deleted=true`);

@@ -1,30 +1,70 @@
 import { describe, expect, it } from 'vitest';
-import type { Point, ThresholdRule } from '../types';
-import { describeCondition, formatLimit } from './alarmModel';
+import { buildAlarmModel, describeCondition, formatLimit, formatPointValue, ruleDeviceId } from './alarmModel';
+import { testSnapshot } from './testData';
 
-const base: ThresholdRule = {
-  id: 'r1', type: 'threshold', name: 'r1', pointId: '64', operator: '>', threshold: 20, delaySec: 300, deadband: 0,
-  severity: 'warning', message: '', enabled: true, notify: { mobile: false, email: false },
-};
+const snapshot = testSnapshot();
+const model = buildAlarmModel(snapshot);
+const rule = (name: string) => snapshot.rules.find(candidate => candidate.name === name)!;
+const describe_ = (name: string) => describeCondition(rule(name), model.pointsById, model.devicesById);
 
-describe('describeCondition', () => {
-  it('describes a rule on a real device point from its target, without a mock point', () => {
-    const rule = { ...base, target: { siteId: '1001', deviceName: 'bess-1', pointName: 'state_of_charge', unit: '%' } };
-    expect(describeCondition(rule, null)).toBe('state_of_charge > 20 % for 5 min');
+describe('buildSnapshot (backend-ot records → page model)', () => {
+  it('maps ids to strings and keeps every rule field', () => {
+    expect(rule('bess_soc_low')).toMatchObject({
+      id: '1', source: 'USER', kind: 'threshold', severity: 'fault', enabled: true, notify: { mobile: true, email: false },
+    });
+    expect(rule('pv_inverter_offline')).toMatchObject({ source: 'PROFILE', profileKey: 'inverter_offline', rule: null });
+    expect(snapshot.now).toBe(Date.parse('2026-09-30T12:00:00Z'));
   });
 
-  it('labels an enum target\'s state', () => {
-    const rule = { ...base, operator: '=' as const, threshold: 5, delaySec: 0,
-      target: { siteId: '1001', deviceName: 'bess-1', pointName: 'battery_state', unit: null, states: { 1: 'standby', 5: 'fault' } } };
-    expect(formatLimit(rule, null)).toBe('= fault');
+  it("gives points their latest value and devices their newest native reading as last poll", () => {
+    const soc = model.pointsById.get('64')!;
+    expect([soc.value, soc.deviceId, soc.register, soc.label]).toEqual([15.5, '2', 64, 'bess-1 · state_of_charge']);
+    expect(model.pointsById.get('166')).toMatchObject({ category: 'VIRTUAL', kind: 'enum', register: null, value: 1 });
+    expect(model.pointsById.get('66')).toMatchObject({ kind: 'bitfield', value: null });
+    expect(model.devicesById.get('2')!.lastPollAt).toBe('2026-09-30T11:59:45.000Z');
+    expect(model.devicesById.get('3')!.lastPollAt).toBeNull();
+  });
+});
+
+describe('buildAlarmModel', () => {
+  it('lists active alarms faults first, and recently cleared ones', () => {
+    expect(model.active.map(view => view.event.id)).toEqual(['101', '102']);
+    expect(model.recentlyCleared.map(view => view.event.id)).toEqual(['103']);
+    expect(model.active[0].point?.name).toBe('state_of_charge');
   });
 
-  it('still prefers the mock point when there is one', () => {
-    const point = { id: '64', name: 'Top-oil temperature', unit: '°C', kind: 'numeric' } as Point;
-    expect(describeCondition({ ...base, delaySec: 0 }, point)).toBe('Top-oil temperature > 20 °C');
+  it('rates devices by their worst active alarm', () => {
+    expect(model.deviceStatus.get('2')).toBe('fault');
+    expect(model.deviceStatus.get('3')).toBe('warning');
+    expect(model.sortedDevices.map(device => device.name)).toEqual(['bess-1', 'pv-1']);
+  });
+});
+
+describe('describeCondition / formatLimit', () => {
+  it('describes each kind with real point and device names', () => {
+    expect(describe_('bess_soc_low')).toBe('bess-1 · state_of_charge < 20 % for 1 min');
+    expect(describe_('pv_comms_lost')).toBe('pv-1: no successful poll > 60 s');
+    expect(describe_('bess_trip_while_ready')).toBe('bess-1 · faults · trip is set and bess-1 · bess_ready is ready for 30 s');
+    expect(describe_('pv_inverter_offline')).toBe('PV inverter is not producing');
   });
 
-  it('falls back to the point id with neither', () => {
-    expect(describeCondition({ ...base, delaySec: 0 }, null)).toBe('64 > 20');
+  it('formats the limit side', () => {
+    expect(formatLimit(rule('bess_soc_low'), model.pointsById)).toBe('< 20 %');
+    expect(formatLimit(rule('pv_comms_lost'), model.pointsById)).toBe('> 60 s');
+    expect(formatLimit(rule('bess_trip_while_ready'), model.pointsById)).toBe('—');
+  });
+
+  it('finds the device a rule is about', () => {
+    expect(ruleDeviceId(rule('bess_soc_low'), model.pointsById)).toBe('2');
+    expect(ruleDeviceId(rule('pv_comms_lost'), model.pointsById)).toBe('3');
+    expect(ruleDeviceId(rule('bess_trip_while_ready'), model.pointsById)).toBe('2');
+    expect(ruleDeviceId(rule('pv_inverter_offline'), model.pointsById)).toBeNull();
+  });
+
+  it('formats values by point kind', () => {
+    expect(formatPointValue(model.pointsById.get('64')!)).toBe('15.50 %');
+    expect(formatPointValue(model.pointsById.get('166')!)).toBe('ready');
+    expect(formatPointValue(model.pointsById.get('66')!, 9)).toBe('0x9');
+    expect(formatPointValue(model.pointsById.get('66')!)).toBe('—');
   });
 });

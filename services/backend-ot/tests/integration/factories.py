@@ -26,6 +26,7 @@ from schemas.api_models import (
     SiteResponse,
     VirtualPointCreateRequest,
 )
+from schemas.api_models.alarms import AlarmDefinitionCreateRequest, AlarmDefinitionResponse
 
 DEVICE_POINT_LIST = TypeAdapter(list[DevicePointResponse])
 
@@ -121,3 +122,13 @@ async def create_virtual_point(
     )
     assert response.status_code == 201, response.text
     return DevicePointResponse.model_validate(response.json())
+
+
+async def create_alarm(
+    client: AsyncClient, site_id: int, request: AlarmDefinitionCreateRequest
+) -> AlarmDefinitionResponse:
+    response = await client.post(
+        f"/api/alarms/site/{site_id}/definitions", json=request.model_dump(mode="json")
+    )
+    assert response.status_code == 201, response.text
+    return AlarmDefinitionResponse.model_validate(response.json())

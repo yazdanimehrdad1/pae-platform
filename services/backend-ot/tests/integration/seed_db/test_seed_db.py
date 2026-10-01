@@ -9,10 +9,11 @@ which the seeder builds with the create path's own builder. Also guards idempote
 """
 
 from pydantic import TypeAdapter
-from seed_db.seed_db import DEVICES, SITES, seed, virtual_points
+from seed_db.seed_db import DEVICES, SITES, seed, user_alarms, virtual_points
 
-from integration.factories import create_device, create_site, create_virtual_point
+from integration.factories import create_alarm, create_device, create_site, create_virtual_point
 from schemas.api_models import DevicePointResponse, DeviceWithPoints, SiteResponse
+from schemas.api_models.alarms import AlarmDefinitionResponse
 
 SITE_LIST = TypeAdapter(list[SiteResponse])
 DEVICE_LIST = TypeAdapter(list[DeviceWithPoints])
@@ -128,3 +129,56 @@ class TestSeedVirtualPoints:
             )
             names = [point.name for point in POINT_LIST.validate_python(response.json())]
             assert len(names) == len(set(names)), device.name
+
+
+ALARM_LIST = TypeAdapter(list[AlarmDefinitionResponse])
+
+
+def alarm_shape(alarm: AlarmDefinitionResponse) -> tuple[object, ...]:
+    """Everything an alarm carries except its id, name and timestamps."""
+    return (alarm.source, alarm.kind, alarm.rule, alarm.severity, alarm.message, alarm.enabled,
+            alarm.notify_mobile, alarm.notify_email, alarm.profile_alarm_key)
+
+
+class TestSeedAlarms:
+    """Seeded user alarms equal ones created through POST .../definitions; the seed site gets its
+    profile's alarms, as a site created through POST /api/sites does; reseeding adds nothing."""
+
+    async def seeded_site(self, client) -> SiteResponse:
+        sites = SITE_LIST.validate_python((await client.get("/api/sites")).json())
+        (site,) = [site for site in sites if site.name == SITES[0].name]
+        return site
+
+    async def test_seeded_user_alarms_match_alarms_created_through_the_api(self, client):
+        await seed()
+        site = await self.seeded_site(client)
+        alarms = {alarm.name: alarm for alarm in ALARM_LIST.validate_python(
+            (await client.get(f"/api/alarms/site/{site.site_id}/definitions")).json()
+        )}
+        devices = {device.name: device for device in await seeded_devices(client)}
+        point_ids = {}
+        for device in devices.values():
+            response = await client.get(f"/api/device-points/site/{device.site_id}/device/{device.device_id}")
+            for point in POINT_LIST.validate_python(response.json()):
+                point_ids[(device.name, point.name)] = point.id
+
+        seed_alarms = user_alarms(
+            lambda device_name, point_name: point_ids[(device_name, point_name)],
+            lambda device_name: devices[device_name].device_id,
+        )
+        assert seed_alarms
+        for seed_alarm in seed_alarms:
+            via_api = await create_alarm(client, site.site_id, seed_alarm.alarm.model_copy(
+                update={"name": f"api_{seed_alarm.alarm.name}"}
+            ))
+            seeded = alarms[seed_alarm.alarm.name]
+            assert alarm_shape(seeded)[:-1] == alarm_shape(via_api)[:-1], seed_alarm.alarm.name
+
+    async def test_the_seed_site_gets_its_profiles_alarms_once(self, client):
+        await seed()
+        await seed()
+        site = await self.seeded_site(client)
+        alarms = ALARM_LIST.validate_python((await client.get(f"/api/alarms/site/{site.site_id}/definitions")).json())
+        names = [alarm.name for alarm in alarms]
+        assert len(names) == len(set(names))
+        assert [alarm.profile_alarm_key for alarm in alarms if alarm.source == "PROFILE"] == ["placeholder_profile_alarm_1"]

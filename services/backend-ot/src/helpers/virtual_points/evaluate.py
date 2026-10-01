@@ -41,7 +41,7 @@ def evaluate_virtual_point(definition: VirtualDefinition, values: Mapping[int, f
 
 def _first_matching_output(definition: VirtualConditionDefinition, values: Mapping[int, float]) -> float:
     for case in definition.cases:
-        if _group_holds(case.when, values):
+        if group_holds(case.when, values):
             return float(case.output)
     return float(definition.default_output)
 
@@ -66,15 +66,18 @@ def _calculate(definition: VirtualCalculationDefinition, values: Mapping[int, fl
     return result * definition.scale + definition.offset
 
 
-def _group_holds(group: VirtualConditionGroup, values: Mapping[int, float]) -> bool:
+def group_holds(group: VirtualConditionGroup, values: Mapping[int, float]) -> bool:
+    """Whether an ALL/ANY group holds for these values (every point it reads must be present).
+    Shared with the alarm engine."""
     results = (
-        _group_holds(item, values) if isinstance(item, VirtualConditionGroup) else _condition_holds(item, values)
+        group_holds(item, values) if isinstance(item, VirtualConditionGroup) else condition_holds(item, values)
         for item in group.items
     )
     return all(results) if group.match == "all" else any(results)
 
 
-def _condition_holds(condition: VirtualCondition, values: Mapping[int, float]) -> bool:
+def condition_holds(condition: VirtualCondition, values: Mapping[int, float]) -> bool:
+    """Whether one comparison or bit test holds for these values. Shared with the alarm engine."""
     value = values[condition.point_id]
     if condition.operator in ("bit_set", "bit_clear"):
         assert condition.bit is not None  # guaranteed by VirtualCondition's validator

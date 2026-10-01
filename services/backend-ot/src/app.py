@@ -12,6 +12,7 @@ from api.middleware.time_range import validate_time_range
 
 # Router imports
 from api.routers import (
+    alarms,
     cache,
     csv_exports,
     device_points,
@@ -30,6 +31,7 @@ from config import settings
 
 # Database connection imports
 from db.connection import check_db_health, close_all_db_connections, get_async_engine, get_db_pool
+from helpers.alarms.profile_sync import sync_all_sites_profile_alarms
 from logger import get_logger, setup_logging
 from scheduler.engine import start_scheduler, stop_scheduler
 
@@ -64,6 +66,12 @@ async def lifespan(_: FastAPI):
         logger.error(f"Failed to initialize database: {e}")
 
     logger.info("Device auto-creation disabled - devices must be created via API endpoints")
+
+    # Each site gets an alarm row per alarm its profile declares in code (site_profiles).
+    try:
+        await sync_all_sites_profile_alarms()
+    except Exception as e:
+        logger.error(f"Failed to sync profile alarms: {e}", exc_info=True)
 
     await start_scheduler()
 
@@ -100,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(csv_exports.router, prefix="/api", tags=["csv-exports"])
     app.include_router(device_points.router, prefix="/api", tags=["device-points"])
     app.include_router(device_points_readings.router, prefix="/api", tags=["device-point-readings"])
+    app.include_router(alarms.router, prefix="/api", tags=["alarms"])
     app.include_router(live_stream_raw_registers.router, prefix="/api", tags=["modbus-live-stream-raw-registers"])
     app.include_router(live_stream_register_snapshot.router, prefix="/api", tags=["modbus-live-stream-register-snapshot"])
     app.include_router(site_functions.router, prefix="/api", tags=["site-functions"])

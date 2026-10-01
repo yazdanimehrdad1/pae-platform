@@ -2,9 +2,9 @@
 Every site profile the service knows, and the checks that run when the app starts.
 
 To onboard a site: add its package under site_profiles/, import its profile here and add
-it to ALL_SITE_PROFILES. The router mounts one URL per entry in SITE_ENDPOINT_ROUTES, and
-building that list validates every declared endpoint, so a misdeclared endpoint stops the
-app from starting instead of failing on a request.
+it to ALL_SITE_PROFILES. The router mounts one URL per entry in SITE_ENDPOINT_ROUTES. Building
+that list validates every declared endpoint, and validate_site_alarms every declared alarm, so a
+misdeclared one stops the app from starting instead of failing on a request or an evaluation.
 """
 
 import re
@@ -12,9 +12,10 @@ from typing import Literal, get_type_hints
 
 from pydantic import BaseModel
 
-from schemas.site_profiles import FunctionKind, TimeWindowParams
+from schemas.site_profiles import AlarmCheck, FunctionKind, TimeWindowParams
 from site_profiles.common.profile import DEFAULT_PROFILE, DEFAULT_PROFILE_KEY
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
+from site_profiles.site_alarm import SiteAlarm
 from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
@@ -144,4 +145,42 @@ def build_site_endpoint_routes(profiles: tuple[SiteProfile, ...]) -> list[SiteEn
     return list(routes.values())
 
 
+def _check_alarm(profile_key: str, alarm: SiteAlarm) -> None:
+    """The check lives in common/ or in this profile's package, and returns AlarmCheck."""
+    where = f"{profile_key}: alarm '{alarm.key}'"
+    evaluate = alarm.evaluate
+    packages = [_COMMON_PACKAGE]
+    if profile_key != DEFAULT_PROFILE_KEY:
+        packages.append(f"{_INDIVIDUAL_SITES_PACKAGE}.{profile_key}")
+    if not any(evaluate.__module__.startswith(f"{package}.") for package in packages):
+        raise SiteProfileConfigError(
+            f"{where}: its check belongs in site_profiles/common/ or site_profiles/individual_sites/{profile_key}/, "
+            f"but {evaluate.__qualname__} is in {evaluate.__module__}"
+        )
+    returns = get_type_hints(evaluate).get("return")
+    if returns is not AlarmCheck:
+        raise SiteProfileConfigError(f"{where}: check {evaluate.__qualname__} returns {returns!r}, not AlarmCheck")
+
+
+def validate_site_alarms(profiles: tuple[SiteProfile, ...]) -> None:
+    """
+    Validate every declared alarm:
+    - the check is in site_profiles/common/ or the profile's own package (the default profile:
+      common/ only), and is annotated to return AlarmCheck;
+    - keys and names are unique within a profile (names ignoring case, like rule names).
+    """
+    for profile in profiles:
+        keys: set[str] = set()
+        names: set[str] = set()
+        for alarm in profile.alarms:
+            _check_alarm(profile.key, alarm)
+            if alarm.key in keys:
+                raise SiteProfileConfigError(f"{profile.key}: alarm key '{alarm.key}' is declared twice")
+            if alarm.name.lower() in names:
+                raise SiteProfileConfigError(f"{profile.key}: alarm name '{alarm.name}' is declared twice")
+            keys.add(alarm.key)
+            names.add(alarm.name.lower())
+
+
 SITE_ENDPOINT_ROUTES: list[SiteEndpointRoute] = build_site_endpoint_routes(ALL_SITE_PROFILES)
+validate_site_alarms(ALL_SITE_PROFILES)

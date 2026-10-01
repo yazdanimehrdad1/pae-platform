@@ -7,6 +7,7 @@ TEST-ONLY: used by the seeder and its mock data. App code must never import
 
 from pydantic import BaseModel, Field
 
+from schemas.api_models.alarms import AlarmDefinitionCreateRequest
 from schemas.api_models.requests import DeviceCreateRequest, VirtualPointCreateRequest
 
 
@@ -22,3 +23,10 @@ class SeedVirtualPoint(BaseModel):
 
     device_name: str = Field(..., min_length=1)
     point: VirtualPointCreateRequest
+
+
+class SeedAlarm(BaseModel):
+    """A user alarm to seed on a site (by name); its point/device ids are resolved first."""
+
+    site_name: str = Field(..., min_length=1)
+    alarm: AlarmDefinitionCreateRequest

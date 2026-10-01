@@ -1,23 +1,14 @@
-import type {
-  DevicePoint,
-  VirtualCalculationFunction,
-  VirtualCondition,
-  VirtualConditionGroupInput,
-  VirtualConditionGroupOutput,
-  VirtualPointDefinitionInput,
-} from "@/api/types/devicePoints";
+import type { DevicePoint, VirtualCalculationFunction, VirtualPointDefinitionInput } from "@/api/types/devicePoints";
 import {
   describeGroupDraft,
-  isBitOperator,
   newGroup,
   newItemKey,
   validateCondition,
-  type ConditionDraft,
   type ConditionErrors,
   type ConditionGroupDraft,
   type ConditionPointOption,
-  type GroupItemDraft,
 } from "@/shared/components/conditions/conditionModel";
+import { groupFromWire, groupToWire } from "@/shared/components/conditions/conditionWire";
 
 // The virtual point form's model, and its conversion to and from backend-ot's definition.
 // Limits mirror backend-ot's (schemas/api_models/virtual_points.py) so errors show before saving.
@@ -75,26 +66,6 @@ export function emptyDraft(): VirtualPointDraft {
   };
 }
 
-function groupFromWire(group: VirtualConditionGroupOutput): ConditionGroupDraft {
-  return {
-    match: group.match,
-    items: group.items.map((item): GroupItemDraft => item.type === "group"
-      ? { type: "group", key: newItemKey(), group: groupFromWire(item as VirtualConditionGroupOutput) }
-      : { type: "condition", key: newItemKey(), condition: conditionFromWire(item as VirtualCondition) }),
-  };
-}
-
-function conditionFromWire(condition: VirtualCondition): ConditionDraft {
-  return {
-    pointId: String(condition.point_id),
-    operator: condition.operator,
-    operand: condition.compare_point_id != null ? "point" : "value",
-    value: condition.value != null ? String(condition.value) : "",
-    comparePointId: condition.compare_point_id != null ? String(condition.compare_point_id) : null,
-    bit: condition.bit ?? null,
-  };
-}
-
 /** The form for an existing virtual point. */
 export function draftFromPoint(point: DevicePoint): VirtualPointDraft {
   const draft = { ...emptyDraft(), name: point.name, unit: point.unit ?? "" };
@@ -114,27 +85,6 @@ export function draftFromPoint(point: DevicePoint): VirtualPointDraft {
     })),
     defaultOutput: String(definition.default_output ?? 0),
     defaultLabel: definition.default_label ?? "",
-  };
-}
-
-function groupToWire(group: ConditionGroupDraft): VirtualConditionGroupInput {
-  return {
-    type: "group",
-    match: group.match,
-    items: group.items.map(item => item.type === "group" ? groupToWire(item.group) : conditionToWire(item.condition)),
-  };
-}
-
-function conditionToWire(condition: ConditionDraft): VirtualCondition {
-  const bitTest = isBitOperator(condition.operator);
-  const comparesPoint = !bitTest && condition.operand === "point";
-  return {
-    type: "condition",
-    point_id: Number(condition.pointId),
-    operator: condition.operator,
-    value: bitTest || comparesPoint ? null : Number(condition.value),
-    compare_point_id: comparesPoint ? Number(condition.comparePointId) : null,
-    bit: bitTest ? condition.bit : null,
   };
 }
 

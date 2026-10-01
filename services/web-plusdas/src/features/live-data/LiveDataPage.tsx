@@ -2,29 +2,26 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Network, Radio, Zap, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
-import { sitesApi } from "@/api";
-import { DeviceAssetTree } from "@/shared/components/DeviceAssetTree";
+import { Network, Radio, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
+import { devicesApi, sitesApi } from "@/api";
 import { useNotesSidebar } from "@/shared/contexts/NotesSidebarContext";
+import { DeviceReadingsSnapshot } from "./components/DeviceReadingsSnapshot";
+import { SiteDeviceList } from "./components/SiteDeviceList";
 import { useModbusSessions } from "./hooks/useModbusSessions";
 import { useModbusConfigSlots } from "./hooks/useModbusConfigSlots";
 import { ModbusStreamForm } from "./modbus/ModbusStreamForm";
 import { ModbusSessionCard } from "./modbus/ModbusSessionCard";
 import { ModbusSessionsOverview } from "./modbus/ModbusSessionsOverview";
 
-const MAX_SIGNALS = 10;
-
 export default function LiveData() {
   const { isNotesCollapsed, setIsNotesCollapsed } = useNotesSidebar();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
-  const [selectedPoints, setSelectedPoints] = useState<string[]>([]);
-  const [pointLabels, setPointLabels] = useState<Record<string, string>>({});
+  const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null);
   const previousSidebarStateRef = useRef<boolean | null>(null);
   const previousNotesStateRef = useRef<boolean | null>(null);
 
@@ -37,10 +34,17 @@ export default function LiveData() {
     if (!selectedSiteId && sites.length > 0) setSelectedSiteId(sites[0].id);
   }, [sites, selectedSiteId]);
 
+  // A device belongs to one site: a new site starts with no device selected.
   useEffect(() => {
-    setSelectedPoints([]);
-    setPointLabels({});
+    setSelectedDeviceId(null);
   }, [selectedSiteId]);
+
+  const { data: siteDevices = [], isLoading: areDevicesLoading } = useQuery({
+    queryKey: ['site-devices-with-points', selectedSiteId],
+    queryFn: () => devicesApi.getBySiteWithPoints(selectedSiteId),
+    enabled: !!selectedSiteId,
+  });
+  const selectedDevice = siteDevices.find(device => device.deviceId === selectedDeviceId) ?? null;
 
   useEffect(() => {
     if (!isNotesCollapsed) {
@@ -72,16 +76,6 @@ export default function LiveData() {
     }
   };
 
-  const handleSelectPoints = (points: string[], labels: Record<string, string>) => {
-    setPointLabels(prev => ({ ...prev, ...labels }));
-    setSelectedPoints(points);
-  };
-
-  const handleResolveLabels = (labels: Record<string, string>) => {
-    setPointLabels(prev => ({ ...prev, ...labels }));
-  };
-
-  const selectedSite = sites.find(site => site.id === selectedSiteId);
   const {
     sessions, refresh, isLoading,
     relaunchSlot, resumeSession, stopSession, deleteSession, deleteAllSessions,
@@ -107,21 +101,8 @@ export default function LiveData() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Live Data</h1>
-            <p className="text-muted-foreground mt-1">Real-time monitoring of selected signals via WebSocket</p>
+            <p className="text-muted-foreground mt-1">Latest readings of a device's points; Modbus Debug for raw registers</p>
           </div>
-          {/* Point Monitoring status only; Modbus Debug doesn't use the selected signals. */}
-          {activeTab !== 'modbus' && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-warning/10 text-warning border-warning">
-                <Radio className="w-3 h-3 mr-1" />
-                Coming Soon
-              </Badge>
-              <Badge variant="outline" className="gap-2">
-                <Zap className="w-3 h-3" />
-                {selectedPoints.length}/{MAX_SIGNALS} Signals
-              </Badge>
-            </div>
-          )}
         </div>
       </div>
 
@@ -137,7 +118,7 @@ export default function LiveData() {
                   Asset Tree
                 </CardTitle>
                 <CardDescription>
-                  Select up to {MAX_SIGNALS} signals to monitor
+                  Choose a site and a device
                 </CardDescription>
                 <div className="space-y-1">
                   <Label htmlFor="live-data-site">Site</Label>
@@ -150,14 +131,13 @@ export default function LiveData() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 flex-1 overflow-auto">
-                <DeviceAssetTree
-                  siteId={selectedSiteId || null}
-                  siteName={selectedSite?.name ?? 'Site'}
-                  selectedPoints={selectedPoints}
-                  onSelect={handleSelectPoints}
-                  onResolveLabels={handleResolveLabels}
-                  maxPoints={MAX_SIGNALS}
-                />
+                {areDevicesLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading devices…</p>
+                ) : siteDevices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">This site has no devices.</p>
+                ) : (
+                  <SiteDeviceList devices={siteDevices} selectedDeviceId={selectedDeviceId} onSelect={setSelectedDeviceId} />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -176,7 +156,7 @@ export default function LiveData() {
           </div>
         )}
 
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'points' | 'modbus')} className="flex-1 flex flex-col min-h-0">
             <div className="border-b border-border px-6 pt-4">
               <TabsList>
@@ -186,51 +166,17 @@ export default function LiveData() {
             </div>
 
             <TabsContent value="points" className="flex-1 flex-col min-h-0 mt-0 data-[state=active]:flex">
-              {selectedPoints.length === 0 ? (
+              {selectedDevice ? (
+                <DeviceReadingsSnapshot key={`${selectedSiteId}-${selectedDevice.deviceId}`} siteId={selectedSiteId} device={selectedDevice} />
+              ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6">
                   <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
                     <Radio className="w-8 h-8 opacity-50" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">No Signals Selected</h3>
+                  <h3 className="text-lg font-semibold mb-2">No Device Selected</h3>
                   <p className="max-w-sm text-center">
-                    Select signals from the Asset Tree on the left to begin live monitoring
+                    Choose a device in the Asset Tree on the left to see its points and their latest readings
                   </p>
-                </div>
-              ) : (
-                <div className="flex-1 p-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Radio className="w-5 h-5" />
-                        Live Data Monitoring
-                      </CardTitle>
-                      <CardDescription>
-                        Real-time data visualization will appear here once WebSocket connection is implemented
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="bg-muted/30 rounded-lg p-8 border border-dashed border-border text-center">
-                        <Radio className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-                        <h3 className="text-xl font-semibold text-foreground mb-2">
-                          Feature Coming Soon
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-                          Live data monitoring with WebSocket connection is currently under development.
-                          You can select up to {MAX_SIGNALS} signals from the asset tree, and they will be displayed here once the feature is available.
-                        </p>
-                        <div className="mt-6 space-y-2">
-                          <p className="text-sm font-semibold text-foreground">Selected Signals ({selectedPoints.length}):</p>
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            {selectedPoints.map((pointId) => (
-                              <Badge key={pointId} variant="outline" className="text-xs">
-                                {pointLabels[pointId] ?? pointId}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               )}
             </TabsContent>

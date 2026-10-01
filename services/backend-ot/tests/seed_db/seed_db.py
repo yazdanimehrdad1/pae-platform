@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from db.session import get_session  # noqa: E402
+from helpers.alarms.definitions import new_user_alarm  # noqa: E402
+from helpers.alarms.profile_sync import sync_site_profile_alarms  # noqa: E402
 from helpers.device_points.device_standardized_points import (  # noqa: E402
     generate_standardized_points,
 )
@@ -28,10 +30,10 @@ from helpers.device_points.scan_range_computation import (  # noqa: E402
 from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
-from schemas.db_models.orm_models import Device, DevicePoint, Site  # noqa: E402
+from schemas.db_models.orm_models import AlarmDefinition, Device, DevicePoint, Site  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dev_mock_data import DEVICE_POINTS, DEVICES, SITES, virtual_points  # noqa: E402
+from dev_mock_data import DEVICE_POINTS, DEVICES, SITES, user_alarms, virtual_points  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -186,8 +188,35 @@ async def seed() -> None:
             )
             site.device_count = count_result.scalar_one()
 
+        # ------------------------------------------------------------------ #
+        # 6. User alarms, built with the create path's own builder            #
+        # ------------------------------------------------------------------ #
+        device_ids = {name: device.device_id for name, device in device_by_name.items()}
+        for seed_alarm in user_alarms(
+            lambda device_name, point_name: point_ids[(device_name, point_name)],
+            lambda device_name: device_ids[device_name],
+        ):
+            site = site_by_name[seed_alarm.site_name]
+            existing = await session.execute(
+                select(AlarmDefinition.id).where(
+                    AlarmDefinition.site_id == site.id,
+                    func.lower(AlarmDefinition.name) == seed_alarm.alarm.name.lower(),
+                    AlarmDefinition.deleted_at.is_(None),
+                )
+            )
+            if existing.first() is not None:
+                logger.info("Alarm already exists '%s.%s'", site.name, seed_alarm.alarm.name)
+                continue
+            session.add(new_user_alarm(site.id, seed_alarm.alarm))
+            logger.info("Created alarm '%s.%s'", site.name, seed_alarm.alarm.name)
+
+        seeded_site_ids = [site.id for site in site_by_name.values()]
         await session.commit()
-        logger.info("Seeding complete.")
+
+    # 7. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
+    for site_id in seeded_site_ids:
+        await sync_site_profile_alarms(site_id)
+    logger.info("Seeding complete.")
 
 
 if __name__ == "__main__":

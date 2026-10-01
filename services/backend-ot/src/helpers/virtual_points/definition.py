@@ -9,6 +9,7 @@ from typing import assert_never
 from schemas.api_models.virtual_points import (
     BIT_OPERATORS,
     VirtualCalculationDefinition,
+    VirtualCondition,
     VirtualConditionDefinition,
     VirtualConditionGroup,
     VirtualDefinition,
@@ -21,7 +22,7 @@ def referenced_point_ids(definition: VirtualDefinition) -> set[int]:
         case VirtualCalculationDefinition():
             return set(definition.inputs)
         case VirtualConditionDefinition():
-            return {point_id for case in definition.cases for point_id in _group_point_ids(case.when)}
+            return {point_id for case in definition.cases for point_id in condition_point_ids(case.when)}
         case _:
             assert_never(definition)
 
@@ -32,7 +33,7 @@ def bit_condition_point_ids(definition: VirtualDefinition) -> set[int]:
         case VirtualCalculationDefinition():
             return set()
         case VirtualConditionDefinition():
-            return {point_id for case in definition.cases for point_id in _group_bit_point_ids(case.when)}
+            return {point_id for case in definition.cases for point_id in bit_test_point_ids(case.when)}
         case _:
             assert_never(definition)
 
@@ -49,23 +50,16 @@ def condition_enum_detail(definition: VirtualConditionDefinition) -> dict[str, s
     return labels or None
 
 
-def _group_point_ids(group: VirtualConditionGroup) -> set[int]:
-    point_ids: set[int] = set()
-    for item in group.items:
-        if isinstance(item, VirtualConditionGroup):
-            point_ids |= _group_point_ids(item)
-        else:
-            point_ids.add(item.point_id)
-            if item.compare_point_id is not None:
-                point_ids.add(item.compare_point_id)
-    return point_ids
+def condition_point_ids(item: VirtualCondition | VirtualConditionGroup) -> set[int]:
+    """Every point one comparison or group reads, including compared-with points and nested groups.
+    Shared with alarm rules, which use the same comparisons and groups."""
+    if isinstance(item, VirtualCondition):
+        return {item.point_id} | ({item.compare_point_id} if item.compare_point_id is not None else set())
+    return {point_id for child in item.items for point_id in condition_point_ids(child)}
 
 
-def _group_bit_point_ids(group: VirtualConditionGroup) -> set[int]:
-    point_ids: set[int] = set()
-    for item in group.items:
-        if isinstance(item, VirtualConditionGroup):
-            point_ids |= _group_bit_point_ids(item)
-        elif item.operator in BIT_OPERATORS:
-            point_ids.add(item.point_id)
-    return point_ids
+def bit_test_point_ids(item: VirtualCondition | VirtualConditionGroup) -> set[int]:
+    """Points a bit_set / bit_clear test reads, in one comparison or group (they must be bitfields)."""
+    if isinstance(item, VirtualCondition):
+        return {item.point_id} if item.operator in BIT_OPERATORS else set()
+    return {point_id for child in item.items for point_id in bit_test_point_ids(child)}

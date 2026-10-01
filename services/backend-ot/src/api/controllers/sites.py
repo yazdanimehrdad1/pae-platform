@@ -8,6 +8,7 @@ No cache layer — all reads and writes go directly to the DB.
 from typing import Literal
 
 import db.sites as sites_db
+from helpers.alarms.profile_sync import sync_site_profile_alarms
 from helpers.sites import get_complete_site_data_with_points
 from logger import get_logger
 from schemas.api_models import (
@@ -34,12 +35,18 @@ async def create_site(site: SiteCreateRequest) -> SiteResponse:
     if site.profile is None:
         site = site.model_copy(update={"profile": DEFAULT_PROFILE_KEY})
     validate_profile_key(site.profile)
-    return await sites_db.create_site(site)
+    created = await sites_db.create_site(site)
+    # The site gets an alarm row per alarm its profile declares in code.
+    await sync_site_profile_alarms(created.site_id)
+    return created
 
 
 async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteResponse:
     validate_profile_key(site_update.profile)
-    return await sites_db.update_site(site_id, site_update)
+    updated = await sites_db.update_site(site_id, site_update)
+    if site_update.profile is not None:
+        await sync_site_profile_alarms(site_id)
+    return updated
 
 
 async def delete_site(

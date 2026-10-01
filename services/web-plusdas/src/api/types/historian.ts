@@ -6,6 +6,7 @@ type TimeseriesQuery = NonNullable<
 >;
 export type TimeRange = NonNullable<TimeseriesQuery['time_range']>;
 export type BackendPointReadings = components['schemas']['TimeseriesResponse'];
+export type LatestPointReadings = components['schemas']['LatestResponse'];
 
 // Arguments of historianApi.getDevicePointReadings (a client call signature, not a wire type).
 interface DevicePointReadingsBase {

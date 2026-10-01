@@ -3,7 +3,7 @@ import type { AlarmEvent } from '../types';
 import { compareActiveAlarms } from './alarmSort';
 
 const event = (id: string, severity: AlarmEvent['severity'], raisedAt: string): AlarmEvent => ({
-  id, ruleId: 'r', deviceId: null, severity, raisedAt, clearedAt: null, valueAtRaise: 1,
+  id, ruleId: 'r', deviceId: null, severity, raisedAt, clearedAt: null, valueAtRaise: 1, message: '',
 });
 
 describe('compareActiveAlarms', () => {

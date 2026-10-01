@@ -3,60 +3,50 @@
 The `/alarms` page (it replaced Health) follows high-performance HMI practice (ISA-101 / ISA-18.2):
 - Normal is neutral grey, and green never means "OK".
 - Severity always has three cues: color, icon and word (Fault = red octagon, Warning = amber triangle).
-- Times are shown in the site's time zone.
 - There is no acknowledgement step: alarms raise and clear.
 
-## Notifications
-Each rule has `notify: { mobile, email }`. When the rule raises an alarm, a notification goes out
-on every channel that is on: **mobile** push, **email**, both, or neither. The two toggles appear
-in three places:
-- the active alarms table, where they apply to the alarm's rule and so to all its future raises;
-- the Rules dialog, which also has **Turn off all notifications**: after a confirmation, it turns both channels off on every rule;
-- the rule builder.
-
-The mock only stores the settings; the backend will send the notifications. Recipients (which
-users or addresses) aren't modelled yet. A separate email section under Reports may later add
-emails triggered by a combination of status and rules.
-
 ## Where the data comes from
-The page reads one interface, `AlarmDataSource` (`data/AlarmDataSource.ts`). `data/source.ts`
-picks the implementation, and today that is the in-memory mock in `src/mocks/alarms/`.
+backend-ot defines, evaluates and stores alarms. This page only shows and configures them, for
+the site chosen in the site picker. `hooks/useAlarmsData.ts` combines three reads, and
+`lib/pageData.ts` maps them into the page model (`types.ts`):
 
-The mock is not a static list:
-- Every point is a deterministic signal over time (`signals.ts`).
-- Alarms come from running the real rule engine (`lib/ruleEngine.ts`) over those signals.
-- A rule made in the UI therefore raises and clears like a live one.
+| Read | Call | Refresh |
+|---|---|---|
+| Alarms, active events plus those cleared in 6 h, the raise/clear log, server time | `alarmsApi.getSnapshot` → `GET /api/alarms/site/{id}/snapshot` | every 10 s |
+| Devices and their points | `devicesApi.getRecords` → `GET /api/devices/site/{id}/devices` | every 60 s |
+| Point values; a device's last poll is its newest native reading | `historianApi.getLatestReadings` (per device) | every 10 s |
+| Trend of a point | `historianApi.getDevicePointReadings` (timeseries) | every 10 s |
+| History drawer | `alarmsApi.queryEvents` → `GET /api/alarms/site/{id}/events` | on open and on filter change |
 
-## Connecting a live source
-1. **Implement `AlarmDataSource`** in `src/api/alarms.ts` (the API layer; `src/api` never imports
-   mocks). Map the calls onto backend-ot routes once they exist in its contract (see
-   `docs/backend-gaps.md`, "System alarms"). Use `client.get/post/put` and the generated types.
+Durations ("active for 8 min") are measured against the snapshot's server `now`. Times show in the
+browser's time zone, because sites have none yet (`docs/backend-gaps.md`).
 
-   | Call | Suggested backend-ot route |
-   |---|---|
-   | `getSnapshot()` | `GET /api/alarms/snapshot?site_id=` (devices with last poll, point values and quality, rules, active + recent events, recent log, server time) |
-   | `getSeries(pointId, from, to)` | `GET /api/device-point-readings/...` (the historian timeseries that already exists) |
-   | `queryEvents(filter)` | `GET /api/alarms/events?site_id=&device_id=&severity=&rule_id=&from=&to=` |
-   | `saveRule(rule)` | `PUT /api/alarm-rules/{id}` (includes `enabled` and `notify`) |
-   | `subscribe(onChange)` | an SSE route (like the live stream's) or a WebSocket. Call `onChange` on every raise, clear, rule edit and poll. The page refetches the snapshot. |
+## Alarms: two sources
+- **User rules** are built in the rule builder (`components/RuleBuilder.tsx`). There are three kinds:
+  - **threshold**: one point against a value or another point, or a bit test; with a delay and a deadband;
+  - **condition**: ALL/ANY groups over several points, with a delay. It uses the shared condition
+    editor, the same one virtual points use (`src/shared/components/conditions/`);
+  - **comms stale**: a device with no successful poll for N seconds.
+- **Profile alarms** are defined in code, in backend-ot's site profile. Their logic, name,
+  severity and message are read-only here.
 
-2. **Evaluate rules on the server.** The browser only shows results. Keep the engine semantics:
-   - an alarm raises after `delaySec` of continuous violation;
-   - it clears past `threshold ± deadband`;
-   - comms-stale means no successful poll for `staleAfterSec`;
-   - every raise and clear is logged with its time;
-   - a raise notifies on each channel on in the rule's `notify` (mobile push, email; both are backend work).
+For each alarm, the user picks:
+- **Enabled**: an enabled alarm is evaluated by backend-ot and its alarms show in Active alarms.
+  A disabled alarm raises nothing, and backend-ot clears its active event. At most 20 alarms per
+  site can be enabled (`MAX_ENABLED_ALARMS`; backend-ot answers 409 past it). A new rule, or a
+  profile alarm synced onto a full site, starts disabled.
+- **Notifications**: mobile and/or email. They are stored now; backend-ot only logs them and
+  doesn't send anything yet.
 
-   `lib/ruleEngine.ts` and its tests are the reference.
-3. **Validate rule names on the server too.** A rule's `name` becomes an identifier in backend-ot:
-   - 1–150 characters, matching `^[A-Za-z_][A-Za-z0-9_]*$` (letters, digits, `_`, not starting
-     with a digit);
-   - unique ignoring case.
+The Rules dialog (`components/RuleManager.tsx`) shows each alarm in full:
+- source and kind;
+- the condition in words, with real point and device names;
+- message, delay, deadband or timeout;
+- when it was created and updated;
+- its switches.
 
-   The UI checks this with `lib/ruleName.ts`, and the mock rejects bad names the same way.
-   `id` stays the stable key, so a name can change later without breaking references.
-4. **Point `data/source.ts` at the live implementation**, then delete `src/mocks/alarms/` and its rows
-   in `src/mocks/README.md` and `docs/backend-gaps.md`.
+**Delete** is offered only for user rules. After a confirmation, it permanently removes the rule
+**and its whole alarm history**. Profile alarms can't be deleted, only disabled.
 
-The snapshot's `now` is server time, so durations ("active for 8 min") don't depend on the
-browser clock.
+Rule names are identifiers: 1–150 characters, `^[A-Za-z_][A-Za-z0-9_]*$`, unique per site
+ignoring case. The UI checks them with `lib/ruleName.ts`, and backend-ot checks them again.

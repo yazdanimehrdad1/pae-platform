@@ -9,6 +9,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -22,8 +23,9 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from schemas.api_models.alarms import UserAlarmRule
 from schemas.api_models.virtual_points import VirtualDefinition
-from schemas.db_models.column_types import VirtualDefinitionJSON
+from schemas.db_models.column_types import AlarmRuleJSON, VirtualDefinitionJSON
 
 
 class Base(DeclarativeBase):
@@ -527,3 +529,63 @@ class DevicePoint(Base):
 
     def __repr__(self) -> str:
         return f"<DevicePoint(id={self.id}, name='{self.name}', device_id={self.device_id})>"
+
+
+class AlarmDefinition(Base):
+    """An alarm of a site: USER (built in the UI, with a rule) or PROFILE (declared in site_profiles code)."""
+
+    __tablename__ = "alarm_definitions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, comment="USER or PROFILE")
+    profile_alarm_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, comment="threshold, comms_stale, condition or profile")
+    # USER only. Stored as JSON, loaded as the parsed rule model.
+    rule: Mapped[UserAlarmRule | None] = mapped_column(AlarmRuleJSON, nullable=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    notify_mobile: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    notify_email: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+
+    def __repr__(self) -> str:
+        return f"<AlarmDefinition(id={self.id}, site_id={self.site_id}, name='{self.name}', source={self.source})>"
+
+
+class AlarmEvent(Base):
+    """One raise of an alarm and its clear (cleared_at None while active)."""
+
+    __tablename__ = "alarm_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    definition_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("alarm_definitions.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[int] = mapped_column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("devices.device_id", ondelete="SET NULL"), nullable=True
+    )
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+    raised_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    value_at_raise: Mapped[float | None] = mapped_column(Float, nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+
+
+class AlarmEvaluationState(Base):
+    """The evaluation job's memory between runs, per alarm (the raise delay timer)."""
+
+    __tablename__ = "alarm_evaluation_state"
+
+    definition_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("alarm_definitions.id", ondelete="CASCADE"), primary_key=True
+    )
+    condition_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

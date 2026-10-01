@@ -1,7 +1,7 @@
 """
-Alpha Solar Farm (dev site 1001): the endpoints it offers.
+Alpha Solar Farm (dev site 1001): the endpoints and alarms it offers.
 
-Only what is declared here gets a URL. To add one: write the controller in functions.py
+Only what is declared here gets a URL (endpoints) or an alarm row per site (alarms). To add one: write the controller in functions.py
 (or common/functions.py for a shared one), then declare a SiteEndpoint for it below.
 """
 
@@ -11,11 +11,13 @@ from schemas.site_profiles.individual_sites.alpha_solar import (
     PoiPowerResult,
 )
 from site_profiles.common.functions import common_energy_summary
+from site_profiles.individual_sites.alpha_solar.alarms import placeholder_profile_alarm_1
 from site_profiles.individual_sites.alpha_solar.functions import (
     device_inverter_availability,
     device_plant_inverter_availability,
     site_poi_power,
 )
+from site_profiles.site_alarm import SiteAlarm
 from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
 
 ALPHA_SOLAR_PROFILE = SiteProfile(
@@ -52,6 +54,16 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
             controller=device_plant_inverter_availability,
             response_model=InverterAvailabilityResult,
             summary="Plant inverter availability (%): pooled over the plant controller's inv01..04_mode",
+        ),
+    ),
+    alarms=(
+        # PLACEHOLDER: an example of a profile alarm, not a real alarm of the site.
+        SiteAlarm(
+            key="placeholder_profile_alarm_1",
+            name="placeholder_profile_alarm_1",
+            severity="fault",
+            message="PLACEHOLDER profile alarm 1: inverter_state is not mppt or derating",
+            evaluate=placeholder_profile_alarm_1,
         ),
     ),
 )

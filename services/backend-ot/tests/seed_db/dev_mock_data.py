@@ -6,6 +6,7 @@ Organized as:
   DEVICES       — devices, keyed to their site by site_name
   DEVICE_POINTS — NATIVE device points per device, keyed by device name
   virtual_points — VIRTUAL example points (hand-written), built once the input point IDs exist
+  user_alarms    — USER example alarms (hand-written), built once the point and device IDs exist
 
 DEVICES and DEVICE_POINTS are NOT hand-written: they are built from mock-modbus's published
 register map, `contracts/modbus/mock-modbus.devices.json` (see `mock_modbus_seed.py`), so the
@@ -37,7 +38,8 @@ from schemas.api_models import (
     VirtualConditionGroup,
     VirtualPointCreateRequest,
 )
-from schemas.tests_models import SeedDevice, SeedVirtualPoint
+from schemas.api_models.alarms import AlarmDefinitionCreateRequest, CommsStaleAlarm, ThresholdAlarm
+from schemas.tests_models import SeedAlarm, SeedDevice, SeedVirtualPoint
 
 # ---------------------------------------------------------------------------
 # Sites
@@ -114,6 +116,42 @@ def virtual_points(point_id: Callable[[str, str], int]) -> list[SeedVirtualPoint
                     default_output=0,
                     default_label="not ready",
                 ),
+            ),
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Alarms: hand-written user alarms (profile alarms come from the site profile's code).
+# PLACEHOLDERS: they only exercise each rule kind in the dev stack; they are not real alarms.
+# ---------------------------------------------------------------------------
+
+
+def user_alarms(point_id: Callable[[str, str], int], device_id: Callable[[str], int]) -> list[SeedAlarm]:
+    """`point_id(device_name, point_name)` / `device_id(device_name)` resolve the references."""
+    bess = "mock-device-2"
+    return [
+        SeedAlarm(
+            site_name=SITES[0].name,
+            alarm=AlarmDefinitionCreateRequest(
+                name="placeholder_user_alarm_1",
+                severity="warning",
+                message="PLACEHOLDER user alarm 1 (threshold): state_of_charge < 20 %",
+                rule=ThresholdAlarm(
+                    kind="threshold",
+                    condition=VirtualCondition(point_id=point_id(bess, "state_of_charge"), operator="<", value=20),
+                    delay_sec=60,
+                    deadband=2,
+                ),
+            ),
+        ),
+        SeedAlarm(
+            site_name=SITES[0].name,
+            alarm=AlarmDefinitionCreateRequest(
+                name="placeholder_user_alarm_2",
+                severity="fault",
+                message="PLACEHOLDER user alarm 2 (comms stale): no successful poll for 60 s",
+                rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id(bess), stale_after_sec=60),
             ),
         ),
     ]

@@ -10,6 +10,7 @@ from typing import assert_never
 from sqlalchemy import select
 
 from db.connection import get_async_session_factory
+from helpers.device_points.point_inputs import check_input_points
 from helpers.virtual_points.definition import (
     bit_condition_point_ids,
     condition_enum_detail,
@@ -24,8 +25,6 @@ from schemas.api_models.virtual_points import (
 )
 from schemas.db_models.orm_models import DevicePoint
 from utils.exceptions import ConflictError, NotFoundError, ValidationError
-
-BIT_CAPABLE_TYPE_PREFIXES = ("bitfield", "status_word")
 
 
 def virtual_point_storage(definition: VirtualDefinition) -> tuple[DataType, dict[str, str] | None]:
@@ -49,32 +48,11 @@ async def _check_name_free(session, site_id: int, device_id: int, name: str, poi
         raise ConflictError(f"A point named '{name}' already exists on device {device_id}")
 
 
-async def _check_inputs(
-    session, site_id: int, definition: VirtualDefinition
-) -> None:
+async def _check_inputs(session, site_id: int, definition: VirtualDefinition) -> None:
     """Every input must be an active, non-virtual point on the same site; bit tests need a bitfield."""
-    input_ids = referenced_point_ids(definition)
-    result = await session.execute(select(DevicePoint).where(DevicePoint.id.in_(input_ids)))
-    inputs_by_id = {point.id: point for point in result.scalars().all()}
-
-    missing = sorted(input_ids - inputs_by_id.keys())
-    if missing:
-        raise ValidationError(f"Input points not found: {missing}")
-    for point in inputs_by_id.values():
-        if point.site_id != site_id:
-            raise ValidationError(f"Input point {point.id} ('{point.name}') is on another site")
-        if point.deleted_at is not None:
-            raise ValidationError(f"Input point {point.id} ('{point.name}') is deleted")
-        if point.category == "VIRTUAL":
-            raise ValidationError(
-                f"Input point {point.id} ('{point.name}') is virtual; virtual points can't read other virtual points"
-            )
-    for point_id in bit_condition_point_ids(definition):
-        point = inputs_by_id[point_id]
-        if not point.data_type.startswith(BIT_CAPABLE_TYPE_PREFIXES):
-            raise ValidationError(
-                f"Bit conditions need a bitfield point; '{point.name}' is {point.data_type}"
-            )
+    await check_input_points(
+        session, site_id, referenced_point_ids(definition), bit_condition_point_ids(definition), allow_virtual=False
+    )
 
 
 def _apply_definition(
