@@ -13,7 +13,7 @@ import type { DevicePoint, VirtualCalculationFunction } from "@/api/types/device
 import { ConditionGroup } from "@/shared/components/conditions/ConditionGroup";
 import { PointCombobox } from "@/shared/components/conditions/PointCombobox";
 import { toast } from "@/shared/hooks/use-toast";
-import { toConditionPointOptions } from "./lib/pointOptions";
+import { devicePointOptions } from "@/shared/components/conditions/devicePointOptions";
 import {
   CALCULATION_FUNCTION_LABELS,
   MAX_CASES,
@@ -58,7 +58,7 @@ export function VirtualPointDialog({ open, onOpenChange, siteId, deviceId, point
     queryFn: () => devicesApi.getBySiteWithPoints(siteId),
     enabled: open && !!siteId,
   });
-  const pointOptions = useMemo(() => toConditionPointOptions(siteDevices), [siteDevices]);
+  const pointOptions = useMemo(() => devicePointOptions(siteDevices), [siteDevices]);
   const pointsById = useMemo(() => new Map(pointOptions.map(option => [option.id, option])), [pointOptions]);
 
   const { errors, isValid } = validateDraft(draft);

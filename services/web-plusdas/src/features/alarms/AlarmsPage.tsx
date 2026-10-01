@@ -108,8 +108,7 @@ export default function AlarmsPage() {
         />
 
         {isBuilderOpen && (
-          <RuleBuilder devices={devices} points={snapshot.points} existingNames={rules.map(rule => rule.name)}
-            defaultPointId={selectedPointId}
+          <RuleBuilder devices={devices} existingNames={rules.map(rule => rule.name)}
             onSave={onSaveRule} onCancel={() => setIsBuilderOpen(false)} />
         )}
 

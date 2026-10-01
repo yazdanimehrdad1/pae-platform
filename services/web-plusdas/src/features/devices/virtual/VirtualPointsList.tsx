@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { devicesApi } from "@/api/devices";
 import type { DevicePoint } from "@/api/types/devicePoints";
-import { toConditionPointOptions } from "./lib/pointOptions";
+import { devicePointOptions } from "@/shared/components/conditions/devicePointOptions";
 import { describeDraft, draftFromPoint } from "./lib/virtualDefinition";
 
 /** A device's active virtual points, each with a plain-text summary of its definition. */
@@ -21,7 +21,7 @@ export function VirtualPointsList({ siteId, points, onEdit, onDelete }: {
     enabled: points.length > 0 && !!siteId,
   });
   const pointsById = useMemo(
-    () => new Map(toConditionPointOptions(siteDevices).map(option => [option.id, option])),
+    () => new Map(devicePointOptions(siteDevices).map(option => [option.id, option])),
     [siteDevices],
   );
 

@@ -1,14 +1,15 @@
 import type { DevicePointsEntry } from "@/api/types/devices";
-import type { ConditionPointOption } from "@/shared/components/conditions/conditionModel";
 import { isBitfieldPoint, isEnumPoint, sortedBits } from "@/shared/lib/discretePoints";
+import type { ConditionPointOption } from "./conditionModel";
 
 /**
- * The points a virtual point can read: every non-virtual point on the site, grouped by device.
- * (backend-ot rejects a virtual input, so they aren't offered.)
+ * A site's real device points (backend-ot, from `devicesApi.getBySiteWithPoints`) as condition
+ * picker options, grouped by device, in the asset tree's order. Virtual points are left out unless
+ * `includeVirtual`: a virtual point can't read another virtual point, but an alarm rule can watch one.
  */
-export function toConditionPointOptions(devices: DevicePointsEntry[]): ConditionPointOption[] {
+export function devicePointOptions(devices: DevicePointsEntry[], { includeVirtual = false } = {}): ConditionPointOption[] {
   return devices.flatMap(device => device.points
-    .filter(point => point.category !== "VIRTUAL")
+    .filter(point => includeVirtual || point.category !== "VIRTUAL")
     .map(point => {
       const kind = isBitfieldPoint(point) ? "bitfield" : isEnumPoint(point) ? "enum" : "numeric";
       return {
@@ -25,7 +26,7 @@ export function toConditionPointOptions(devices: DevicePointsEntry[]): Condition
             .sort((left, right) => left.value - right.value)
           : undefined,
         bits: kind === "bitfield" ? sortedBits(point.bitfield_detail) : undefined,
-        hint: point.category === "STANDARDIZED" ? "standardized" : undefined,
+        hint: point.category === "NATIVE" ? undefined : point.category.toLowerCase(),
       } satisfies ConditionPointOption;
     }));
 }

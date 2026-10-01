@@ -28,6 +28,7 @@ export function RuleManager({ open, onOpenChange, rules, devicesById, pointsById
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const notifyingRules = rules.filter(rule => rule.notify.mobile || rule.notify.email);
   const sourceOf = (rule: Rule) => {
+    if (rule.type === "threshold" && rule.target) return rule.target.deviceName;
     const deviceId = rule.type === "threshold" ? pointsById.get(rule.pointId)?.deviceId ?? null : rule.deviceId;
     return deviceId ? devicesById.get(deviceId)?.name ?? deviceId : "Site (calculated)";
   };

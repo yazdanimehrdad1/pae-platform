@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DevicePoint } from '@/api/types/devicePoints';
 import type { DevicePointsEntry } from '@/api/types/devices';
-import { toConditionPointOptions } from './pointOptions';
+import { devicePointOptions } from '@/shared/components/conditions/devicePointOptions';
 import { describeDraft, draftFromPoint, emptyDraft, newInput, toDefinition, validateDraft } from './virtualDefinition';
 
 const conditionPoint = {
@@ -78,7 +78,7 @@ describe('validateDraft', () => {
   });
 });
 
-describe('toConditionPointOptions and describeDraft', () => {
+describe('devicePointOptions and describeDraft', () => {
   const devices: DevicePointsEntry[] = [{
     deviceId: 2, deviceName: 'bess', groups: { standardized: [], virtual: [], native: [] },
     points: [
@@ -89,13 +89,14 @@ describe('toConditionPointOptions and describeDraft', () => {
       { id: 9, name: 'BESS_READY', category: 'VIRTUAL', data_type: 'enum16' },
     ] as unknown as DevicePoint[],
   }];
-  const options = toConditionPointOptions(devices);
+  const options = devicePointOptions(devices);
 
   it('offers every non-virtual point with its kind, states and bits', () => {
     expect(options.map(option => [option.id, option.kind])).toEqual([['1', 'enum'], ['2', 'bitfield'], ['3', 'numeric'], ['4', 'numeric']]);
     expect(options[0].states).toEqual([{ value: 1, label: 'standby' }, { value: 5, label: 'fault' }]);
     expect(options[1].bits).toEqual([{ bit: 7, label: 'bms_err' }]);
     expect(options[3].hint).toBe('standardized');
+    expect(devicePointOptions(devices, { includeVirtual: true }).map(option => option.id)).toContain('9');
   });
 
   it('summarises a condition case by case', () => {

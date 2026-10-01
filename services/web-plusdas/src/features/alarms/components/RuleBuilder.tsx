@@ -1,15 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { devicesApi, sitesApi } from "@/api";
 import { ConditionRow } from "@/shared/components/conditions/ConditionRow";
-import { newCondition, withPoint, type ComparisonOperator, type ConditionDraft } from "@/shared/components/conditions/conditionModel";
+import { newCondition, type ComparisonOperator, type ConditionDraft } from "@/shared/components/conditions/conditionModel";
+import { devicePointOptions } from "@/shared/components/conditions/devicePointOptions";
 import { describeCondition } from "../lib/alarmModel";
-import { ALARM_OPERATORS, toAlarmOperator, toConditionPointOptions } from "../lib/conditionPoints";
+import { ALARM_OPERATORS, toAlarmOperator } from "../lib/conditionPoints";
 import { RULE_NAME_HINT, RULE_NAME_MAX_LENGTH, validateRuleName } from "../lib/ruleName";
-import type { Device, NotificationSettings, Point, Rule, Severity } from "../types";
+import type { Device, NotificationSettings, Rule, RuleTarget, Severity } from "../types";
 import { NotificationToggles } from "./NotificationToggles";
 const DELAY_PRESETS = [
   { value: "0", label: "0 s" },
@@ -35,13 +38,16 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   return message ? <p id={id} role="alert" className="text-xs text-alarm-fault">{message}</p> : null;
 }
 
-/** Inline form for a new alarm rule: a threshold on a point, or a comms-stale check on a device. */
-export function RuleBuilder({ devices, points, existingNames, defaultPointId, onSave, onCancel }: {
+/**
+ * Inline form for a new alarm rule: a threshold on a real device point of a site (backend-ot), or a
+ * comms-stale check on a device. Rules on device points are saved and listed; they raise alarms once
+ * backend-ot evaluates rules (until then the page's alarms come from the demo data).
+ */
+export function RuleBuilder({ devices, existingNames, onSave, onCancel }: {
+  /** Devices for the comms-stale rule (the page's demo devices). */
   devices: Device[];
-  points: Point[];
   /** Names of the existing rules; a new name must differ from all of them, ignoring case. */
   existingNames: string[];
-  defaultPointId?: string | null;
   onSave: (rule: Rule) => Promise<void> | void;
   onCancel: () => void;
 }) {
@@ -60,11 +66,26 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
   const [isSaving, setIsSaving] = useState(false);
 
   const devicesById = useMemo(() => new Map(devices.map(device => [device.id, device])), [devices]);
-  const pointOptions = useMemo(() => toConditionPointOptions(points, devicesById), [points, devicesById]);
+
+  // The threshold's point: a real device point of the chosen site, from backend-ot.
+  const { data: sites = [] } = useQuery({ queryKey: ["sites"], queryFn: sitesApi.getAll });
+  const [siteId, setSiteId] = useState("");
+  useEffect(() => {
+    if (!siteId && sites.length > 0) setSiteId(sites[0].id);
+  }, [sites, siteId]);
+  const { data: siteDevices = [], isLoading: arePointsLoading } = useQuery({
+    queryKey: ["site-devices-with-points", siteId],
+    queryFn: () => devicesApi.getBySiteWithPoints(siteId),
+    enabled: !!siteId,
+  });
+  const pointOptions = useMemo(() => devicePointOptions(siteDevices, { includeVirtual: true }), [siteDevices]);
   // The threshold condition, edited with the shared condition row (value operand only).
-  const [condition, setCondition] = useState<ConditionDraft>(() =>
-    withPoint(newCondition(), pointOptions.find(option => option.id === defaultPointId), ALARM_OPERATORS));
-  const selectedPoint: Point | null = points.find(point => point.id === condition.pointId) ?? null;
+  const [condition, setCondition] = useState<ConditionDraft>(newCondition);
+  const selectedPoint = pointOptions.find(option => option.id === condition.pointId) ?? null;
+  const changeSite = (nextSiteId: string) => {
+    setSiteId(nextSiteId);
+    setCondition(newCondition());
+  };
 
   const handleSave = async () => {
     setHasTriedSave(true);
@@ -82,15 +103,22 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
       if (typeof delayValue === "string") nextErrors.delay = delayValue;
       const deadbandValue = parseNumber(deadband, { min: 0 });
       if (typeof deadbandValue === "string") nextErrors.deadband = deadbandValue;
-      if (Object.keys(nextErrors).length === 0) {
+      if (Object.keys(nextErrors).length === 0 && selectedPoint) {
+        const target: RuleTarget = {
+          siteId,
+          deviceName: selectedPoint.group,
+          pointName: selectedPoint.name,
+          unit: selectedPoint.unit ?? null,
+          ...(selectedPoint.states ? { states: Object.fromEntries(selectedPoint.states.map(state => [state.value, state.label])) } : {}),
+        };
         const draft = {
-          id, type: "threshold" as const, name, pointId: selectedPoint!.id, operator: toAlarmOperator(condition.operator as ComparisonOperator),
+          id, type: "threshold" as const, name, pointId: selectedPoint.id, target,
+          operator: toAlarmOperator(condition.operator as ComparisonOperator),
           threshold: thresholdValue as number, delaySec: delayValue as number, deadband: deadbandValue as number,
           severity, message: "", enabled: true, notify,
         };
-        const conditionText = describeCondition(draft, selectedPoint);
-        const source = selectedPoint!.deviceId ? devicesById.get(selectedPoint!.deviceId)?.name : "Site";
-        rule = { ...draft, name, message: message.trim() || `${source}: ${conditionText}` };
+        const conditionText = describeCondition(draft, null);
+        rule = { ...draft, name, message: message.trim() || `${target.deviceName}: ${conditionText}` };
       }
     } else {
       if (!deviceId) nextErrors.device = "Choose a device";
@@ -158,6 +186,16 @@ export function RuleBuilder({ devices, points, existingNames, defaultPointId, on
 
       {type === "threshold" ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+          <div className="space-y-1 md:col-span-2">
+            <Label htmlFor="rule-site">Site</Label>
+            <Select value={siteId} onValueChange={changeSite}>
+              <SelectTrigger id="rule-site"><SelectValue placeholder="Choose a site" /></SelectTrigger>
+              <SelectContent>{sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <p className="self-end pb-2 text-xs text-muted-foreground md:col-span-4">
+            {arePointsLoading ? "Loading the site's points…" : "Points of this site's devices. Rules on them raise alarms once alarms run in backend-ot; this page's alarms are demo data until then."}
+          </p>
           <ConditionRow
             className="md:col-span-6"
             condition={condition}

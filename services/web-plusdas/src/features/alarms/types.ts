@@ -47,10 +47,24 @@ interface RuleBase {
   notify: NotificationSettings;
 }
 
+/**
+ * A real device point (backend-ot) a rule watches, kept on the rule so it can be shown without the
+ * mock's points. Rules made in the builder have one; the demo rules on mock points don't.
+ */
+export interface RuleTarget {
+  siteId: string;
+  deviceName: string;
+  pointName: string;
+  unit: string | null;
+  /** Labels of an enum point's values. */
+  states?: Record<number, string>;
+}
+
 /** Raises when `point operator threshold` holds for delaySec; clears past threshold ± deadband. */
 export interface ThresholdRule extends RuleBase {
   type: 'threshold';
   pointId: string;
+  target?: RuleTarget;
   operator: Operator;
   threshold: number;
   delaySec: number;

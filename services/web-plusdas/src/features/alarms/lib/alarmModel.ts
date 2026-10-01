@@ -1,6 +1,6 @@
 import { operatorText } from "@/shared/components/conditions/conditionModel";
 import type { AlarmSnapshot } from "../data/AlarmDataSource";
-import type { AlarmEvent, Device, DeviceStatus, Point, Rule } from "../types";
+import type { AlarmEvent, Device, DeviceStatus, Point, Rule, ThresholdRule } from "../types";
 import { compareActiveAlarms } from "./alarmSort";
 import { toConditionOperator } from "./conditionPoints";
 import { worstSeverity } from "./severity";
@@ -81,15 +81,24 @@ export function formatPointValue(point: Point, value: number = point.value): str
   return point.kind === "numeric" && point.unit ? `${number} ${point.unit}` : number;
 }
 
+/** What a threshold rule's point is called and measured in: the mock point, else the rule's real target. */
+function watchedPoint(rule: ThresholdRule, point: Point | null): { name: string; unit: string | null; states?: Record<number, string> } {
+  if (point) return { name: point.name, unit: point.unit || null, states: point.kind === "discrete" ? point.states : undefined };
+  if (rule.target) return { name: rule.target.pointName, unit: rule.target.unit, states: rule.target.states };
+  return { name: rule.pointId, unit: null };
+}
+
 export function formatLimit(rule: Rule, point: Point | null): string {
   if (rule.type === "comms_stale") return `${rule.staleAfterSec} s`;
-  if (point?.kind === "discrete") return `${operatorText(toConditionOperator(rule.operator))} ${point.states?.[rule.threshold] ?? rule.threshold}`;
-  return `${operatorText(toConditionOperator(rule.operator))} ${rule.threshold}${point?.unit ? ` ${point.unit}` : ""}`;
+  const { unit, states } = watchedPoint(rule, point);
+  const operator = operatorText(toConditionOperator(rule.operator));
+  if (states) return `${operator} ${states[rule.threshold] ?? rule.threshold}`;
+  return `${operator} ${rule.threshold}${unit ? ` ${unit}` : ""}`;
 }
 
 /** "Phase B current > 600 A", "Top-oil temperature > 85 °C for 5 min", "No successful poll > 60 s". */
 export function describeCondition(rule: Rule, point: Point | null): string {
   if (rule.type === "comms_stale") return `Comms lost: no successful poll > ${rule.staleAfterSec} s`;
   const delay = rule.delaySec > 0 ? ` for ${rule.delaySec >= 60 ? `${rule.delaySec / 60} min` : `${rule.delaySec} s`}` : "";
-  return `${point?.name ?? rule.pointId} ${formatLimit(rule, point)}${delay}`;
+  return `${watchedPoint(rule, point).name} ${formatLimit(rule, point)}${delay}`;
 }
