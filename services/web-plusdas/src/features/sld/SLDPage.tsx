@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { sitesApi, sldApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { Site } from "@/api/types/sites";
-import type { SiteSld } from "@/api/types/sld";
+import type { SiteSldResponse } from "@/api/types/sld";
 import { SiteSldDiagram } from "./components/SiteSldDiagram";
 import { useDragToPan } from "./hooks/useDragToPan";
 import { useWheelZoom } from "./hooks/useWheelZoom";
@@ -36,20 +36,20 @@ const SLD = () => {
   }, [siteId, sites, setSearchParams]);
 
   const {
-    data: sld,
+    data: storedSld,
     isLoading,
     isError,
     error,
     refetch,
     isFetching,
-  } = useQuery<SiteSld>({
+  } = useQuery<SiteSldResponse>({
     queryKey: ["site-sld", siteId],
     queryFn: () => sldApi.getBySite(siteId!),
     enabled: !!siteId,
     retry: false,
   });
 
-  const geometry = useMemo(() => (sld ? computeSldGeometry(sld) : null), [sld]);
+  const geometry = useMemo(() => (storedSld ? computeSldGeometry(storedSld.sld) : null), [storedSld]);
 
   const fitToScreen = useCallback(() => {
     const container = sldContainerRef.current;
@@ -95,7 +95,7 @@ const SLD = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Single Line Diagram</h1>
-          <p className="text-muted-foreground mt-1">Electrical layout of the site, from its profile</p>
+          <p className="text-muted-foreground mt-1">Electrical layout of the site</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={siteId ?? undefined} onValueChange={(value) => setSearchParams({ siteId: value })}>

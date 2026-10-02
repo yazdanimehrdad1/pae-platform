@@ -14,6 +14,7 @@ from sqlalchemy.types import TypeDecorator
 
 from logger import get_logger
 from schemas.api_models.alarms import AlarmRule, UserAlarmRule
+from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.virtual_points import VirtualDefinition, VirtualPointDefinition
 
 logger = get_logger(__name__)
@@ -63,3 +64,10 @@ class AlarmRuleJSON(PydanticJSON):
 
     adapter: ClassVar[TypeAdapter[UserAlarmRule]] = TypeAdapter(AlarmRule)
     column_name = "alarm_definitions.rule"
+
+
+class SiteSldJSON(PydanticJSON):
+    """`site_slds.document`: a SiteSld."""
+
+    adapter: ClassVar[TypeAdapter[SiteSld]] = TypeAdapter(SiteSld)
+    column_name = "site_slds.document"

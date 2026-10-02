@@ -101,6 +101,9 @@ async def create_site(site: SiteCreateRequest) -> SiteResponse:
 
         except IntegrityError as error:
             await session.rollback()
+            conflict = _profile_conflict(error, site.profile)
+            if conflict is not None:
+                raise conflict from error
             error_msg = str(error)
             logger.error(f"Database integrity error creating site '{site.name}': {error_msg}", exc_info=True)
             raise ValidationError(f"Database constraint violation: {error_msg}") from error
@@ -118,6 +121,21 @@ async def get_all_sites(include_deleted: bool = False) -> list[SiteResponse]:
             query = query.where(Site.deleted_at.is_(None))
         result = await session.execute(query)
         return [_site_to_response(site) for site in result.scalars().all()]
+
+
+async def get_site_id_by_profile(profile: str) -> int | None:
+    """The id of the site holding this profile, soft-deleted or not (profiles are unique per site)."""
+    session_factory = get_async_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Site.id).where(Site.profile == profile))
+        return result.scalar_one_or_none()
+
+
+def _profile_conflict(error: IntegrityError, profile: str | None) -> ConflictError | None:
+    """A ConflictError if the integrity error is the one-site-per-profile constraint."""
+    if "sites_profile_key" in str(error):
+        return ConflictError(f"Profile '{profile}' is already used by another site")
+    return None
 
 
 async def get_site_by_id(site_id: int, include_deleted: bool = False) -> SiteResponse | None:
@@ -159,7 +177,8 @@ async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteRespo
                 site.description = site_update.description
             if site_update.coordinates is not None:
                 site.coordinates = {"lat": site_update.coordinates.lat, "lng": site_update.coordinates.lng}
-            if site_update.profile is not None:
+            # Omitted keeps the profile; an explicit null removes it.
+            if "profile" in site_update.model_fields_set:
                 site.profile = site_update.profile
 
             site.last_update = datetime.now(UTC)
@@ -172,6 +191,9 @@ async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteRespo
 
         except IntegrityError as e:
             await session.rollback()
+            conflict = _profile_conflict(e, site_update.profile)
+            if conflict is not None:
+                raise conflict from e
             if "unique" in str(e).lower() or "duplicate" in str(e).lower():
                 logger.warning("Site name already exists")
                 raise ConflictError("Site with this name already exists") from e

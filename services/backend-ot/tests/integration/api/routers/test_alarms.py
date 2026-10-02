@@ -187,8 +187,9 @@ class TestProfileAlarms:
         assert (profile_alarm.source, profile_alarm.kind, profile_alarm.profile_alarm_key) == ("PROFILE", "profile", "placeholder_profile_alarm_1")
         assert (profile_alarm.name, profile_alarm.severity, profile_alarm.rule) == ("placeholder_profile_alarm_1", "fault", None)
 
-        to_default = await client.put(f"/api/sites/{site_id}", json=SiteUpdateRequest(profile="default").model_dump(mode="json", exclude_unset=True))
-        assert to_default.status_code == 200, to_default.text
+        # An explicit null removes the site's profile.
+        no_profile = await client.put(f"/api/sites/{site_id}", json=SiteUpdateRequest(profile=None).model_dump(mode="json", exclude_unset=True))
+        assert no_profile.status_code == 200, no_profile.text
         assert await list_alarms(client, site_id) == []
         (retired,) = await list_alarms(client, site_id, include_deleted=True)
         assert retired.deleted_at is not None

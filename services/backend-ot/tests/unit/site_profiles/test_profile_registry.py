@@ -82,11 +82,12 @@ def make_profile(key: str, *endpoints: SiteEndpoint) -> SiteProfile:
 
 
 class TestRegisteredProfiles:
-    def test_default_and_alpha_solar_are_registered(self):
-        assert {"default", "alpha_solar"} <= set(SITE_PROFILES_BY_KEY)
+    def test_alpha_solar_is_registered(self):
+        assert "alpha_solar" in SITE_PROFILES_BY_KEY
 
-    def test_default_profile_declares_only_common_endpoints(self):
-        assert {endpoint.kind for endpoint in SITE_PROFILES_BY_KEY["default"].endpoints} == {"common"}
+    def test_there_is_no_shared_default_profile(self):
+        # A site without site-specific code has no profile (NULL); profiles are one site's own code.
+        assert "default" not in SITE_PROFILES_BY_KEY
 
     def test_one_route_per_declared_endpoint(self):
         assert sorted((route.kind, route.name) for route in SITE_ENDPOINT_ROUTES) == [
@@ -185,9 +186,11 @@ class TestProfilesAndContracts:
             )
 
     @pytest.mark.parametrize("kind", ["site", "device"])
-    def test_default_profile_with_site_or_device_endpoint_is_rejected(self, kind):
-        with pytest.raises(SiteProfileConfigError, match="only common endpoints"):
-            build_site_endpoint_routes((make_profile("default", make_endpoint(f"{kind}-calc", kind, module="site_profiles.individual_sites.default.functions")),))
+    def test_any_profile_may_mix_common_and_its_own_endpoints(self, kind):
+        common = make_endpoint("common-calc", "common", module=COMMON_MODULE)
+        own = make_endpoint(f"{kind}-calc", kind, module="site_profiles.individual_sites.one.functions")
+        routes = build_site_endpoint_routes((make_profile("one", common, own),))
+        assert sorted(route.name for route in routes) == sorted(["common-calc", f"{kind}-calc"])
 
     def test_duplicate_profile_key_is_rejected(self):
         with pytest.raises(SiteProfileConfigError, match="Duplicate"):

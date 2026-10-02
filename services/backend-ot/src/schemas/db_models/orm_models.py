@@ -24,8 +24,9 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from schemas.api_models.alarms import UserAlarmRule
+from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.virtual_points import VirtualDefinition
-from schemas.db_models.column_types import AlarmRuleJSON, VirtualDefinitionJSON
+from schemas.db_models.column_types import AlarmRuleJSON, SiteSldJSON, VirtualDefinitionJSON
 
 
 class Base(DeclarativeBase):
@@ -101,12 +102,11 @@ class Site(Base):
         comment="Geographic coordinates as JSON: {lat: float, lng: float}"
     )
 
-    profile: Mapped[str] = mapped_column(
+    profile: Mapped[str | None] = mapped_column(
         String(64),
-        nullable=False,
-        default="default",
-        server_default="default",
-        comment="Site profile key (a package under src/site_profiles/); 'default' offers only the common endpoints"
+        nullable=True,
+        unique=True,
+        comment="Site profile key (a package under src/site_profiles/individual_sites/), unique per site; NULL means no site-specific code"
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -589,3 +589,19 @@ class AlarmEvaluationState(Base):
     )
     condition_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SiteSldRecord(Base):
+    """A site's single line diagram: one validated SiteSld document per site."""
+
+    __tablename__ = "site_slds"
+
+    site_id: Mapped[int] = mapped_column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), primary_key=True)
+    # Stored as JSON, loaded as the parsed SiteSld (None only if a stored value no longer parses).
+    document: Mapped[SiteSld | None] = mapped_column(SiteSldJSON, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<SiteSldRecord(site_id={self.site_id}, revision={self.revision})>"

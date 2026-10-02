@@ -86,15 +86,13 @@ class TestDiscovery:
             ("device-plant-inverter-availability", "device", "GET"),
         }
 
-    async def test_default_site_lists_only_common_endpoints(self, client):
+    async def test_site_without_profile_lists_no_endpoints(self, client):
         site = await create_site(client)
         response = await client.get(f"/api/site-functions/site/{site.site_id}")
         assert response.status_code == 200
         listing = SiteEndpointsResponse.model_validate(response.json())
-        assert listing.profile == "default"
-        assert [(endpoint.name, endpoint.kind) for endpoint in listing.endpoints] == [
-            ("common-energy-summary", "common")
-        ]
+        assert listing.profile is None
+        assert listing.endpoints == []
 
     async def test_unknown_site_is_404(self, client):
         response = await client.get("/api/site-functions/site/9999")
@@ -168,8 +166,13 @@ class TestCommonEnergySummary:
         assert result.devices == []
         assert result.energy_kwh == pytest.approx(0.0)
 
-    async def test_default_site_serves_it(self, client, db):
+    async def test_site_without_profile_is_404(self, client):
         site = await create_site(client)
+        detail = await assert_not_found(client, url(site.site_id, "common-energy-summary"))
+        assert "has no profile" in detail.message
+
+    async def test_profile_site_serves_it(self, client, db):
+        site = await create_site(client, profile="alpha_solar")
         device = await create_device(client, site.site_id, name="device_1")
         (watts,) = await upsert_points(
             client, site.site_id, device.device_id, [point_request(name="active_power", unit="W")]
@@ -280,7 +283,7 @@ class TestDeviceInverterAvailability:
 
     async def test_device_from_another_site_is_404(self, client):
         site = await create_site(client, profile="alpha_solar", name="Alpha")
-        other = await create_site(client, profile="alpha_solar", name="Other")
+        other = await create_site(client, name="Other")  # a profile belongs to one site
         foreign = await create_device(client, other.site_id, name="device_1")
         await assert_not_found(client, url(site.site_id, "device-inverter-availability", foreign.device_id))
 
@@ -293,14 +296,14 @@ class TestDeviceInverterAvailability:
         )
         assert "inverter_state" in detail.message
 
-    async def test_default_site_has_no_site_or_device_endpoints(self, client):
+    async def test_site_without_profile_has_no_site_or_device_endpoints(self, client):
         site = await create_site(client)
         device = await create_device(client, site.site_id, name="device_1")
         await assert_not_found(client, url(site.site_id, "site-poi-power"))
         detail = await assert_not_found(
             client, url(site.site_id, "device-inverter-availability", device.device_id)
         )
-        assert "profile 'default'" in detail.message
+        assert "has no profile" in detail.message
 
     async def test_function_name_without_prefix_is_404(self, client):
         site = await create_site(client, profile="alpha_solar")

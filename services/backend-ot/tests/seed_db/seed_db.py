@@ -30,10 +30,23 @@ from helpers.device_points.scan_range_computation import (  # noqa: E402
 from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
-from schemas.db_models.orm_models import AlarmDefinition, Device, DevicePoint, Site  # noqa: E402
+from schemas.db_models.orm_models import (  # noqa: E402
+    AlarmDefinition,
+    Device,
+    DevicePoint,
+    Site,
+    SiteSldRecord,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dev_mock_data import DEVICE_POINTS, DEVICES, SITES, user_alarms, virtual_points  # noqa: E402
+from dev_mock_data import (  # noqa: E402
+    DEVICE_POINTS,
+    DEVICES,
+    SITE_SLDS,
+    SITES,
+    user_alarms,
+    virtual_points,
+)
 
 logger = get_logger(__name__)
 
@@ -210,10 +223,22 @@ async def seed() -> None:
             session.add(new_user_alarm(site.id, seed_alarm.alarm))
             logger.info("Created alarm '%s.%s'", site.name, seed_alarm.alarm.name)
 
+        # ------------------------------------------------------------------ #
+        # 7. Single line diagrams: only where the site has none, so edits     #
+        #    saved through the API survive a re-seed                          #
+        # ------------------------------------------------------------------ #
+        for site_name, sld in SITE_SLDS.items():
+            site = site_by_name[site_name]
+            if await session.get(SiteSldRecord, site.id) is not None:
+                logger.info("Single line diagram already exists for '%s'", site.name)
+                continue
+            session.add(SiteSldRecord(site_id=site.id, document=sld))
+            logger.info("Created single line diagram for '%s'", site.name)
+
         seeded_site_ids = [site.id for site in site_by_name.values()]
         await session.commit()
 
-    # 7. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
+    # 8. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
     for site_id in seeded_site_ids:
         await sync_site_profile_alarms(site_id)
     logger.info("Seeding complete.")

@@ -5,14 +5,21 @@ Invariant guarded: a device the seeder creates ends up with the same STANDARDIZE
 device of the same type created through POST /api/devices/site/{site_id}/devices. The seeder
 writes rows directly rather than calling the API, so without this check any create-time
 behaviour added to the API is silently missing from the dev data. Likewise for VIRTUAL points,
-which the seeder builds with the create path's own builder. Also guards idempotency.
+which the seeder builds with the create path's own builder. Also guards idempotency, and that
+the seed site's single line diagram is written to site_slds once and never over a saved edit.
 """
 
 from pydantic import TypeAdapter
-from seed_db.seed_db import DEVICES, SITES, seed, user_alarms, virtual_points
+from seed_db.seed_db import DEVICES, SITE_SLDS, SITES, seed, user_alarms, virtual_points
 
 from integration.factories import create_alarm, create_device, create_site, create_virtual_point
-from schemas.api_models import DevicePointResponse, DeviceWithPoints, SiteResponse
+from schemas.api_models import (
+    DevicePointResponse,
+    DeviceWithPoints,
+    SiteResponse,
+    SiteSldResponse,
+    SiteSldUpsertRequest,
+)
 from schemas.api_models.alarms import AlarmDefinitionResponse
 
 SITE_LIST = TypeAdapter(list[SiteResponse])
@@ -182,3 +189,31 @@ class TestSeedAlarms:
         names = [alarm.name for alarm in alarms]
         assert len(names) == len(set(names))
         assert [alarm.profile_alarm_key for alarm in alarms if alarm.source == "PROFILE"] == ["placeholder_profile_alarm_1"]
+
+
+class TestSeededSld:
+    async def seeded_site(self, client) -> SiteResponse:
+        sites = SITE_LIST.validate_python((await client.get("/api/sites")).json())
+        (site,) = [site for site in sites if site.name == SITES[0].name]
+        return site
+
+    async def test_the_seed_site_gets_its_sld_at_revision_1(self, client):
+        await seed()
+        site = await self.seeded_site(client)
+        response = await client.get(f"/api/sites/{site.site_id}/sld")
+        assert response.status_code == 200, response.text
+        stored = SiteSldResponse.model_validate(response.json())
+        assert stored.revision == 1
+        assert stored.sld == SITE_SLDS[SITES[0].name]
+
+    async def test_reseeding_keeps_an_sld_saved_through_the_api(self, client):
+        await seed()
+        site = await self.seeded_site(client)
+        edited = SITE_SLDS[SITES[0].name].model_copy(update={"connections": ()})
+        body = SiteSldUpsertRequest(sld=edited, revision=1).model_dump(mode="json")
+        assert (await client.put(f"/api/sites/{site.site_id}/sld", json=body)).status_code == 200
+
+        await seed()
+        stored = SiteSldResponse.model_validate((await client.get(f"/api/sites/{site.site_id}/sld")).json())
+        assert stored.revision == 2
+        assert stored.sld.connections == ()

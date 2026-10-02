@@ -156,8 +156,10 @@ Concretely, write code that already satisfies these:
 - The monorepo-root pre-commit hook (`make hooks` enables it) runs this lint when backend-ot has staged changes.
 
 ## What this service owns
-- Postgres tables: `sites`, `devices`, `device_points`, `device_points_readings`,
-  `schema_migrations`. Migrations were squashed on 2026-09-22 into a 4-file baseline
+- Postgres tables: `sites`, `devices`, `device_points`, `device_points_readings`, `alarm_*`,
+  `site_slds` (one single line diagram per site, JSONB, saved with a revision for optimistic
+  locking), `schema_migrations`. `sites.profile` is nullable and unique: a profile is one
+  site's own code (NULL = no site-specific code; there is no shared default profile). Migrations were squashed on 2026-09-22 into a 4-file baseline
   (`001`–`004`, one per table); the old `device_register_map`, `*_configs`,
   `register_readings_raw` and `register_readings_translated` tables no longer exist — don't
   reference them. No `create_hypertable` call exists in any migration, so these are plain

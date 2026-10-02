@@ -1,5 +1,5 @@
 """
-Unit tests for schemas.site_profiles.single_line_diagram.
+Unit tests for schemas.api_models.single_line_diagram.
 
 Guards what makes a single line diagram drawable: ids are unique across nodes and buses,
 every connection joins two distinct known elements once, a bus spans left to right, no two
@@ -9,7 +9,7 @@ nodes sit on the same cell, and unknown fields or versions are rejected.
 import pytest
 from pydantic import ValidationError
 
-from schemas.site_profiles import SiteSld, SldBus, SldConnection, SldNode
+from schemas.api_models import SiteSld, SldBus, SldConnection, SldNode
 
 GRID = SldNode(id="utility", type="grid", name="Utility", col=0, row=0)
 BUS = SldBus(id="mv_bus", name="MV Bus", row=1, col_start=-1, col_end=1)

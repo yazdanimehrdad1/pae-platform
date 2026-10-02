@@ -7,10 +7,12 @@ from fastapi import APIRouter, HTTPException, Query, status
 from api.controllers.sites import (
     create_site,
     delete_site,
+    delete_site_sld,
     get_all_sites,
     get_comprehensive_site,
     get_site_by_id,
     get_site_sld,
+    put_site_sld,
     restore_site,
     update_site,
 )
@@ -20,9 +22,10 @@ from schemas.api_models import (
     SiteCreateRequest,
     SiteDeleteResponse,
     SiteResponse,
+    SiteSldResponse,
+    SiteSldUpsertRequest,
     SiteUpdateRequest,
 )
-from schemas.site_profiles import SiteSld
 from utils.exceptions import AppError
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -162,12 +165,50 @@ async def get_comprehensive_site_endpoint(site_id: int) -> SiteComprehensiveResp
 
 @router.get(
     "/{site_id}/sld",
-    response_model=SiteSld,
-    summary="Get a site's single line diagram, from its profile",
+    response_model=SiteSldResponse,
+    summary="Get a site's single line diagram",
 )
-async def get_site_sld_endpoint(site_id: int) -> SiteSld:
+async def get_site_sld_endpoint(site_id: int) -> SiteSldResponse:
     try:
         return await get_site_sld(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.put(
+    "/{site_id}/sld",
+    response_model=SiteSldResponse,
+    summary="Create or replace a site's single line diagram",
+)
+async def put_site_sld_endpoint(site_id: int, request: SiteSldUpsertRequest) -> SiteSldResponse:
+    """Omit `revision` to create the site's first diagram; send the revision you read to replace it (409 if it is no longer current)."""
+    try:
+        return await put_site_sld(site_id, request)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.delete(
+    "/{site_id}/sld",
+    response_model=SiteSldResponse,
+    summary="Delete a site's single line diagram",
+)
+async def delete_site_sld_endpoint(site_id: int) -> SiteSldResponse:
+    """Returns the deleted diagram."""
+    try:
+        return await delete_site_sld(site_id)
     except AppError as e:
         detail = {"error": type(e).__name__, "message": e.message}
         if e.payload:

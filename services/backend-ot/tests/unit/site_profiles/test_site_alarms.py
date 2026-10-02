@@ -3,7 +3,7 @@ Unit tests for profile alarms: site_profiles.site_alarm.SiteAlarm and the startu
 site_profiles.profile_registry.validate_site_alarms.
 
 Guards that a profile alarm's check is async, lives in site_profiles/common/ or its own profile's
-package (the default profile: common/ only), returns AlarmCheck, and that keys and names (ignoring
+package, returns AlarmCheck, and that keys and names (ignoring
 case) are unique per profile; and that the registered profiles pass these checks.
 
 Test checks are defined here, so each case sets __module__ to where the check would live.
@@ -63,10 +63,6 @@ class TestValidateSiteAlarms:
     def test_check_of_another_site_is_rejected(self):
         with pytest.raises(SiteProfileConfigError, match="belongs in"):
             validate_site_alarms((profile(alarm(module="site_profiles.individual_sites.two.alarms")),))
-
-    def test_default_profile_takes_only_common_checks(self):
-        with pytest.raises(SiteProfileConfigError, match="belongs in"):
-            validate_site_alarms((profile(alarm(module="site_profiles.individual_sites.default.alarms"), key="default"),))
 
     def test_check_must_return_alarm_check(self):
         class Other(BaseModel):

@@ -134,7 +134,7 @@ class SiteEndpointInfo(BaseModel):
 
 class SiteEndpointsResponse(BaseModel):
     site_id: int
-    profile: str = Field(..., description="The site's profile key")
+    profile: str | None = Field(..., description="The site's profile key; null if the site has no profile (then no endpoints)")
     endpoints: list[SiteEndpointInfo] = Field(default_factory=list, description="Endpoints declared in the site's profile.py")
 
 

@@ -1028,11 +1028,19 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a site's single line diagram, from its profile */
+        /** Get a site's single line diagram */
         get: operations["get_site_sld_endpoint_api_sites__site_id__sld_get"];
-        put?: never;
+        /**
+         * Create or replace a site's single line diagram
+         * @description Omit `revision` to create the site's first diagram; send the revision you read to replace it (409 if it is no longer current).
+         */
+        put: operations["put_site_sld_endpoint_api_sites__site_id__sld_put"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete a site's single line diagram
+         * @description Returns the deleted diagram.
+         */
+        delete: operations["delete_site_sld_endpoint_api_sites__site_id__sld_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2411,7 +2419,7 @@ export interface components {
             operator: string;
             /**
              * Profile
-             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints
+             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code
              */
             profile?: string | null;
         };
@@ -2475,9 +2483,9 @@ export interface components {
             endpoints?: components["schemas"]["SiteEndpointInfo"][];
             /**
              * Profile
-             * @description The site's profile key
+             * @description The site's profile key; null if the site has no profile (then no endpoints)
              */
-            profile: string;
+            profile: string | null;
             /** Site Id */
             site_id: number;
         };
@@ -2539,9 +2547,9 @@ export interface components {
             operator: string;
             /**
              * Profile
-             * @description Site profile key selecting the site's endpoints; 'default' offers only the common endpoints
+             * @description Site profile key selecting the site's endpoints, unique per site; null if the site has no site-specific code
              */
-            profile: string;
+            profile?: string | null;
             /**
              * Site Id
              * @description Site ID (4-digit number)
@@ -2579,6 +2587,43 @@ export interface components {
             schema_version: 1;
         };
         /**
+         * SiteSldResponse
+         * @description A site's stored single line diagram.
+         */
+        SiteSldResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Revision
+             * @description Increments on every save; send it back to replace this diagram
+             */
+            revision: number;
+            /** Site Id */
+            site_id: number;
+            sld: components["schemas"]["SiteSld"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * SiteSldUpsertRequest
+         * @description Create or replace a site's single line diagram.
+         */
+        SiteSldUpsertRequest: {
+            /**
+             * Revision
+             * @description The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram
+             */
+            revision?: number | null;
+            /** @description The whole diagram; it replaces the stored one */
+            sld: components["schemas"]["SiteSld"];
+        };
+        /**
          * SiteUpdateRequest
          * @description Request model for updating a site.
          */
@@ -2614,7 +2659,7 @@ export interface components {
             operator?: string | null;
             /**
              * Profile
-             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one
+             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it
              */
             profile?: string | null;
         };
@@ -4954,7 +4999,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SiteSld"];
+                    "application/json": components["schemas"]["SiteSldResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_site_sld_endpoint_api_sites__site_id__sld_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteSldUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSldResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_site_sld_endpoint_api_sites__site_id__sld_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSldResponse"];
                 };
             };
             /** @description Validation Error */

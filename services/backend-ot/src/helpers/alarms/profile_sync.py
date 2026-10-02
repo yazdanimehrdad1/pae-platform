@@ -71,7 +71,8 @@ async def sync_site_profile_alarms(site_id: int) -> ProfileAlarmSyncPlan:
         site = (await session.execute(select(Site).where(Site.id == site_id))).scalar_one_or_none()
         if site is None:
             return ProfileAlarmSyncPlan()
-        profile = SITE_PROFILES_BY_KEY.get(site.profile)
+        # No profile (or one no longer registered): no declared alarms, so its profile alarms retire.
+        profile = SITE_PROFILES_BY_KEY.get(site.profile) if site.profile is not None else None
         declared = profile.alarms if profile is not None else ()
 
         rows = (await session.execute(select(AlarmDefinition).where(AlarmDefinition.site_id == site_id))).scalars().all()

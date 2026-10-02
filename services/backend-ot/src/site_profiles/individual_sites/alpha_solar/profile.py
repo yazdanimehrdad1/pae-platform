@@ -3,10 +3,7 @@ Alpha Solar Farm (dev site 1001): the endpoints and alarms it offers.
 
 Only what is declared here gets a URL (endpoints) or an alarm row per site (alarms). To add one: write the controller in functions.py
 (or common/functions.py for a shared one), then declare a SiteEndpoint for it below.
-Its single line diagram is sld.json in this folder (format: schemas/site_profiles/single_line_diagram.py).
 """
-
-from pathlib import Path
 
 from schemas.site_profiles import EnergySummaryResult
 from schemas.site_profiles.individual_sites.alpha_solar import (
@@ -22,7 +19,6 @@ from site_profiles.individual_sites.alpha_solar.functions import (
 )
 from site_profiles.site_alarm import SiteAlarm
 from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
-from site_profiles.site_sld import load_site_sld
 
 ALPHA_SOLAR_PROFILE = SiteProfile(
     key="alpha_solar",
@@ -70,6 +66,4 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
             evaluate=placeholder_profile_alarm_1,
         ),
     ),
-    # DRAFT topology built from the mock devices; replace with the site's real SLD.
-    sld=load_site_sld(Path(__file__).parent / "sld.json"),
 )

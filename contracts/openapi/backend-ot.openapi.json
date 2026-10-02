@@ -3095,7 +3095,7 @@
                 "type": "null"
               }
             ],
-            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints",
+            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code",
             "title": "Profile"
           }
         },
@@ -3217,9 +3217,16 @@
             "type": "array"
           },
           "profile": {
-            "description": "The site's profile key",
-            "title": "Profile",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The site's profile key; null if the site has no profile (then no endpoints)",
+            "title": "Profile"
           },
           "site_id": {
             "title": "Site Id",
@@ -3321,9 +3328,16 @@
             "type": "string"
           },
           "profile": {
-            "description": "Site profile key selecting the site's endpoints; 'default' offers only the common endpoints",
-            "title": "Profile",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site profile key selecting the site's endpoints, unique per site; null if the site has no site-specific code",
+            "title": "Profile"
           },
           "site_id": {
             "description": "Site ID (4-digit number)",
@@ -3344,7 +3358,6 @@
           "operator",
           "capacity",
           "device_count",
-          "profile",
           "created_at",
           "updated_at",
           "last_update"
@@ -3392,6 +3405,70 @@
           "nodes"
         ],
         "title": "SiteSld",
+        "type": "object"
+      },
+      "SiteSldResponse": {
+        "description": "A site's stored single line diagram.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "revision": {
+            "description": "Increments on every save; send it back to replace this diagram",
+            "title": "Revision",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "sld": {
+            "$ref": "#/components/schemas/SiteSld"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "revision",
+          "created_at",
+          "updated_at",
+          "sld"
+        ],
+        "title": "SiteSldResponse",
+        "type": "object"
+      },
+      "SiteSldUpsertRequest": {
+        "additionalProperties": false,
+        "description": "Create or replace a site's single line diagram.",
+        "properties": {
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram",
+            "title": "Revision"
+          },
+          "sld": {
+            "$ref": "#/components/schemas/SiteSld",
+            "description": "The whole diagram; it replaces the stored one"
+          }
+        },
+        "required": [
+          "sld"
+        ],
+        "title": "SiteSldUpsertRequest",
         "type": "object"
       },
       "SiteUpdateRequest": {
@@ -3496,7 +3573,7 @@
                 "type": "null"
               }
             ],
-            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one",
+            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it",
             "title": "Profile"
           }
         },
@@ -4428,7 +4505,7 @@
   "info": {
     "description": "Modbus TCP service for polling and storing time-series data",
     "title": "PAE Backend OT",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -7941,6 +8018,48 @@
       }
     },
     "/api/sites/{site_id}/sld": {
+      "delete": {
+        "description": "Returns the deleted diagram.",
+        "operationId": "delete_site_sld_endpoint_api_sites__site_id__sld_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSldResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a site's single line diagram",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
       "get": {
         "operationId": "get_site_sld_endpoint_api_sites__site_id__sld_get",
         "parameters": [
@@ -7959,7 +8078,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SiteSld"
+                  "$ref": "#/components/schemas/SiteSldResponse"
                 }
               }
             },
@@ -7976,7 +8095,59 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get a site's single line diagram, from its profile",
+        "summary": "Get a site's single line diagram",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
+      "put": {
+        "description": "Omit `revision` to create the site's first diagram; send the revision you read to replace it (409 if it is no longer current).",
+        "operationId": "put_site_sld_endpoint_api_sites__site_id__sld_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteSldUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSldResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create or replace a site's single line diagram",
         "tags": [
           "sites",
           "sites"

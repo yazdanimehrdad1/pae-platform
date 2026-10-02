@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.types import DataType, DeviceType, PointClass, Severity, register_size
 from schemas.api_models.virtual_points import VirtualPointDefinition
 
@@ -106,7 +107,7 @@ class SiteCreateRequest(BaseModel):
         default=None,
         min_length=1,
         max_length=64,
-        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints",
+        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code",
     )
 
 
@@ -125,7 +126,7 @@ class SiteUpdateRequest(BaseModel):
         None,
         min_length=1,
         max_length=64,
-        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one",
+        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it",
     )
 
 
@@ -287,3 +288,16 @@ class CacheSetRequest(BaseModel):
     key: str = Field(..., description="Cache key")
     value: Any = Field(..., description="Value to cache")
     ttl: int | None = Field(None, description="Time-to-live in seconds; None means no expiry")
+
+
+class SiteSldUpsertRequest(BaseModel):
+    """Create or replace a site's single line diagram."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sld: SiteSld = Field(..., description="The whole diagram; it replaces the stored one")
+    revision: int | None = Field(
+        None,
+        ge=1,
+        description="The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram",
+    )

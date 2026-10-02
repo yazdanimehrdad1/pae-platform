@@ -1,7 +1,8 @@
-import type { SiteSld } from './types/sld';
+import type { SiteSldResponse } from './types/sld';
 import { client } from './client';
 
 export const sldApi = {
-  // The site's single line diagram, from its profile. 404 if the profile has none.
-  getBySite: (siteId: string | number): Promise<SiteSld> => client.get<SiteSld>(`/sites/${siteId}/sld`),
+  // The site's stored single line diagram and its revision. 404 if the site has none.
+  getBySite: (siteId: string | number): Promise<SiteSldResponse> =>
+    client.get<SiteSldResponse>(`/sites/${siteId}/sld`),
 };

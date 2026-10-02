@@ -1,7 +1,7 @@
 """
 A site's single line diagram (SLD): the electrical elements and how they connect, laid out
-on a grid. A profile ships it as individual_sites/<key>/sld.json, validated against SiteSld
-when the app starts, and GET /api/sites/{site_id}/sld serves it.
+on a grid. Stored per site in the site_slds table (one JSONB document, validated against
+SiteSld on every write) and served by /api/sites/{site_id}/sld.
 
 Coordinates are grid cells, not pixels: the UI picks the cell size. `col` grows to the
 right and `row` grows downward (the utility side is usually row 0). Fractions are allowed,
