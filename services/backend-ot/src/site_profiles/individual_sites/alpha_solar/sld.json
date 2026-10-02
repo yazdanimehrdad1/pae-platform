@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "nodes": [
+    { "id": "utility", "type": "grid", "name": "Utility Grid", "voltage": "34.5 kV", "col": 2, "row": 0 },
+    { "id": "poi_meter", "type": "meter", "name": "POI Meter", "voltage": "34.5 kV", "col": 2, "row": 1 },
+    { "id": "main_breaker", "type": "breaker", "name": "Main Breaker", "col": 2, "row": 2 },
+    { "id": "pv_inverter", "type": "inverter", "name": "PV Inverter (device_1)", "rating": "3 kW", "col": 0, "row": 4 },
+    { "id": "bess", "type": "bess", "name": "BESS (device_2)", "rating": "10 kW", "col": 1, "row": 4 },
+    { "id": "plant_controller", "type": "plant_controller", "name": "PV Plant (device_3)", "rating": "3.3 MW", "col": 3, "row": 4 },
+    { "id": "inv01", "type": "inverter", "name": "INV01", "col": 1.5, "row": 6 },
+    { "id": "inv02", "type": "inverter", "name": "INV02", "col": 2.5, "row": 6 },
+    { "id": "inv03", "type": "inverter", "name": "INV03", "col": 3.5, "row": 6 },
+    { "id": "inv04", "type": "inverter", "name": "INV04", "col": 4.5, "row": 6 }
+  ],
+  "buses": [
+    { "id": "mv_bus", "name": "MV Bus", "voltage": "34.5 kV", "row": 3, "col_start": -0.5, "col_end": 4.5 },
+    { "id": "plant_bus", "name": "Plant Collector Bus", "row": 5, "col_start": 1, "col_end": 5 }
+  ],
+  "connections": [
+    { "from_id": "utility", "to_id": "poi_meter" },
+    { "from_id": "poi_meter", "to_id": "main_breaker" },
+    { "from_id": "main_breaker", "to_id": "mv_bus" },
+    { "from_id": "mv_bus", "to_id": "pv_inverter" },
+    { "from_id": "mv_bus", "to_id": "bess" },
+    { "from_id": "mv_bus", "to_id": "plant_controller" },
+    { "from_id": "plant_controller", "to_id": "plant_bus" },
+    { "from_id": "plant_bus", "to_id": "inv01" },
+    { "from_id": "plant_bus", "to_id": "inv02" },
+    { "from_id": "plant_bus", "to_id": "inv03" },
+    { "from_id": "plant_bus", "to_id": "inv04" }
+  ]
+}

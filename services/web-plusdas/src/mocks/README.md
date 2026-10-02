@@ -7,7 +7,6 @@ still not real. Each mock waits on a backend-ot API that doesn't exist yet
 | File | Used by | Stands in for |
 |---|---|---|
 | `auth.ts` | `shared/contexts/auth.tsx` | Login (accepts any email/password) |
-| `sld/` | `features/sld/` (`lib/sldDataMerger`, `SLDPage`) | SLD layout + live data per site, diagram list |
 | `reports.ts` | `features/reports/ReportsPage` | Report catalogue and generated reports |
 | `tasks.ts` | `features/task-builder/TaskBuilderPage` | AI tasks |
 

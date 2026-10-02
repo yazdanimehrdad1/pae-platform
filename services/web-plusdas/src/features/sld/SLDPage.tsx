@@ -1,210 +1,158 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Circle, Zap, Power, Battery, Sun, Wind, Building2, ArrowDownUp, PanelLeftClose, PanelLeftOpen, AlertTriangle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Hand, Maximize2, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MicrogridSLD } from "./components/MicrogridSLD";
-import { SummaryCard } from "./components/SummaryCard";
-import { fetchCompleteSLDData } from "./lib/sldDataMerger";
-import type { SLDData } from "./types";
-import { MOCK_SLD_DIAGRAMS, MOCK_SLD_SITE_ID } from "@/mocks/sld";
+import { sitesApi, sldApi } from "@/api";
+import { getErrorMessage } from "@/api/client";
+import type { Site } from "@/api/types/sites";
+import type { SiteSld } from "@/api/types/sld";
+import { SiteSldDiagram } from "./components/SiteSldDiagram";
+import { useDragToPan } from "./hooks/useDragToPan";
+import { useWheelZoom } from "./hooks/useWheelZoom";
+import { SLD_SVG_SELECTOR, computeSldGeometry } from "./lib/sldGeometry";
+
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 3;
+const ZOOM_STEP = 0.1;
+// Leaves room for the container border so a fitted diagram shows no scrollbars.
+const FIT_PADDING = 4;
+const clampZoom = (zoom: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 
 const SLD = () => {
-  const location = useLocation();
-  const siteId = location.state?.siteId || MOCK_SLD_SITE_ID;
-
-  const [sldData, setSldData] = useState<SLDData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedSite, setSelectedSite] = useState(siteId || "main");
-  const [lastUpdate] = useState(new Date());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const siteId = searchParams.get("siteId");
   const [zoom, setZoom] = useState(1);
-  const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(false);
   const sldContainerRef = useRef<HTMLDivElement>(null);
+  const [isHandToolActive, setIsHandToolActive] = useState(true);
+  const { cursor, panHandlers } = useDragToPan(sldContainerRef, isHandToolActive);
 
+  const { data: sites = [] } = useQuery<Site[]>({ queryKey: ["sites"], queryFn: sitesApi.getAll });
+
+  // No site in the URL: show the first one, keeping the choice in the URL so a refresh keeps it.
   useEffect(() => {
-    const loadSLDData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await fetchCompleteSLDData(siteId);
-        setSldData(data);
-        if (data.siteId) setSelectedSite(data.siteId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load SLD data");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSLDData();
-  }, [siteId]);
+    if (!siteId && sites.length > 0) setSearchParams({ siteId: sites[0].id }, { replace: true });
+  }, [siteId, sites, setSearchParams]);
 
-  const handleRefresh = async () => {
-    if (!siteId) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchCompleteSLDData(siteId);
-      setSldData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to refresh SLD data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    data: sld,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<SiteSld>({
+    queryKey: ["site-sld", siteId],
+    queryFn: () => sldApi.getBySite(siteId!),
+    enabled: !!siteId,
+    retry: false,
+  });
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const geometry = useMemo(() => (sld ? computeSldGeometry(sld) : null), [sld]);
 
-  const handleFitToScreen = () => {
-    if (!sldContainerRef.current) return;
+  const fitToScreen = useCallback(() => {
     const container = sldContainerRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const scale = Math.min(containerRect.width / 1200, containerRect.height / 800, 1);
-    setZoom(scale);
-  };
+    if (!container || !geometry) return;
+    const { width, height } = container.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+    setZoom(clampZoom(Math.min((width - FIT_PADDING) / geometry.viewBox.width, (height - FIT_PADDING) / geometry.viewBox.height)));
+  }, [geometry]);
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(0.3, Math.min(3, prev + delta)));
+  // Fit each newly loaded diagram to the available space.
+  useLayoutEffect(() => {
+    fitToScreen();
+  }, [fitToScreen]);
+
+  useWheelZoom(sldContainerRef, SLD_SVG_SELECTOR, zoom, setZoom, clampZoom);
+
+  const renderDiagram = () => {
+    if (!siteId) {
+      return <p className="text-muted-foreground">Select a site to see its single line diagram.</p>;
     }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-6 flex items-center justify-center h-screen">
+    if (isLoading) {
+      return (
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading SLD data...</p>
+          <p className="text-muted-foreground">Loading single line diagram...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 flex items-center justify-center h-screen">
+      );
+    }
+    if (isError) {
+      return (
         <div className="text-center">
           <AlertTriangle className="w-8 h-8 mx-auto mb-4 text-destructive" />
-          <p className="text-destructive mb-4">{error}</p>
-          <Button onClick={handleRefresh}>Retry</Button>
+          <p className="text-destructive mb-4">{getErrorMessage(error, "Failed to load the single line diagram")}</p>
+          <Button onClick={() => refetch()}>Retry</Button>
         </div>
-      </div>
-    );
-  }
-
-  if (!sldData) {
-    return (
-      <div className="p-6 flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">No SLD data available</p>
-      </div>
-    );
-  }
+      );
+    }
+    return geometry ? <SiteSldDiagram geometry={geometry} zoom={zoom} /> : null;
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Single Line Diagram</h1>
-          <p className="text-muted-foreground mt-1">Interactive electrical system visualization</p>
+          <p className="text-muted-foreground mt-1">Electrical layout of the site, from its profile</p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedSite} onValueChange={setSelectedSite}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select Diagram" />
+          <Select value={siteId ?? undefined} onValueChange={(value) => setSearchParams({ siteId: value })}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Select site" />
             </SelectTrigger>
             <SelectContent>
-              {MOCK_SLD_DIAGRAMS.map(diagram => (
-                <SelectItem key={diagram.value} value={diagram.value}>{diagram.label}</SelectItem>
+              {sites.map((site) => (
+                <SelectItem key={site.id} value={site.id}>
+                  {site.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={handleRefresh}>
-            <RefreshCw className="w-4 h-4" />
+          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={!siteId} aria-label="Reload">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleZoomIn}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setZoom((previous) => clampZoom(previous + ZOOM_STEP))}>
           <ZoomIn className="w-4 h-4" />Zoom In
         </Button>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleZoomOut}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setZoom((previous) => clampZoom(previous - ZOOM_STEP))}>
           <ZoomOut className="w-4 h-4" />Zoom Out
         </Button>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleFitToScreen}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={fitToScreen} disabled={!geometry}>
           <Maximize2 className="w-4 h-4" />Fit to Screen
         </Button>
-        <div className="flex-1" />
-        <Badge variant="outline" className="gap-2">
-          <Circle className="w-2 h-2 fill-success text-success" />
-          Live Data
-        </Badge>
-        <span className="text-sm text-muted-foreground">
-          Last update: {lastUpdate.toLocaleTimeString()}
-        </span>
+        <Button
+          variant={isHandToolActive ? "secondary" : "outline"}
+          size="sm"
+          className="gap-2"
+          onClick={() => setIsHandToolActive((previous) => !previous)}
+          aria-pressed={isHandToolActive}
+          title="Drag to move around the diagram (or hold Space, or drag with the middle button)"
+        >
+          <Hand className="w-4 h-4" />Hand Tool
+        </Button>
+        <span className="text-sm text-muted-foreground ml-2">{Math.round(zoom * 100)}%</span>
       </div>
 
-      <div className="flex gap-2 items-stretch" style={{ height: "calc(100vh - 200px)" }}>
-        {sldData.summary && sldData.summary.length > 0 && (
-          <div className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col ${isSummaryCollapsed ? "w-0 opacity-0" : "w-80"}`}>
-            <div className="bg-card border border-border rounded-lg p-4 flex flex-col h-full overflow-hidden">
-              <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider flex-shrink-0">
-                System Summary
-              </h3>
-              <div className="space-y-3 overflow-y-auto flex-1 pr-2" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--border)) transparent" }}>
-                {sldData.summary.map((item, idx) => {
-                  const iconMap: Record<string, React.ReactNode> = {
-                    Zap: <Zap className="w-4 h-4" />,
-                    Power: <Power className="w-4 h-4" />,
-                    Battery: <Battery className="w-4 h-4" />,
-                    Sun: <Sun className="w-4 h-4" />,
-                    Wind: <Wind className="w-4 h-4" />,
-                    Building2: <Building2 className="w-4 h-4" />,
-                    ArrowDownUp: <ArrowDownUp className="w-4 h-4" />,
-                  };
-                  return (
-                    <SummaryCard
-                      key={idx}
-                      label={item.label}
-                      value={item.value}
-                      subtext={item.subtext}
-                      color={item.color}
-                      icon={item.icon ? iconMap[item.icon] : undefined}
-                      trend={item.trend}
-                    />
-                  );
-                })}
-              </div>
-            </div>
+      <div
+        ref={sldContainerRef}
+        className="overflow-auto border border-border rounded-lg bg-background select-none"
+        style={{ height: "calc(100vh - 240px)", cursor, touchAction: isHandToolActive ? "none" : undefined }}
+        {...panHandlers}
+      >
+        {geometry && !isError ? (
+          // margin:auto centers a diagram smaller than the view without blocking scroll when larger.
+          <div className="min-w-full min-h-full flex">
+            <div className="m-auto">{renderDiagram()}</div>
           </div>
+        ) : (
+          <div className="h-full flex items-center justify-center">{renderDiagram()}</div>
         )}
-
-        {sldData.summary && sldData.summary.length > 0 && (
-          <div className="relative border-r border-border flex flex-col justify-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-12 w-4 rounded-none rounded-r-md border-y border-r border-border -ml-[1px] z-10 bg-background hover:bg-muted"
-              onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
-            >
-              {isSummaryCollapsed ? <PanelLeftOpen className="h-3 w-3" /> : <PanelLeftClose className="h-3 w-3" />}
-            </Button>
-          </div>
-        )}
-
-        <div ref={sldContainerRef} className="flex-1 overflow-auto h-full" onWheel={handleWheel}>
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", display: "inline-block" }}>
-            <MicrogridSLD
-              data={sldData}
-              boundary={{ minX: 0, maxX: 1000, minY: 0, maxY: 800 }}
-            />
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from schemas.site_profiles import FunctionKind, SiteContext, TimeWindowParams
+from schemas.site_profiles import FunctionKind, SiteContext, SiteSld, TimeWindowParams
 from site_profiles.site_alarm import SiteAlarm
 
 __all__ = ["SiteContext", "SiteController", "SiteEndpoint", "SiteProfile"]
@@ -62,13 +62,16 @@ class SiteEndpoint(BaseModel):
 
 
 class SiteProfile(BaseModel):
-    """The endpoints and alarms one site offers. Its key is the value stored in sites.profile."""
+    """The endpoints, alarms and SLD one site offers. Its key is the value stored in sites.profile."""
 
     model_config = ConfigDict(frozen=True)
 
     key: str = Field(..., min_length=1, max_length=64, description="Stored in sites.profile, e.g. 'alpha_solar'")
     endpoints: tuple[SiteEndpoint, ...]
     alarms: tuple[SiteAlarm, ...] = Field((), description="Alarms in code; each site with this profile gets them")
+    sld: SiteSld | None = Field(
+        None, description="Single line diagram, loaded from the profile's sld.json; None if it has none"
+    )
 
     def find_alarm(self, key: str) -> SiteAlarm | None:
         """The declared alarm with this key, or None if the profile no longer declares it."""

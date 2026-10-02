@@ -3352,6 +3352,48 @@
         "title": "SiteResponse",
         "type": "object"
       },
+      "SiteSld": {
+        "additionalProperties": false,
+        "description": "A site's single line diagram.",
+        "properties": {
+          "buses": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SldBus"
+            },
+            "title": "Buses",
+            "type": "array"
+          },
+          "connections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SldConnection"
+            },
+            "title": "Connections",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/SldNode"
+            },
+            "minItems": 1,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "description": "Version of this format",
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "nodes"
+        ],
+        "title": "SiteSld",
+        "type": "object"
+      },
       "SiteUpdateRequest": {
         "description": "Request model for updating a site.",
         "properties": {
@@ -3459,6 +3501,163 @@
           }
         },
         "title": "SiteUpdateRequest",
+        "type": "object"
+      },
+      "SldBus": {
+        "additionalProperties": false,
+        "description": "A horizontal bus bar on one row, spanning col_start..col_end.",
+        "properties": {
+          "col_end": {
+            "description": "Grid column of the bus's right end; greater than col_start",
+            "title": "Col End",
+            "type": "number"
+          },
+          "col_start": {
+            "description": "Grid column of the bus's left end",
+            "title": "Col Start",
+            "type": "number"
+          },
+          "id": {
+            "description": "Unique within the diagram (nodes and buses)",
+            "pattern": "^[a-z0-9]+([_-][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Label shown on the bus",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "row": {
+            "description": "Grid row of the bus",
+            "title": "Row",
+            "type": "number"
+          },
+          "voltage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nominal voltage label, e.g. '34.5 kV'",
+            "title": "Voltage"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "row",
+          "col_start",
+          "col_end"
+        ],
+        "title": "SldBus",
+        "type": "object"
+      },
+      "SldConnection": {
+        "additionalProperties": false,
+        "description": "A conductor between two elements (node or bus), by id.",
+        "properties": {
+          "from_id": {
+            "description": "Id of a node or bus",
+            "title": "From Id",
+            "type": "string"
+          },
+          "to_id": {
+            "description": "Id of a node or bus",
+            "title": "To Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_id",
+          "to_id"
+        ],
+        "title": "SldConnection",
+        "type": "object"
+      },
+      "SldNode": {
+        "additionalProperties": false,
+        "description": "One element of the diagram, drawn as a box centered on its grid cell.",
+        "properties": {
+          "col": {
+            "description": "Grid column of the element's center",
+            "title": "Col",
+            "type": "number"
+          },
+          "id": {
+            "description": "Unique within the diagram (nodes and buses)",
+            "pattern": "^[a-z0-9]+([_-][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Label shown on the element",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rating label, e.g. '5 MVA' or '2 MW / 4 MWh'",
+            "title": "Rating"
+          },
+          "row": {
+            "description": "Grid row of the element's center",
+            "title": "Row",
+            "type": "number"
+          },
+          "type": {
+            "description": "What the element is; picks its icon",
+            "enum": [
+              "grid",
+              "poi",
+              "meter",
+              "transformer",
+              "breaker",
+              "switch",
+              "pv",
+              "inverter",
+              "bess",
+              "generator",
+              "wind",
+              "load",
+              "plant_controller"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "voltage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nominal voltage label, e.g. '34.5 kV'",
+            "title": "Voltage"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "col",
+          "row"
+        ],
+        "title": "SldNode",
         "type": "object"
       },
       "ThresholdAlarm": {
@@ -7735,6 +7934,49 @@
           }
         },
         "summary": "Restore a soft-deleted site",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}/sld": {
+      "get": {
+        "operationId": "get_site_sld_endpoint_api_sites__site_id__sld_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSld"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a site's single line diagram, from its profile",
         "tags": [
           "sites",
           "sites"

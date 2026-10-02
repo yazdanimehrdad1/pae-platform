@@ -1021,6 +1021,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/sld": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a site's single line diagram, from its profile */
+        get: operations["get_site_sld_endpoint_api_sites__site_id__sld_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2538,6 +2555,30 @@ export interface components {
             updated_at: string;
         };
         /**
+         * SiteSld
+         * @description A site's single line diagram.
+         */
+        SiteSld: {
+            /**
+             * Buses
+             * @default []
+             */
+            buses: components["schemas"]["SldBus"][];
+            /**
+             * Connections
+             * @default []
+             */
+            connections: components["schemas"]["SldConnection"][];
+            /** Nodes */
+            nodes: components["schemas"]["SldNode"][];
+            /**
+             * Schema Version
+             * @description Version of this format
+             * @constant
+             */
+            schema_version: 1;
+        };
+        /**
          * SiteUpdateRequest
          * @description Request model for updating a site.
          */
@@ -2576,6 +2617,100 @@ export interface components {
              * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one
              */
             profile?: string | null;
+        };
+        /**
+         * SldBus
+         * @description A horizontal bus bar on one row, spanning col_start..col_end.
+         */
+        SldBus: {
+            /**
+             * Col End
+             * @description Grid column of the bus's right end; greater than col_start
+             */
+            col_end: number;
+            /**
+             * Col Start
+             * @description Grid column of the bus's left end
+             */
+            col_start: number;
+            /**
+             * Id
+             * @description Unique within the diagram (nodes and buses)
+             */
+            id: string;
+            /**
+             * Name
+             * @description Label shown on the bus
+             */
+            name: string;
+            /**
+             * Row
+             * @description Grid row of the bus
+             */
+            row: number;
+            /**
+             * Voltage
+             * @description Nominal voltage label, e.g. '34.5 kV'
+             */
+            voltage?: string | null;
+        };
+        /**
+         * SldConnection
+         * @description A conductor between two elements (node or bus), by id.
+         */
+        SldConnection: {
+            /**
+             * From Id
+             * @description Id of a node or bus
+             */
+            from_id: string;
+            /**
+             * To Id
+             * @description Id of a node or bus
+             */
+            to_id: string;
+        };
+        /**
+         * SldNode
+         * @description One element of the diagram, drawn as a box centered on its grid cell.
+         */
+        SldNode: {
+            /**
+             * Col
+             * @description Grid column of the element's center
+             */
+            col: number;
+            /**
+             * Id
+             * @description Unique within the diagram (nodes and buses)
+             */
+            id: string;
+            /**
+             * Name
+             * @description Label shown on the element
+             */
+            name: string;
+            /**
+             * Rating
+             * @description Rating label, e.g. '5 MVA' or '2 MW / 4 MWh'
+             */
+            rating?: string | null;
+            /**
+             * Row
+             * @description Grid row of the element's center
+             */
+            row: number;
+            /**
+             * Type
+             * @description What the element is; picks its icon
+             * @enum {string}
+             */
+            type: "grid" | "poi" | "meter" | "transformer" | "breaker" | "switch" | "pv" | "inverter" | "bess" | "generator" | "wind" | "load" | "plant_controller";
+            /**
+             * Voltage
+             * @description Nominal voltage label, e.g. '34.5 kV'
+             */
+            voltage?: string | null;
         };
         /**
          * ThresholdAlarm
@@ -4789,6 +4924,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_sld_endpoint_api_sites__site_id__sld_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSld"];
                 };
             };
             /** @description Validation Error */

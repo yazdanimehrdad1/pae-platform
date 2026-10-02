@@ -17,8 +17,10 @@ from schemas.api_models import (
     SiteResponse,
     SiteUpdateRequest,
 )
+from schemas.site_profiles import SiteSld
 from site_profiles.common.profile import DEFAULT_PROFILE_KEY
-from site_profiles.profile_registry import validate_profile_key
+from site_profiles.profile_registry import get_site_profile, validate_profile_key
+from utils.exceptions import NotFoundError
 
 logger = get_logger(__name__)
 
@@ -63,3 +65,17 @@ async def restore_site(site_id: int) -> SiteResponse | None:
 
 async def get_comprehensive_site(site_id: int) -> SiteComprehensiveResponse | None:
     return await get_complete_site_data_with_points(site_id)
+
+
+async def get_site_sld(site_id: int) -> SiteSld:
+    """The single line diagram of the site's profile (404 if the site or its diagram is missing)."""
+    site = await sites_db.get_site_by_id(site_id)
+    if site is None:
+        raise NotFoundError(f"Site with id {site_id} not found")
+    sld = get_site_profile(site.profile).sld
+    if sld is None:
+        raise NotFoundError(
+            f"Site {site_id}'s profile '{site.profile}' has no single line diagram",
+            payload={"profile": site.profile},
+        )
+    return sld

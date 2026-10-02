@@ -10,6 +10,7 @@ from api.controllers.sites import (
     get_all_sites,
     get_comprehensive_site,
     get_site_by_id,
+    get_site_sld,
     restore_site,
     update_site,
 )
@@ -21,6 +22,7 @@ from schemas.api_models import (
     SiteResponse,
     SiteUpdateRequest,
 )
+from schemas.site_profiles import SiteSld
 from utils.exceptions import AppError
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -156,3 +158,21 @@ async def get_comprehensive_site_endpoint(site_id: int) -> SiteComprehensiveResp
     if site is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Site with id {site_id} not found")
     return site
+
+
+@router.get(
+    "/{site_id}/sld",
+    response_model=SiteSld,
+    summary="Get a site's single line diagram, from its profile",
+)
+async def get_site_sld_endpoint(site_id: int) -> SiteSld:
+    try:
+        return await get_site_sld(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e

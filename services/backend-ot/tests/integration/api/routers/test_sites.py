@@ -2,7 +2,8 @@
 Integration tests for /api/sites.
 
 Guards site CRUD against a real database: name uniqueness, the soft-delete / restore
-lifecycle (which cascades to devices and points), and the guard rails on hard delete.
+lifecycle (which cascades to devices and points), the guard rails on hard delete, and the
+single line diagram served from the site's profile.
 """
 
 from pydantic import TypeAdapter
@@ -14,6 +15,7 @@ from schemas.api_models import (
     SiteResponse,
     SiteUpdateRequest,
 )
+from schemas.site_profiles import SiteSld
 from schemas.tests_models import ApiErrorDetail, ApiErrorResponse
 
 SITE_LIST = TypeAdapter(list[SiteResponse])
@@ -204,4 +206,37 @@ class TestComprehensiveSite:
 
     async def test_unknown_site_is_404(self, client):
         response = await client.get("/api/sites/comprehensive/9999")
+        assert response.status_code == 404
+
+
+class TestSiteSld:
+    async def test_profile_with_sld_returns_it(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        response = await client.get(f"/api/sites/{site.site_id}/sld")
+        assert response.status_code == 200
+        sld = SiteSld.model_validate(response.json())
+        assert sld.schema_version == 1
+        assert any(node.type == "grid" for node in sld.nodes)
+        assert sld.connections
+
+    async def test_profile_without_sld_is_404(self, client):
+        site = await create_site(client)  # default profile ships no SLD
+        response = await client.get(f"/api/sites/{site.site_id}/sld")
+        assert response.status_code == 404
+        error = ApiErrorResponse.model_validate(response.json())
+        assert isinstance(error.detail, ApiErrorDetail)
+        assert error.detail.error == "NotFoundError"
+        assert "no single line diagram" in error.detail.message
+
+    async def test_unknown_site_is_404(self, client):
+        response = await client.get("/api/sites/999999/sld")
+        assert response.status_code == 404
+        error = ApiErrorResponse.model_validate(response.json())
+        assert isinstance(error.detail, ApiErrorDetail)
+        assert error.detail.error == "NotFoundError"
+
+    async def test_soft_deleted_site_is_404(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        assert (await client.delete(f"/api/sites/{site.site_id}")).status_code == 200
+        response = await client.get(f"/api/sites/{site.site_id}/sld")
         assert response.status_code == 404

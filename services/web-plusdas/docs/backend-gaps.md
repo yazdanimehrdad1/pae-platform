@@ -11,11 +11,11 @@ backend-ot work first (its `add-endpoint` skill, then `make contract`), then the
 | Page / feature | Today | What backend-ot would need |
 |---|---|---|
 | **Login / auth** (`src/mocks/auth.ts`, used by `src/shared/contexts/auth.tsx`) | Accepts any email and password and keeps the "user" in localStorage. backend-ot has no auth at all: every route is open. | A design decision first: auth at the platform reverse proxy (e.g. Keycloak/OIDC in front of both) or in backend-ot. Then a session/user endpoint (e.g. `GET /api/me`) for the UI to read. |
-| **Single-line diagram** (`src/mocks/sld/`, used by `features/sld/lib/sldDataMerger.ts`) | Loads static JSON from `src/mocks/sld/sld-layout.json` and `sld-data.json`. | The layout (buses, devices, connections per site) as stored data, and live values per SLD device, e.g. `GET /api/sites/{site_id}/sld/layout` and `.../sld/data`. The field shapes are the ones in `features/sld/types.ts`. |
+| **Single-line diagram** (`features/sld/`) | The layout is real: `GET /api/sites/{site_id}/sld` serves the diagram from the site's profile in backend-ot (`site_profiles/individual_sites/<key>/sld.json`). Elements show names, voltages and ratings only. | Live values per SLD element (status, kW, SOC): a link from each SLD node to a backend device and its points, plus a way to read them. Editing the diagram from the UI needs it stored in Postgres with a PUT (the profile JSON becomes the seed default). |
 | **Notes** (`features/notes/`, `lib/notesStorage.ts`) | Stored in the browser's localStorage per user. They are lost with the browser and not shared. | Notes storage (CRUD per site/device/user), if notes should be shared or kept. |
 | **Narrative, Reports, AI Task Builder, Settings (teams), Users** | Static placeholder pages (no data calls). Reports and Task Builder show fake lists from `src/mocks/reports.ts` and `src/mocks/tasks.ts`. | Product decisions, then APIs. Out of scope until those exist. |
 
-The pages on real data are Sites, Site Devices, Device details, Historian, Live Data, and System alarms.
+The pages on real data are Sites, Site Devices, Single-line diagram (layout only), Device details, Historian, Live Data, and System alarms.
 
 ## Fields the UI defaults because backend-ot doesn't send them
 

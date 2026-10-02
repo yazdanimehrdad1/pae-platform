@@ -36,7 +36,7 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
 
   const handleViewSLD = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate('/sld', { state: { siteId: site.id, siteName: site.name } });
+    navigate(`/sld?siteId=${encodeURIComponent(site.id)}`);
   };
 
   return (

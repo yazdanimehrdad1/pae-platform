@@ -197,27 +197,6 @@
            transition-[var(--transition-fast)] hover:scale-y-110;
   }
 
-  /* SLD Components */
-  .sld-node {
-    @apply bg-card border-2 border-border rounded-lg p-4 shadow-lg;
-  }
-
-  .sld-node-grid {
-    @apply border-primary/50 bg-primary/5;
-  }
-
-  .sld-node-solar {
-    @apply border-yellow-400/50 bg-yellow-400/5;
-  }
-
-  .sld-node-wind {
-    @apply border-cyan-400/50 bg-cyan-400/5;
-  }
-
-  .sld-node-battery {
-    @apply border-warning/50 bg-warning/5;
-  }
-
   .status-online {
     @apply bg-success/20 text-success border border-success/30;
   }
@@ -285,19 +264,6 @@
       transform: translateY(-100%);
       opacity: 0;
     }
-  }
-
-  /* Custom color classes for SLD */
-  .text-solar {
-    color: #fde047;
-  }
-
-  .text-wind {
-    color: #22d3ee;
-  }
-
-  .text-load-commercial {
-    color: #8b5cf6;
   }
 }
 
