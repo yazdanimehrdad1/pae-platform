@@ -1046,6 +1046,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/sld/values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the live values of a site's SLD elements that are linked to devices
+         * @description Per linked element: the latest value of each role (null = not available) and, for bess/pv,
+         *     the device health the site profile declares. Poll it to keep the info boxes live.
+         */
+        get: operations["get_site_sld_values_endpoint_api_sites__site_id__sld_values_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1489,6 +1510,23 @@ export interface components {
             point_id: number;
             /** Sample Count */
             sample_count: number;
+        };
+        /**
+         * DeviceHealth
+         * @description A device's health verdict: healthy, unhealthy, or unknown (None, shown as not available).
+         *     Decided by the site profile's device health checks.
+         */
+        DeviceHealth: {
+            /**
+             * Healthy
+             * @description None when it can't be judged, e.g. no readings yet
+             */
+            healthy: boolean | null;
+            /**
+             * Reason
+             * @description Why it is unhealthy or unknown, for a tooltip
+             */
+            reason?: string | null;
         };
         /** DeviceHealthStatus */
         DeviceHealthStatus: {
@@ -2716,6 +2754,24 @@ export interface components {
             to_id: string;
         };
         /**
+         * SldDeviceLink
+         * @description The backend device an element shows values of, and which of its points fills each role.
+         */
+        SldDeviceLink: {
+            /**
+             * Device Id
+             * @description A device of this site
+             */
+            device_id: number;
+            /**
+             * Points
+             * @description Role -> point id of that device. An unmapped role shows as not available
+             */
+            points?: {
+                [key: string]: number;
+            };
+        };
+        /**
          * SldNode
          * @description One element of the diagram, drawn as a box centered on its grid cell.
          */
@@ -2725,6 +2781,8 @@ export interface components {
              * @description Grid column of the element's center
              */
             col: number;
+            /** @description Linked device for the element's info box; only meter, bess and pv elements take one */
+            device?: components["schemas"]["SldDeviceLink"] | null;
             /**
              * Id
              * @description Unique within the diagram (nodes and buses)
@@ -2756,6 +2814,73 @@ export interface components {
              * @description Nominal voltage label, e.g. '34.5 kV'
              */
             voltage?: string | null;
+        };
+        /**
+         * SldNodeValues
+         * @description One linked element's info box: a value per role, in display order, and the device health.
+         */
+        SldNodeValues: {
+            /** Device Id */
+            device_id: number;
+            /** @description Only for element types that show health (bess, pv); null if the site declares no check */
+            health?: components["schemas"]["DeviceHealth"] | null;
+            /** Node Id */
+            node_id: string;
+            /**
+             * Values
+             * @description Every role of the element's type, in display order; null = not available
+             */
+            values: {
+                [key: string]: components["schemas"]["SldValue"] | null;
+            };
+        };
+        /**
+         * SldValue
+         * @description The latest reading of the point filling one role.
+         */
+        SldValue: {
+            /**
+             * Label
+             * @description The enum label for an enum point, e.g. 'discharging'
+             */
+            label?: string | null;
+            /** Point Id */
+            point_id: number;
+            /**
+             * Time
+             * @description When it was read; None if never read
+             */
+            time?: string | null;
+            /**
+             * Unit
+             * @description Unit of `value`; power roles are converted to kW
+             */
+            unit?: string | null;
+            /**
+             * Value
+             * @description Scaled value, in `unit`; None if never read
+             */
+            value?: number | null;
+        };
+        /**
+         * SldValuesResponse
+         * @description The live values of every SLD element linked to a device.
+         */
+        SldValuesResponse: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Nodes */
+            nodes: components["schemas"]["SldNodeValues"][];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Sld Revision
+             * @description The SLD revision these links come from
+             */
+            sld_revision: number;
         };
         /**
          * ThresholdAlarm
@@ -5066,6 +5191,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteSldResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_sld_values_endpoint_api_sites__site_id__sld_values_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldValuesResponse"];
                 };
             };
             /** @description Validation Error */

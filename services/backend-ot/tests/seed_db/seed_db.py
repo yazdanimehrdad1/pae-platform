@@ -42,8 +42,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dev_mock_data import (  # noqa: E402
     DEVICE_POINTS,
     DEVICES,
-    SITE_SLDS,
     SITES,
+    site_slds,
     user_alarms,
     virtual_points,
 )
@@ -227,7 +227,10 @@ async def seed() -> None:
         # 7. Single line diagrams: only where the site has none, so edits     #
         #    saved through the API survive a re-seed                          #
         # ------------------------------------------------------------------ #
-        for site_name, sld in SITE_SLDS.items():
+        for site_name, sld in site_slds(
+            lambda device_name, point_name: point_ids[(device_name, point_name)],
+            lambda device_name: device_ids[device_name],
+        ).items():
             site = site_by_name[site_name]
             if await session.get(SiteSldRecord, site.id) is not None:
                 logger.info("Single line diagram already exists for '%s'", site.name)

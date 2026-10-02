@@ -10,7 +10,7 @@ the seed site's single line diagram is written to site_slds once and never over 
 """
 
 from pydantic import TypeAdapter
-from seed_db.seed_db import DEVICES, SITE_SLDS, SITES, seed, user_alarms, virtual_points
+from seed_db.seed_db import DEVICES, SITES, seed, site_slds, user_alarms, virtual_points
 
 from integration.factories import create_alarm, create_device, create_site, create_virtual_point
 from schemas.api_models import (
@@ -19,6 +19,7 @@ from schemas.api_models import (
     SiteResponse,
     SiteSldResponse,
     SiteSldUpsertRequest,
+    SldValuesResponse,
 )
 from schemas.api_models.alarms import AlarmDefinitionResponse
 
@@ -204,12 +205,32 @@ class TestSeededSld:
         assert response.status_code == 200, response.text
         stored = SiteSldResponse.model_validate(response.json())
         assert stored.revision == 1
-        assert stored.sld == SITE_SLDS[SITES[0].name]
+        # Ids differ per database, so compare the layout with the links' ids left out.
+        expected = site_slds(lambda device_name, point_name: 0, lambda device_name: 0)[SITES[0].name]
+        assert [(node.id, node.type) for node in stored.sld.nodes] == [(node.id, node.type) for node in expected.nodes]
+        assert stored.sld.connections == expected.connections
+
+    async def test_the_seeded_links_resolve_to_the_seeded_devices(self, client):
+        await seed()
+        site = await self.seeded_site(client)
+        devices = {device.name: device for device in await seeded_devices(client)}
+        stored = SiteSldResponse.model_validate((await client.get(f"/api/sites/{site.site_id}/sld")).json())
+        (bess,) = [node for node in stored.sld.nodes if node.id == "bess"]
+        assert bess.device is not None
+        assert bess.device.device_id == devices["mock-device-2"].device_id
+        soc_point = next(point for point in devices["mock-device-2"].points.native if point.name == "state_of_charge")
+        assert bess.device.points["soc"] == soc_point.id
+
+        response = await client.get(f"/api/sites/{site.site_id}/sld/values")
+        assert response.status_code == 200, response.text
+        values = SldValuesResponse.model_validate(response.json())
+        assert {node.node_id for node in values.nodes} == {"poi_meter", "pv_inverter", "bess"}
 
     async def test_reseeding_keeps_an_sld_saved_through_the_api(self, client):
         await seed()
         site = await self.seeded_site(client)
-        edited = SITE_SLDS[SITES[0].name].model_copy(update={"connections": ()})
+        seeded = SiteSldResponse.model_validate((await client.get(f"/api/sites/{site.site_id}/sld")).json())
+        edited = seeded.sld.model_copy(update={"connections": ()})
         body = SiteSldUpsertRequest(sld=edited, revision=1).model_dump(mode="json")
         assert (await client.put(f"/api/sites/{site.site_id}/sld", json=body)).status_code == 200
 

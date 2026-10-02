@@ -890,6 +890,40 @@
         "title": "DeviceEnergy",
         "type": "object"
       },
+      "DeviceHealth": {
+        "description": "A device's health verdict: healthy, unhealthy, or unknown (None, shown as not available).\nDecided by the site profile's device health checks.",
+        "properties": {
+          "healthy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None when it can't be judged, e.g. no readings yet",
+            "title": "Healthy"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it is unhealthy or unknown, for a tooltip",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "healthy"
+        ],
+        "title": "DeviceHealth",
+        "type": "object"
+      },
       "DeviceHealthStatus": {
         "properties": {
           "device_id": {
@@ -3656,6 +3690,45 @@
         "title": "SldConnection",
         "type": "object"
       },
+      "SldDeviceLink": {
+        "additionalProperties": false,
+        "description": "The backend device an element shows values of, and which of its points fills each role.",
+        "properties": {
+          "device_id": {
+            "description": "A device of this site",
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "points": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Role -> point id of that device. An unmapped role shows as not available",
+            "propertyNames": {
+              "enum": [
+                "vab",
+                "vbc",
+                "vca",
+                "ia",
+                "ib",
+                "ic",
+                "in",
+                "soc",
+                "power",
+                "mode",
+                "irradiance"
+              ]
+            },
+            "title": "Points",
+            "type": "object"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "title": "SldDeviceLink",
+        "type": "object"
+      },
       "SldNode": {
         "additionalProperties": false,
         "description": "One element of the diagram, drawn as a box centered on its grid cell.",
@@ -3664,6 +3737,17 @@
             "description": "Grid column of the element's center",
             "title": "Col",
             "type": "number"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SldDeviceLink"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Linked device for the element's info box; only meter, bess and pv elements take one"
           },
           "id": {
             "description": "Unique within the diagram (nodes and buses)",
@@ -3735,6 +3819,164 @@
           "row"
         ],
         "title": "SldNode",
+        "type": "object"
+      },
+      "SldNodeValues": {
+        "description": "One linked element's info box: a value per role, in display order, and the device health.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceHealth"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only for element types that show health (bess, pv); null if the site declares no check"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SldValue"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Every role of the element's type, in display order; null = not available",
+            "propertyNames": {
+              "enum": [
+                "vab",
+                "vbc",
+                "vca",
+                "ia",
+                "ib",
+                "ic",
+                "in",
+                "soc",
+                "power",
+                "mode",
+                "irradiance"
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "node_id",
+          "device_id",
+          "values"
+        ],
+        "title": "SldNodeValues",
+        "type": "object"
+      },
+      "SldValue": {
+        "description": "The latest reading of the point filling one role.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The enum label for an enum point, e.g. 'discharging'",
+            "title": "Label"
+          },
+          "point_id": {
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it was read; None if never read",
+            "title": "Time"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit of `value`; power roles are converted to kW",
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scaled value, in `unit`; None if never read",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "point_id"
+        ],
+        "title": "SldValue",
+        "type": "object"
+      },
+      "SldValuesResponse": {
+        "description": "The live values of every SLD element linked to a device.",
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/SldNodeValues"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "sld_revision": {
+            "description": "The SLD revision these links come from",
+            "title": "Sld Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "sld_revision",
+          "generated_at",
+          "nodes"
+        ],
+        "title": "SldValuesResponse",
         "type": "object"
       },
       "ThresholdAlarm": {
@@ -8148,6 +8390,50 @@
           }
         },
         "summary": "Create or replace a site's single line diagram",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}/sld/values": {
+      "get": {
+        "description": "Per linked element: the latest value of each role (null = not available) and, for bess/pv,\nthe device health the site profile declares. Poll it to keep the info boxes live.",
+        "operationId": "get_site_sld_values_endpoint_api_sites__site_id__sld_values_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldValuesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the live values of a site's SLD elements that are linked to devices",
         "tags": [
           "sites",
           "sites"

@@ -5,6 +5,8 @@ import {
   CELL_HEIGHT,
   CELL_WIDTH,
   NODE_HEIGHT,
+  INFO_BOX_WIDTH,
+  NODE_WIDTH,
   computeSldGeometry,
   type Rect,
 } from "./sldGeometry";
@@ -93,5 +95,48 @@ describe("computeSldGeometry", () => {
       { x: 85, y: 0 },
       { x: CELL_WIDTH - 85, y: 0 },
     ]);
+  });
+});
+
+describe("computeSldGeometry with info boxes", () => {
+  const linked: SiteSld = {
+    schema_version: 1,
+    nodes: [
+      { id: "pv", type: "pv", name: "PV", col: 0, row: 4, device: { device_id: 1, points: {} } },
+      { id: "bess", type: "bess", name: "BESS", col: 1, row: 4, device: { device_id: 2, points: {} } },
+      { id: "meter", type: "meter", name: "Meter", col: 2, row: 1, device: { device_id: 3, points: {} } },
+      { id: "breaker", type: "breaker", name: "Breaker", col: 2, row: 2 },
+      { id: "unlinked_bess", type: "bess", name: "Spare", col: 3, row: 4 },
+    ],
+    buses: [],
+    connections: [],
+  };
+  const geometry = computeSldGeometry(linked, { showInfoBoxes: true });
+
+  it("puts a box right of each linked meter/bess/pv node only", () => {
+    expect(geometry.infoBoxes.map((box) => box.node.id)).toEqual(["pv", "bess", "meter"]);
+    const pv = geometry.nodes.find((entry) => entry.node.id === "pv")!;
+    const pvBox = geometry.infoBoxes.find((box) => box.node.id === "pv")!;
+    expect(pvBox.rect.x).toBeGreaterThan(pv.rect.x + NODE_WIDTH);
+    expect(pvBox.rect.width).toBe(INFO_BOX_WIDTH);
+  });
+
+  it("keeps every box inside the viewBox", () => {
+    for (const { rect } of geometry.infoBoxes) expect(contains(geometry.viewBox, rect)).toBe(true);
+  });
+
+  it("never lets a box overlap another node, even the 7-row meter above a breaker", () => {
+    const overlaps = (a: Rect, b: Rect) =>
+      a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    for (const box of geometry.infoBoxes) {
+      for (const { node, rect } of geometry.nodes) {
+        if (node.id !== box.node.id) expect(overlaps(box.rect, rect), `${box.node.id} vs ${node.id}`).toBe(false);
+      }
+    }
+  });
+
+  it("lays out compactly with no boxes by default", () => {
+    expect(computeSldGeometry(linked).infoBoxes).toEqual([]);
+    expect(computeSldGeometry(linked).viewBox.width).toBeLessThan(geometry.viewBox.width);
   });
 });

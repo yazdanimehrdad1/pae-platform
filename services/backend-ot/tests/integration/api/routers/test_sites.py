@@ -7,9 +7,18 @@ site's single line diagram (stored per site, saved with optimistic locking), and
 that a profile belongs to at most one site.
 """
 
+from datetime import UTC, datetime
+
 from pydantic import TypeAdapter
 
-from integration.factories import create_device, create_site, site_request
+from integration.factories import (
+    create_device,
+    create_site,
+    insert_reading,
+    point_request,
+    site_request,
+    upsert_points,
+)
 from schemas.api_models import (
     SiteComprehensiveResponse,
     SiteDeleteResponse,
@@ -20,7 +29,9 @@ from schemas.api_models import (
     SiteUpdateRequest,
     SldBus,
     SldConnection,
+    SldDeviceLink,
     SldNode,
+    SldValuesResponse,
 )
 from schemas.tests_models import ApiErrorDetail, ApiErrorResponse
 
@@ -385,3 +396,138 @@ class TestSiteSld:
         assert response.status_code == 200
         remaining = await db.fetchval("SELECT count(*) FROM site_slds WHERE site_id = $1", site.site_id)
         assert remaining == 0
+
+
+BATTERY_STATES = {"0": "standby", "1": "charging", "2": "discharging", "4": "fault"}
+READ_AT = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
+
+
+async def linked_bess_site(client, profile: str | None = "alpha_solar"):
+    """A site with a BESS device (power in W, SOC, battery_state, bms_state) and an SLD whose bess
+    element links soc/power/mode to them."""
+    site = await create_site(client, **({"profile": profile} if profile else {}))
+    device = await create_device(client, site.site_id, name="bess-1", type="BESS")
+    soc, power, mode, bms = await upsert_points(client, site.site_id, device.device_id, [
+        point_request(name="state_of_charge", address=200, unit="%"),
+        point_request(name="inverter_output_power", address=210, unit="W"),
+        point_request(name="battery_state", address=220, size=1, data_type="enum16", enum_detail=BATTERY_STATES),
+        point_request(name="bms_state", address=230, size=1, data_type="enum16", enum_detail={"0": "idle", "5": "fault"}),
+    ])
+    sld = SiteSld(
+        schema_version=1,
+        nodes=(
+            SldNode(id="utility", type="grid", name="Utility", col=0, row=0),
+            SldNode(
+                id="bess", type="bess", name="BESS", col=0, row=1,
+                device=SldDeviceLink(device_id=device.device_id, points={"soc": soc.id, "power": power.id, "mode": mode.id}),
+            ),
+        ),
+        connections=(SldConnection(from_id="utility", to_id="bess"),),
+    )
+    response = await put_sld(client, site.site_id, sld)
+    assert response.status_code == 200, response.text
+    return site, device, (soc, power, mode, bms)
+
+
+async def get_values(client, site_id: int) -> SldValuesResponse:
+    response = await client.get(f"/api/sites/{site_id}/sld/values")
+    assert response.status_code == 200, response.text
+    return SldValuesResponse.model_validate(response.json())
+
+
+class TestSldDeviceLinks:
+    async def test_links_to_this_sites_device_and_points_are_saved(self, client):
+        site, device, _ = await linked_bess_site(client)
+        stored = SiteSldResponse.model_validate((await client.get(f"/api/sites/{site.site_id}/sld")).json())
+        (bess,) = [node for node in stored.sld.nodes if node.id == "bess"]
+        assert bess.device is not None and bess.device.device_id == device.device_id
+
+    async def test_device_of_another_site_is_400(self, client):
+        site = await create_site(client, name="Mine")
+        other = await create_site(client, name="Other")
+        foreign = await create_device(client, other.site_id, name="foreign-bess", type="BESS")
+        sld = SiteSld(schema_version=1, nodes=(
+            SldNode(id="bess", type="bess", name="B", col=0, row=0, device=SldDeviceLink(device_id=foreign.device_id)),
+        ))
+        response = await put_sld(client, site.site_id, sld)
+        assert response.status_code == 400
+        error = ApiErrorResponse.model_validate(response.json())
+        assert isinstance(error.detail, ApiErrorDetail)
+        assert error.detail.error == "ValidationError"
+        assert "not a device of this site" in error.detail.message
+
+    async def test_point_of_another_device_is_400(self, client):
+        site, device, _ = await linked_bess_site(client)
+        meter = await create_device(client, site.site_id, name="meter-1")
+        (meter_current,) = await upsert_points(client, site.site_id, meter.device_id, [point_request(name="ia", unit="A")])
+        sld = SiteSld(schema_version=1, nodes=(
+            SldNode(
+                id="bess", type="bess", name="B", col=0, row=0,
+                device=SldDeviceLink(device_id=device.device_id, points={"soc": meter_current.id}),
+            ),
+        ))
+        response = await put_sld(client, site.site_id, sld, revision=1)
+        assert response.status_code == 400
+        assert "is not a point of device" in response.text
+
+
+class TestSldValues:
+    async def test_values_are_shaped_per_role(self, client, db):
+        site, _, (soc, power, mode, _) = await linked_bess_site(client)
+        await insert_reading(db, soc, READ_AT, 680, 68.0)
+        await insert_reading(db, power, READ_AT, 4200, 4200.0)
+        await insert_reading(db, mode, READ_AT, 2, 2.0)
+
+        values = await get_values(client, site.site_id)
+        assert values.sld_revision == 1
+        (bess,) = values.nodes
+        assert list(bess.values) == ["soc", "power", "mode"]
+        assert bess.values["soc"] is not None and bess.values["soc"].value == 68.0
+        assert bess.values["power"] is not None
+        assert (bess.values["power"].value, bess.values["power"].unit) == (4.2, "kW")
+        assert bess.values["mode"] is not None and bess.values["mode"].label == "discharging"
+
+    async def test_unmapped_role_and_never_read_point_are_null(self, client):
+        site, _, _ = await linked_bess_site(client)
+        (bess,) = (await get_values(client, site.site_id)).nodes
+        # mapped but never polled: the value object exists with no value
+        assert bess.values["soc"] is not None and bess.values["soc"].value is None
+
+    async def test_deleted_point_reads_as_null(self, client, db):
+        site, device, (soc, _, _, _) = await linked_bess_site(client)
+        await insert_reading(db, soc, READ_AT, 680, 68.0)
+        response = await client.delete(
+            f"/api/device-points/site/{site.site_id}/device/{device.device_id}", params={"point_ids": [soc.id]}
+        )
+        assert response.status_code == 200, response.text
+        (bess,) = (await get_values(client, site.site_id)).nodes
+        assert bess.values["soc"] is None
+
+    async def test_health_comes_from_the_site_profile(self, client, db):
+        site, _, (soc, _, mode, _) = await linked_bess_site(client)
+        (bess,) = (await get_values(client, site.site_id)).nodes
+        assert bess.health is not None and bess.health.healthy is None  # never reported
+
+        await insert_reading(db, soc, READ_AT, 680, 68.0)
+        await insert_reading(db, mode, READ_AT, 1, 1.0)
+        (bess,) = (await get_values(client, site.site_id)).nodes
+        assert bess.health is not None and bess.health.healthy is True
+
+        await insert_reading(db, mode, datetime(2026, 1, 15, 12, 1, tzinfo=UTC), 4, 4.0)
+        (bess,) = (await get_values(client, site.site_id)).nodes
+        assert bess.health is not None and bess.health.healthy is False
+        assert "battery_state" in (bess.health.reason or "")
+
+    async def test_site_without_profile_has_no_health(self, client):
+        site, _, _ = await linked_bess_site(client, profile=None)
+        (bess,) = (await get_values(client, site.site_id)).nodes
+        assert bess.health is None
+
+    async def test_unlinked_elements_are_left_out(self, client):
+        site, _, _ = await linked_bess_site(client)
+        assert [node.node_id for node in (await get_values(client, site.site_id)).nodes] == ["bess"]
+
+    async def test_no_sld_or_no_site_is_404(self, client):
+        site = await create_site(client)
+        assert (await client.get(f"/api/sites/{site.site_id}/sld/values")).status_code == 404
+        assert (await client.get("/api/sites/999999/sld/values")).status_code == 404

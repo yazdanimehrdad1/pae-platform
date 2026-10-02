@@ -59,6 +59,21 @@ async def get_latest_readings_by_point_ids(
     return readings
 
 
+async def get_device_last_reading_time(device_id: int) -> datetime | None:
+    """When the device's newest NATIVE reading with a value was stored (its last successful poll);
+    None if it has never reported."""
+    async with get_session() as session:
+        return await session.scalar(
+            select(sql_func.max(DevicePointsReading.timestamp))
+            .join(DevicePoint, DevicePoint.id == DevicePointsReading.device_point_id)
+            .where(
+                DevicePointsReading.device_id == device_id,
+                DevicePoint.category == "NATIVE",
+                DevicePointsReading.derived_value.is_not(None),
+            )
+        )
+
+
 async def get_timeseries_by_point_ids(
     point_ids: list[int],
     site_id: int | None = None,

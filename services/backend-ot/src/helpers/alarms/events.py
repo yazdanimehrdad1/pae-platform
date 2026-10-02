@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from db.connection import get_async_session_factory
 from helpers.alarms.definitions import list_alarm_definitions
@@ -72,3 +72,16 @@ async def query_alarm_events(
     async with session_factory() as session:
         return [AlarmEventResponse.model_validate(event) for event in (await session.execute(query)).scalars().all()]
 
+
+async def count_active_device_events(device_id: int, severity: AlarmSeverity) -> int:
+    """How many alarms of this severity are active (raised, not cleared) for the device."""
+    session_factory = get_async_session_factory()
+    async with session_factory() as session:
+        count = await session.scalar(
+            select(func.count()).select_from(AlarmEvent).where(
+                AlarmEvent.device_id == device_id,
+                AlarmEvent.severity == severity,
+                AlarmEvent.cleared_at.is_(None),
+            )
+        )
+        return count or 0

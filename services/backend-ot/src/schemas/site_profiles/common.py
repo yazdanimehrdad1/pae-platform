@@ -172,3 +172,15 @@ class AlarmCheck(BaseModel):
     active: bool
     value: float | None = Field(None, description="The value that decided it, recorded when the alarm raises")
     device_id: int | None = Field(None, description="The device the alarm is about; None for a site-level alarm")
+
+
+# --- Device health (SLD info boxes) ------------------------------------------------------
+
+
+class DeviceHealthContext(SiteContext):
+    """What a profile's device health check gets: the site, its devices and points, the device
+    to judge (`device`, always set) and the evaluation time."""
+
+    device: DeviceWithPoints = Field(..., description="The device to judge")
+    now: datetime = Field(..., description="When this check runs (UTC)")
+

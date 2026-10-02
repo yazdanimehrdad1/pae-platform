@@ -1,8 +1,16 @@
 import type { SiteSld, SldBus, SldNode } from "@/api/types/sld";
+import { INFO_ROWS } from "./sldInfoRows";
 
 // Grid cell and element sizes, in SVG user units (px at zoom 1).
 export const CELL_WIDTH = 200;
 export const CELL_HEIGHT = 140;
+// With info boxes shown, cells grow so a box fits right of its node without touching a neighbour.
+export const INFO_CELL_WIDTH = 380;
+export const INFO_CELL_HEIGHT = 170;
+export const INFO_BOX_WIDTH = 150;
+export const INFO_BOX_GAP = 8;
+export const INFO_ROW_HEIGHT = 18;
+export const INFO_BOX_PADDING = 6;
 export const NODE_WIDTH = 170;
 export const NODE_HEIGHT = 64;
 export const BUS_HEIGHT = 8;
@@ -44,11 +52,27 @@ export interface ConnectionGeometry {
   points: Point[];
 }
 
+export interface InfoBoxGeometry {
+  node: SldNode;
+  rect: Rect;
+}
+
 export interface SldGeometry {
   nodes: NodeGeometry[];
   buses: BusGeometry[];
   connections: ConnectionGeometry[];
+  infoBoxes: InfoBoxGeometry[];
   viewBox: Rect;
+}
+
+export interface SldLayoutOptions {
+  // Draw an info box beside every element linked to a device (meter, bess, pv).
+  showInfoBoxes?: boolean;
+}
+
+interface Cell {
+  width: number;
+  height: number;
 }
 
 type Element = { kind: "node"; rect: Rect } | { kind: "bus"; rect: Rect };
@@ -57,21 +81,33 @@ const centerX = (rect: Rect) => rect.x + rect.width / 2;
 const centerY = (rect: Rect) => rect.y + rect.height / 2;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-function nodeRect(node: SldNode): Rect {
+function nodeRect(node: SldNode, cell: Cell): Rect {
   return {
-    x: node.col * CELL_WIDTH - NODE_WIDTH / 2,
-    y: node.row * CELL_HEIGHT - NODE_HEIGHT / 2,
+    x: node.col * cell.width - NODE_WIDTH / 2,
+    y: node.row * cell.height - NODE_HEIGHT / 2,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
   };
 }
 
-function busRect(bus: SldBus): Rect {
+function busRect(bus: SldBus, cell: Cell): Rect {
   return {
-    x: bus.col_start * CELL_WIDTH,
-    y: bus.row * CELL_HEIGHT - BUS_HEIGHT / 2,
-    width: (bus.col_end - bus.col_start) * CELL_WIDTH,
+    x: bus.col_start * cell.width,
+    y: bus.row * cell.height - BUS_HEIGHT / 2,
+    width: (bus.col_end - bus.col_start) * cell.width,
     height: BUS_HEIGHT,
+  };
+}
+
+/** The info box right of a linked node, top-aligned with it; null if the node gets none. */
+export function infoBoxRect(node: SldNode, nodeBox: Rect): Rect | null {
+  const rows = INFO_ROWS[node.type];
+  if (!node.device || !rows) return null;
+  return {
+    x: nodeBox.x + nodeBox.width + INFO_BOX_GAP,
+    y: nodeBox.y,
+    width: INFO_BOX_WIDTH,
+    height: rows.length * INFO_ROW_HEIGHT + 2 * INFO_BOX_PADDING,
   };
 }
 
@@ -129,11 +165,20 @@ export function routeConnection(from: Element, to: Element): Point[] {
   ];
 }
 
-/** Lay out a site's SLD in SVG units, with a viewBox that contains every element and label. */
-export function computeSldGeometry(sld: SiteSld): SldGeometry {
-  const nodes = sld.nodes.map((node) => ({ node, rect: nodeRect(node) }));
+/** Lay out a site's SLD in SVG units, with a viewBox that contains every element, label and info box. */
+export function computeSldGeometry(sld: SiteSld, options: SldLayoutOptions = {}): SldGeometry {
+  const cell: Cell = options.showInfoBoxes
+    ? { width: INFO_CELL_WIDTH, height: INFO_CELL_HEIGHT }
+    : { width: CELL_WIDTH, height: CELL_HEIGHT };
+  const nodes = sld.nodes.map((node) => ({ node, rect: nodeRect(node, cell) }));
+  const infoBoxes = options.showInfoBoxes
+    ? nodes.flatMap(({ node, rect }) => {
+        const box = infoBoxRect(node, rect);
+        return box ? [{ node, rect: box }] : [];
+      })
+    : [];
   const buses = (sld.buses ?? []).map((bus) => {
-    const rect = busRect(bus);
+    const rect = busRect(bus, cell);
     return {
       bus,
       rect,
@@ -156,6 +201,7 @@ export function computeSldGeometry(sld: SiteSld): SldGeometry {
 
   const boxes: Rect[] = [
     ...nodes.map(({ rect }) => rect),
+    ...infoBoxes.map(({ rect }) => rect),
     ...buses.map(({ rect }) => rect),
     ...buses.map(({ label, labelAnchor }) => ({
       x: labelAnchor.x,
@@ -173,6 +219,7 @@ export function computeSldGeometry(sld: SiteSld): SldGeometry {
     nodes,
     buses,
     connections,
+    infoBoxes,
     viewBox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
   };
 }

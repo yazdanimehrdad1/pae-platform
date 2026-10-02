@@ -38,3 +38,12 @@ describe('sldApi.getBySite', () => {
     await expect(sldApi.getBySite(1002)).rejects.toEqual({ detail });
   });
 });
+
+describe('sldApi.getValues', () => {
+  it('GETs the live values of the linked elements', async () => {
+    const values = { site_id: 1001, sld_revision: 2, generated_at: '2026-10-02T00:00:00Z', nodes: [] };
+    const fetchMock = stubFetch(200, values);
+    await expect(sldApi.getValues(1001)).resolves.toEqual(values);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/sites/1001/sld/values');
+  });
+});

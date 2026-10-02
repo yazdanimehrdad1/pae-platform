@@ -9,7 +9,14 @@ nodes sit on the same cell, and unknown fields or versions are rejected.
 import pytest
 from pydantic import ValidationError
 
-from schemas.api_models import SiteSld, SldBus, SldConnection, SldNode
+from schemas.api_models import (
+    SLD_ROLES_BY_NODE_TYPE,
+    SiteSld,
+    SldBus,
+    SldConnection,
+    SldDeviceLink,
+    SldNode,
+)
 
 GRID = SldNode(id="utility", type="grid", name="Utility", col=0, row=0)
 BUS = SldBus(id="mv_bus", name="MV Bus", row=1, col_start=-1, col_end=1)
@@ -105,3 +112,32 @@ class TestRejectedSld:
         raw = build_sld().model_dump() | {"schema_version": 2}
         with pytest.raises(ValidationError):
             SiteSld.model_validate(raw)
+
+
+class TestDeviceLinks:
+    def test_meter_takes_its_roles(self):
+        node = SldNode(
+            id="m", type="meter", name="M", col=0, row=0,
+            device=SldDeviceLink(device_id=3, points={"ia": 1, "ib": 2, "ic": 3, "in": 4}),
+        )
+        assert node.device is not None and node.device.points["in"] == 4
+
+    def test_unmapped_roles_are_allowed(self):
+        node = SldNode(id="b", type="bess", name="B", col=0, row=0, device=SldDeviceLink(device_id=2))
+        assert node.device is not None and node.device.points == {}
+
+    def test_role_of_another_type_is_rejected(self):
+        with pytest.raises(ValidationError, match="don't apply to a pv"):
+            SldNode(id="p", type="pv", name="P", col=0, row=0, device=SldDeviceLink(device_id=1, points={"soc": 1}))
+
+    def test_type_without_roles_takes_no_device(self):
+        with pytest.raises(ValidationError, match="takes no device"):
+            SldNode(id="g", type="grid", name="G", col=0, row=0, device=SldDeviceLink(device_id=1))
+
+    def test_unknown_role_is_rejected(self):
+        with pytest.raises(ValidationError):
+            SldDeviceLink.model_validate({"device_id": 1, "points": {"frequency": 5}})
+
+    def test_every_role_list_uses_known_roles_once(self):
+        for node_type, roles in SLD_ROLES_BY_NODE_TYPE.items():
+            assert len(roles) == len(set(roles)), node_type

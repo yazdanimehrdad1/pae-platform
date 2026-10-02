@@ -8,6 +8,7 @@ right and `row` grows downward (the utility side is usually row 0). Fractions ar
 e.g. col 1.5 to center a node between two others.
 """
 
+from datetime import datetime
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -30,6 +31,28 @@ SldNodeType = Literal[
 
 _ID_PATTERN = r"^[a-z0-9]+([_-][a-z0-9]+)*$"
 
+# A value an element's info box shows, read from one point of its linked device.
+SldRole = Literal["vab", "vbc", "vca", "ia", "ib", "ic", "in", "soc", "power", "mode", "irradiance"]
+
+# The roles each linkable element type shows, in display order. Only these types take a device.
+SLD_ROLES_BY_NODE_TYPE: dict[SldNodeType, tuple[SldRole, ...]] = {
+    "meter": ("vab", "vbc", "vca", "ia", "ib", "ic", "in"),
+    "bess": ("soc", "power", "mode"),
+    "pv": ("power", "irradiance"),
+}
+
+
+class SldDeviceLink(BaseModel):
+    """The backend device an element shows values of, and which of its points fills each role."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    device_id: int = Field(..., description="A device of this site")
+    points: dict[SldRole, int] = Field(
+        default_factory=dict,
+        description="Role -> point id of that device. An unmapped role shows as not available",
+    )
+
 
 class SldNode(BaseModel):
     """One element of the diagram, drawn as a box centered on its grid cell."""
@@ -45,6 +68,28 @@ class SldNode(BaseModel):
     rating: str | None = Field(None, description="Rating label, e.g. '5 MVA' or '2 MW / 4 MWh'")
     col: float = Field(..., description="Grid column of the element's center")
     row: float = Field(..., description="Grid row of the element's center")
+    device: SldDeviceLink | None = Field(
+        None,
+        description="Linked device for the element's info box; only meter, bess and pv elements take one",
+    )
+
+    @model_validator(mode="after")
+    def _check_device_roles(self) -> Self:
+        if self.device is None:
+            return self
+        allowed = SLD_ROLES_BY_NODE_TYPE.get(self.type)
+        if allowed is None:
+            raise ValueError(
+                f"node '{self.id}': a {self.type} element takes no device; "
+                f"only {', '.join(SLD_ROLES_BY_NODE_TYPE)} do"
+            )
+        unknown = sorted(set(self.device.points) - set(allowed))
+        if unknown:
+            raise ValueError(
+                f"node '{self.id}': role(s) {', '.join(unknown)} don't apply to a {self.type}; "
+                f"its roles are {', '.join(allowed)}"
+            )
+        return self
 
 
 class SldBus(BaseModel):
@@ -122,3 +167,46 @@ class SiteSld(BaseModel):
                 )
             pairs.add(pair)
         return self
+
+
+# --- Live values for the info boxes (GET /api/sites/{site_id}/sld/values) ----------------
+
+
+class DeviceHealth(BaseModel):
+    """A device's health verdict: healthy, unhealthy, or unknown (None, shown as not available).
+    Decided by the site profile's device health checks."""
+
+    healthy: bool | None = Field(..., description="None when it can't be judged, e.g. no readings yet")
+    reason: str | None = Field(None, description="Why it is unhealthy or unknown, for a tooltip")
+
+
+class SldValue(BaseModel):
+    """The latest reading of the point filling one role."""
+
+    point_id: int
+    value: float | None = Field(None, description="Scaled value, in `unit`; None if never read")
+    label: str | None = Field(None, description="The enum label for an enum point, e.g. 'discharging'")
+    unit: str | None = Field(None, description="Unit of `value`; power roles are converted to kW")
+    time: datetime | None = Field(None, description="When it was read; None if never read")
+
+
+class SldNodeValues(BaseModel):
+    """One linked element's info box: a value per role, in display order, and the device health."""
+
+    node_id: str
+    device_id: int
+    values: dict[SldRole, SldValue | None] = Field(
+        ..., description="Every role of the element's type, in display order; null = not available"
+    )
+    health: DeviceHealth | None = Field(
+        None, description="Only for element types that show health (bess, pv); null if the site declares no check"
+    )
+
+
+class SldValuesResponse(BaseModel):
+    """The live values of every SLD element linked to a device."""
+
+    site_id: int
+    sld_revision: int = Field(..., description="The SLD revision these links come from")
+    generated_at: datetime
+    nodes: list[SldNodeValues]

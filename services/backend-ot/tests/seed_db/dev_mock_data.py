@@ -7,7 +7,7 @@ Organized as:
   DEVICE_POINTS — NATIVE device points per device, keyed by device name
   virtual_points — VIRTUAL example points (hand-written), built once the input point IDs exist
   user_alarms    — USER example alarms (hand-written), built once the point and device IDs exist
-  SITE_SLDS     — single line diagram per site (hand-written), keyed by site name
+  site_slds     — single line diagram per site (hand-written), built once the device and point IDs exist
 
 DEVICES and DEVICE_POINTS are NOT hand-written: they are built from mock-modbus's published
 register map, `contracts/modbus/mock-modbus.devices.json` (see `mock_modbus_seed.py`), so the
@@ -35,6 +35,7 @@ from schemas.api_models import (
     SiteSld,
     SldBus,
     SldConnection,
+    SldDeviceLink,
     SldNode,
     VirtualCalculationDefinition,
     VirtualCase,
@@ -70,39 +71,73 @@ SITES: list[SiteCreateRequest] = [
 
 _PLANT_INVERTERS = ("inv01", "inv02", "inv03", "inv04")
 
-SITE_SLDS: dict[str, SiteSld] = {
-    SITES[0].name: SiteSld(
-        schema_version=1,
-        nodes=(
-            SldNode(id="utility", type="grid", name="Utility Grid", voltage="34.5 kV", col=2, row=0),
-            SldNode(id="poi_meter", type="meter", name="POI Meter", voltage="34.5 kV", col=2, row=1),
-            SldNode(id="main_breaker", type="breaker", name="Main Breaker", col=2, row=2),
-            SldNode(id="pv_inverter", type="inverter", name="PV Inverter (device_1)", rating="3 kW", col=0, row=4),
-            SldNode(id="bess", type="bess", name="BESS (device_2)", rating="10 kW", col=1, row=4),
-            SldNode(
-                id="plant_controller", type="plant_controller", name="PV Plant (device_3)", rating="3.3 MW", col=3, row=4
+
+def site_slds(point_id: Callable[[str, str], int], device_id: Callable[[str], int]) -> dict[str, SiteSld]:
+    """Single line diagram per site name. `point_id(device_name, point_name)` / `device_id(device_name)`
+    resolve the device links. The POI meter has no line-to-line voltage or neutral current points in
+    the mock, so vab/vbc/vca/in stay unmapped (shown as not available)."""
+    pv, bess, plant = "mock-device-1", "mock-device-2", "mock-device-3"
+    return {
+        SITES[0].name: SiteSld(
+            schema_version=1,
+            nodes=(
+                SldNode(id="utility", type="grid", name="Utility Grid", voltage="34.5 kV", col=2, row=0),
+                SldNode(
+                    id="poi_meter", type="meter", name="POI Meter", voltage="34.5 kV", col=2, row=1,
+                    device=SldDeviceLink(
+                        device_id=device_id(plant),
+                        points={
+                            "ia": point_id(plant, "poi_current_a"),
+                            "ib": point_id(plant, "poi_current_b"),
+                            "ic": point_id(plant, "poi_current_c"),
+                        },
+                    ),
+                ),
+                SldNode(id="main_breaker", type="breaker", name="Main Breaker", col=2, row=2),
+                SldNode(
+                    id="pv_inverter", type="pv", name="PV Inverter (device_1)", rating="3 kW", col=0, row=4,
+                    device=SldDeviceLink(
+                        device_id=device_id(pv),
+                        points={"power": point_id(pv, "active_power"), "irradiance": point_id(pv, "solar_irradiance")},
+                    ),
+                ),
+                SldNode(
+                    id="bess", type="bess", name="BESS (device_2)", rating="10 kW", col=1, row=4,
+                    device=SldDeviceLink(
+                        device_id=device_id(bess),
+                        points={
+                            "soc": point_id(bess, "state_of_charge"),
+                            "power": point_id(bess, "inverter_output_power"),
+                            "mode": point_id(bess, "battery_state"),
+                        },
+                    ),
+                ),
+                SldNode(
+                    id="plant_controller", type="plant_controller", name="PV Plant (device_3)", rating="3.3 MW",
+                    col=3, row=4,
+                ),
+                *(
+                    SldNode(id=inverter, type="inverter", name=inverter.upper(), col=1.5 + index, row=6)
+                    for index, inverter in enumerate(_PLANT_INVERTERS)
+                ),
             ),
-            *(
-                SldNode(id=inverter, type="inverter", name=inverter.upper(), col=1.5 + index, row=6)
-                for index, inverter in enumerate(_PLANT_INVERTERS)
+            buses=(
+                SldBus(id="mv_bus", name="MV Bus", voltage="34.5 kV", row=3, col_start=-0.5, col_end=4.5),
+                SldBus(id="plant_bus", name="Plant Collector Bus", row=5, col_start=1, col_end=5),
+            ),
+            connections=(
+                SldConnection(from_id="utility", to_id="poi_meter"),
+                SldConnection(from_id="poi_meter", to_id="main_breaker"),
+                SldConnection(from_id="main_breaker", to_id="mv_bus"),
+                SldConnection(from_id="mv_bus", to_id="pv_inverter"),
+                SldConnection(from_id="mv_bus", to_id="bess"),
+                SldConnection(from_id="mv_bus", to_id="plant_controller"),
+                SldConnection(from_id="plant_controller", to_id="plant_bus"),
+                *(SldConnection(from_id="plant_bus", to_id=inverter) for inverter in _PLANT_INVERTERS),
             ),
         ),
-        buses=(
-            SldBus(id="mv_bus", name="MV Bus", voltage="34.5 kV", row=3, col_start=-0.5, col_end=4.5),
-            SldBus(id="plant_bus", name="Plant Collector Bus", row=5, col_start=1, col_end=5),
-        ),
-        connections=(
-            SldConnection(from_id="utility", to_id="poi_meter"),
-            SldConnection(from_id="poi_meter", to_id="main_breaker"),
-            SldConnection(from_id="main_breaker", to_id="mv_bus"),
-            SldConnection(from_id="mv_bus", to_id="pv_inverter"),
-            SldConnection(from_id="mv_bus", to_id="bess"),
-            SldConnection(from_id="mv_bus", to_id="plant_controller"),
-            SldConnection(from_id="plant_controller", to_id="plant_bus"),
-            *(SldConnection(from_id="plant_bus", to_id=inverter) for inverter in _PLANT_INVERTERS),
-        ),
-    ),
-}
+    }
+
 
 # ---------------------------------------------------------------------------
 # Devices + device points — one per mock-modbus device / register, from the contract

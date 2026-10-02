@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Hand, Maximize2, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import { Activity, AlertTriangle, Hand, Maximize2, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sitesApi, sldApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { Site } from "@/api/types/sites";
-import type { SiteSldResponse } from "@/api/types/sld";
+import type { SiteSldResponse, SldNodeValues, SldValuesResponse } from "@/api/types/sld";
 import { SiteSldDiagram } from "./components/SiteSldDiagram";
 import { useDragToPan } from "./hooks/useDragToPan";
 import { useWheelZoom } from "./hooks/useWheelZoom";
@@ -18,6 +18,8 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
 // Leaves room for the container border so a fitted diagram shows no scrollbars.
 const FIT_PADDING = 4;
+// How often the info boxes refresh, like the alarms page.
+const VALUES_REFRESH_MS = 10_000;
 const clampZoom = (zoom: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 
 const SLD = () => {
@@ -26,6 +28,7 @@ const SLD = () => {
   const [zoom, setZoom] = useState(1);
   const sldContainerRef = useRef<HTMLDivElement>(null);
   const [isHandToolActive, setIsHandToolActive] = useState(true);
+  const [showValues, setShowValues] = useState(true);
   const { cursor, panHandlers } = useDragToPan(sldContainerRef, isHandToolActive);
 
   const { data: sites = [] } = useQuery<Site[]>({ queryKey: ["sites"], queryFn: sitesApi.getAll });
@@ -49,7 +52,23 @@ const SLD = () => {
     retry: false,
   });
 
-  const geometry = useMemo(() => (storedSld ? computeSldGeometry(storedSld.sld) : null), [storedSld]);
+  const geometry = useMemo(
+    () => (storedSld ? computeSldGeometry(storedSld.sld, { showInfoBoxes: showValues }) : null),
+    [storedSld, showValues],
+  );
+
+  const { data: liveValues } = useQuery<SldValuesResponse>({
+    queryKey: ["site-sld-values", siteId],
+    queryFn: () => sldApi.getValues(siteId!),
+    enabled: !!siteId && !!storedSld && showValues,
+    refetchInterval: VALUES_REFRESH_MS,
+    placeholderData: (previous) => previous,
+    retry: false,
+  });
+  const valuesByNode = useMemo(
+    () => new Map<string, SldNodeValues>((liveValues?.nodes ?? []).map((node) => [node.node_id, node])),
+    [liveValues],
+  );
 
   const fitToScreen = useCallback(() => {
     const container = sldContainerRef.current;
@@ -87,7 +106,7 @@ const SLD = () => {
         </div>
       );
     }
-    return geometry ? <SiteSldDiagram geometry={geometry} zoom={zoom} /> : null;
+    return geometry ? <SiteSldDiagram geometry={geometry} zoom={zoom} valuesByNode={valuesByNode} /> : null;
   };
 
   return (
@@ -135,6 +154,16 @@ const SLD = () => {
           title="Drag to move around the diagram (or hold Space, or drag with the middle button)"
         >
           <Hand className="w-4 h-4" />Hand Tool
+        </Button>
+        <Button
+          variant={showValues ? "secondary" : "outline"}
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowValues((previous) => !previous)}
+          aria-pressed={showValues}
+          title="Show live device values beside the meter, BESS and PV elements"
+        >
+          <Activity className="w-4 h-4" />Values
         </Button>
         <span className="text-sm text-muted-foreground ml-2">{Math.round(zoom * 100)}%</span>
       </div>

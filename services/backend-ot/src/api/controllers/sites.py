@@ -7,10 +7,12 @@ No cache layer — all reads and writes go directly to the DB.
 
 from typing import Literal
 
+import db.devices as devices_db
 import db.site_slds as site_slds_db
 import db.sites as sites_db
 from helpers.alarms.profile_sync import sync_site_profile_alarms
 from helpers.sites import get_complete_site_data_with_points
+from helpers.sites.sld import sld_link_errors
 from logger import get_logger
 from schemas.api_models import (
     SiteComprehensiveResponse,
@@ -21,7 +23,7 @@ from schemas.api_models import (
     SiteUpdateRequest,
 )
 from site_profiles.profile_registry import validate_profile_key
-from utils.exceptions import ConflictError, NotFoundError
+from utils.exceptions import ConflictError, NotFoundError, ValidationError
 
 logger = get_logger(__name__)
 
@@ -94,8 +96,12 @@ async def get_site_sld(site_id: int) -> SiteSldResponse:
 
 
 async def put_site_sld(site_id: int, request: SiteSldUpsertRequest) -> SiteSldResponse:
-    """Create the site's diagram (no revision) or replace the given revision of it (409 if stale)."""
+    """Create the site's diagram (no revision) or replace the given revision of it (409 if stale).
+    Every device link must resolve to a device of this site and that device's points (400 otherwise)."""
     await _require_site(site_id)
+    link_errors = sld_link_errors(request.sld, await devices_db.get_all_devices(site_id))
+    if link_errors:
+        raise ValidationError("Invalid device links: " + "; ".join(link_errors), payload={"errors": link_errors})
     if request.revision is None:
         return await site_slds_db.create_site_sld(site_id, request.sld)
     return await site_slds_db.update_site_sld(site_id, request.sld, request.revision)

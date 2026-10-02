@@ -16,6 +16,7 @@ from api.controllers.sites import (
     restore_site,
     update_site,
 )
+from api.controllers.sld_values import get_sld_values
 from logger import get_logger
 from schemas.api_models import (
     SiteComprehensiveResponse,
@@ -25,6 +26,7 @@ from schemas.api_models import (
     SiteSldResponse,
     SiteSldUpsertRequest,
     SiteUpdateRequest,
+    SldValuesResponse,
 )
 from utils.exceptions import AppError
 
@@ -209,6 +211,26 @@ async def delete_site_sld_endpoint(site_id: int) -> SiteSldResponse:
     """Returns the deleted diagram."""
     try:
         return await delete_site_sld(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.get(
+    "/{site_id}/sld/values",
+    response_model=SldValuesResponse,
+    summary="Get the live values of a site's SLD elements that are linked to devices",
+)
+async def get_site_sld_values_endpoint(site_id: int) -> SldValuesResponse:
+    """Per linked element: the latest value of each role (null = not available) and, for bess/pv,
+    the device health the site profile declares. Poll it to keep the info boxes live."""
+    try:
+        return await get_sld_values(site_id)
     except AppError as e:
         detail = {"error": type(e).__name__, "message": e.message}
         if e.payload:

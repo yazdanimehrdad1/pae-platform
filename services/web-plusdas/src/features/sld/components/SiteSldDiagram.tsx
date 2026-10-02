@@ -15,8 +15,9 @@ import {
   Zap,
   type LucideProps,
 } from "lucide-react";
-import type { SldNodeType } from "@/api/types/sld";
+import type { SldNodeType, SldNodeValues } from "@/api/types/sld";
 import { BUS_LABEL_FONT_SIZE, NODE_HEIGHT, NODE_WIDTH, type SldGeometry } from "../lib/sldGeometry";
+import { SldInfoBox } from "./SldInfoBox";
 
 // Record over the contract enum: a new node type in backend-ot fails the typecheck here.
 const NODE_ICONS: Record<SldNodeType, ComponentType<LucideProps>> = {
@@ -55,9 +56,11 @@ const truncate = (text: string, maxChars: number) =>
 interface SiteSldDiagramProps {
   geometry: SldGeometry;
   zoom: number;
+  // Live values by element id, for the info boxes the geometry lays out.
+  valuesByNode?: Map<string, SldNodeValues>;
 }
 
-export const SiteSldDiagram = ({ geometry, zoom }: SiteSldDiagramProps) => {
+export const SiteSldDiagram = ({ geometry, zoom, valuesByNode }: SiteSldDiagramProps) => {
   const { viewBox } = geometry;
   return (
     <svg
@@ -138,6 +141,12 @@ export const SiteSldDiagram = ({ geometry, zoom }: SiteSldDiagramProps) => {
             </g>
           );
         })}
+      </g>
+
+      <g data-layer="info-boxes">
+        {geometry.infoBoxes.map((box) => (
+          <SldInfoBox key={box.node.id} box={box} values={valuesByNode?.get(box.node.id)} />
+        ))}
       </g>
     </svg>
   );
