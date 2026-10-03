@@ -1,0 +1,259 @@
+enum_ref,type,code,symbol,source,description
+701.ACType,enum,0,SINGLE_PHASE,SunSpec 701,AC wiring type
+701.ACType,enum,1,SPLIT_PHASE,SunSpec 701,AC wiring type
+701.ACType,enum,2,THREE_PHASE,SunSpec 701,AC wiring type
+701.St,enum,0,OFF,SunSpec 701,DER operating state
+701.St,enum,1,ON,SunSpec 701,DER operating state
+701.InvSt,enum,0,OFF,SunSpec 701,Inverter state
+701.InvSt,enum,1,SLEEPING,SunSpec 701,Inverter state; e.g. PV at night
+701.InvSt,enum,2,STARTING,SunSpec 701,Inverter state
+701.InvSt,enum,3,RUNNING,SunSpec 701,Inverter state; producing or absorbing (PV: MPPT)
+701.InvSt,enum,4,THROTTLED,SunSpec 701,Inverter state; output limited (curtailed or derated)
+701.InvSt,enum,5,SHUTTING_DOWN,SunSpec 701,Inverter state
+701.InvSt,enum,6,FAULT,SunSpec 701,Inverter state
+701.InvSt,enum,7,STANDBY,SunSpec 701,Inverter state; ready but not converting
+701.ConnSt,enum,0,DISCONNECTED,SunSpec 701,Grid connection state
+701.ConnSt,enum,1,CONNECTED,SunSpec 701,Grid connection state
+701.Alrm,bitfield,0,GROUND_FAULT,SunSpec 701,DER alarm
+701.Alrm,bitfield,1,DC_OVER_VOLT,SunSpec 701,DER alarm
+701.Alrm,bitfield,2,AC_DISCONNECT,SunSpec 701,DER alarm
+701.Alrm,bitfield,3,DC_DISCONNECT,SunSpec 701,DER alarm
+701.Alrm,bitfield,4,GRID_DISCONNECT,SunSpec 701,DER alarm
+701.Alrm,bitfield,5,CABINET_OPEN,SunSpec 701,DER alarm
+701.Alrm,bitfield,6,MANUAL_SHUTDOWN,SunSpec 701,DER alarm
+701.Alrm,bitfield,7,OVER_TEMP,SunSpec 701,DER alarm
+701.Alrm,bitfield,8,OVER_FREQUENCY,SunSpec 701,DER alarm
+701.Alrm,bitfield,9,UNDER_FREQUENCY,SunSpec 701,DER alarm
+701.Alrm,bitfield,10,AC_OVER_VOLT,SunSpec 701,DER alarm
+701.Alrm,bitfield,11,AC_UNDER_VOLT,SunSpec 701,DER alarm
+701.Alrm,bitfield,12,BLOWN_STRING_FUSE,SunSpec 701,DER alarm
+701.Alrm,bitfield,13,UNDER_TEMP,SunSpec 701,DER alarm
+701.Alrm,bitfield,14,MEMORY_LOSS,SunSpec 701,DER alarm
+701.Alrm,bitfield,15,HW_TEST_FAILURE,SunSpec 701,DER alarm
+701.Alrm,bitfield,16,MANUFACTURER_ALRM,SunSpec 701,DER alarm; details in vendor code
+701.DERMode,bitfield,0,GRID_FOLLOWING,SunSpec 701,DER operating characteristic
+701.DERMode,bitfield,1,GRID_FORMING,SunSpec 701,DER operating characteristic
+701.DERMode,bitfield,2,PV_CLIPPED,SunSpec 701,DER operating characteristic
+701.ThrotSrc,bitfield,0,MAX_W,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,1,FIXED_W,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,2,FIXED_VAR,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,3,FIXED_PF,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,4,VOLT_VAR,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,5,FREQ_WATT,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,6,DYN_REACT_CURR,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,7,LVRT,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,8,HVRT,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,9,WATT_VAR,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,10,VOLT_WATT,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,11,SCHEDULED,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,12,LFRT,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,13,HFRT,SunSpec 701,Active power throttle source
+701.ThrotSrc,bitfield,14,DERATED,SunSpec 701,Active power throttle source; thermal or other derate
+704.Ena,enum,0,DISABLED,SunSpec 704,Function enable
+704.Ena,enum,1,ENABLED,SunSpec 704,Function enable
+704.WSetMod,enum,0,W_MAX_PCT,SunSpec 704,WSet is interpreted as % of WMax (use WSetPct)
+704.WSetMod,enum,1,WATTS,SunSpec 704,WSet is interpreted in W
+704.VarSetMod,enum,0,W_MAX_PCT,SunSpec 704,VarSetPct reference: % of WMax
+704.VarSetMod,enum,1,VAR_MAX_PCT,SunSpec 704,VarSetPct reference: % of VarMax
+704.VarSetMod,enum,2,VAR_AVAIL_PCT,SunSpec 704,VarSetPct reference: % of available var
+704.VarSetMod,enum,3,VA_MAX_PCT,SunSpec 704,VarSetPct reference: % of VAMax
+704.VarSetMod,enum,4,VARS,SunSpec 704,VarSet is interpreted in var
+704.PFExt,enum,0,OVER_EXCITED,SunSpec 704,Power factor excitation; over-excited = injecting var
+704.PFExt,enum,1,UNDER_EXCITED,SunSpec 704,Power factor excitation; under-excited = absorbing var
+802.ChaSt,enum,1,OFF,SunSpec 802,Charge status
+802.ChaSt,enum,2,EMPTY,SunSpec 802,Charge status
+802.ChaSt,enum,3,DISCHARGING,SunSpec 802,Charge status
+802.ChaSt,enum,4,CHARGING,SunSpec 802,Charge status
+802.ChaSt,enum,5,FULL,SunSpec 802,Charge status
+802.ChaSt,enum,6,HOLDING,SunSpec 802,Charge status; connected and idle
+802.ChaSt,enum,7,TESTING,SunSpec 802,Charge status
+802.State,enum,1,DISCONNECTED,SunSpec 802,Battery bank state; contactors open
+802.State,enum,2,INITIALIZING,SunSpec 802,Battery bank state; precharge
+802.State,enum,3,CONNECTED,SunSpec 802,Battery bank state; contactors closed
+802.State,enum,4,STANDBY,SunSpec 802,Battery bank state
+802.State,enum,5,SOC_PROTECTION,SunSpec 802,Battery bank state
+802.State,enum,6,SUSPENDING,SunSpec 802,Battery bank state
+802.State,enum,99,FAULT,SunSpec 802,Battery bank state
+802.LocRemCtl,enum,0,REMOTE,SunSpec 802,Control location; also used for relays/gensets/PPC
+802.LocRemCtl,enum,1,LOCAL,SunSpec 802,Control location; remote commands are ignored
+802.SetOp,enum,1,CONNECT,SunSpec 802,Battery connect/disconnect command
+802.SetOp,enum,2,DISCONNECT,SunSpec 802,Battery connect/disconnect command
+802.SetInvState,enum,1,INVERTER_STOPPED,SunSpec 802,Requested PCS state
+802.SetInvState,enum,2,INVERTER_STANDBY,SunSpec 802,Requested PCS state
+802.SetInvState,enum,3,INVERTER_STARTED,SunSpec 802,Requested PCS state
+802.Typ,enum,0,NOT_APPLICABLE_UNKNOWN,SunSpec 802,Battery chemistry
+802.Typ,enum,1,LEAD_ACID,SunSpec 802,Battery chemistry
+802.Typ,enum,2,NICKEL_METAL_HYDRATE,SunSpec 802,Battery chemistry
+802.Typ,enum,3,NICKEL_CADMIUM,SunSpec 802,Battery chemistry
+802.Typ,enum,4,LITHIUM_ION,SunSpec 802,Battery chemistry; LFP/NMC/NCA/LTO detail goes in Md
+802.Typ,enum,5,CARBON_ZINC,SunSpec 802,Battery chemistry
+802.Typ,enum,6,ZINC_CHLORIDE,SunSpec 802,Battery chemistry
+802.Typ,enum,7,ALKALINE,SunSpec 802,Battery chemistry
+802.Typ,enum,8,RECHARGEABLE_ALKALINE,SunSpec 802,Battery chemistry
+802.Typ,enum,9,SODIUM_SULFUR,SunSpec 802,Battery chemistry
+802.Typ,enum,10,FLOW,SunSpec 802,Battery chemistry
+802.Typ,enum,99,OTHER,SunSpec 802,Battery chemistry
+802.Evt1,bitfield,0,COMMUNICATION_ERROR,SunSpec 802,Battery event
+802.Evt1,bitfield,1,OVER_TEMP_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,2,OVER_TEMP_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,3,UNDER_TEMP_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,4,UNDER_TEMP_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,5,OVER_CHARGE_CURRENT_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,6,OVER_CHARGE_CURRENT_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,7,OVER_DISCHARGE_CURRENT_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,8,OVER_DISCHARGE_CURRENT_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,9,OVER_VOLT_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,10,OVER_VOLT_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,11,UNDER_VOLT_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,12,UNDER_VOLT_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,13,UNDER_SOC_MIN_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,14,UNDER_SOC_MIN_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,15,OVER_SOC_MAX_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,16,OVER_SOC_MAX_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,17,VOLTAGE_IMBALANCE_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,18,TEMPERATURE_IMBALANCE_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,19,TEMPERATURE_IMBALANCE_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,20,CONTACTOR_ERROR,SunSpec 802,Battery event
+802.Evt1,bitfield,21,FAN_ERROR,SunSpec 802,Battery event
+802.Evt1,bitfield,22,GROUND_FAULT,SunSpec 802,Battery event
+802.Evt1,bitfield,23,OPEN_DOOR_ERROR,SunSpec 802,Battery event
+802.Evt1,bitfield,24,CURRENT_IMBALANCE_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,25,OTHER_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,26,OTHER_WARNING,SunSpec 802,Battery event
+802.Evt1,bitfield,28,CONFIGURATION_ALARM,SunSpec 802,Battery event
+802.Evt1,bitfield,29,CONFIGURATION_WARNING,SunSpec 802,Battery event
+203.Evt,bitfield,2,M_EVENT_Power_Failure,SunSpec 203,Meter event
+203.Evt,bitfield,3,M_EVENT_Under_Voltage,SunSpec 203,Meter event
+203.Evt,bitfield,4,M_EVENT_Low_PF,SunSpec 203,Meter event
+203.Evt,bitfield,5,M_EVENT_Over_Current,SunSpec 203,Meter event
+203.Evt,bitfield,6,M_EVENT_Over_Voltage,SunSpec 203,Meter event
+203.Evt,bitfield,7,M_EVENT_Missing_Sensor,SunSpec 203,Meter event; CT/PT missing
+203.Evt,bitfield,16,M_EVENT_OEM01,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,17,M_EVENT_OEM02,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,18,M_EVENT_OEM03,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,19,M_EVENT_OEM04,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,20,M_EVENT_OEM05,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,21,M_EVENT_OEM06,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,22,M_EVENT_OEM07,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,23,M_EVENT_OEM08,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,24,M_EVENT_OEM09,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,25,M_EVENT_OEM10,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,26,M_EVENT_OEM11,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,27,M_EVENT_OEM12,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,28,M_EVENT_OEM13,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,29,M_EVENT_OEM14,SunSpec 203,Meter event; manufacturer-defined
+203.Evt,bitfield,30,M_EVENT_OEM15,SunSpec 203,Meter event; manufacturer-defined
+pae.Cmd,enum,0,NONE,PAE,Command register idle value; the device resets it to 0 after acting
+pae.Cmd,enum,1,EXECUTE,PAE,Write 1 to execute the command once
+pae.Dbpos,enum,0,INTERMEDIATE,IEC 61850 Dbpos,Switching device position; 52a=0 and 52b=0 (travelling)
+pae.Dbpos,enum,1,OPEN,IEC 61850 Dbpos,Switching device position; 52a=0 and 52b=1
+pae.Dbpos,enum,2,CLOSED,IEC 61850 Dbpos,Switching device position; 52a=1 and 52b=0
+pae.Dbpos,enum,3,BAD_STATE,IEC 61850 Dbpos,Switching device position; 52a=1 and 52b=1 (wiring fault)
+pae.Active,enum,0,NORMAL,PAE,Two-state indication
+pae.Active,enum,1,ACTIVE,PAE,Two-state indication; tripped / locked out / failed
+pae.Ok,enum,0,NOT_OK,PAE,Two-state health indication
+pae.Ok,enum,1,OK,PAE,Two-state health indication
+pae.TrpCause,bitfield,0,PHS_IOC_50,IEEE C37.2 / IEC 61850 PIOC,Trip cause: phase instantaneous overcurrent
+pae.TrpCause,bitfield,1,PHS_TOC_51,IEEE C37.2 / IEC 61850 PTOC,Trip cause: phase time overcurrent
+pae.TrpCause,bitfield,2,GND_IOC_50N,IEEE C37.2 / IEC 61850 PIOC,Trip cause: ground instantaneous overcurrent
+pae.TrpCause,bitfield,3,GND_TOC_51N,IEEE C37.2 / IEC 61850 PTOC,Trip cause: ground time overcurrent
+pae.TrpCause,bitfield,4,UV_27,IEEE C37.2 / IEC 61850 PTUV,Trip cause: undervoltage
+pae.TrpCause,bitfield,5,OV_59,IEEE C37.2 / IEC 61850 PTOV,Trip cause: overvoltage
+pae.TrpCause,bitfield,6,UF_81U,IEEE C37.2 / IEC 61850 PTUF,Trip cause: underfrequency
+pae.TrpCause,bitfield,7,OF_81O,IEEE C37.2 / IEC 61850 PTOF,Trip cause: overfrequency
+pae.TrpCause,bitfield,8,ROCOF_81R,IEEE C37.2 / IEC 61850 PFRC,Trip cause: rate of change of frequency
+pae.TrpCause,bitfield,9,RPWR_32,IEEE C37.2 / IEC 61850 PDPR,Trip cause: directional / reverse power
+pae.TrpCause,bitfield,10,NEG_SEQ_46,IEEE C37.2 / IEC 61850 PTOC,Trip cause: negative sequence overcurrent
+pae.TrpCause,bitfield,11,DIR_OC_67,IEEE C37.2 / IEC 61850 PTOC,Trip cause: directional overcurrent
+pae.TrpCause,bitfield,12,DIFF_87,IEEE C37.2 / IEC 61850 PDIF,Trip cause: differential
+pae.TrpCause,bitfield,13,VECTOR_SHIFT_78,IEEE C37.2,Trip cause: vector shift (anti-islanding)
+pae.TrpCause,bitfield,14,BRK_FAIL_50BF,IEEE C37.2 / IEC 61850 RBRF,Trip cause: breaker failure
+pae.TrpCause,bitfield,15,TRANSFER_TRIP,PAE,Trip cause: direct/transfer trip received
+pae.TrpCause,bitfield,16,EXT_TRIP,PAE,Trip cause: external input (e.g. transformer Buchholz)
+pae.TrpCause,bitfield,17,MANUAL_TRIP,PAE,Trip cause: operator open
+pae.RecSt,enum,0,READY,IEC 61850 RREC,Auto-recloser (79) state
+pae.RecSt,enum,1,IN_PROGRESS,IEC 61850 RREC,Auto-recloser (79) state; reclose cycle running
+pae.RecSt,enum,2,LOCKOUT,IEC 61850 RREC,Auto-recloser (79) state; final trip reached
+pae.RecSt,enum,3,DISABLED,IEC 61850 RREC,Auto-recloser (79) state
+pae.TapMode,enum,0,MANUAL,PAE,Tap changer control mode
+pae.TapMode,enum,1,AUTO,PAE,Tap changer control mode; AVR regulating to VRegSet
+pae.CoolSt,enum,0,OFF,PAE,Transformer cooling state (ONAN)
+pae.CoolSt,enum,1,STAGE_1,PAE,Transformer cooling state (first fan/pump group)
+pae.CoolSt,enum,2,STAGE_2,PAE,Transformer cooling state (all groups)
+pae.CoolSt,enum,3,FAULT,PAE,Transformer cooling state
+pae.XfmrAlrm,bitfield,0,OIL_TMP_ALARM,IEC 61850 STMP/SIML,Transformer alarm
+pae.XfmrAlrm,bitfield,1,OIL_TMP_TRIP,IEC 61850 STMP/SIML,Transformer alarm
+pae.XfmrAlrm,bitfield,2,WDG_TMP_ALARM,IEC 61850 STMP,Transformer alarm
+pae.XfmrAlrm,bitfield,3,WDG_TMP_TRIP,IEC 61850 STMP,Transformer alarm
+pae.XfmrAlrm,bitfield,4,BUCHHOLZ_ALARM,IEC 61850 SIML,Transformer alarm (63 gas accumulation)
+pae.XfmrAlrm,bitfield,5,BUCHHOLZ_TRIP,IEC 61850 SIML,Transformer alarm (63 surge)
+pae.XfmrAlrm,bitfield,6,PRESSURE_RELIEF,IEC 61850 SPRS,Transformer alarm (63PR)
+pae.XfmrAlrm,bitfield,7,OIL_LEVEL_LOW,IEC 61850 SIML,Transformer alarm (71)
+pae.XfmrAlrm,bitfield,8,DISSOLVED_GAS,IEC 61850 SIML,Transformer alarm (online DGA)
+pae.XfmrAlrm,bitfield,9,COOLING_FAIL,PAE,Transformer alarm
+pae.XfmrAlrm,bitfield,10,TAP_CHANGER_FAIL,IEC 61850 YLTC,Transformer alarm
+pae.XfmrAlrm,bitfield,11,OVERLOAD,PAE,Transformer alarm; LoadPct above 100
+pae.GenSt,enum,0,STOPPED,PAE,Genset state
+pae.GenSt,enum,1,STARTING,PAE,Genset state; pre-heat or cranking
+pae.GenSt,enum,2,WARMUP,PAE,Genset state; running; breaker open
+pae.GenSt,enum,3,RUNNING_UNLOADED,PAE,Genset state; at rated speed/voltage; breaker open
+pae.GenSt,enum,4,RUNNING_LOADED,PAE,Genset state; breaker closed
+pae.GenSt,enum,5,COOLDOWN,PAE,Genset state; breaker open; running down
+pae.GenSt,enum,6,STOPPING,PAE,Genset state
+pae.GenSt,enum,7,SHUTDOWN_FAULT,PAE,Genset state; latched shutdown alarm
+pae.GenCtrlMode,enum,0,OFF,PAE,Genset controller key/mode (DSE/ComAp/PCC equivalent)
+pae.GenCtrlMode,enum,1,MANUAL,PAE,Genset controller key/mode
+pae.GenCtrlMode,enum,2,AUTO,PAE,Genset controller key/mode; remote start allowed
+pae.GenCtrlMode,enum,3,TEST,PAE,Genset controller key/mode
+pae.GenAlrm,bitfield,0,LOW_OIL_PRESSURE,PAE,Genset alarm (used for shutdown and warning words)
+pae.GenAlrm,bitfield,1,HIGH_COOLANT_TEMP,PAE,Genset alarm
+pae.GenAlrm,bitfield,2,OVERSPEED,PAE,Genset alarm
+pae.GenAlrm,bitfield,3,UNDERSPEED,PAE,Genset alarm
+pae.GenAlrm,bitfield,4,FAIL_TO_START,PAE,Genset alarm
+pae.GenAlrm,bitfield,5,FAIL_TO_STOP,PAE,Genset alarm
+pae.GenAlrm,bitfield,6,LOW_FUEL,PAE,Genset alarm
+pae.GenAlrm,bitfield,7,BATTERY_UNDERVOLT,PAE,Genset alarm
+pae.GenAlrm,bitfield,8,BATTERY_OVERVOLT,PAE,Genset alarm
+pae.GenAlrm,bitfield,9,CHARGE_ALT_FAIL,PAE,Genset alarm
+pae.GenAlrm,bitfield,10,GEN_OVERVOLT,PAE,Genset alarm
+pae.GenAlrm,bitfield,11,GEN_UNDERVOLT,PAE,Genset alarm
+pae.GenAlrm,bitfield,12,GEN_OVERFREQ,PAE,Genset alarm
+pae.GenAlrm,bitfield,13,GEN_UNDERFREQ,PAE,Genset alarm
+pae.GenAlrm,bitfield,14,GEN_OVERCURRENT,PAE,Genset alarm
+pae.GenAlrm,bitfield,15,REVERSE_POWER,PAE,Genset alarm
+pae.GenAlrm,bitfield,16,EMERGENCY_STOP,PAE,Genset alarm
+pae.GenAlrm,bitfield,17,LOW_COOLANT_LEVEL,PAE,Genset alarm
+pae.GenAlrm,bitfield,18,BREAKER_FAIL,PAE,Genset alarm
+pae.GenAlrm,bitfield,19,MAINTENANCE_DUE,PAE,Genset alarm
+pae.SensorSt,bitfield,0,GHI_FAIL,PAE,Met station sensor fault
+pae.SensorSt,bitfield,1,POA_FAIL,PAE,Met station sensor fault; any POA sensor
+pae.SensorSt,bitfield,2,TMP_AMB_FAIL,PAE,Met station sensor fault
+pae.SensorSt,bitfield,3,TMP_BOM_FAIL,PAE,Met station sensor fault
+pae.SensorSt,bitfield,4,WIND_FAIL,PAE,Met station sensor fault
+pae.SensorSt,bitfield,5,HEATER_ON,PAE,Met station status; pyranometer heater active
+pae.SensorSt,bitfield,6,CLEANING_DUE,PAE,Met station status
+pae.PMode,enum,0,OFF,PAE,Plant controller active power mode
+pae.PMode,enum,1,W_SET,PAE,Plant controller active power mode; follow WSet at POI
+pae.PMode,enum,2,EXPORT_LIMIT,PAE,Plant controller active power mode; max output subject to ExpLimW/ImpLimW
+pae.PMode,enum,3,SCHEDULE,PAE,Plant controller active power mode; follow internal schedule
+pae.PMode,enum,4,FREQ_RESPONSE,PAE,Plant controller active power mode; frequency-watt droop around WSet
+pae.QMode,enum,0,OFF,PAE,Plant controller reactive power mode
+pae.QMode,enum,1,VAR_SET,PAE,Plant controller reactive power mode; follow VarSet at POI
+pae.QMode,enum,2,PF_SET,PAE,Plant controller reactive power mode; follow PFSet at POI
+pae.QMode,enum,3,VOLT_VAR,PAE,Plant controller reactive power mode; volt-var curve
+pae.QMode,enum,4,V_SET,PAE,Plant controller reactive power mode; regulate POI voltage to VSet
+pae.GridMode,enum,0,GRID_TIED,PAE,Site grid mode
+pae.GridMode,enum,1,ISLANDED,PAE,Site grid mode; microgrid running without utility
+pae.GridMode,enum,2,TRANSITIONING,PAE,Site grid mode; islanding or resynchronising
+pae.GridMode,enum,3,BLACKOUT,PAE,Site grid mode; de-energised
+pae.PpcAlrm,bitfield,0,DEVICE_COMM_LOSS,PAE,Plant controller alarm; lost a downstream device
+pae.PpcAlrm,bitfield,1,SCADA_COMM_LOSS,PAE,Plant controller alarm; CtrlHb stopped
+pae.PpcAlrm,bitfield,2,POI_METER_FAIL,PAE,Plant controller alarm
+pae.PpcAlrm,bitfield,3,SETPOINT_REJECTED,PAE,Plant controller alarm; last write out of range
+pae.PpcAlrm,bitfield,4,EXPORT_LIMIT_ACTIVE,PAE,Plant controller alarm
+pae.PpcAlrm,bitfield,5,CTRL_DISABLED,PAE,Plant controller alarm; RemEna is DISABLED or local control
+pae.SupplySt,enum,0,DE_ENERGIZED,PAE,Load supply state
+pae.SupplySt,enum,1,ENERGIZED,PAE,Load supply state
+pae.LoadAlrm,bitfield,0,UNDERVOLTAGE,PAE,Load alarm
+pae.LoadAlrm,bitfield,1,OVERVOLTAGE,PAE,Load alarm
+pae.LoadAlrm,bitfield,2,OVERLOAD,PAE,Load alarm

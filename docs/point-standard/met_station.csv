@@ -1,0 +1,17 @@
+point,label,qty,tier,kind,access,unit,data_type,scale,sign,enum_ref,enum_detail,bitfield_detail,source,source_ref,description,mock_modbus,powerflow
+GHI,Global Horizontal Irradiance,ghi,M,measurement,R,W/m2,uint16,0.1,,,,,SunSpec,SunSpec 302 GHI,Global horizontal irradiance,device_3.ghi_irradiance,pv.irradiance_wm2 (when profile is GHI)
+POAI_<n>,Plane-of-Array Irradiance n,poa,M,measurement,R,W/m2,uint16,0.1,,,,,SunSpec,SunSpec 302 POAI,Plane-of-array irradiance per sensor; repeat n=1..N,device_3.poa1_irradiance / poa2_irradiance; device_1.solar_irradiance,pv.irradiance_wm2 (partial)
+DNI,Direct Normal Irradiance,dni,O,measurement,R,W/m2,uint16,0.1,,,,,SunSpec,SunSpec 302 DNI,Direct normal irradiance,,
+DFI,Diffuse Irradiance,dhi,O,measurement,R,W/m2,uint16,0.1,,,,,SunSpec,SunSpec 302 DFI,Diffuse horizontal irradiance,,
+OTI,Other Irradiance,irr_other,O,measurement,R,W/m2,uint16,0.1,,,,,SunSpec,SunSpec 302 OTI,Other irradiance (e.g. rear-side/albedo for bifacial),,
+TmpAmb,Ambient Temperature,t_amb,M,measurement,R,degC,int16,0.1,,,,,SunSpec,SunSpec 307 TmpAmb,Ambient air temperature,device_3.poa1_ambient_temp; device_1.ambient_temperature,
+TmpBOM_<n>,Back of Module Temperature n,t_mod,R,measurement,R,degC,int16,0.1,,,,,SunSpec,SunSpec 308 TmpBOM,Back-of-module temperature per sensor; repeat n=1..N,device_3.poa1_cell_temp / poa2_cell_temp; device_1.module_temperature,
+WndSpd,Wind Speed,wind_speed,R,measurement,R,m/s,uint16,0.1,,,,,SunSpec,SunSpec 307 WndSpd,Wind speed,device_3.poa1_wind_speed,
+WndDir,Wind Direction,wind_dir,O,measurement,R,deg,uint16,1,,,,,SunSpec,SunSpec 307 WndDir,Wind direction (0 = north),,
+RH,Relative Humidity,rh,O,measurement,R,%,uint16,0.1,,,,,SunSpec,SunSpec 307 RH,Relative humidity,,
+Pres,Barometric Pressure,pres,O,measurement,R,hPa,uint16,0.1,,,,,SunSpec,SunSpec 307 Pres,Barometric pressure,,
+Rain,Rainfall,rain,O,counter,R,mm,uint16,0.1,,,,,SunSpec,SunSpec 307 Rain,Rainfall accumulation,,
+Snw,Snow Depth,snow,O,measurement,R,mm,uint16,1,,,,,SunSpec,SunSpec 307 Snw,Snow depth,,
+SoilRto,Soiling Ratio,soiling,O,measurement,R,%,uint16,0.1,,,,,PAE,PAE,Soiling ratio from a soiling station (100 = clean),,
+TmpSns,Sensor Body Temperature,t_sensor,O,measurement,R,degC,int16,0.1,,,,,PAE,PAE,Pyranometer body temperature,device_3.ghi_sensor_body_temp,
+SensorSt,Sensor Status,sensor_state,R,alarm,R,,bitfield16,1,,pae.SensorSt,,"{""0"":""GHI_FAIL"",""1"":""POA_FAIL"",""2"":""TMP_AMB_FAIL"",""3"":""TMP_BOM_FAIL"",""4"":""WIND_FAIL"",""5"":""HEATER_ON"",""6"":""CLEANING_DUE""}",PAE,PAE,Sensor faults and heater/cleaning status,device_3.ghi_status_flags (unlabelled),

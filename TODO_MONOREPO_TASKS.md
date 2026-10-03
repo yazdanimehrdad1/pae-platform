@@ -34,6 +34,18 @@ backlog. Remove an item when it's done; the commit that closes it records the de
 - **mock-modbus:** add a type checker (`make typecheck` is a placeholder today).
 - **web-plusdas:** run nginx as non-root (e.g. `nginxinc/nginx-unprivileged` listening on 8080).
 
+## Point standard alignment
+
+`docs/point-standard/` (draft) defines standard Modbus point names, units, signs and enums per
+asset class. Nothing conforms to it yet. Align one service at a time, provider first, with its
+contract regenerated (the gap table is in `docs/point-standard/README.md`):
+- **powerflow:** rename the point lists and Modbus maps to the standard (SI units, SunSpec enums),
+  and add frequency, L-L voltages and energy counters, before the Modbus server binds to them.
+- **mock-modbus:** sign BESS power and current, add meter/relay/genset/met devices, and declare
+  data_type and access in the contract.
+- **backend-ot:** replace the placeholder STANDARDIZED templates with the tier-M points (lookup by
+  `qty`), and map SLD roles to `qty`.
+
 ## Next service
 
 - **First new Python service (optimizer or powerflow; ports 8010 / 8020 reserved).** Scaffold it
