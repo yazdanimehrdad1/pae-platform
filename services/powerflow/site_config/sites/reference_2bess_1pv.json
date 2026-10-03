@@ -41,7 +41,7 @@
         "s_rated_kva": 2750,
         "p_discharge_max_kw": 2500,
         "p_charge_max_kw": 2500,
-        "v_lv_kv": 0.69,
+        "v_lv_kv": 0.48,
         "priority": "p",
         "ramp_kw_per_s": 500
       },
@@ -59,7 +59,7 @@
       "transformer": {
         "s_rated_kva": 2750,
         "vn_hv_kv": 12.47,
-        "vn_lv_kv": 0.69,
+        "vn_lv_kv": 0.48,
         "z_pct": 5.75,
         "x_r": 7.0,
         "no_load_loss_kw": 2.5,
@@ -74,7 +74,7 @@
         "s_rated_kva": 2750,
         "p_discharge_max_kw": 2500,
         "p_charge_max_kw": 2500,
-        "v_lv_kv": 0.69,
+        "v_lv_kv": 0.48,
         "priority": "p",
         "ramp_kw_per_s": 500
       },
@@ -92,7 +92,7 @@
       "transformer": {
         "s_rated_kva": 2750,
         "vn_hv_kv": 12.47,
-        "vn_lv_kv": 0.69,
+        "vn_lv_kv": 0.48,
         "z_pct": 5.75,
         "x_r": 7.0,
         "no_load_loss_kw": 2.5,
@@ -110,7 +110,7 @@
       "inverter": {
         "s_rated_kva": 5500,
         "p_max_kw": 5000,
-        "v_lv_kv": 0.69,
+        "v_lv_kv": 0.48,
         "priority": "p"
       },
       "availability": {
@@ -122,7 +122,7 @@
       "transformer": {
         "s_rated_kva": 5500,
         "vn_hv_kv": 12.47,
-        "vn_lv_kv": 0.69,
+        "vn_lv_kv": 0.48,
         "z_pct": 6.0,
         "x_r": 8.0,
         "no_load_loss_kw": 4.5,
@@ -144,6 +144,23 @@
         "p_std_pct": 1.0,
         "q_std_pct": 1.0
       }
+    }
+  ],
+  "meters": [
+    {
+      "id": "m_bess1",
+      "name": "m:bess1",
+      "transformer": "bess1"
+    },
+    {
+      "id": "m_bess2",
+      "name": "m:bess2",
+      "transformer": "bess2"
+    },
+    {
+      "id": "m_pv1",
+      "name": "m:pv1",
+      "transformer": "pv1"
     }
   ],
   "interfaces": {

@@ -2,6 +2,7 @@
 pacing and overruns (with an injected clock, so no test waits on wall time)."""
 
 import asyncio
+import math
 from collections.abc import Callable
 from typing import Any
 
@@ -152,6 +153,57 @@ class TestNonConvergence:
         engine = make_engine(solver_factory=lambda topology: FlakySolver(topology, {1}))
         snapshot = run(engine.step(1))
         assert not snapshot.converged and snapshot.poi.v_pu == 0
+
+
+def metered_site() -> dict[str, Any]:
+    raw = site_config_dict(n_bess=1, n_pv=1)
+    raw["meters"] = [
+        {"id": "m_bess1", "transformer": "bess1"},
+        {"id": "m_pv1", "transformer": "pv1"},
+    ]
+    return raw
+
+
+class TestFeederMeters:
+    def test_meter_reads_the_transformer_hv_side(self) -> None:
+        engine = make_engine(metered_site())
+        discharge(engine, 1000, 200)
+        snapshot = run(engine.step(1))
+        meters = {meter.id: meter for meter in snapshot.meters}
+        transformers = {item.name: item for item in snapshot.transformers}
+        bess = snapshot.bess[0]
+
+        # + toward the MV bus, after the transformer losses (and the aux load on the LV bus).
+        tx = transformers["tx:bess1"]
+        assert meters["m_bess1"].p_kw == pytest.approx(bess.p_kw - bess.aux_p_kw - tx.p_loss_kw)
+        assert meters["m_bess1"].q_kvar == pytest.approx(tx.q_hv_kvar)
+        assert meters["m_pv1"].p_kw == pytest.approx(
+            snapshot.pv[0].p_kw - transformers["tx:pv1"].p_loss_kw
+        )
+        collector = next(bus for bus in snapshot.buses if bus.name == "col:mv1")
+        assert meters["m_bess1"].v_kv == pytest.approx(collector.v_kv)
+        # I = S / (√3·V) on the HV side.
+        assert meters["m_bess1"].i_a == pytest.approx(
+            meters["m_bess1"].s_kva / (math.sqrt(3) * collector.v_kv), rel=1e-3
+        )
+        assert meters["m_bess1"].meter_state_name == "OK"
+
+    def test_feeder_meters_add_up_to_the_poi(self) -> None:
+        """With every generator metered and the load on the POI bus: POI = Σ meters − load."""
+        engine = make_engine(metered_site())
+        discharge(engine, -800)
+        snapshot = run(engine.step(1))
+        metered = sum(meter.p_kw for meter in snapshot.meters)
+        assert snapshot.poi.p_kw == pytest.approx(metered - snapshot.loads[0].p_kw, abs=0.01)
+
+    def test_feeder_meters_go_stale_on_non_convergence(self) -> None:
+        engine = make_engine(
+            metered_site(), solver_factory=lambda topology: FlakySolver(topology, {2})
+        )
+        good = run(engine.step(1))
+        failed = run(engine.step(1))
+        assert [meter.meter_state_name for meter in failed.meters] == ["STALE", "STALE"]
+        assert [meter.p_kw for meter in failed.meters] == [meter.p_kw for meter in good.meters]
 
 
 class FakeClock:

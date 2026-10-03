@@ -87,6 +87,8 @@ class PointRegistry:
                 return [POI_ASSET_ID]
             case AssetType.SITE:
                 return [SITE_ASSET_ID]
+            case AssetType.METER:
+                return [meter.id for meter in runtime.config.meters]
 
     def names(self, source: PointSource | None = None) -> list[str]:
         """Every point name for the current config (optionally only one source)."""
@@ -232,6 +234,8 @@ def _measurement(snapshot: Snapshot, address: PointAddress) -> PointValue:
             items = snapshot.pv
         case AssetType.LOAD:
             items = snapshot.loads
+        case AssetType.METER:
+            items = snapshot.meters
     for item in items:
         if item.id == address.asset_id:
             return getattr(item, address.point)

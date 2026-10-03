@@ -236,6 +236,17 @@ class LoadConfig(StrictModel):
     )
 
 
+class MeterConfig(StrictModel):
+    """A feeder meter on the HV side of an asset's transformer (between the MV bus and the
+    transformer), so it reads P/Q after the transformer losses. Positive = toward the MV bus."""
+
+    id: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str | None = None
+    transformer: AssetId = Field(
+        description="The BESS, PV or load (with a transformer) whose transformer is metered."
+    )
+
+
 class InterfaceToggle(StrictModel):
     enabled: bool = False
 
@@ -277,6 +288,7 @@ class SiteConfig(StrictModel):
     bess: list[BessConfig] = Field(default_factory=list)
     pv: list[PvConfig] = Field(default_factory=list)
     loads: list[LoadConfig] = Field(default_factory=list)
+    meters: list[MeterConfig] = Field(default_factory=list)
     interfaces: InterfacesConfig = Field(default_factory=InterfacesConfig)
 
     @model_validator(mode="after")
@@ -301,7 +313,26 @@ class SiteConfig(StrictModel):
                 raise ValueError(f"{load.id}: unknown bus {load.bus!r}")
             if load.transformer is not None:
                 self._check_hv(load.id, load.transformer)
+        self._check_meters()
         return self
+
+    def _check_meters(self) -> None:
+        meter_ids = [meter.id for meter in self.meters]
+        if len(set(meter_ids)) != len(meter_ids):
+            raise ValueError("meter ids must be unique")
+        transformer_owners = {asset.id for asset in [*self.bess, *self.pv]} | {
+            load.id for load in self.loads if load.transformer is not None
+        }
+        metered: set[str] = set()
+        for meter in self.meters:
+            if meter.transformer not in transformer_owners:
+                raise ValueError(
+                    f"meter {meter.id}: {meter.transformer!r} is not a BESS, PV or load with a "
+                    "transformer"
+                )
+            if meter.transformer in metered:
+                raise ValueError(f"meter {meter.id}: {meter.transformer!r} already has a meter")
+            metered.add(meter.transformer)
 
     def _check_hv(self, asset_id: str, transformer: TransformerConfig) -> None:
         if not _close(transformer.vn_hv_kv, self.grid.vn_kv):

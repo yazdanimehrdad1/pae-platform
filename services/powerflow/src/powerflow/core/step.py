@@ -25,6 +25,7 @@ from powerflow.core.snapshot import (
     BessMeasurement,
     BusMeasurement,
     LoadMeasurement,
+    MeterMeasurement,
     PoiMeasurement,
     PvMeasurement,
     Snapshot,
@@ -36,7 +37,7 @@ from powerflow.models import pv as pv_model
 from powerflow.models import status
 from powerflow.models.common import apparent_power, power_factor
 from powerflow.models.load import LoadOutput, load_output
-from powerflow.network.solver import BusResult, Injection, NetworkResult
+from powerflow.network.solver import BusResult, Injection, NetworkResult, TransformerResult
 from powerflow.network.topology import (
     bess_aux_injection,
     bess_injection,
@@ -49,6 +50,7 @@ from powerflow.site_config import POI_BUS_ID, PvAvailabilitySource
 
 logger = logging.getLogger(__name__)
 NO_VOLTAGE = BusResult(vn_kv=0.0, vm_pu=0.0, va_degree=0.0)
+NO_FLOW = TransformerResult(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 IRRADIANCE = PvAvailabilitySource.IRRADIANCE
 
 
@@ -297,6 +299,30 @@ def build_snapshot(
             )
         )
 
+    meters: list[MeterMeasurement] = []
+    for meter_config in runtime.config.meters:
+        name = transformer_name(meter_config.transformer)
+        hv_bus = bus(
+            next(spec.hv_bus for spec in runtime.topology.transformers if spec.name == name)
+        )
+        flow = network.transformers[name] if network is not None else NO_FLOW
+        feeder_state = status.meter_state(converged=network is not None)
+        meters.append(
+            MeterMeasurement(
+                id=meter_config.id,
+                transformer=meter_config.transformer,
+                p_kw=flow.p_hv_kw,
+                q_kvar=flow.q_hv_kvar,
+                s_kva=apparent_power(flow.p_hv_kw, flow.q_hv_kvar),
+                pf=power_factor(flow.p_hv_kw, flow.q_hv_kvar),
+                v_kv=hv_bus.v_kv,
+                v_pu=hv_bus.vm_pu,
+                i_a=flow.i_hv_a,
+                meter_state=int(feeder_state),
+                meter_state_name=feeder_state.name,
+            )
+        )
+
     poi_bus = bus(POI_BUS_ID)
     p_kw = network.poi.p_kw if network is not None else 0.0
     q_kvar = network.poi.q_kvar if network is not None else 0.0
@@ -354,6 +380,7 @@ def build_snapshot(
         bess=bess,
         pv=pv,
         loads=loads,
+        meters=meters,
     )
 
 
@@ -362,11 +389,17 @@ def _repeat_last_good(
 ) -> Snapshot:
     if state.last_good is not None:
         stale = status.MeterState.STALE
-        poi = state.last_good.poi.model_copy(
-            update={"meter_state": int(stale), "meter_state_name": stale.name}
-        )
+        stale_fields = {"meter_state": int(stale), "meter_state_name": stale.name}
+        poi = state.last_good.poi.model_copy(update=stale_fields)
+        meters = [meter.model_copy(update=stale_fields) for meter in state.last_good.meters]
         return state.last_good.model_copy(
-            update={"step_id": step_index, "sim_time": sim_time, "converged": False, "poi": poi}
+            update={
+                "step_id": step_index,
+                "sim_time": sim_time,
+                "converged": False,
+                "poi": poi,
+                "meters": meters,
+            }
         )
     # Never converged: report the idle asset state with no network values.
     idle = AssetOutputs(

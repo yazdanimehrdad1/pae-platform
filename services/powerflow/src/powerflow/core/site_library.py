@@ -333,6 +333,8 @@ def _asset_in_site(config: SiteConfig, modbus_map: ModbusMap) -> bool:
             return modbus_map.asset_id == POI_ASSET_ID
         case AssetType.SITE:
             return modbus_map.asset_id == SITE_ASSET_ID
+        case AssetType.METER:
+            return any(meter.id == modbus_map.asset_id for meter in config.meters)
 
 
 def _scenarios_used(config: SiteConfig, folder: ProfileFolder) -> set[str]:

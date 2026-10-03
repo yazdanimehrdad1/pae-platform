@@ -37,6 +37,7 @@ class TransformerResult:
 
     p_hv_kw: float
     q_hv_kvar: float
+    i_hv_a: float
     p_lv_kw: float
     q_lv_kvar: float
     p_loss_kw: float

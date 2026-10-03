@@ -1,6 +1,6 @@
 {
   "contract": "powerflow/points",
-  "naming": "<asset_type>.<asset_id>.<point>; poi uses asset_id 'meter', site 'sim'",
+  "naming": "<asset_type>.<asset_id>.<point>; poi uses asset_id 'meter', site 'sim', meter (feeder meters) the meter id",
   "point_lists": {
     "bess": [
       {
@@ -398,6 +398,99 @@
         "description": "Alarms: voltage outside 0.95-1.05 pu.",
         "enum_values": null,
         "name": "alarm_flags",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      }
+    ],
+    "meter": [
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Active power on the transformer's HV side. + toward the MV bus.",
+        "enum_values": null,
+        "name": "p_kw",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kW"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Reactive power. + toward the MV bus.",
+        "enum_values": null,
+        "name": "q_kvar",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kvar"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Apparent power.",
+        "enum_values": null,
+        "name": "s_kva",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kVA"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Power factor, signed with Q.",
+        "enum_values": null,
+        "name": "pf",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "MV bus voltage, line-to-line.",
+        "enum_values": null,
+        "name": "v_kv",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "kV"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "MV bus voltage.",
+        "enum_values": null,
+        "name": "v_pu",
+        "scale_hint": 0.001,
+        "source": "measurement",
+        "unit": "pu"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Current on the transformer's HV side.",
+        "enum_values": null,
+        "name": "i_a",
+        "scale_hint": 0.1,
+        "source": "measurement",
+        "unit": "A"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "STALE when the power flow didn't converge (last good values).",
+        "enum_values": {
+          "0": "OK",
+          "1": "STALE"
+        },
+        "name": "meter_state",
         "scale_hint": null,
         "source": "measurement",
         "unit": ""

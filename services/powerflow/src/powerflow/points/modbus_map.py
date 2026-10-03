@@ -100,7 +100,7 @@ class ModbusMap(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     map_version: Literal[1] = 1
-    asset: str = Field(pattern=r"^(bess|pv|load|poi|site)\.[A-Za-z0-9_-]+$")
+    asset: str = Field(pattern=r"^(bess|pv|load|poi|site|meter)\.[A-Za-z0-9_-]+$")
     unit_id: int = Field(ge=1, le=247)
     port: int = Field(default=502, ge=1, le=65535)
     register_numbering: Literal["zero_based", "one_based"] = "zero_based"
@@ -217,13 +217,14 @@ def default_map(
 
 def default_site_maps(config: SiteConfig, port: int = DEFAULT_PORT) -> list[ModbusMap]:
     """Default maps for every asset of a site. Unit IDs run from 1 in the order BESS, PV,
-    loads, POI meter, site status."""
+    loads, POI meter, site status, feeder meters (last, so adding meters moves no unit ID)."""
     assets = [
         *[(AssetType.BESS, bess.id) for bess in config.bess],
         *[(AssetType.PV, pv.id) for pv in config.pv],
         *[(AssetType.LOAD, load.id) for load in config.loads],
         (AssetType.POI, POI_ASSET_ID),
         (AssetType.SITE, SITE_ASSET_ID),
+        *[(AssetType.METER, meter.id) for meter in config.meters],
     ]
     return [
         default_map(asset_type, asset_id, unit_id, port)

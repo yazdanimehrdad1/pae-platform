@@ -19,7 +19,7 @@ protocol-neutral point lists.
 - **With the platform:** `make up` at the repo root builds and starts powerflow and its Postgres with the rest of the dev stack. Then open http://localhost:8020/docs.
 - **Alone, in Docker:** `make down` at the root first, then `make -C services/powerflow up`. That builds the image and starts powerflow plus `powerflow-postgres`, waiting until both are healthy.
 - **On the host:** start the database (for example `make -C services/powerflow up`, then stop only the app container), or point `DATABASE_URL` at any Postgres. Then run `make -C services/powerflow run`.
-- **First start:** on an empty database, powerflow seeds the shipped defaults from `site_config/` and runs the default active site, `reference_2bess_1pv`. That site is 12.47 kV with a 100 MVA / X/R 5 grid, 2 × 2.5 MW / 10 MWh BESS, 5 MWac PV and a 3 MW peak load.
+- **First start:** on an empty database, powerflow seeds the shipped defaults from `site_config/` and runs the default active site, `reference_2bess_1pv`. That site is 12.47 kV with a 100 MVA / X/R 5 grid, 2 × 2.5 MW / 10 MWh BESS, 5 MWac PV (all on 12.47/0.48 kV step-ups) and a 3 MW peak load, with a feeder meter on each step-up's 12.47 kV side.
 - **Choosing the site:** switch with `POST /api/sites/{name}/activate`. For one run only, set `ACTIVE_SITE`.
 
 ```sh
@@ -39,6 +39,7 @@ grouped by area, with example bodies and a `{{baseUrl}}` variable (default `http
 | BESS / PV P, Q | injecting into the network (generator convention). BESS P < 0 = charging |
 | Load P, Q | consuming (Q > 0 lagging) |
 | POI P, Q | export to the utility (P < 0 = import) |
+| Feeder meter P, Q | flowing toward the MV bus (out of the transformer's HV terminal, after its losses) |
 | Transformer P, Q | flowing toward the grid (LV → HV). `p_lv_kw` enters at LV, `p_hv_kw` leaves at HV |
 | pf | \|P\|/S, signed with Q in the element's own convention |
 
@@ -80,10 +81,12 @@ rejected. The sections are:
   - `transformer`: `s_rated_kva`, `vn_hv_kv`, `vn_lv_kv`, `z_pct`, `x_r`, `no_load_loss_kw`, `i0_pct`.
 - **`pv[]`:** `dc_kwp`, `loss_factor`, `inverter` (`s_rated_kva`, `p_max_kw`), `availability` (`source`: `ac_kw` | `irradiance`, plus a profile `scenario` from `profiles/pv/`, `scale` and `loop`), `transformer`.
 - **`loads[]`:** `bus` (`poi` or a collector id), `profile` (`scenario` from `profiles/load/`, `scale`, `loop`), optional `noise` (% std, seeded), optional `transformer`.
+- **`meters[]`:** feeder meters, each `{id, name?, transformer}`. `transformer` is the BESS, PV or load (with a transformer) whose transformer is metered on its HV side, between the MV bus and the transformer. A meter has no impedance: it reads the transformer's HV-terminal P/Q/I and the MV bus voltage.
 - **`interfaces`:** `http` is always on; `modbus` and `dnp3` are not implemented yet, so enabling them only logs a warning. A site's Modbus maps are stored with it in the database.
 
 Validation also checks:
 - ids are unique and every reference points at something that exists;
+- a meter's `transformer` is a BESS, PV or load that has a transformer, with at most one meter per transformer;
 - each transformer's HV rating matches the grid and its LV rating matches the inverter, within 1 %;
 - SOC min < max, and the initial SOC lies within them;
 - each inverter's S rating is at least its P rating;
@@ -128,7 +131,7 @@ Validation also checks:
 | Profiles | `GET profiles` · `GET`/`PUT`/`DELETE profiles/{load\|pv}/{scenario}` (text/csv; DELETE refused while a site uses it) |
 | Schemas | `GET schemas` · `GET schemas/{name}` (`site-config`, `modbus-map`; read-only) |
 | Defaults | `GET defaults` · `POST defaults/restore?overwrite=` |
-| Assets | `GET assets` · `GET assets/{bess,pv,load}/{id}` · `PUT assets/{bess,pv}/{id}/setpoint` |
+| Assets | `GET assets` (includes `meters`) · `GET assets/{bess,pv,load}/{id}` · `PUT assets/{bess,pv}/{id}/setpoint` |
 | Points | `GET points` · `GET points/{name}` |
 | Measurements | `GET measurements/latest`, `measurements/poi` · `GET measurements/history?from=&to=&fields=&format=json\|csv` |
 | Service | `GET health`, `GET version` |
@@ -144,7 +147,7 @@ Validation also checks:
 **Missed steps:** every snapshot carries `step_id`, so a poller can detect missed steps and backfill from `history`.
 
 ## Points (protocol-neutral, `src/powerflow/points/`)
-- **Names:** `<asset_type>.<asset_id>.<point>`, for example `bess.bess1.soc_pct`, `pv.pv1.p_limit_kw`, `poi.meter.p_kw` and `site.sim.step_id`.
+- **Names:** `<asset_type>.<asset_id>.<point>`, for example `bess.bess1.soc_pct`, `pv.pv1.p_limit_kw`, `poi.meter.p_kw`, `meter.m_bess1.p_kw` (a feeder meter, by meter id) and `site.sim.step_id`.
 - **Point attributes:** each point has a description, unit, data type, access (R/RW), source (measurement, setpoint, nameplate or simulation) and a register `scale_hint`.
 - **Where the names are used:** HTTP field names, history `fields=` and protocol maps all use them. `GET /api/points` lists them all.
 - **BESS:**
@@ -157,13 +160,14 @@ Validation also checks:
   - Nameplate ratings.
 - **Load:** P, Q, S, pf, voltage.
 - **POI:** P, Q, S, pf, V (kV, pu), angle, current, site losses.
+- **Feeder meter:** P, Q, S, pf, MV bus V (kV, pu), HV-side current, `meter_state` (STALE on non-convergence, like the POI).
 - **Site:** `step_id`, `sim_time_epoch_s`, `converged`, `state`, `overrun_count`.
 
 **Modbus maps** (format only; no server yet)
-- **Format:** `ModbusMap` in `points/modbus_map.py`, with its JSON Schema at `GET /api/schemas/modbus-map`. Each site has a map for every asset (BESS, PV, load, POI meter, site status), stored in the database and editable at `/api/sites/{site}/modbus-maps/{asset}`. The shipped defaults are in `site_config/modbus_maps/<site>/`.
+- **Format:** `ModbusMap` in `points/modbus_map.py`, with its JSON Schema at `GET /api/schemas/modbus-map`. Each site has a map for every asset (BESS, PV, load, POI meter, site status, feeder meters), stored in the database and editable at `/api/sites/{site}/modbus-maps/{asset}`. The shipped defaults are in `site_config/modbus_maps/<site>/`.
 - **Contents:** each asset gets its own unit ID and port. Each map entry binds a point to a register type, address, data type, word order and scale (engineering value = raw × scale).
 - **Default layout** (`default_map()`; `make modbus-maps` regenerates the default files):
-  - Unit IDs run from 1 per site, in the order BESS, PV, loads, POI meter, site status, all on port 502.
+  - Unit IDs run from 1 per site, in the order BESS, PV, loads, POI meter, site status, then feeder meters (last, so adding a meter moves no existing unit ID), all on port 502.
   - RW setpoints go in holding registers from 0, read-only points in input registers from 0, and nameplate points in input registers from 100.
   - Measured values are int32 at the point's `scale_hint`; enums and flags are uint16. Word order is big.
 - **Validation:**

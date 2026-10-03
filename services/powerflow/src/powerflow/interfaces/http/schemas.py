@@ -13,7 +13,7 @@ from powerflow.core.snapshot import (
     PvMeasurement,
 )
 from powerflow.points import PointDef
-from powerflow.site_config import BessConfig, LoadConfig, PvConfig
+from powerflow.site_config import BessConfig, LoadConfig, MeterConfig, PvConfig
 
 # The shape FastAPI's `responses=` takes (extra OpenAPI responses per status code).
 OpenApiResponses = dict[int | str, dict[str, object]]
@@ -41,6 +41,7 @@ class AssetsResponse(BaseModel):
     bess: list[BessConfig]
     pv: list[PvConfig]
     loads: list[LoadConfig]
+    meters: list[MeterConfig]
 
 
 class BessAssetResponse(BaseModel):

@@ -164,6 +164,7 @@ class PandapowerSolver(PowerFlowSolver):
             transformers[name] = TransformerResult(
                 p_hv_kw=-float(row["p_hv_mw"]) * KW_PER_MW,
                 q_hv_kvar=-float(row["q_hv_mvar"]) * KW_PER_MW,
+                i_hv_a=float(row["i_hv_ka"]) * KW_PER_MW,  # kA → A, same factor
                 p_lv_kw=float(row["p_lv_mw"]) * KW_PER_MW,
                 q_lv_kvar=float(row["q_lv_mvar"]) * KW_PER_MW,
                 p_loss_kw=float(row["pl_mw"]) * KW_PER_MW,

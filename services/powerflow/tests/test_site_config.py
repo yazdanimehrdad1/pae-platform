@@ -27,6 +27,12 @@ def test_reference_site_matches_the_spec() -> None:
     assert all(bess.transformer.z_pct == 5.75 for bess in config.bess)
     assert all(bess.transformer.s_rated_kva == 2750 for bess in config.bess)
     assert config.pv[0].inverter.p_max_kw == 5000 and config.pv[0].transformer.s_rated_kva == 5500
+    assert all(asset.transformer.vn_lv_kv == 0.48 for asset in [*config.bess, *config.pv])
+    assert {meter.id: meter.transformer for meter in config.meters} == {
+        "m_bess1": "bess1",
+        "m_bess2": "bess2",
+        "m_pv1": "pv1",
+    }
 
 
 def test_defaults_fill_in() -> None:
@@ -82,6 +88,36 @@ def mutate(path: list[str | int], value: Any) -> dict[str, Any]:
 def test_invalid_configs_are_rejected(path: list[str | int], value: Any, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         SiteConfig.model_validate(mutate(path, value))
+
+
+@pytest.mark.parametrize(
+    ("meters", "message"),
+    [
+        ([{"id": "m1", "transformer": "nope"}], "not a BESS, PV or load with a transformer"),
+        ([{"id": "m1", "transformer": "load1"}], "not a BESS, PV or load with a transformer"),
+        (
+            [{"id": "m1", "transformer": "bess1"}, {"id": "m1", "transformer": "bess2"}],
+            "meter ids must be unique",
+        ),
+        (
+            [{"id": "m1", "transformer": "bess1"}, {"id": "m2", "transformer": "bess1"}],
+            "already has a meter",
+        ),
+        ([{"id": "m:1", "transformer": "bess1"}], "pattern"),
+    ],
+)
+def test_invalid_meters_are_rejected(meters: list[dict[str, str]], message: str) -> None:
+    raw = site_config_dict(n_bess=2)
+    raw["meters"] = meters
+    with pytest.raises(ValidationError, match=message):
+        SiteConfig.model_validate(raw)
+
+
+def test_a_load_transformer_can_be_metered() -> None:
+    raw = site_config_dict()
+    raw["loads"][0]["transformer"] = raw["bess"][0]["transformer"]
+    raw["meters"] = [{"id": "m_load1", "transformer": "load1"}]
+    assert SiteConfig.model_validate(raw).meters[0].transformer == "load1"
 
 
 @pytest.mark.parametrize("scenario", ["../typical", "Typical", "a/b", ""])

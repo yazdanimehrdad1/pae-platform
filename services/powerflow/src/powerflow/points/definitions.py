@@ -1,8 +1,8 @@
 """Protocol-neutral point lists, one per asset type.
 
 A point's full name is `<asset_type>.<asset_id>.<point>`, e.g. `bess.bess1.soc_pct`,
-`poi.meter.p_kw`, `site.sim.step_id`. HTTP field names, history `fields=` and the (future)
-Modbus/DNP3 maps all use these names.
+`poi.meter.p_kw`, `meter.m_bess1.p_kw` (a feeder meter), `site.sim.step_id`. HTTP field names,
+history `fields=` and the (future) Modbus/DNP3 maps all use these names.
 
 `scale_hint` is the suggested resolution when a point is packed into an integer register
 (engineering value = raw × scale); a protocol map may override it.
@@ -36,6 +36,7 @@ class AssetType(StrEnum):
     LOAD = "load"
     POI = "poi"
     SITE = "site"
+    METER = "meter"  # feeder meters (`SiteConfig.meters`), named by meter id
 
 
 class Access(StrEnum):
@@ -331,6 +332,19 @@ POI_POINTS: tuple[PointDef, ...] = (
     ),
 )
 
+METER_POINTS: tuple[PointDef, ...] = (
+    _measurement("p_kw", "Active power on the transformer's HV side. + toward the MV bus.", "kW"),
+    _measurement("q_kvar", "Reactive power. + toward the MV bus.", "kvar"),
+    _measurement("s_kva", "Apparent power.", "kVA"),
+    _measurement("pf", "Power factor, signed with Q.", "", 0.001),
+    _measurement("v_kv", "MV bus voltage, line-to-line.", "kV", 0.001),
+    _measurement("v_pu", "MV bus voltage.", "pu", 0.001),
+    _measurement("i_a", "Current on the transformer's HV side.", "A", 0.1),
+    _state(
+        "meter_state", "STALE when the power flow didn't converge (last good values).", MeterState
+    ),
+)
+
 SITE_POINTS: tuple[PointDef, ...] = (
     PointDef(
         name="step_id",
@@ -386,6 +400,7 @@ POINT_LISTS: dict[AssetType, tuple[PointDef, ...]] = {
     AssetType.LOAD: LOAD_POINTS,
     AssetType.POI: POI_POINTS,
     AssetType.SITE: SITE_POINTS,
+    AssetType.METER: METER_POINTS,
 }
 
 

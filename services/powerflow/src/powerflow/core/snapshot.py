@@ -50,6 +50,23 @@ class PoiMeasurement(FrozenModel):
     alarm_flag_names: list[str]
 
 
+class MeterMeasurement(FrozenModel):
+    """A feeder meter on the HV side of an asset's transformer. Positive P/Q = toward the MV
+    bus (after the transformer losses)."""
+
+    id: str
+    transformer: str = Field(description="The asset whose transformer is metered.")
+    p_kw: float
+    q_kvar: float
+    s_kva: float
+    pf: float = Field(description="|P|/S signed with Q (positive = vars toward the MV bus).")
+    v_kv: float = Field(description="MV bus voltage, line-to-line.")
+    v_pu: float
+    i_a: float = Field(description="Current on the transformer's HV side.")
+    meter_state: int
+    meter_state_name: str
+
+
 class BessMeasurement(FrozenModel):
     """Generator convention: P > 0 discharging."""
 
@@ -126,3 +143,4 @@ class Snapshot(FrozenModel):
     bess: list[BessMeasurement]
     pv: list[PvMeasurement]
     loads: list[LoadMeasurement]
+    meters: list[MeterMeasurement] = Field(description="Feeder meters, in config order.")

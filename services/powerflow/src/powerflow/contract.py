@@ -24,7 +24,8 @@ def render_points_contract() -> str:
         {
             "contract": "powerflow/points",
             "version": POINTS_CONTRACT_VERSION,
-            "naming": "<asset_type>.<asset_id>.<point>; poi uses asset_id 'meter', site 'sim'",
+            "naming": "<asset_type>.<asset_id>.<point>; poi uses asset_id 'meter', site 'sim', "
+            "meter (feeder meters) the meter id",
             "scale": "engineering value = raw register value × scale (scale_hint)",
             "point_lists": {
                 str(asset_type): [point.model_dump(mode="json") for point in points]

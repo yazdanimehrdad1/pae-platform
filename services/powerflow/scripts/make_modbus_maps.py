@@ -1,13 +1,13 @@
 """(Re)generate the default Modbus maps shipped in site_config/modbus_maps/<site>/, for every
-asset (BESS, PV, load, POI meter, site status) of every default site in site_config/sites/.
-Overwrites the default map files. The database is not touched: load them into it with
-POST /api/defaults/restore (overwrite=true replaces stored maps).
+asset (BESS, PV, load, POI meter, site status, feeder meters) of every default site in
+site_config/sites/. Overwrites the default map files. The database is not touched: load them
+into it with POST /api/defaults/restore (overwrite=true replaces stored maps).
 
 Usage: uv run python scripts/make_modbus_maps.py
 
 The layout comes from `powerflow.points.modbus_map.default_site_maps`: unit IDs from 1 in the
-order BESS, PV, loads, meter, site status; setpoints in holding registers from 0; measurements in
-input registers from 0; nameplate in input registers from 100.
+order BESS, PV, loads, POI meter, site status, feeder meters; setpoints in holding registers
+from 0; measurements in input registers from 0; nameplate in input registers from 100.
 """
 
 import sys

@@ -26,6 +26,13 @@
             "title": "Loads",
             "type": "array"
           },
+          "meters": {
+            "items": {
+              "$ref": "#/components/schemas/MeterConfig"
+            },
+            "title": "Meters",
+            "type": "array"
+          },
           "pv": {
             "items": {
               "$ref": "#/components/schemas/PvConfig"
@@ -37,7 +44,8 @@
         "required": [
           "bess",
           "pv",
-          "loads"
+          "loads",
+          "meters"
         ],
         "title": "AssetsResponse",
         "type": "object"
@@ -1043,6 +1051,108 @@
         "title": "LoadMeasurement",
         "type": "object"
       },
+      "MeterConfig": {
+        "additionalProperties": false,
+        "description": "A feeder meter on the HV side of an asset's transformer (between the MV bus and the\ntransformer), so it reads P/Q after the transformer losses. Positive = toward the MV bus.",
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "transformer": {
+            "description": "The BESS, PV or load (with a transformer) whose transformer is metered.",
+            "title": "Transformer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "transformer"
+        ],
+        "title": "MeterConfig",
+        "type": "object"
+      },
+      "MeterMeasurement": {
+        "description": "A feeder meter on the HV side of an asset's transformer. Positive P/Q = toward the MV\nbus (after the transformer losses).",
+        "properties": {
+          "i_a": {
+            "description": "Current on the transformer's HV side.",
+            "title": "I A",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "meter_state": {
+            "title": "Meter State",
+            "type": "integer"
+          },
+          "meter_state_name": {
+            "title": "Meter State Name",
+            "type": "string"
+          },
+          "p_kw": {
+            "title": "P Kw",
+            "type": "number"
+          },
+          "pf": {
+            "description": "|P|/S signed with Q (positive = vars toward the MV bus).",
+            "title": "Pf",
+            "type": "number"
+          },
+          "q_kvar": {
+            "title": "Q Kvar",
+            "type": "number"
+          },
+          "s_kva": {
+            "title": "S Kva",
+            "type": "number"
+          },
+          "transformer": {
+            "description": "The asset whose transformer is metered.",
+            "title": "Transformer",
+            "type": "string"
+          },
+          "v_kv": {
+            "description": "MV bus voltage, line-to-line.",
+            "title": "V Kv",
+            "type": "number"
+          },
+          "v_pu": {
+            "title": "V Pu",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "transformer",
+          "p_kw",
+          "q_kvar",
+          "s_kva",
+          "pf",
+          "v_kv",
+          "v_pu",
+          "i_a",
+          "meter_state",
+          "meter_state_name"
+        ],
+        "title": "MeterMeasurement",
+        "type": "object"
+      },
       "ModbusDataType": {
         "enum": [
           "bool",
@@ -1074,7 +1184,7 @@
         "description": "One asset's map. `asset` is `<asset_type>.<asset_id>`, e.g. `bess.bess1`.",
         "properties": {
           "asset": {
-            "pattern": "^(bess|pv|load|poi|site)\\.[A-Za-z0-9_-]+$",
+            "pattern": "^(bess|pv|load|poi|site|meter)\\.[A-Za-z0-9_-]+$",
             "title": "Asset",
             "type": "string"
           },
@@ -2170,6 +2280,13 @@
             "title": "Loads",
             "type": "array"
           },
+          "meters": {
+            "items": {
+              "$ref": "#/components/schemas/MeterConfig"
+            },
+            "title": "Meters",
+            "type": "array"
+          },
           "poi": {
             "$ref": "#/components/schemas/PoiConfig"
           },
@@ -2257,6 +2374,14 @@
             "title": "Loads",
             "type": "array"
           },
+          "meters": {
+            "description": "Feeder meters, in config order.",
+            "items": {
+              "$ref": "#/components/schemas/MeterMeasurement"
+            },
+            "title": "Meters",
+            "type": "array"
+          },
           "poi": {
             "$ref": "#/components/schemas/PoiMeasurement"
           },
@@ -2294,7 +2419,8 @@
           "transformers",
           "bess",
           "pv",
-          "loads"
+          "loads",
+          "meters"
         ],
         "title": "Snapshot",
         "type": "object"

@@ -171,7 +171,7 @@ class TestAssetsAndPoints:
     def test_points(self, client: TestClient) -> None:
         points = client.get("/api/points").json()
         assert "bess.bess2.soc_pct" in points["names"]
-        assert {"bess", "pv", "load", "poi", "site"} == set(points["point_lists"])
+        assert {"bess", "pv", "load", "poi", "site", "meter"} == set(points["point_lists"])
         step(client)
         value = client.get("/api/points/bess.bess1.soc_pct").json()
         assert value == {"name": "bess.bess1.soc_pct", "value": 50, "unit": "%"}
@@ -335,7 +335,7 @@ class TestSites:
             sites = fresh.get("/api/sites").json()
             assert sites["active"] == DEFAULTS.active_site
             assert sites["sites"] == sorted(site.name for site in DEFAULTS.sites)
-            assert len(fresh.get(f"{REFERENCE_MAPS}").json()) == 6
+            assert len(fresh.get(f"{REFERENCE_MAPS}").json()) == 9  # 6 assets + 3 feeder meters
 
 
 REFERENCE_MAPS = "/api/sites/reference_2bess_1pv/modbus-maps"
@@ -349,6 +349,7 @@ class TestModbusMaps:
                 *(f"bess.{item['id']}" for item in config["bess"]),
                 *(f"pv.{item['id']}" for item in config["pv"]),
                 *(f"load.{item['id']}" for item in config["loads"]),
+                *(f"meter.{item['id']}" for item in config["meters"]),
                 "poi.meter",
                 "site.sim",
             }
@@ -394,9 +395,13 @@ class TestModbusMaps:
     def test_map_orphaned_when_the_site_drops_the_asset(self, client: TestClient) -> None:
         site = client.get("/api/sites/reference_2bess_1pv").json()
         site["bess"] = site["bess"][:1]  # drop bess2
+        # Its meter must go too: a meter on a missing transformer is rejected.
+        assert client.put("/api/sites/reference_2bess_1pv", json=site).status_code == 422
+        site["meters"] = [item for item in site["meters"] if item["transformer"] != "bess2"]
         assert client.put("/api/sites/reference_2bess_1pv", json=site).status_code == 200
         orphaned = {item["asset"]: item["orphaned"] for item in client.get(REFERENCE_MAPS).json()}
         assert orphaned["bess.bess2"] is True and orphaned["bess.bess1"] is False
+        assert orphaned["meter.m_bess2"] is True and orphaned["meter.m_bess1"] is False
 
 
 class TestProfiles:

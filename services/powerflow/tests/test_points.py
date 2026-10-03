@@ -86,6 +86,16 @@ class TestPointLists:
         with pytest.raises(PointAccessError):
             registry.read_from_snapshot(snapshot, "bess.bess1.p_setpoint_kw")
 
+    def test_feeder_meter_points_resolve(self) -> None:
+        engine, _, registry = make_services("reference_2bess_1pv")
+        asyncio.run(engine.step(1))
+        meter_names = [name for name in registry.names() if name.startswith("meter.")]
+        assert {name.split(".")[1] for name in meter_names} == {"m_bess1", "m_bess2", "m_pv1"}
+        snapshot = engine.store.history()[0]
+        for name in meter_names:
+            assert registry.read(name) == registry.read_from_snapshot(snapshot, name)
+        assert registry.read("meter.m_pv1.v_kv") == pytest.approx(12.47, rel=0.05)
+
     def test_measurement_before_first_step(self) -> None:
         _, _, registry = make_services()
         with pytest.raises(NoMeasurementError):
