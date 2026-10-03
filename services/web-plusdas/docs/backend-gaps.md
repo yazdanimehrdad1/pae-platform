@@ -11,14 +11,19 @@ backend-ot work first (its `add-endpoint` skill, then `make contract`), then the
 | Page / feature | Today | What backend-ot would need |
 |---|---|---|
 | **Login / auth** (`src/mocks/auth.ts`, used by `src/shared/contexts/auth.tsx`) | Accepts any email and password and keeps the "user" in localStorage. backend-ot has no auth at all: every route is open. | A design decision first: auth at the platform reverse proxy (e.g. Keycloak/OIDC in front of both) or in backend-ot. Then a session/user endpoint (e.g. `GET /api/me`) for the UI to read. |
-| **System alarms** (`src/mocks/alarms/`, used through `features/alarms/data/source.ts`) | The whole page: 8 fake devices with Modbus points, value signals over 7 days, alarm rules and their notification switches (in memory, lost on reload). Alarms are derived by the frontend rule engine. | backend-ot has only a live reachability snapshot (`GET /api/healthz/site/{site_id}`). It needs: alarm rules stored and evaluated **server-side** (threshold with delay + deadband, comms stale), each with notification channels (`notify: {mobile, email}`) and a `name` that is an identifier (`^[A-Za-z_][A-Za-z0-9_]*$`, max 150, unique ignoring case, validated server-side); an alarm event store with raise/clear times; routes for a snapshot, an events query and rules CRUD; a push channel (SSE/WebSocket) for changes; and mobile push + email sending for rules with those channels on (recipients still to be designed). The expected call shapes are in `src/features/alarms/README.md`. Trends can use the existing readings timeseries. |
-| **Single-line diagram** (`src/mocks/sld/`, used by `features/sld/lib/sldDataMerger.ts`) | Loads static JSON from `src/mocks/sld/sld-layout.json` and `sld-data.json`. | The layout (buses, devices, connections per site) as stored data, and live values per SLD device, e.g. `GET /api/sites/{site_id}/sld/layout` and `.../sld/data`. The field shapes are the ones in `features/sld/types.ts`. |
+| **Single-line diagram** (`features/sld/`) | Real: each site's diagram is stored in backend-ot (`GET /api/sites/{site_id}/sld`, with a revision). Meter, BESS and PV elements linked to a device show live values in an info box (`GET .../sld/values`, polled every 10 s), with device health from the site profile; missing values show NA. | An SLD editor in the UI (the API already saves with `PUT .../sld` and the revision read), including picking each element's device and points. |
 | **Notes** (`features/notes/`, `lib/notesStorage.ts`) | Stored in the browser's localStorage per user. They are lost with the browser and not shared. | Notes storage (CRUD per site/device/user), if notes should be shared or kept. |
 | **Narrative, Reports, AI Task Builder, Settings (teams), Users** | Static placeholder pages (no data calls). Reports and Task Builder show fake lists from `src/mocks/reports.ts` and `src/mocks/tasks.ts`. | Product decisions, then APIs. Out of scope until those exist. |
 
-The pages on real data are Sites, Site Devices, Device details, Historian, and Live Data.
+The pages on real data are Sites, Site Devices, Single-line diagram, Device details, Historian, Live Data, and System alarms.
 
 ## Fields the UI defaults because backend-ot doesn't send them
+
+- **System alarms** (`features/alarms/`, on backend-ot's `/api/alarms` routes since 2026-09-30):
+  - the page polls the snapshot every 10 s because there is no push channel (SSE/WebSocket) for raises and clears;
+  - sites have no time zone, so times show in the browser's zone;
+  - a device's last poll is its newest stored native reading, since backend-ot doesn't expose poll outcomes;
+  - rule notifications (`notify_mobile` / `notify_email`) are stored, but backend-ot only logs them and sends nothing. Recipients are not designed yet.
 
 - **Site `type` and `status`** (`src/api/sites.ts`, `toSite`): `SiteResponse` has neither, so
   every site shows as type "facility" and status "online".

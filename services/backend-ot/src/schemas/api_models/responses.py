@@ -6,7 +6,9 @@ from typing import Any, Literal
 from pydantic import AliasChoices, BaseModel, Field
 
 from schemas.api_models.requests import Coordinates, DeviceScanRanges, Location
+from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.types import PointClass, Severity
+from schemas.api_models.virtual_points import VirtualPointDefinition
 
 
 class HealthResponse(BaseModel):
@@ -81,7 +83,9 @@ class SiteResponse(BaseModel):
     device_count: int = Field(..., description="Number of devices at this site")
     description: str | None = Field(None, description="Site description")
     coordinates: Coordinates | None = Field(None, description="Geographic coordinates")
-    profile: str = Field(..., description="Site profile key selecting the site's endpoints; 'default' offers only the common endpoints")
+    profile: str | None = Field(
+        None, description="Site profile key selecting the site's endpoints, unique per site; null if the site has no site-specific code"
+    )
     created_at: datetime = Field(..., description="Timestamp when site was created")
     updated_at: datetime = Field(..., description="Timestamp when site was last updated")
     last_update: datetime = Field(..., description="Timestamp of last update")
@@ -145,6 +149,9 @@ class DevicePointResponse(BaseModel):
         description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
     )
     severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    virtual_definition: VirtualPointDefinition | None = Field(
+        None, description="VIRTUAL points only: how the value is computed from other points"
+    )
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {
@@ -244,3 +251,13 @@ class CacheGetResponse(BaseModel):
     key: str = Field(..., description="Cache key")
     value: Any = Field(..., description="Cached value, or None if the key is absent")
     exists: bool = Field(..., description="Whether the key exists in the cache")
+
+
+class SiteSldResponse(BaseModel):
+    """A site's stored single line diagram."""
+
+    site_id: int
+    revision: int = Field(..., description="Increments on every save; send it back to replace this diagram")
+    created_at: datetime
+    updated_at: datetime
+    sld: SiteSld

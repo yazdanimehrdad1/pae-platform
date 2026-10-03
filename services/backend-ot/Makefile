@@ -23,7 +23,7 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-unit test-integration test-all contract \
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-unit test-integration test-all contract postman \
 	build rebuild up up-build down down-all restart logs ps shell health clean \
 	run migrate apply-migration seed-db cloud-down cloud-up
 
@@ -58,6 +58,7 @@ help:
 	@echo "  run              run the API on the host (needs postgres+redis reachable)"
 	@echo "  migrate          apply SQL migrations from the host"
 	@echo "  contract         regenerate $(CONTRACT_FILE) (the OpenAPI spec)"
+	@echo "  postman          write $(POSTMAN_FILE) (Postman collection from the OpenAPI spec)"
 	@echo ""
 	@echo "Containers (docker compose):"
 	@echo "  build / rebuild  build the image (rebuild = no cache)"
@@ -117,6 +118,12 @@ migrate:
 CONTRACT_FILE := ../../contracts/openapi/backend-ot.openapi.json
 contract:
 	$(UNIT_ENV) $(UV_RUN) python scripts/export_openapi.py --output $(CONTRACT_FILE)
+
+# Postman collection built from the same spec. Import it in Postman (Import > File); requests use
+# the {{baseUrl}} collection variable (default http://localhost:8000). Rerun after route changes.
+POSTMAN_FILE := postman/backend-ot.postman_collection.json
+postman:
+	$(UNIT_ENV) $(UV_RUN) python scripts/export_postman.py --output $(POSTMAN_FILE)
 
 # ---------------------------------------------------------------------------
 # Containers

@@ -19,18 +19,34 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from db.session import get_session  # noqa: E402
+from helpers.alarms.definitions import new_user_alarm  # noqa: E402
+from helpers.alarms.profile_sync import sync_site_profile_alarms  # noqa: E402
 from helpers.device_points.device_standardized_points import (  # noqa: E402
     generate_standardized_points,
 )
 from helpers.device_points.scan_range_computation import (  # noqa: E402
     compute_device_scan_ranges,
 )
+from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
-from schemas.db_models.orm_models import Device, DevicePoint, Site  # noqa: E402
+from schemas.db_models.orm_models import (  # noqa: E402
+    AlarmDefinition,
+    Device,
+    DevicePoint,
+    Site,
+    SiteSldRecord,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dev_mock_data import DEVICE_POINTS, DEVICES, SITES  # noqa: E402
+from dev_mock_data import (  # noqa: E402
+    DEVICE_POINTS,
+    DEVICES,
+    SITES,
+    site_slds,
+    user_alarms,
+    virtual_points,
+)
 
 logger = get_logger(__name__)
 
@@ -84,7 +100,8 @@ async def seed() -> None:
         #    them, so ids follow the same pattern as API-created devices:     #
         #    STANDARDIZED (POST /api/devices/site/{id}/devices creates them   #
         #    with the device, via the same helper), then NATIVE (added       #
-        #    afterwards), then VIRTUAL (none in the seed data yet). A flush   #
+        #    afterwards). VIRTUAL points come last, after every device, since  #
+        #    they read points on other devices. A flush                        #
         #    after each category makes the database assign ids in that order. #
         # ------------------------------------------------------------------ #
         async def point_exists(device: Device, name: str) -> bool:
@@ -136,7 +153,20 @@ async def seed() -> None:
                 )
             await session.flush()
 
-            # VIRTUAL: the seed data defines none. Add them here, after NATIVE, if it ever does.
+        # VIRTUAL: after every device's NATIVE points, since they read points on other devices.
+        # Built with the create path's own builder, so a seeded point equals an API-created one.
+        point_ids: dict[tuple[str, str], int] = {}
+        for device_name, device in device_by_name.items():
+            result = await session.execute(select(DevicePoint).where(DevicePoint.device_id == device.device_id))
+            point_ids.update({(device_name, point.name): point.id for point in result.scalars().all()})
+        for seed_point in virtual_points(lambda device_name, point_name: point_ids[(device_name, point_name)]):
+            device = device_by_name[seed_point.device_name]
+            if await point_exists(device, seed_point.point.name):
+                logger.info("Device point already exists '%s.%s'", device.name, seed_point.point.name)
+                continue
+            session.add(new_virtual_point(device.site_id, device.device_id, seed_point.point))
+            logger.info("Created virtual point '%s.%s'", device.name, seed_point.point.name)
+        await session.flush()
 
         # ------------------------------------------------------------------ #
         # 4. Recompute scan_ranges from each device's active NATIVE points    #
@@ -171,8 +201,50 @@ async def seed() -> None:
             )
             site.device_count = count_result.scalar_one()
 
+        # ------------------------------------------------------------------ #
+        # 6. User alarms, built with the create path's own builder            #
+        # ------------------------------------------------------------------ #
+        device_ids = {name: device.device_id for name, device in device_by_name.items()}
+        for seed_alarm in user_alarms(
+            lambda device_name, point_name: point_ids[(device_name, point_name)],
+            lambda device_name: device_ids[device_name],
+        ):
+            site = site_by_name[seed_alarm.site_name]
+            existing = await session.execute(
+                select(AlarmDefinition.id).where(
+                    AlarmDefinition.site_id == site.id,
+                    func.lower(AlarmDefinition.name) == seed_alarm.alarm.name.lower(),
+                    AlarmDefinition.deleted_at.is_(None),
+                )
+            )
+            if existing.first() is not None:
+                logger.info("Alarm already exists '%s.%s'", site.name, seed_alarm.alarm.name)
+                continue
+            session.add(new_user_alarm(site.id, seed_alarm.alarm))
+            logger.info("Created alarm '%s.%s'", site.name, seed_alarm.alarm.name)
+
+        # ------------------------------------------------------------------ #
+        # 7. Single line diagrams: only where the site has none, so edits     #
+        #    saved through the API survive a re-seed                          #
+        # ------------------------------------------------------------------ #
+        for site_name, sld in site_slds(
+            lambda device_name, point_name: point_ids[(device_name, point_name)],
+            lambda device_name: device_ids[device_name],
+        ).items():
+            site = site_by_name[site_name]
+            if await session.get(SiteSldRecord, site.id) is not None:
+                logger.info("Single line diagram already exists for '%s'", site.name)
+                continue
+            session.add(SiteSldRecord(site_id=site.id, document=sld))
+            logger.info("Created single line diagram for '%s'", site.name)
+
+        seeded_site_ids = [site.id for site in site_by_name.values()]
         await session.commit()
-        logger.info("Seeding complete.")
+
+    # 8. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
+    for site_id in seeded_site_ids:
+        await sync_site_profile_alarms(site_id)
+    logger.info("Seeding complete.")
 
 
 if __name__ == "__main__":

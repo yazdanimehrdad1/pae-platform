@@ -4,15 +4,20 @@ Integration tests for /api/device-points.
 Guards point CRUD against a real database: bulk upsert by name, category / class /
 severity filtering, class and severity stored and changed under the wire name "class",
 soft/hard delete and restore, and that the device's scan ranges are recomputed from its
-NATIVE points after each write, unless a manual override locked them.
+NATIVE points after each write, unless a manual override locked them. Virtual points: created
+and updated only through the /virtual routes (never bulk or the generic PUT), their inputs checked
+(same site, active, not virtual, a bitfield for bit tests), their storage derived from the kind.
 """
 
+import asyncpg
+import pytest
 from httpx import AsyncClient
 
 from integration.factories import (
     DEVICE_POINT_LIST,
     create_device,
     create_site,
+    create_virtual_point,
     point_request,
     upsert_points,
 )
@@ -22,7 +27,15 @@ from schemas.api_models import (
     DevicePointUpdateRequest,
     DeviceScanRanges,
     DeviceWithPoints,
+    LatestResponse,
     RegisterRange,
+    VirtualCalculationDefinition,
+    VirtualCase,
+    VirtualCondition,
+    VirtualConditionDefinition,
+    VirtualConditionGroup,
+    VirtualPointCreateRequest,
+    VirtualPointUpdateRequest,
 )
 from schemas.tests_models import ApiErrorDetail, ApiErrorResponse
 
@@ -316,3 +329,217 @@ class TestScanRangeOverride:
             RegisterRange(start_index=100, count=2),
             RegisterRange(start_index=400, count=2),
         ]
+
+
+# --- Virtual points ---------------------------------------------------------------------
+
+
+def calculation(*inputs: int, function: str = "sum") -> VirtualCalculationDefinition:
+    return VirtualCalculationDefinition(kind="calculation", function=function, inputs=list(inputs))
+
+
+def ready_condition(state_point: int, flags_point: int) -> VirtualConditionDefinition:
+    return VirtualConditionDefinition(
+        kind="condition",
+        cases=[VirtualCase(
+            output=1,
+            label="ready",
+            when=VirtualConditionGroup(match="all", items=[
+                VirtualCondition(point_id=state_point, operator="==", value=2),
+                VirtualCondition(point_id=flags_point, operator="bit_set", bit=3),
+            ]),
+        )],
+        default_output=0,
+        default_label="not ready",
+    )
+
+
+async def two_devices_with_inputs(client: AsyncClient) -> tuple[int, int, list[DevicePointResponse]]:
+    """A site with two devices; returns (site_id, first device_id, [power_a, power_b, state, flags])."""
+    site = await create_site(client)
+    first = await create_device(client, site.site_id, name="meter-a")
+    second = await create_device(client, site.site_id, name="meter-b", host="10.0.0.11")
+    (power_a,) = await upsert_points(client, site.site_id, first.device_id, [point_request()])
+    power_b, state, flags = await upsert_points(client, site.site_id, second.device_id, [
+        point_request(),
+        point_request(name="state", address=110, size=1, data_type="enum16", enum_detail={"2": "running"}),
+        point_request(name="flags", address=111, size=1, data_type="bitfield16", bitfield_detail={"3": "relay"}),
+    ])
+    return site.site_id, first.device_id, [power_a, power_b, state, flags]
+
+
+def virtual_url(site_id: int, device_id: int) -> str:
+    return f"{points_url(site_id, device_id)}/virtual"
+
+
+class TestCreateVirtualPoint:
+    async def test_calculation_reads_other_devices_and_is_stored_as_float32(self, client):
+        site_id, device_id, (power_a, power_b, *_) = await two_devices_with_inputs(client)
+        definition = calculation(power_a.id, power_b.id)
+
+        point = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="SITE_POWER", unit="kW", definition=definition,
+        ))
+
+        assert (point.category, point.data_type, point.size, point.address, point.poll_kind) == (
+            "VIRTUAL", "float32", 2, 0, None,
+        )
+        assert point.virtual_definition == definition
+        listed = await list_points(client, points_url(site_id, device_id), category="VIRTUAL")
+        assert [listed_point.id for listed_point in listed] == [point.id]
+        device = await get_device(client, site_id, device_id)
+        assert [virtual.name for virtual in device.points.virtual] == ["SITE_POWER"]
+
+    async def test_condition_is_an_enum_labelled_by_its_cases(self, client):
+        site_id, device_id, (*_, state, flags) = await two_devices_with_inputs(client)
+
+        point = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="READY", point_class="BINARY", definition=ready_condition(state.id, flags.id),
+        ))
+
+        assert (point.data_type, point.size) == ("enum16", 1)
+        assert point.enum_detail == {"0": "not ready", "1": "ready"}
+        assert point.point_class == "BINARY"
+
+    async def test_existing_name_is_409(self, client):
+        site_id, device_id, (power_a, *_) = await two_devices_with_inputs(client)
+        request = VirtualPointCreateRequest(name="active_power", definition=calculation(power_a.id))
+        response = await client.post(virtual_url(site_id, device_id), json=request.model_dump(mode="json"))
+        assert response.status_code == 409
+
+    async def test_unknown_input_is_400(self, client):
+        site_id, device_id, _ = await two_devices_with_inputs(client)
+        request = VirtualPointCreateRequest(name="V", definition=calculation(99999))
+        response = await client.post(virtual_url(site_id, device_id), json=request.model_dump(mode="json"))
+        assert response.status_code == 400
+        detail = ApiErrorResponse.model_validate(response.json()).detail
+        assert isinstance(detail, ApiErrorDetail) and "99999" in detail.message
+
+    async def test_input_on_another_site_is_400(self, client):
+        site_id, device_id, _ = await two_devices_with_inputs(client)
+        other_site = await create_site(client, name="Other Site")
+        other_device = await create_device(client, other_site.site_id)
+        (foreign,) = await upsert_points(client, other_site.site_id, other_device.device_id, [point_request()])
+        request = VirtualPointCreateRequest(name="V", definition=calculation(foreign.id))
+        response = await client.post(virtual_url(site_id, device_id), json=request.model_dump(mode="json"))
+        assert response.status_code == 400
+
+    async def test_virtual_or_deleted_input_is_400(self, client):
+        site_id, device_id, (power_a, power_b, *_) = await two_devices_with_inputs(client)
+        virtual = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="V1", definition=calculation(power_a.id),
+        ))
+        chained = VirtualPointCreateRequest(name="V2", definition=calculation(virtual.id))
+        response = await client.post(virtual_url(site_id, device_id), json=chained.model_dump(mode="json"))
+        assert response.status_code == 400
+
+        deleted = await client.delete(points_url(site_id, power_b.device_id), params={"point_ids": [power_b.id]})
+        assert deleted.status_code == 200
+        reads_deleted = VirtualPointCreateRequest(name="V3", definition=calculation(power_b.id))
+        response = await client.post(virtual_url(site_id, device_id), json=reads_deleted.model_dump(mode="json"))
+        assert response.status_code == 400
+
+    async def test_bit_condition_on_a_non_bitfield_is_400(self, client):
+        site_id, device_id, (power_a, _, state, _) = await two_devices_with_inputs(client)
+        request = VirtualPointCreateRequest(name="V", definition=ready_condition(state.id, power_a.id))
+        response = await client.post(virtual_url(site_id, device_id), json=request.model_dump(mode="json"))
+        assert response.status_code == 400
+
+    async def test_malformed_definition_is_422(self, client):
+        site_id, device_id, (power_a, *_) = await two_devices_with_inputs(client)
+        valid = VirtualPointCreateRequest(name="V", definition=calculation(power_a.id))
+        # Deliberately invalid: a ratio needs exactly two inputs.
+        bad = valid.model_dump(mode="json") | {
+            "definition": {"kind": "calculation", "function": "ratio", "inputs": [power_a.id]}
+        }
+        response = await client.post(virtual_url(site_id, device_id), json=bad)
+        assert response.status_code == 422
+
+    async def test_unknown_device_is_404(self, client):
+        site = await create_site(client)
+        request = VirtualPointCreateRequest(name="V", definition=calculation(1))
+        response = await client.post(virtual_url(site.site_id, 9999), json=request.model_dump(mode="json"))
+        assert response.status_code == 404
+
+
+class TestUpdateVirtualPoint:
+    async def test_new_definition_can_change_the_kind(self, client):
+        site_id, device_id, (power_a, _, state, flags) = await two_devices_with_inputs(client)
+        point = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="V", unit="kW", definition=calculation(power_a.id),
+        ))
+
+        update = VirtualPointUpdateRequest(definition=ready_condition(state.id, flags.id), unit=None)
+        response = await client.put(
+            f"{virtual_url(site_id, device_id)}/{point.id}",
+            json=update.model_dump(mode="json", exclude_unset=True, by_alias=True),
+        )
+
+        assert response.status_code == 200, response.text
+        updated = DevicePointResponse.model_validate(response.json())
+        assert (updated.name, updated.data_type, updated.size, updated.unit) == ("V", "enum16", 1, None)
+        assert updated.enum_detail == {"0": "not ready", "1": "ready"}
+
+    async def test_rename_to_existing_name_is_409(self, client):
+        site_id, device_id, (power_a, *_) = await two_devices_with_inputs(client)
+        point = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="V", definition=calculation(power_a.id),
+        ))
+        response = await client.put(
+            f"{virtual_url(site_id, device_id)}/{point.id}",
+            json=VirtualPointUpdateRequest(name="active_power").model_dump(mode="json", exclude_unset=True),
+        )
+        assert response.status_code == 409
+
+    async def test_non_virtual_point_is_400_and_unknown_point_is_404(self, client):
+        site_id, device_id, (power_a, *_) = await two_devices_with_inputs(client)
+        body = VirtualPointUpdateRequest(name="renamed").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"{virtual_url(site_id, device_id)}/{power_a.id}", json=body)
+        assert response.status_code == 400
+        response = await client.put(f"{virtual_url(site_id, device_id)}/99999", json=body)
+        assert response.status_code == 404
+
+
+class TestVirtualPointsStayOffTheRegisterRoutes:
+    async def test_generic_update_of_a_virtual_point_is_400(self, client):
+        site_id, device_id, (power_a, *_) = await two_devices_with_inputs(client)
+        point = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="V", definition=calculation(power_a.id),
+        ))
+        response = await client.put(
+            f"{points_url(site_id, device_id)}/{point.id}",
+            json=update_body(DevicePointUpdateRequest(data_type="int16", size=1)),
+        )
+        assert response.status_code == 400
+
+    async def test_bulk_upsert_of_a_virtual_point_is_400(self, client):
+        site_id, device_id = await make_device(client)
+        body = DevicePointsBulkRequest(points=[point_request(category="VIRTUAL")])
+        response = await client.put(f"{points_url(site_id, device_id)}/bulk", json=body.model_dump(mode="json"))
+        assert response.status_code == 400
+
+    async def test_a_stored_definition_that_no_longer_parses_loads_as_none(self, client, db):
+        """Edited by hand in SQL into something invalid: the point still lists (definition null)
+        and computes nothing, instead of the whole device's point list failing."""
+        site_id, device_id, (power_a, *_) = await two_devices_with_inputs(client)
+        point = await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="V", definition=calculation(power_a.id),
+        ))
+        await db.execute(
+            """UPDATE device_points SET virtual_definition = '{"kind": "nonsense"}'::jsonb WHERE id = $1""", point.id
+        )
+
+        listed = await list_points(client, points_url(site_id, device_id), category="VIRTUAL")
+        assert [(listed_point.id, listed_point.virtual_definition) for listed_point in listed] == [(point.id, None)]
+        latest = await client.get(
+            f"/api/device-point-readings/site/{site_id}/device/{device_id}/latest", params={"point_ids": str(point.id)}
+        )
+        assert latest.status_code == 200, latest.text
+        assert LatestResponse.model_validate(latest.json()).readings[str(point.id)].value is None
+
+    async def test_database_rejects_a_definition_on_a_non_virtual_point(self, client, db):
+        _, _, (power_a, *_) = await two_devices_with_inputs(client)
+        with pytest.raises(asyncpg.CheckViolationError):
+            await db.execute(
+                "UPDATE device_points SET virtual_definition = '{}'::jsonb WHERE id = $1", power_a.id
+            )

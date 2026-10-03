@@ -1,6 +1,521 @@
 {
   "components": {
     "schemas": {
+      "AlarmDefinitionCreateRequest": {
+        "description": "A new USER alarm. (PROFILE alarms come from code, never from this route.)",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Evaluated and shown in Active alarms (at most 20 enabled per site)",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "",
+            "description": "Shown in the alarm list and event log",
+            "maxLength": 500,
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "description": "Identifier: letters, digits and underscore, not starting with a digit; unique per site ignoring case",
+            "maxLength": 150,
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "notify_email": {
+            "default": false,
+            "title": "Notify Email",
+            "type": "boolean"
+          },
+          "notify_mobile": {
+            "default": false,
+            "title": "Notify Mobile",
+            "type": "boolean"
+          },
+          "rule": {
+            "discriminator": {
+              "mapping": {
+                "comms_stale": "#/components/schemas/CommsStaleAlarm",
+                "condition": "#/components/schemas/ConditionAlarm-Input",
+                "threshold": "#/components/schemas/ThresholdAlarm"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ThresholdAlarm"
+              },
+              {
+                "$ref": "#/components/schemas/CommsStaleAlarm"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionAlarm-Input"
+              }
+            ],
+            "title": "Rule"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "severity",
+          "rule"
+        ],
+        "title": "AlarmDefinitionCreateRequest",
+        "type": "object"
+      },
+      "AlarmDefinitionResponse": {
+        "description": "One alarm of a site.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "threshold",
+              "comms_stale",
+              "condition",
+              "profile"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notify_email": {
+            "title": "Notify Email",
+            "type": "boolean"
+          },
+          "notify_mobile": {
+            "title": "Notify Mobile",
+            "type": "boolean"
+          },
+          "profile_alarm_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PROFILE only: the alarm's key in the site profile",
+            "title": "Profile Alarm Key"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "comms_stale": "#/components/schemas/CommsStaleAlarm",
+                    "condition": "#/components/schemas/ConditionAlarm-Output",
+                    "threshold": "#/components/schemas/ThresholdAlarm"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ThresholdAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommsStaleAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConditionAlarm-Output"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "USER only: what the alarm checks",
+            "title": "Rule"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "USER",
+              "PROFILE"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "source",
+          "name",
+          "kind",
+          "severity",
+          "message",
+          "enabled",
+          "notify_mobile",
+          "notify_email",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AlarmDefinitionResponse",
+        "type": "object"
+      },
+      "AlarmDefinitionUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Fields to change; omitted ones keep their value. A PROFILE alarm accepts only\nenabled, notify_mobile and notify_email.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "description": "Identifier: letters, digits and underscore, not starting with a digit; unique per site ignoring case",
+                "maxLength": 150,
+                "minLength": 1,
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notify_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Email"
+          },
+          "notify_mobile": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Mobile"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "comms_stale": "#/components/schemas/CommsStaleAlarm",
+                    "condition": "#/components/schemas/ConditionAlarm-Input",
+                    "threshold": "#/components/schemas/ThresholdAlarm"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ThresholdAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommsStaleAlarm"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConditionAlarm-Input"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fault",
+                  "warning"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          }
+        },
+        "title": "AlarmDefinitionUpdateRequest",
+        "type": "object"
+      },
+      "AlarmEventResponse": {
+        "description": "One raise of an alarm and its clear (cleared_at None while active).",
+        "properties": {
+          "cleared_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared At"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "integer"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The device the alarm is about; None for a site-level alarm",
+            "title": "Device Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "raised_at": {
+            "format": "date-time",
+            "title": "Raised At",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "value_at_raise": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value At Raise"
+          }
+        },
+        "required": [
+          "id",
+          "definition_id",
+          "site_id",
+          "severity",
+          "raised_at",
+          "message"
+        ],
+        "title": "AlarmEventResponse",
+        "type": "object"
+      },
+      "AlarmLogEntry": {
+        "description": "One line of the event log: a raise or a clear.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "integer"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "id": {
+            "description": "'<event id>:raised' or '<event id>:cleared'",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "raised",
+              "cleared"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "definition_id",
+          "kind",
+          "severity",
+          "at",
+          "message"
+        ],
+        "title": "AlarmLogEntry",
+        "type": "object"
+      },
+      "AlarmSnapshotResponse": {
+        "description": "Everything the alarms page shows for \"now\".",
+        "properties": {
+          "definitions": {
+            "items": {
+              "$ref": "#/components/schemas/AlarmDefinitionResponse"
+            },
+            "title": "Definitions",
+            "type": "array"
+          },
+          "events": {
+            "description": "Active events plus those cleared within the last 6 h, newest raise first",
+            "items": {
+              "$ref": "#/components/schemas/AlarmEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "log": {
+            "description": "Raises and clears within the last 6 h, newest first",
+            "items": {
+              "$ref": "#/components/schemas/AlarmLogEntry"
+            },
+            "title": "Log",
+            "type": "array"
+          },
+          "now": {
+            "description": "Server time; durations are measured against it",
+            "format": "date-time",
+            "title": "Now",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "now",
+          "definitions",
+          "events",
+          "log"
+        ],
+        "title": "AlarmSnapshotResponse",
+        "type": "object"
+      },
       "CacheGetResponse": {
         "description": "Response model for retrieving a value from the cache.",
         "properties": {
@@ -57,6 +572,84 @@
           "value"
         ],
         "title": "CacheSetRequest",
+        "type": "object"
+      },
+      "CommsStaleAlarm": {
+        "description": "A device with no successful poll for more than `stale_after_sec`.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "comms_stale",
+            "title": "Kind",
+            "type": "string"
+          },
+          "stale_after_sec": {
+            "minimum": 1.0,
+            "title": "Stale After Sec",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "device_id",
+          "stale_after_sec"
+        ],
+        "title": "CommsStaleAlarm",
+        "type": "object"
+      },
+      "ConditionAlarm-Input": {
+        "description": "ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.",
+        "properties": {
+          "delay_sec": {
+            "default": 0,
+            "description": "The group must hold this long before the alarm raises",
+            "minimum": 0.0,
+            "title": "Delay Sec",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Input"
+          }
+        },
+        "required": [
+          "kind",
+          "when"
+        ],
+        "title": "ConditionAlarm",
+        "type": "object"
+      },
+      "ConditionAlarm-Output": {
+        "description": "ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.",
+        "properties": {
+          "delay_sec": {
+            "default": 0,
+            "description": "The group must hold this long before the alarm raises",
+            "minimum": 0.0,
+            "title": "Delay Sec",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Output"
+          }
+        },
+        "required": [
+          "kind",
+          "when"
+        ],
+        "title": "ConditionAlarm",
         "type": "object"
       },
       "Coordinates": {
@@ -295,6 +888,40 @@
           "energy_kwh"
         ],
         "title": "DeviceEnergy",
+        "type": "object"
+      },
+      "DeviceHealth": {
+        "description": "A device's health verdict: healthy, unhealthy, or unknown (None, shown as not available).\nDecided by the site profile's device health checks.",
+        "properties": {
+          "healthy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None when it can't be judged, e.g. no readings yet",
+            "title": "Healthy"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it is unhealthy or unknown, for a tooltip",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "healthy"
+        ],
+        "title": "DeviceHealth",
         "type": "object"
       },
       "DeviceHealthStatus": {
@@ -705,6 +1332,32 @@
             ],
             "description": "Unit",
             "title": "Unit"
+          },
+          "virtual_definition": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calculation": "#/components/schemas/VirtualCalculationDefinition",
+                    "condition": "#/components/schemas/VirtualConditionDefinition-Output"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/VirtualConditionDefinition-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VirtualCalculationDefinition"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "VIRTUAL points only: how the value is computed from other points",
+            "title": "Virtual Definition"
           },
           "word_order": {
             "default": "msw_first",
@@ -2476,7 +3129,7 @@
                 "type": "null"
               }
             ],
-            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints",
+            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code",
             "title": "Profile"
           }
         },
@@ -2598,9 +3251,16 @@
             "type": "array"
           },
           "profile": {
-            "description": "The site's profile key",
-            "title": "Profile",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The site's profile key; null if the site has no profile (then no endpoints)",
+            "title": "Profile"
           },
           "site_id": {
             "title": "Site Id",
@@ -2702,9 +3362,16 @@
             "type": "string"
           },
           "profile": {
-            "description": "Site profile key selecting the site's endpoints; 'default' offers only the common endpoints",
-            "title": "Profile",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Site profile key selecting the site's endpoints, unique per site; null if the site has no site-specific code",
+            "title": "Profile"
           },
           "site_id": {
             "description": "Site ID (4-digit number)",
@@ -2725,12 +3392,117 @@
           "operator",
           "capacity",
           "device_count",
-          "profile",
           "created_at",
           "updated_at",
           "last_update"
         ],
         "title": "SiteResponse",
+        "type": "object"
+      },
+      "SiteSld": {
+        "additionalProperties": false,
+        "description": "A site's single line diagram.",
+        "properties": {
+          "buses": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SldBus"
+            },
+            "title": "Buses",
+            "type": "array"
+          },
+          "connections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SldConnection"
+            },
+            "title": "Connections",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/SldNode"
+            },
+            "minItems": 1,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "description": "Version of this format",
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "nodes"
+        ],
+        "title": "SiteSld",
+        "type": "object"
+      },
+      "SiteSldResponse": {
+        "description": "A site's stored single line diagram.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "revision": {
+            "description": "Increments on every save; send it back to replace this diagram",
+            "title": "Revision",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "sld": {
+            "$ref": "#/components/schemas/SiteSld"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "revision",
+          "created_at",
+          "updated_at",
+          "sld"
+        ],
+        "title": "SiteSldResponse",
+        "type": "object"
+      },
+      "SiteSldUpsertRequest": {
+        "additionalProperties": false,
+        "description": "Create or replace a site's single line diagram.",
+        "properties": {
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram",
+            "title": "Revision"
+          },
+          "sld": {
+            "$ref": "#/components/schemas/SiteSld",
+            "description": "The whole diagram; it replaces the stored one"
+          }
+        },
+        "required": [
+          "sld"
+        ],
+        "title": "SiteSldUpsertRequest",
         "type": "object"
       },
       "SiteUpdateRequest": {
@@ -2835,11 +3607,445 @@
                 "type": "null"
               }
             ],
-            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one",
+            "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it",
             "title": "Profile"
           }
         },
         "title": "SiteUpdateRequest",
+        "type": "object"
+      },
+      "SldBus": {
+        "additionalProperties": false,
+        "description": "A horizontal bus bar on one row, spanning col_start..col_end.",
+        "properties": {
+          "col_end": {
+            "description": "Grid column of the bus's right end; greater than col_start",
+            "title": "Col End",
+            "type": "number"
+          },
+          "col_start": {
+            "description": "Grid column of the bus's left end",
+            "title": "Col Start",
+            "type": "number"
+          },
+          "id": {
+            "description": "Unique within the diagram (nodes and buses)",
+            "pattern": "^[a-z0-9]+([_-][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Label shown on the bus",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "row": {
+            "description": "Grid row of the bus",
+            "title": "Row",
+            "type": "number"
+          },
+          "voltage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nominal voltage label, e.g. '34.5 kV'",
+            "title": "Voltage"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "row",
+          "col_start",
+          "col_end"
+        ],
+        "title": "SldBus",
+        "type": "object"
+      },
+      "SldConnection": {
+        "additionalProperties": false,
+        "description": "A conductor between two elements (node or bus), by id.",
+        "properties": {
+          "from_id": {
+            "description": "Id of a node or bus",
+            "title": "From Id",
+            "type": "string"
+          },
+          "to_id": {
+            "description": "Id of a node or bus",
+            "title": "To Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_id",
+          "to_id"
+        ],
+        "title": "SldConnection",
+        "type": "object"
+      },
+      "SldDeviceLink": {
+        "additionalProperties": false,
+        "description": "The backend device an element shows values of, and which of its points fills each role.",
+        "properties": {
+          "device_id": {
+            "description": "A device of this site",
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "points": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Role -> point id of that device. An unmapped role shows as not available",
+            "propertyNames": {
+              "enum": [
+                "vab",
+                "vbc",
+                "vca",
+                "ia",
+                "ib",
+                "ic",
+                "in",
+                "soc",
+                "power",
+                "mode",
+                "irradiance"
+              ]
+            },
+            "title": "Points",
+            "type": "object"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "title": "SldDeviceLink",
+        "type": "object"
+      },
+      "SldNode": {
+        "additionalProperties": false,
+        "description": "One element of the diagram, drawn as a box centered on its grid cell.",
+        "properties": {
+          "col": {
+            "description": "Grid column of the element's center",
+            "title": "Col",
+            "type": "number"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SldDeviceLink"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Linked device for the element's info box; only meter, bess and pv elements take one"
+          },
+          "id": {
+            "description": "Unique within the diagram (nodes and buses)",
+            "pattern": "^[a-z0-9]+([_-][a-z0-9]+)*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Label shown on the element",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rating label, e.g. '5 MVA' or '2 MW / 4 MWh'",
+            "title": "Rating"
+          },
+          "row": {
+            "description": "Grid row of the element's center",
+            "title": "Row",
+            "type": "number"
+          },
+          "type": {
+            "description": "What the element is; picks its icon",
+            "enum": [
+              "grid",
+              "poi",
+              "meter",
+              "transformer",
+              "breaker",
+              "switch",
+              "pv",
+              "inverter",
+              "bess",
+              "generator",
+              "wind",
+              "load",
+              "plant_controller"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "voltage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nominal voltage label, e.g. '34.5 kV'",
+            "title": "Voltage"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "col",
+          "row"
+        ],
+        "title": "SldNode",
+        "type": "object"
+      },
+      "SldNodeValues": {
+        "description": "One linked element's info box: a value per role, in display order, and the device health.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceHealth"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only for element types that show health (bess, pv); null if the site declares no check"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SldValue"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Every role of the element's type, in display order; null = not available",
+            "propertyNames": {
+              "enum": [
+                "vab",
+                "vbc",
+                "vca",
+                "ia",
+                "ib",
+                "ic",
+                "in",
+                "soc",
+                "power",
+                "mode",
+                "irradiance"
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "node_id",
+          "device_id",
+          "values"
+        ],
+        "title": "SldNodeValues",
+        "type": "object"
+      },
+      "SldNotFoundDetail": {
+        "description": "The 404 detail of the SLD routes: `error` says which thing is missing.",
+        "properties": {
+          "error": {
+            "description": "SiteSldNotFoundError: the site exists but has no diagram yet; NotFoundError: no such site",
+            "enum": [
+              "NotFoundError",
+              "SiteSldNotFoundError"
+            ],
+            "title": "Error",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ],
+        "title": "SldNotFoundDetail",
+        "type": "object"
+      },
+      "SldNotFoundResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/SldNotFoundDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SldNotFoundResponse",
+        "type": "object"
+      },
+      "SldValue": {
+        "description": "The latest reading of the point filling one role.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The enum label for an enum point, e.g. 'discharging'",
+            "title": "Label"
+          },
+          "point_id": {
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it was read; None if never read",
+            "title": "Time"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit of `value`; power roles are converted to kW",
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scaled value, in `unit`; None if never read",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "point_id"
+        ],
+        "title": "SldValue",
+        "type": "object"
+      },
+      "SldValuesResponse": {
+        "description": "The live values of every SLD element linked to a device.",
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/SldNodeValues"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "sld_revision": {
+            "description": "The SLD revision these links come from",
+            "title": "Sld Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "sld_revision",
+          "generated_at",
+          "nodes"
+        ],
+        "title": "SldValuesResponse",
+        "type": "object"
+      },
+      "ThresholdAlarm": {
+        "description": "One comparison: `point <op> value`, `point <op> other point`, or a bit test.",
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/VirtualCondition"
+          },
+          "deadband": {
+            "default": 0.0,
+            "description": "Clear hysteresis: the value must come back past the limit by this much. For a point-vs-point comparison it applies to the other point's value. Not used by bit tests.",
+            "minimum": 0.0,
+            "title": "Deadband",
+            "type": "number"
+          },
+          "delay_sec": {
+            "default": 0,
+            "description": "The condition must hold this long before the alarm raises",
+            "minimum": 0.0,
+            "title": "Delay Sec",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "threshold",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "condition"
+        ],
+        "title": "ThresholdAlarm",
         "type": "object"
       },
       "TimeseriesMeta": {
@@ -3004,16 +4210,978 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VirtualCalculationDefinition": {
+        "properties": {
+          "function": {
+            "description": "difference = inputs[0] - inputs[1], ratio = inputs[0] / inputs[1]",
+            "enum": [
+              "sum",
+              "avg",
+              "min",
+              "max",
+              "difference",
+              "ratio"
+            ],
+            "title": "Function",
+            "type": "string"
+          },
+          "inputs": {
+            "description": "Point IDs",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Inputs",
+            "type": "array"
+          },
+          "kind": {
+            "const": "calculation",
+            "title": "Kind",
+            "type": "string"
+          },
+          "offset": {
+            "default": 0.0,
+            "title": "Offset",
+            "type": "number"
+          },
+          "scale": {
+            "default": 1.0,
+            "description": "Applied after the function: result * scale + offset",
+            "title": "Scale",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "function",
+          "inputs"
+        ],
+        "title": "VirtualCalculationDefinition",
+        "type": "object"
+      },
+      "VirtualCase-Input": {
+        "description": "When ``when`` holds, the point takes ``output``.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name, stored in enum_detail",
+            "title": "Label"
+          },
+          "output": {
+            "description": "State value this case sets",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Output",
+            "type": "integer"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Input"
+          }
+        },
+        "required": [
+          "output",
+          "when"
+        ],
+        "title": "VirtualCase",
+        "type": "object"
+      },
+      "VirtualCase-Output": {
+        "description": "When ``when`` holds, the point takes ``output``.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name, stored in enum_detail",
+            "title": "Label"
+          },
+          "output": {
+            "description": "State value this case sets",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Output",
+            "type": "integer"
+          },
+          "when": {
+            "$ref": "#/components/schemas/VirtualConditionGroup-Output"
+          }
+        },
+        "required": [
+          "output",
+          "when"
+        ],
+        "title": "VirtualCase",
+        "type": "object"
+      },
+      "VirtualCondition": {
+        "description": "One test on one point: compare it to a value or another point, or test one of its bits.",
+        "examples": [
+          {
+            "operator": ">=",
+            "point_id": 7,
+            "type": "condition",
+            "value": 20
+          },
+          {
+            "bit": 1,
+            "operator": "bit_set",
+            "point_id": 71,
+            "type": "condition"
+          }
+        ],
+        "properties": {
+          "bit": {
+            "anyOf": [
+              {
+                "maximum": 63.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bit test: the bit index (0 = LSB)",
+            "title": "Bit"
+          },
+          "compare_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Comparison: another point to compare against, instead of value",
+            "title": "Compare Point Id"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "enum": [
+                  ">",
+                  "<",
+                  ">=",
+                  "<=",
+                  "==",
+                  "!="
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "bit_set",
+                  "bit_clear"
+                ],
+                "type": "string"
+              }
+            ],
+            "description": "Comparison (>, <, >=, <=, ==, !=) or bit test (bit_set, bit_clear). Enum states compare with == / != on the raw state value.",
+            "title": "Operator"
+          },
+          "point_id": {
+            "description": "Point the condition reads",
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "type": {
+            "const": "condition",
+            "default": "condition",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Comparison: the constant to compare against",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "point_id",
+          "operator"
+        ],
+        "title": "VirtualCondition",
+        "type": "object"
+      },
+      "VirtualConditionDefinition-Input": {
+        "properties": {
+          "cases": {
+            "description": "Checked in order; the first match wins",
+            "items": {
+              "$ref": "#/components/schemas/VirtualCase-Input"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "default_label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name of default_output",
+            "title": "Default Label"
+          },
+          "default_output": {
+            "default": 0,
+            "description": "Output when no case matches",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Default Output",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "cases"
+        ],
+        "title": "VirtualConditionDefinition",
+        "type": "object"
+      },
+      "VirtualConditionDefinition-Output": {
+        "properties": {
+          "cases": {
+            "description": "Checked in order; the first match wins",
+            "items": {
+              "$ref": "#/components/schemas/VirtualCase-Output"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "default_label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State name of default_output",
+            "title": "Default Label"
+          },
+          "default_output": {
+            "default": 0,
+            "description": "Output when no case matches",
+            "maximum": 65535.0,
+            "minimum": 0.0,
+            "title": "Default Output",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "condition",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "cases"
+        ],
+        "title": "VirtualConditionDefinition",
+        "type": "object"
+      },
+      "VirtualConditionGroup-Input": {
+        "description": "Conditions and nested groups combined with ALL (and) or ANY (or).",
+        "properties": {
+          "items": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/VirtualCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/VirtualConditionGroup-Input"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "match": {
+            "description": "all = every item holds, any = at least one",
+            "enum": [
+              "all",
+              "any"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "type": {
+            "const": "group",
+            "default": "group",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match",
+          "items"
+        ],
+        "title": "VirtualConditionGroup",
+        "type": "object"
+      },
+      "VirtualConditionGroup-Output": {
+        "description": "Conditions and nested groups combined with ALL (and) or ANY (or).",
+        "properties": {
+          "items": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/VirtualCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/VirtualConditionGroup-Output"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "match": {
+            "description": "all = every item holds, any = at least one",
+            "enum": [
+              "all",
+              "any"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "type": {
+            "const": "group",
+            "default": "group",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match",
+          "items"
+        ],
+        "title": "VirtualConditionGroup",
+        "type": "object"
+      },
+      "VirtualPointCreateRequest": {
+        "description": "Create a VIRTUAL point. The server derives data_type/size from the definition's kind\n(condition → enum16 with enum_detail from the case labels, calculation → float32).",
+        "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
+          },
+          "definition": {
+            "description": "How the value is computed from other points on the site (computed on read, not stored)",
+            "discriminator": {
+              "mapping": {
+                "calculation": "#/components/schemas/VirtualCalculationDefinition",
+                "condition": "#/components/schemas/VirtualConditionDefinition-Input"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VirtualConditionDefinition-Input"
+              },
+              {
+                "$ref": "#/components/schemas/VirtualCalculationDefinition"
+              }
+            ],
+            "title": "Definition"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "name",
+          "definition"
+        ],
+        "title": "VirtualPointCreateRequest",
+        "type": "object"
+      },
+      "VirtualPointUpdateRequest": {
+        "description": "Update a VIRTUAL point; omitted fields keep their value. A new definition may change the kind.",
+        "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALOG",
+                  "BINARY",
+                  "ALARM",
+                  "CONTROL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+            "title": "Class"
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calculation": "#/components/schemas/VirtualCalculationDefinition",
+                    "condition": "#/components/schemas/VirtualConditionDefinition-Input"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/VirtualConditionDefinition-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VirtualCalculationDefinition"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Severity: HIGH, MEDIUM or LOW",
+            "title": "Severity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "title": "VirtualPointUpdateRequest",
+        "type": "object"
       }
     }
   },
   "info": {
     "description": "Modbus TCP service for polling and storing time-series data",
     "title": "PAE Backend OT",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/alarms/site/{site_id}/definitions": {
+      "get": {
+        "operationId": "list_definitions_api_alarms_site__site_id__definitions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include deleted user alarms and retired profile alarms",
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include deleted user alarms and retired profile alarms",
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                  },
+                  "title": "Response List Definitions Api Alarms Site  Site Id  Definitions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a site's alarms (user and profile)",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      },
+      "post": {
+        "description": "A threshold (a point against a value or another point, or a bit test; with delay and\ndeadband), a comms-stale check on a device, or a multi-point condition (ALL/ANY groups, with a\ndelay). The points or device must be active on this site (400); the name is unique per site\nignoring case (409); at most 20 alarms per site can be enabled (409). An enabled alarm is\nevaluated and shown in Active alarms.",
+        "operationId": "create_definition_api_alarms_site__site_id__definitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlarmDefinitionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a user alarm",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
+    "/api/alarms/site/{site_id}/definitions/{alarm_id}": {
+      "delete": {
+        "description": "Permanently delete a user alarm and all its alarm events (its history). Returns the alarm as\nit was. Profile alarms can't be deleted (400); disable them instead.",
+        "operationId": "delete_definition_api_alarms_site__site_id__definitions__alarm_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "title": "Alarm Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a user alarm",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      },
+      "put": {
+        "description": "Omitted fields keep their value. A profile alarm (defined in code) accepts only enabled,\nnotify_mobile and notify_email (400 otherwise). Enabling more than 20 alarms on the site\nis 409. Disabling an alarm clears its active event. Changing a user alarm's rule (what it\nchecks) clears its active event and restarts its delay; the new rule raises again on the next\nevaluation if it holds. Sending the same rule again changes nothing.",
+        "operationId": "update_definition_api_alarms_site__site_id__definitions__alarm_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "alarm_id",
+            "required": true,
+            "schema": {
+              "title": "Alarm Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlarmDefinitionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmDefinitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update an alarm",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
+    "/api/alarms/site/{site_id}/events": {
+      "get": {
+        "description": "Events that overlap [start_time, end_time]: raised before the end and cleared after the\nstart, or still active. Newest raise first. A reversed range is 400 (the time-range middleware).",
+        "operationId": "list_events_api_alarms_site__site_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Start (ISO, with a UTC offset)",
+            "in": "query",
+            "name": "start_time",
+            "required": true,
+            "schema": {
+              "description": "Start (ISO, with a UTC offset)",
+              "format": "date-time",
+              "title": "Start Time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "End (ISO, with a UTC offset)",
+            "in": "query",
+            "name": "end_time",
+            "required": true,
+            "schema": {
+              "description": "End (ISO, with a UTC offset)",
+              "format": "date-time",
+              "title": "End Time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "device_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Device Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "fault",
+                    "warning"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "description": "One alarm's events",
+            "in": "query",
+            "name": "definition_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One alarm's events",
+              "title": "Definition Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlarmEventResponse"
+                  },
+                  "title": "Response List Events Api Alarms Site  Site Id  Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alarm events over a time range (history)",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
+    "/api/alarms/site/{site_id}/snapshot": {
+      "get": {
+        "description": "The site's alarms (user and profile), active events plus those cleared within 6 h, and the\nraise/clear log of those 6 h. `now` is server time, so durations don't depend on a browser clock.",
+        "operationId": "get_snapshot_api_alarms_site__site_id__snapshot_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The alarms page for now: alarms, active and recent events, recent log",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
     "/api/cache/clear": {
       "delete": {
         "description": "Delete all cache keys and associated data.\n\nWARNING: This is a destructive operation that will permanently delete\nall cached data. Use with caution.\n\nReturns:\n    Dictionary with number of keys deleted",
@@ -4090,6 +6258,141 @@
           }
         },
         "summary": "Override and lock a device's scan ranges",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual": {
+      "post": {
+        "description": "Create a VIRTUAL point computed on read from other points' stored readings (any device on the site):\na condition (cases of ALL/ANY groups; the first match sets the state) or a calculation\n(sum/avg/min/max/difference/ratio × scale + offset). Inputs must be active, non-virtual\npoints on this site; bit conditions need a bitfield input.",
+        "operationId": "create_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VirtualPointCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a virtual point",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual/{point_id}": {
+      "put": {
+        "description": "Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.",
+        "operationId": "update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VirtualPointUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a virtual point",
         "tags": [
           "device-points",
           "device-points"
@@ -5986,6 +8289,227 @@
           }
         },
         "summary": "Restore a soft-deleted site",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}/sld": {
+      "delete": {
+        "description": "Returns the deleted diagram.",
+        "operationId": "delete_site_sld_endpoint_api_sites__site_id__sld_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSldResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a site's single line diagram",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
+      "get": {
+        "operationId": "get_site_sld_endpoint_api_sites__site_id__sld_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSldResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a site's single line diagram",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      },
+      "put": {
+        "description": "Omit `revision` to create the site's first diagram; send the revision you read to replace it (409 if it is no longer current).",
+        "operationId": "put_site_sld_endpoint_api_sites__site_id__sld_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteSldUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSldResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create or replace a site's single line diagram",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}/sld/values": {
+      "get": {
+        "description": "Per linked element: the latest value of each role (null = not available) and, for bess/pv,\nthe device health the site profile declares. Poll it to keep the info boxes live.",
+        "operationId": "get_site_sld_values_endpoint_api_sites__site_id__sld_values_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldValuesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the live values of a site's SLD elements that are linked to devices",
         "tags": [
           "sites",
           "sites"

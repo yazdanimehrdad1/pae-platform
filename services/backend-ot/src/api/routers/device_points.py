@@ -8,11 +8,13 @@ from api.controllers.devices import get_device_by_id
 from db.devices import lock_device_scan_ranges, reset_device_scan_ranges
 from helpers.device_points import (
     bulk_upsert_device_points,
+    create_virtual_point,
     delete_device_points,
     get_deleted_device_points,
     get_device_points,
     restore_device_point,
     update_device_point,
+    update_virtual_point,
 )
 from logger import get_logger
 from schemas.api_models import DevicePointResponse, PointClass, Severity
@@ -20,6 +22,8 @@ from schemas.api_models.requests import (
     DevicePointsBulkRequest,
     DevicePointUpdateRequest,
     DeviceScanRanges,
+    VirtualPointCreateRequest,
+    VirtualPointUpdateRequest,
 )
 from utils.exceptions import AppError
 
@@ -162,6 +166,55 @@ async def bulk_upsert_points(
         await get_device_by_id(site_id, device_id)
         points = await bulk_upsert_device_points(site_id, device_id, body)
         return [DevicePointResponse.model_validate(p, from_attributes=True) for p in points]
+    except HTTPException:
+        raise
+    except Exception as e:
+        _point_error(e)
+
+
+@router.post(
+    "/site/{site_id}/device/{device_id}/virtual",
+    response_model=DevicePointResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a virtual point",
+)
+async def create_virtual_point_for_device(
+    site_id: int,
+    device_id: int,
+    body: VirtualPointCreateRequest,
+) -> DevicePointResponse:
+    """
+    Create a VIRTUAL point computed on read from other points' stored readings (any device on the site):
+    a condition (cases of ALL/ANY groups; the first match sets the state) or a calculation
+    (sum/avg/min/max/difference/ratio × scale + offset). Inputs must be active, non-virtual
+    points on this site; bit conditions need a bitfield input.
+    """
+    try:
+        await get_device_by_id(site_id, device_id)
+        point = await create_virtual_point(site_id, device_id, body)
+        return DevicePointResponse.model_validate(point, from_attributes=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _point_error(e)
+
+
+@router.put(
+    "/site/{site_id}/device/{device_id}/virtual/{point_id}",
+    response_model=DevicePointResponse,
+    summary="Update a virtual point",
+)
+async def update_virtual_point_for_device(
+    site_id: int,
+    device_id: int,
+    point_id: int,
+    body: VirtualPointUpdateRequest,
+) -> DevicePointResponse:
+    """Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept."""
+    try:
+        await get_device_by_id(site_id, device_id)
+        point = await update_virtual_point(site_id, device_id, point_id, body)
+        return DevicePointResponse.model_validate(point, from_attributes=True)
     except HTTPException:
         raise
     except Exception as e:

@@ -104,6 +104,9 @@ async def update_device_point(
         point = result.scalar_one_or_none()
         if point is None:
             raise NotFoundError(f"Device point {point_id} not found")
+        if point.category == "VIRTUAL":
+            # Its data_type/size/enum_detail follow its definition; editing them here would break it.
+            raise ValidationError(f"Point {point_id} is VIRTUAL; update it with PUT .../virtual/{point_id}")
 
         if data.name is not None:
             existing = await session.execute(
@@ -255,6 +258,10 @@ async def bulk_upsert_device_points(
     Scan range recompute runs once at the end.
     """
     for point in bulk.points:
+        if point.category == "VIRTUAL":
+            raise ValidationError(
+                f"'{point.name}': VIRTUAL points need a definition; create them with POST .../virtual"
+            )
         if point.category == "NATIVE":
             if point.poll_kind is None:
                 raise ValidationError(f"poll_kind is required for NATIVE point '{point.name}'")

@@ -1,10 +1,12 @@
 """
 Every site profile the service knows, and the checks that run when the app starts.
 
-To onboard a site: add its package under site_profiles/, import its profile here and add
-it to ALL_SITE_PROFILES. The router mounts one URL per entry in SITE_ENDPOINT_ROUTES, and
-building that list validates every declared endpoint, so a misdeclared endpoint stops the
-app from starting instead of failing on a request.
+To onboard a site: add its package under site_profiles/individual_sites/, import its profile
+here and add it to ALL_SITE_PROFILES. A profile belongs to at most one site (sites.profile is
+unique); a site without site-specific code has no profile (NULL). The router mounts one URL per entry in SITE_ENDPOINT_ROUTES. Building
+that list validates every declared endpoint, and validate_site_alarms every declared alarm, so a
+misdeclared one stops the app from starting instead of failing on a request or an evaluation.
+validate_site_device_health does the same for the device health checks behind SLD info boxes.
 """
 
 import re
@@ -12,13 +14,14 @@ from typing import Literal, get_type_hints
 
 from pydantic import BaseModel
 
-from schemas.site_profiles import FunctionKind, TimeWindowParams
-from site_profiles.common.profile import DEFAULT_PROFILE, DEFAULT_PROFILE_KEY
+from schemas.site_profiles import AlarmCheck, DeviceHealth, FunctionKind, TimeWindowParams
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
+from site_profiles.site_alarm import SiteAlarm
 from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
+from site_profiles.site_health import DeviceHealthCheck
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
-ALL_SITE_PROFILES: tuple[SiteProfile, ...] = (DEFAULT_PROFILE, ALPHA_SOLAR_PROFILE)
+ALL_SITE_PROFILES: tuple[SiteProfile, ...] = (ALPHA_SOLAR_PROFILE,)
 
 SITE_PROFILES_BY_KEY: dict[str, SiteProfile] = {profile.key: profile for profile in ALL_SITE_PROFILES}
 
@@ -39,7 +42,7 @@ class SiteEndpointRoute(BaseModel):
 
 
 def get_site_profile(profile_key: str) -> SiteProfile:
-    """The registered profile for a sites.profile value (500 if the code is missing)."""
+    """The registered profile for a non-null sites.profile value (500 if the code is missing)."""
     profile = SITE_PROFILES_BY_KEY.get(profile_key)
     if profile is None:
         raise SiteProfileConfigError(
@@ -105,7 +108,6 @@ def build_site_endpoint_routes(profiles: tuple[SiteProfile, ...]) -> list[SiteEn
 
     Rules:
     - profile keys are unique;
-    - the 'default' profile declares only common endpoints;
     - a name starts with its kind ('common-', 'site-', 'device-');
     - common controllers live in site_profiles/common/; site and device controllers live in
       site_profiles/individual_sites/<profile key>/;
@@ -124,11 +126,6 @@ def build_site_endpoint_routes(profiles: tuple[SiteProfile, ...]) -> list[SiteEn
         names_in_profile: set[str] = set()
         for endpoint in profile.endpoints:
             _check_endpoint(profile.key, endpoint)
-            if profile.key == DEFAULT_PROFILE_KEY and endpoint.kind != "common":
-                raise SiteProfileConfigError(
-                    f"{profile.key}: endpoint '{endpoint.name}' is a {endpoint.kind} endpoint; the "
-                    f"default profile may declare only common endpoints"
-                )
             if endpoint.name in names_in_profile:
                 raise SiteProfileConfigError(f"{profile.key}: endpoint '{endpoint.name}' is declared twice")
             names_in_profile.add(endpoint.name)
@@ -144,4 +141,72 @@ def build_site_endpoint_routes(profiles: tuple[SiteProfile, ...]) -> list[SiteEn
     return list(routes.values())
 
 
+def _check_alarm(profile_key: str, alarm: SiteAlarm) -> None:
+    """The check lives in common/ or in this profile's package, and returns AlarmCheck."""
+    where = f"{profile_key}: alarm '{alarm.key}'"
+    evaluate = alarm.evaluate
+    packages = [_COMMON_PACKAGE, f"{_INDIVIDUAL_SITES_PACKAGE}.{profile_key}"]
+    if not any(evaluate.__module__.startswith(f"{package}.") for package in packages):
+        raise SiteProfileConfigError(
+            f"{where}: its check belongs in site_profiles/common/ or site_profiles/individual_sites/{profile_key}/, "
+            f"but {evaluate.__qualname__} is in {evaluate.__module__}"
+        )
+    returns = get_type_hints(evaluate).get("return")
+    if returns is not AlarmCheck:
+        raise SiteProfileConfigError(f"{where}: check {evaluate.__qualname__} returns {returns!r}, not AlarmCheck")
+
+
+def validate_site_alarms(profiles: tuple[SiteProfile, ...]) -> None:
+    """
+    Validate every declared alarm:
+    - the check is in site_profiles/common/ or the profile's own package, and is annotated to
+      return AlarmCheck;
+    - keys and names are unique within a profile (names ignoring case, like rule names).
+    """
+    for profile in profiles:
+        keys: set[str] = set()
+        names: set[str] = set()
+        for alarm in profile.alarms:
+            _check_alarm(profile.key, alarm)
+            if alarm.key in keys:
+                raise SiteProfileConfigError(f"{profile.key}: alarm key '{alarm.key}' is declared twice")
+            if alarm.name.lower() in names:
+                raise SiteProfileConfigError(f"{profile.key}: alarm name '{alarm.name}' is declared twice")
+            keys.add(alarm.key)
+            names.add(alarm.name.lower())
+
+
+def _check_health(profile_key: str, check: DeviceHealthCheck) -> None:
+    """The check lives in common/ or in this profile's package, and returns DeviceHealth."""
+    where = f"{profile_key}: {check.node_type} health check"
+    evaluate = check.evaluate
+    packages = [_COMMON_PACKAGE, f"{_INDIVIDUAL_SITES_PACKAGE}.{profile_key}"]
+    if not any(evaluate.__module__.startswith(f"{package}.") for package in packages):
+        raise SiteProfileConfigError(
+            f"{where}: {evaluate.__qualname__} belongs in site_profiles/common/ or "
+            f"site_profiles/individual_sites/{profile_key}/, but is in {evaluate.__module__}"
+        )
+    returns = get_type_hints(evaluate).get("return")
+    if returns is not DeviceHealth:
+        raise SiteProfileConfigError(f"{where}: {evaluate.__qualname__} returns {returns!r}, not DeviceHealth")
+
+
+def validate_site_device_health(profiles: tuple[SiteProfile, ...]) -> None:
+    """
+    Validate every declared device health check:
+    - the check is in site_profiles/common/ or the profile's own package, and is annotated to
+      return DeviceHealth;
+    - at most one check per SLD element type within a profile.
+    """
+    for profile in profiles:
+        node_types: set[str] = set()
+        for check in profile.device_health:
+            _check_health(profile.key, check)
+            if check.node_type in node_types:
+                raise SiteProfileConfigError(f"{profile.key}: {check.node_type} health check is declared twice")
+            node_types.add(check.node_type)
+
+
 SITE_ENDPOINT_ROUTES: list[SiteEndpointRoute] = build_site_endpoint_routes(ALL_SITE_PROFILES)
+validate_site_alarms(ALL_SITE_PROFILES)
+validate_site_device_health(ALL_SITE_PROFILES)

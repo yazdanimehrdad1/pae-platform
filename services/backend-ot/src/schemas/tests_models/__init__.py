@@ -25,7 +25,7 @@ from schemas.tests_models.mock_modbus_contract import (
     MockModbusDevice,
     MockModbusRegister,
 )
-from schemas.tests_models.seed_models import SeedDevice
+from schemas.tests_models.seed_models import SeedAlarm, SeedDevice, SeedVirtualPoint
 
 __all__ = [
     "ApiErrorDetail",
@@ -45,5 +45,7 @@ __all__ = [
     "ReadinessChecks",
     "ReadinessResponse",
     "RedisHealthResponse",
+    "SeedAlarm",
     "SeedDevice",
+    "SeedVirtualPoint",
 ]

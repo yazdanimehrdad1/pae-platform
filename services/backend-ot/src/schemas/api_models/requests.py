@@ -4,7 +4,9 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.types import DataType, DeviceType, PointClass, Severity, register_size
+from schemas.api_models.virtual_points import VirtualPointDefinition
 
 
 def _normalize_device_type(device_type: object) -> object:
@@ -105,7 +107,7 @@ class SiteCreateRequest(BaseModel):
         default=None,
         min_length=1,
         max_length=64,
-        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints",
+        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code",
     )
 
 
@@ -124,7 +126,7 @@ class SiteUpdateRequest(BaseModel):
         None,
         min_length=1,
         max_length=64,
-        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one",
+        description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it",
     )
 
 
@@ -240,8 +242,62 @@ class DevicePointsBulkRequest(BaseModel):
     points: list[DevicePointCreateRequest] = Field(..., min_length=1)
 
 
+class VirtualPointCreateRequest(BaseModel):
+    """Create a VIRTUAL point. The server derives data_type/size from the definition's kind
+    (condition → enum16 with enum_detail from the case labels, calculation → float32)."""
+    name: str = Field(..., min_length=1, max_length=255)
+    unit: str | None = Field(None, max_length=50)
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    definition: VirtualPointDefinition = Field(
+        ..., description="How the value is computed from other points on the site (computed on read, not stored)"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    _normalize_class_and_severity = field_validator("point_class", "severity", mode="before")(
+        _normalize_uppercase
+    )
+
+
+class VirtualPointUpdateRequest(BaseModel):
+    """Update a VIRTUAL point; omitted fields keep their value. A new definition may change the kind."""
+    name: str | None = Field(None, min_length=1, max_length=255)
+    unit: str | None = Field(None, max_length=50)
+    point_class: PointClass | None = Field(
+        None,
+        alias="class",
+        description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
+    )
+    severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    definition: VirtualPointDefinition | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    _normalize_class_and_severity = field_validator("point_class", "severity", mode="before")(
+        _normalize_uppercase
+    )
+
+
 class CacheSetRequest(BaseModel):
     """Request model for setting a value in the cache."""
     key: str = Field(..., description="Cache key")
     value: Any = Field(..., description="Value to cache")
     ttl: int | None = Field(None, description="Time-to-live in seconds; None means no expiry")
+
+
+class SiteSldUpsertRequest(BaseModel):
+    """Create or replace a site's single line diagram."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sld: SiteSld = Field(..., description="The whole diagram; it replaces the stored one")
+    revision: int | None = Field(
+        None,
+        ge=1,
+        description="The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram",
+    )

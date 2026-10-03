@@ -1,211 +1,401 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Circle, Zap, Power, Battery, Sun, Wind, Building2, ArrowDownUp, PanelLeftClose, PanelLeftOpen, AlertTriangle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Activity, AlertTriangle, Hand, Maximize2, Pencil, Plus, RefreshCw, Save, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MicrogridSLD } from "./components/MicrogridSLD";
-import { SummaryCard } from "./components/SummaryCard";
-import { fetchCompleteSLDData } from "./lib/sldDataMerger";
-import type { SLDData } from "./types";
-import { MOCK_SLD_DIAGRAMS, MOCK_SLD_SITE_ID } from "@/mocks/sld";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ToastAction } from "@/components/ui/toast";
+import { toast } from "@/shared/hooks/use-toast";
+import { devicesApi, sitesApi, sldApi } from "@/api";
+import { getErrorMessage } from "@/api/client";
+import type { DeviceRecord } from "@/api/types/devices";
+import type { Site } from "@/api/types/sites";
+import type { SiteSld, SiteSldResponse, SldNodeValues, SldValuesResponse } from "@/api/types/sld";
+import { SiteSldDiagram, type SldEditInteraction } from "./components/SiteSldDiagram";
+import { SldEditorPanel, type PickTarget, type RequestPick } from "./editor/SldEditorPanel";
+import { useDragToPan } from "./hooks/useDragToPan";
+import { useWheelZoom } from "./hooks/useWheelZoom";
+import { draftErrors, newDraft, type Cell } from "./lib/sldDraft";
+import { SLD_SVG_SELECTOR, computeSldGeometry } from "./lib/sldGeometry";
+
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 3;
+const ZOOM_STEP = 0.1;
+// Leaves room for the container border so a fitted diagram shows no scrollbars.
+const FIT_PADDING = 4;
+// How often the info boxes refresh, like the alarms page.
+const VALUES_REFRESH_MS = 10_000;
+const clampZoom = (zoom: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
+
+interface PendingPick {
+  target: PickTarget;
+  label: string;
+  onPicked: (value: string | Cell) => void;
+}
+
+const isConflict = (error: unknown) =>
+  (error as { detail?: { error?: string } })?.detail?.error === "ConflictError";
 
 const SLD = () => {
-  const location = useLocation();
-  const siteId = location.state?.siteId || MOCK_SLD_SITE_ID;
-
-  const [sldData, setSldData] = useState<SLDData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedSite, setSelectedSite] = useState(siteId || "main");
-  const [lastUpdate] = useState(new Date());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const siteId = searchParams.get("siteId");
+  const queryClient = useQueryClient();
   const [zoom, setZoom] = useState(1);
-  const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(false);
   const sldContainerRef = useRef<HTMLDivElement>(null);
+  const [isHandToolActive, setIsHandToolActive] = useState(true);
+  const [showValues, setShowValues] = useState(true);
 
+  // Edit mode: a draft of the diagram (null when not editing) and what is selected in it.
+  const [editDraft, setEditDraft] = useState<SiteSld | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedCell, setSelectedCell] = useState<Cell | null>(null);
+  const [pendingPick, setPendingPick] = useState<PendingPick | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
+  const isEditing = editDraft !== null;
+
+  // Clicks select while editing, so dragging pans only with Space or the middle button then.
+  const { cursor, panHandlers } = useDragToPan(sldContainerRef, isHandToolActive && !isEditing);
+
+  const { data: sites = [] } = useQuery<Site[]>({ queryKey: ["sites"], queryFn: sitesApi.getAll });
+
+  // No site in the URL: show the first one, keeping the choice in the URL so a refresh keeps it.
   useEffect(() => {
-    const loadSLDData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await fetchCompleteSLDData(siteId);
-        setSldData(data);
-        if (data.siteId) setSelectedSite(data.siteId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load SLD data");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSLDData();
-  }, [siteId]);
+    if (!siteId && sites.length > 0) setSearchParams({ siteId: sites[0].id }, { replace: true });
+  }, [siteId, sites, setSearchParams]);
 
-  const handleRefresh = async () => {
-    if (!siteId) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchCompleteSLDData(siteId);
-      setSldData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to refresh SLD data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    data: storedSld,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<SiteSldResponse | null>({
+    queryKey: ["site-sld", siteId],
+    queryFn: () => sldApi.getBySite(siteId!),
+    enabled: !!siteId,
+    retry: false,
+  });
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const { data: devices = [] } = useQuery<DeviceRecord[]>({
+    queryKey: ["site-device-records", siteId],
+    queryFn: () => devicesApi.getRecords(siteId!),
+    enabled: !!siteId && isEditing,
+  });
 
-  const handleFitToScreen = () => {
-    if (!sldContainerRef.current) return;
+  const shownSld = editDraft ?? storedSld?.sld ?? null;
+  const geometry = useMemo(
+    () => (shownSld ? computeSldGeometry(shownSld, { showInfoBoxes: showValues, editing: isEditing }) : null),
+    [shownSld, showValues, isEditing],
+  );
+  const errors = useMemo(() => (editDraft ? draftErrors(editDraft) : []), [editDraft]);
+
+  const { data: liveValues } = useQuery<SldValuesResponse>({
+    queryKey: ["site-sld-values", siteId],
+    queryFn: () => sldApi.getValues(siteId!),
+    enabled: !!siteId && !!storedSld && showValues,
+    refetchInterval: VALUES_REFRESH_MS,
+    placeholderData: (previous) => previous,
+    retry: false,
+  });
+  const valuesByNode = useMemo(
+    () => new Map<string, SldNodeValues>((liveValues?.nodes ?? []).map((node) => [node.node_id, node])),
+    [liveValues],
+  );
+
+  const fitToScreen = useCallback(() => {
     const container = sldContainerRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const scale = Math.min(containerRect.width / 1200, containerRect.height / 800, 1);
-    setZoom(scale);
+    if (!container || !geometry) return;
+    const { width, height } = container.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+    setZoom(clampZoom(Math.min((width - FIT_PADDING) / geometry.viewBox.width, (height - FIT_PADDING) / geometry.viewBox.height)));
+  }, [geometry]);
+
+  // Fit when a diagram loads, the layout mode changes or editing starts/stops; not on every edit.
+  const latestFit = useRef(fitToScreen);
+  latestFit.current = fitToScreen;
+  const fitKey = `${siteId}:${storedSld?.revision ?? "none"}:${isEditing}:${showValues}:${!!shownSld}`;
+  useLayoutEffect(() => {
+    latestFit.current();
+  }, [fitKey]);
+
+  useWheelZoom(sldContainerRef, SLD_SVG_SELECTOR, zoom, setZoom, clampZoom);
+
+  const resetEditState = () => {
+    setEditDraft(null);
+    setIsDirty(false);
+    setSelectedId(null);
+    setSelectedCell(null);
+    setPendingPick(null);
+    setSaveError(null);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(0.3, Math.min(3, prev + delta)));
+  const startEditing = () => {
+    setEditDraft(storedSld?.sld ?? newDraft());
+    setIsDirty(!storedSld);
+    setSaveError(null);
+  };
+
+  const changeDraft = (draft: SiteSld) => {
+    setEditDraft(draft);
+    setIsDirty(true);
+    setSaveError(null);
+  };
+
+  const requestPick: RequestPick = (target, label, onPicked) => setPendingPick({ target, label, onPicked });
+
+  const editing: SldEditInteraction | undefined = isEditing
+    ? {
+        selectedId,
+        selectedCell,
+        onSelectElement: (id) => {
+          if (pendingPick?.target === "element") {
+            pendingPick.onPicked(id);
+            setPendingPick(null);
+            return;
+          }
+          setSelectedId(id);
+          setSelectedCell(null);
+        },
+        onSelectCell: (cell) => {
+          if (pendingPick?.target === "cell") {
+            pendingPick.onPicked(cell);
+            setPendingPick(null);
+            return;
+          }
+          setSelectedId(null);
+          setSelectedCell(cell);
+        },
+      }
+    : undefined;
+
+  const save = useMutation({
+    mutationFn: (draft: SiteSld) => sldApi.save(siteId!, draft, storedSld?.revision ?? null),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(["site-sld", siteId], saved);
+      queryClient.invalidateQueries({ queryKey: ["site-sld-values", siteId] });
+      resetEditState();
+      toast({ title: "Diagram saved", description: `Revision ${saved.revision}` });
+    },
+    onError: (saveFailure) => {
+      if (isConflict(saveFailure)) {
+        toast({
+          title: "Changed by someone else",
+          description: "The diagram was saved elsewhere since you opened it. Reload it to see the latest version.",
+          variant: "destructive",
+          action: (
+            <ToastAction
+              altText="Reload the diagram"
+              onClick={() => {
+                resetEditState();
+                refetch();
+              }}
+            >
+              Reload
+            </ToastAction>
+          ),
+        });
+        return;
+      }
+      setSaveError(getErrorMessage(saveFailure, "Saving the diagram failed"));
+    },
+  });
+
+  const cancelEditing = () => {
+    if (isDirty) setIsConfirmingCancel(true);
+    else resetEditState();
+  };
+
+  const renderDiagram = () => {
+    if (!siteId) {
+      return <p className="text-muted-foreground">Select a site to see its single line diagram.</p>;
     }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-6 flex items-center justify-center h-screen">
+    if (isLoading) {
+      return (
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading SLD data...</p>
+          <p className="text-muted-foreground">Loading single line diagram...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 flex items-center justify-center h-screen">
+      );
+    }
+    if (isError) {
+      return (
         <div className="text-center">
           <AlertTriangle className="w-8 h-8 mx-auto mb-4 text-destructive" />
-          <p className="text-destructive mb-4">{error}</p>
-          <Button onClick={handleRefresh}>Retry</Button>
+          <p className="text-destructive mb-4">{getErrorMessage(error, "Failed to load the single line diagram")}</p>
+          <Button onClick={() => refetch()}>Retry</Button>
         </div>
-      </div>
-    );
-  }
-
-  if (!sldData) {
-    return (
-      <div className="p-6 flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">No SLD data available</p>
-      </div>
-    );
-  }
+      );
+    }
+    if (!geometry) {
+      return (
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">This site has no single line diagram yet.</p>
+          <Button className="gap-2" onClick={startEditing}>
+            <Plus className="w-4 h-4" />
+            Create diagram
+          </Button>
+        </div>
+      );
+    }
+    return <SiteSldDiagram geometry={geometry} zoom={zoom} valuesByNode={valuesByNode} editing={editing} />;
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Single Line Diagram</h1>
-          <p className="text-muted-foreground mt-1">Interactive electrical system visualization</p>
+          <p className="text-muted-foreground mt-1">
+            {isEditing ? "Editing: click an element to change it, or an empty cell to place one" : "Electrical layout of the site"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedSite} onValueChange={setSelectedSite}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select Diagram" />
-            </SelectTrigger>
-            <SelectContent>
-              {MOCK_SLD_DIAGRAMS.map(diagram => (
-                <SelectItem key={diagram.value} value={diagram.value}>{diagram.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={handleRefresh}>
-            <RefreshCw className="w-4 h-4" />
-          </Button>
+          {isEditing ? (
+            <>
+              <Button variant="outline" className="gap-2" onClick={cancelEditing} disabled={save.isPending}>
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={() => editDraft && save.mutate(editDraft)}
+                disabled={!isDirty || errors.length > 0 || save.isPending}
+              >
+                <Save className="w-4 h-4" />
+                {save.isPending ? "Saving..." : "Save"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Select value={siteId ?? undefined} onValueChange={(value) => setSearchParams({ siteId: value })}>
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Select site" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sites.map((site) => (
+                    <SelectItem key={site.id} value={site.id}>
+                      {site.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" onClick={() => refetch()} disabled={!siteId} aria-label="Reload">
+                <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+              </Button>
+              <Button className="gap-2" onClick={startEditing} disabled={!siteId || isLoading || isError}>
+                <Pencil className="w-4 h-4" />
+                Manage
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleZoomIn}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setZoom((previous) => clampZoom(previous + ZOOM_STEP))}>
           <ZoomIn className="w-4 h-4" />Zoom In
         </Button>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleZoomOut}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setZoom((previous) => clampZoom(previous - ZOOM_STEP))}>
           <ZoomOut className="w-4 h-4" />Zoom Out
         </Button>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleFitToScreen}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={fitToScreen} disabled={!geometry}>
           <Maximize2 className="w-4 h-4" />Fit to Screen
         </Button>
-        <div className="flex-1" />
-        <Badge variant="outline" className="gap-2">
-          <Circle className="w-2 h-2 fill-success text-success" />
-          Live Data
-        </Badge>
-        <span className="text-sm text-muted-foreground">
-          Last update: {lastUpdate.toLocaleTimeString()}
-        </span>
+        {!isEditing && (
+          <Button
+            variant={isHandToolActive ? "secondary" : "outline"}
+            size="sm"
+            className="gap-2"
+            onClick={() => setIsHandToolActive((previous) => !previous)}
+            aria-pressed={isHandToolActive}
+            title="Drag to move around the diagram (or hold Space, or drag with the middle button)"
+          >
+            <Hand className="w-4 h-4" />Hand Tool
+          </Button>
+        )}
+        <Button
+          variant={showValues ? "secondary" : "outline"}
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowValues((previous) => !previous)}
+          aria-pressed={showValues}
+          title="Show live device values beside the meter, BESS and PV elements"
+        >
+          <Activity className="w-4 h-4" />Values
+        </Button>
+        <span className="text-sm text-muted-foreground ml-2">{Math.round(zoom * 100)}%</span>
+        {pendingPick && (
+          <span className="ml-auto flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary" role="status">
+            {pendingPick.label}: click {pendingPick.target === "cell" ? "an empty cell" : "an element or bus"} on the diagram
+            <button type="button" className="underline" onClick={() => setPendingPick(null)}>
+              cancel
+            </button>
+          </span>
+        )}
       </div>
 
-      <div className="flex gap-2 items-stretch" style={{ height: "calc(100vh - 200px)" }}>
-        {sldData.summary && sldData.summary.length > 0 && (
-          <div className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col ${isSummaryCollapsed ? "w-0 opacity-0" : "w-80"}`}>
-            <div className="bg-card border border-border rounded-lg p-4 flex flex-col h-full overflow-hidden">
-              <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider flex-shrink-0">
-                System Summary
-              </h3>
-              <div className="space-y-3 overflow-y-auto flex-1 pr-2" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--border)) transparent" }}>
-                {sldData.summary.map((item, idx) => {
-                  const iconMap: Record<string, React.ReactNode> = {
-                    Zap: <Zap className="w-4 h-4" />,
-                    Power: <Power className="w-4 h-4" />,
-                    Battery: <Battery className="w-4 h-4" />,
-                    Sun: <Sun className="w-4 h-4" />,
-                    Wind: <Wind className="w-4 h-4" />,
-                    Building2: <Building2 className="w-4 h-4" />,
-                    ArrowDownUp: <ArrowDownUp className="w-4 h-4" />,
-                  };
-                  return (
-                    <SummaryCard
-                      key={idx}
-                      label={item.label}
-                      value={item.value}
-                      subtext={item.subtext}
-                      color={item.color}
-                      icon={item.icon ? iconMap[item.icon] : undefined}
-                      trend={item.trend}
-                    />
-                  );
-                })}
-              </div>
+      {saveError && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+          {saveError}
+        </p>
+      )}
+
+      <div className="flex gap-4" style={{ height: "calc(100vh - 240px)" }}>
+        <div
+          ref={sldContainerRef}
+          className="flex-1 overflow-auto border border-border rounded-lg bg-background select-none"
+          style={{ cursor, touchAction: isHandToolActive && !isEditing ? "none" : undefined }}
+          {...panHandlers}
+        >
+          {geometry && !isError ? (
+            // margin:auto centers a diagram smaller than the view without blocking scroll when larger.
+            <div className="min-w-full min-h-full flex">
+              <div className="m-auto">{renderDiagram()}</div>
             </div>
-          </div>
-        )}
-
-        {sldData.summary && sldData.summary.length > 0 && (
-          <div className="relative border-r border-border flex flex-col justify-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-12 w-4 rounded-none rounded-r-md border-y border-r border-border -ml-[1px] z-10 bg-background hover:bg-muted"
-              onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
-            >
-              {isSummaryCollapsed ? <PanelLeftOpen className="h-3 w-3" /> : <PanelLeftClose className="h-3 w-3" />}
-            </Button>
-          </div>
-        )}
-
-        <div ref={sldContainerRef} className="flex-1 overflow-auto h-full" onWheel={handleWheel}>
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", display: "inline-block" }}>
-            <MicrogridSLD
-              data={sldData}
-              boundary={{ minX: 0, maxX: 1000, minY: 0, maxY: 800 }}
-            />
-          </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">{renderDiagram()}</div>
+          )}
         </div>
+        {editDraft && (
+          <SldEditorPanel
+            draft={editDraft}
+            onChange={changeDraft}
+            devices={devices}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            selectedCell={selectedCell}
+            onClearCell={() => setSelectedCell(null)}
+            requestPick={requestPick}
+            errors={errors}
+          />
+        )}
       </div>
+
+      <AlertDialog open={isConfirmingCancel} onOpenChange={setIsConfirmingCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>The diagram goes back to its last saved version.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction onClick={resetEditState}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

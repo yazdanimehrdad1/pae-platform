@@ -32,12 +32,13 @@ export default defineConfig(({ mode: _mode }) => ({
       "@contracts/backend-ot": path.resolve(__dirname, "./src/api/generated/backend-ot.ts"),
     },
   },
-  // Unit tests (`make test`): *.test.ts(x) next to the code. Node by default (fast); a test
-  // that needs a DOM starts with `// @vitest-environment jsdom`.
+  // Unit tests (`make test`): tests/ mirrors src/ (tests/api/sld.test.ts tests src/api/sld.ts) and
+  // imports the code through "@/". Node by default (fast); a test that needs a DOM starts with
+  // `// @vitest-environment jsdom`.
   test: {
     environment: "node",
-    include: ["src/**/*.test.{ts,tsx}"],
-    setupFiles: ["src/test/setup.ts"],
+    include: ["tests/**/*.test.{ts,tsx}"],
+    setupFiles: ["tests/setup.ts"],
     restoreMocks: true,
     unstubGlobals: true,
   },

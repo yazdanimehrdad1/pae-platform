@@ -30,17 +30,19 @@ async def get_point_series(
     if not points:
         return series_by_point
 
-    rows = await get_timeseries_by_point_ids(
+    readings = await get_timeseries_by_point_ids(
         list(series_by_point),
         site_id=ctx.site.site_id,
         start_time=window.start_time,
         end_time=window.end_time,
         limit=None,
     )
-    for row in reversed(rows):  # rows come newest-first per point
-        series = series_by_point[row["device_point_id"]]
+    for reading in reversed(readings):  # readings come newest-first per point
+        if reading.timestamp is None:  # only the latest query leaves it empty
+            continue
+        series = series_by_point[reading.device_point_id]
         series.timeseries.append(
-            TimeseriesPoint(time=window.display(row["timestamp"]), value=row["derived_value"])
+            TimeseriesPoint(time=window.display(reading.timestamp), value=reading.derived_value)
         )
         series.count += 1
     return series_by_point

@@ -7,19 +7,27 @@ from fastapi import APIRouter, HTTPException, Query, status
 from api.controllers.sites import (
     create_site,
     delete_site,
+    delete_site_sld,
     get_all_sites,
     get_comprehensive_site,
     get_site_by_id,
+    get_site_sld,
+    put_site_sld,
     restore_site,
     update_site,
 )
+from api.controllers.sld_values import get_sld_values
 from logger import get_logger
 from schemas.api_models import (
     SiteComprehensiveResponse,
     SiteCreateRequest,
     SiteDeleteResponse,
     SiteResponse,
+    SiteSldResponse,
+    SiteSldUpsertRequest,
     SiteUpdateRequest,
+    SldNotFoundResponse,
+    SldValuesResponse,
 )
 from utils.exceptions import AppError
 
@@ -156,3 +164,83 @@ async def get_comprehensive_site_endpoint(site_id: int) -> SiteComprehensiveResp
     if site is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Site with id {site_id} not found")
     return site
+
+
+@router.get(
+    "/{site_id}/sld",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
+    response_model=SiteSldResponse,
+    summary="Get a site's single line diagram",
+)
+async def get_site_sld_endpoint(site_id: int) -> SiteSldResponse:
+    try:
+        return await get_site_sld(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.put(
+    "/{site_id}/sld",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
+    response_model=SiteSldResponse,
+    summary="Create or replace a site's single line diagram",
+)
+async def put_site_sld_endpoint(site_id: int, request: SiteSldUpsertRequest) -> SiteSldResponse:
+    """Omit `revision` to create the site's first diagram; send the revision you read to replace it (409 if it is no longer current)."""
+    try:
+        return await put_site_sld(site_id, request)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.delete(
+    "/{site_id}/sld",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
+    response_model=SiteSldResponse,
+    summary="Delete a site's single line diagram",
+)
+async def delete_site_sld_endpoint(site_id: int) -> SiteSldResponse:
+    """Returns the deleted diagram."""
+    try:
+        return await delete_site_sld(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.get(
+    "/{site_id}/sld/values",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
+    response_model=SldValuesResponse,
+    summary="Get the live values of a site's SLD elements that are linked to devices",
+)
+async def get_site_sld_values_endpoint(site_id: int) -> SldValuesResponse:
+    """Per linked element: the latest value of each role (null = not available) and, for bess/pv,
+    the device health the site profile declares. Poll it to keep the info boxes live."""
+    try:
+        return await get_sld_values(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e

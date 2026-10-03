@@ -2,6 +2,102 @@
 // Do not edit: run `make api-types`. Import it as `@contracts/backend-ot`.
 
 export interface paths {
+    "/api/alarms/site/{site_id}/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a site's alarms (user and profile) */
+        get: operations["list_definitions_api_alarms_site__site_id__definitions_get"];
+        put?: never;
+        /**
+         * Create a user alarm
+         * @description A threshold (a point against a value or another point, or a bit test; with delay and
+         *     deadband), a comms-stale check on a device, or a multi-point condition (ALL/ANY groups, with a
+         *     delay). The points or device must be active on this site (400); the name is unique per site
+         *     ignoring case (409); at most 20 alarms per site can be enabled (409). An enabled alarm is
+         *     evaluated and shown in Active alarms.
+         */
+        post: operations["create_definition_api_alarms_site__site_id__definitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alarms/site/{site_id}/definitions/{alarm_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an alarm
+         * @description Omitted fields keep their value. A profile alarm (defined in code) accepts only enabled,
+         *     notify_mobile and notify_email (400 otherwise). Enabling more than 20 alarms on the site
+         *     is 409. Disabling an alarm clears its active event. Changing a user alarm's rule (what it
+         *     checks) clears its active event and restarts its delay; the new rule raises again on the next
+         *     evaluation if it holds. Sending the same rule again changes nothing.
+         */
+        put: operations["update_definition_api_alarms_site__site_id__definitions__alarm_id__put"];
+        post?: never;
+        /**
+         * Delete a user alarm
+         * @description Permanently delete a user alarm and all its alarm events (its history). Returns the alarm as
+         *     it was. Profile alarms can't be deleted (400); disable them instead.
+         */
+        delete: operations["delete_definition_api_alarms_site__site_id__definitions__alarm_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alarms/site/{site_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alarm events over a time range (history)
+         * @description Events that overlap [start_time, end_time]: raised before the end and cleared after the
+         *     start, or still active. Newest raise first. A reversed range is 400 (the time-range middleware).
+         */
+        get: operations["list_events_api_alarms_site__site_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alarms/site/{site_id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The alarms page for now: alarms, active and recent events, recent log
+         * @description The site's alarms (user and profile), active events plus those cleared within 6 h, and the
+         *     raise/clear log of those 6 h. `now` is server time, so durations don't depend on a browser clock.
+         */
+        get: operations["get_snapshot_api_alarms_site__site_id__snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cache/clear": {
         parameters: {
             query?: never;
@@ -348,6 +444,49 @@ export interface paths {
          * @description Clear the scan ranges lock and recompute from current NATIVE points.
          */
         delete: operations["reset_scan_ranges_api_device_points_site__site_id__device__device_id__scan_ranges_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a virtual point
+         * @description Create a VIRTUAL point computed on read from other points' stored readings (any device on the site):
+         *     a condition (cases of ALL/ANY groups; the first match sets the state) or a calculation
+         *     (sum/avg/min/max/difference/ratio × scale + offset). Inputs must be active, non-virtual
+         *     points on this site; bit conditions need a bitfield input.
+         */
+        post: operations["create_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device-points/site/{site_id}/device/{device_id}/virtual/{point_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a virtual point
+         * @description Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.
+         */
+        put: operations["update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -882,10 +1021,267 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/sld": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a site's single line diagram */
+        get: operations["get_site_sld_endpoint_api_sites__site_id__sld_get"];
+        /**
+         * Create or replace a site's single line diagram
+         * @description Omit `revision` to create the site's first diagram; send the revision you read to replace it (409 if it is no longer current).
+         */
+        put: operations["put_site_sld_endpoint_api_sites__site_id__sld_put"];
+        post?: never;
+        /**
+         * Delete a site's single line diagram
+         * @description Returns the deleted diagram.
+         */
+        delete: operations["delete_site_sld_endpoint_api_sites__site_id__sld_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{site_id}/sld/values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the live values of a site's SLD elements that are linked to devices
+         * @description Per linked element: the latest value of each role (null = not available) and, for bess/pv,
+         *     the device health the site profile declares. Poll it to keep the info boxes live.
+         */
+        get: operations["get_site_sld_values_endpoint_api_sites__site_id__sld_values_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AlarmDefinitionCreateRequest
+         * @description A new USER alarm. (PROFILE alarms come from code, never from this route.)
+         */
+        AlarmDefinitionCreateRequest: {
+            /**
+             * Enabled
+             * @description Evaluated and shown in Active alarms (at most 20 enabled per site)
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Message
+             * @description Shown in the alarm list and event log
+             * @default
+             */
+            message: string;
+            /**
+             * Name
+             * @description Identifier: letters, digits and underscore, not starting with a digit; unique per site ignoring case
+             */
+            name: string;
+            /**
+             * Notify Email
+             * @default false
+             */
+            notify_email: boolean;
+            /**
+             * Notify Mobile
+             * @default false
+             */
+            notify_mobile: boolean;
+            /** Rule */
+            rule: components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Input"];
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+        };
+        /**
+         * AlarmDefinitionResponse
+         * @description One alarm of a site.
+         */
+        AlarmDefinitionResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "threshold" | "comms_stale" | "condition" | "profile";
+            /** Message */
+            message: string;
+            /** Name */
+            name: string;
+            /** Notify Email */
+            notify_email: boolean;
+            /** Notify Mobile */
+            notify_mobile: boolean;
+            /**
+             * Profile Alarm Key
+             * @description PROFILE only: the alarm's key in the site profile
+             */
+            profile_alarm_key?: string | null;
+            /**
+             * Rule
+             * @description USER only: what the alarm checks
+             */
+            rule?: (components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Output"]) | null;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+            /** Site Id */
+            site_id: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "USER" | "PROFILE";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AlarmDefinitionUpdateRequest
+         * @description Fields to change; omitted ones keep their value. A PROFILE alarm accepts only
+         *     enabled, notify_mobile and notify_email.
+         */
+        AlarmDefinitionUpdateRequest: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Message */
+            message?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Notify Email */
+            notify_email?: boolean | null;
+            /** Notify Mobile */
+            notify_mobile?: boolean | null;
+            /** Rule */
+            rule?: (components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Input"]) | null;
+            /** Severity */
+            severity?: ("fault" | "warning") | null;
+        };
+        /**
+         * AlarmEventResponse
+         * @description One raise of an alarm and its clear (cleared_at None while active).
+         */
+        AlarmEventResponse: {
+            /** Cleared At */
+            cleared_at?: string | null;
+            /** Definition Id */
+            definition_id: number;
+            /**
+             * Device Id
+             * @description The device the alarm is about; None for a site-level alarm
+             */
+            device_id?: number | null;
+            /** Id */
+            id: number;
+            /** Message */
+            message: string;
+            /**
+             * Raised At
+             * Format: date-time
+             */
+            raised_at: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+            /** Site Id */
+            site_id: number;
+            /** Value At Raise */
+            value_at_raise?: number | null;
+        };
+        /**
+         * AlarmLogEntry
+         * @description One line of the event log: a raise or a clear.
+         */
+        AlarmLogEntry: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Definition Id */
+            definition_id: number;
+            /** Device Id */
+            device_id?: number | null;
+            /** Event Id */
+            event_id: number;
+            /**
+             * Id
+             * @description '<event id>:raised' or '<event id>:cleared'
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "raised" | "cleared";
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+        };
+        /**
+         * AlarmSnapshotResponse
+         * @description Everything the alarms page shows for "now".
+         */
+        AlarmSnapshotResponse: {
+            /** Definitions */
+            definitions: components["schemas"]["AlarmDefinitionResponse"][];
+            /**
+             * Events
+             * @description Active events plus those cleared within the last 6 h, newest raise first
+             */
+            events: components["schemas"]["AlarmEventResponse"][];
+            /**
+             * Log
+             * @description Raises and clears within the last 6 h, newest first
+             */
+            log: components["schemas"]["AlarmLogEntry"][];
+            /**
+             * Now
+             * Format: date-time
+             * @description Server time; durations are measured against it
+             */
+            now: string;
+            /** Site Id */
+            site_id: number;
+        };
         /**
          * CacheGetResponse
          * @description Response model for retrieving a value from the cache.
@@ -927,6 +1323,57 @@ export interface components {
              * @description Value to cache
              */
             value: unknown;
+        };
+        /**
+         * CommsStaleAlarm
+         * @description A device with no successful poll for more than `stale_after_sec`.
+         */
+        CommsStaleAlarm: {
+            /** Device Id */
+            device_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "comms_stale";
+            /** Stale After Sec */
+            stale_after_sec: number;
+        };
+        /**
+         * ConditionAlarm
+         * @description ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.
+         */
+        "ConditionAlarm-Input": {
+            /**
+             * Delay Sec
+             * @description The group must hold this long before the alarm raises
+             * @default 0
+             */
+            delay_sec: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+            when: components["schemas"]["VirtualConditionGroup-Input"];
+        };
+        /**
+         * ConditionAlarm
+         * @description ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.
+         */
+        "ConditionAlarm-Output": {
+            /**
+             * Delay Sec
+             * @description The group must hold this long before the alarm raises
+             * @default 0
+             */
+            delay_sec: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+            when: components["schemas"]["VirtualConditionGroup-Output"];
         };
         /**
          * Coordinates
@@ -1063,6 +1510,23 @@ export interface components {
             point_id: number;
             /** Sample Count */
             sample_count: number;
+        };
+        /**
+         * DeviceHealth
+         * @description A device's health verdict: healthy, unhealthy, or unknown (None, shown as not available).
+         *     Decided by the site profile's device health checks.
+         */
+        DeviceHealth: {
+            /**
+             * Healthy
+             * @description None when it can't be judged, e.g. no readings yet
+             */
+            healthy: boolean | null;
+            /**
+             * Reason
+             * @description Why it is unhealthy or unknown, for a tooltip
+             */
+            reason?: string | null;
         };
         /** DeviceHealthStatus */
         DeviceHealthStatus: {
@@ -1239,6 +1703,11 @@ export interface components {
              * @description Unit
              */
             unit?: string | null;
+            /**
+             * Virtual Definition
+             * @description VIRTUAL points only: how the value is computed from other points
+             */
+            virtual_definition?: (components["schemas"]["VirtualConditionDefinition-Output"] | components["schemas"]["VirtualCalculationDefinition"]) | null;
             /**
              * Word Order
              * @description Word order for multi-register types
@@ -1988,7 +2457,7 @@ export interface components {
             operator: string;
             /**
              * Profile
-             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to use 'default', which offers only the common endpoints
+             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code
              */
             profile?: string | null;
         };
@@ -2052,9 +2521,9 @@ export interface components {
             endpoints?: components["schemas"]["SiteEndpointInfo"][];
             /**
              * Profile
-             * @description The site's profile key
+             * @description The site's profile key; null if the site has no profile (then no endpoints)
              */
-            profile: string;
+            profile: string | null;
             /** Site Id */
             site_id: number;
         };
@@ -2116,9 +2585,9 @@ export interface components {
             operator: string;
             /**
              * Profile
-             * @description Site profile key selecting the site's endpoints; 'default' offers only the common endpoints
+             * @description Site profile key selecting the site's endpoints, unique per site; null if the site has no site-specific code
              */
-            profile: string;
+            profile?: string | null;
             /**
              * Site Id
              * @description Site ID (4-digit number)
@@ -2130,6 +2599,67 @@ export interface components {
              * @description Timestamp when site was last updated
              */
             updated_at: string;
+        };
+        /**
+         * SiteSld
+         * @description A site's single line diagram.
+         */
+        SiteSld: {
+            /**
+             * Buses
+             * @default []
+             */
+            buses: components["schemas"]["SldBus"][];
+            /**
+             * Connections
+             * @default []
+             */
+            connections: components["schemas"]["SldConnection"][];
+            /** Nodes */
+            nodes: components["schemas"]["SldNode"][];
+            /**
+             * Schema Version
+             * @description Version of this format
+             * @constant
+             */
+            schema_version: 1;
+        };
+        /**
+         * SiteSldResponse
+         * @description A site's stored single line diagram.
+         */
+        SiteSldResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Revision
+             * @description Increments on every save; send it back to replace this diagram
+             */
+            revision: number;
+            /** Site Id */
+            site_id: number;
+            sld: components["schemas"]["SiteSld"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * SiteSldUpsertRequest
+         * @description Create or replace a site's single line diagram.
+         */
+        SiteSldUpsertRequest: {
+            /**
+             * Revision
+             * @description The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram
+             */
+            revision?: number | null;
+            /** @description The whole diagram; it replaces the stored one */
+            sld: components["schemas"]["SiteSld"];
         };
         /**
          * SiteUpdateRequest
@@ -2167,9 +2697,232 @@ export interface components {
             operator?: string | null;
             /**
              * Profile
-             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); omit to keep the current one
+             * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it
              */
             profile?: string | null;
+        };
+        /**
+         * SldBus
+         * @description A horizontal bus bar on one row, spanning col_start..col_end.
+         */
+        SldBus: {
+            /**
+             * Col End
+             * @description Grid column of the bus's right end; greater than col_start
+             */
+            col_end: number;
+            /**
+             * Col Start
+             * @description Grid column of the bus's left end
+             */
+            col_start: number;
+            /**
+             * Id
+             * @description Unique within the diagram (nodes and buses)
+             */
+            id: string;
+            /**
+             * Name
+             * @description Label shown on the bus
+             */
+            name: string;
+            /**
+             * Row
+             * @description Grid row of the bus
+             */
+            row: number;
+            /**
+             * Voltage
+             * @description Nominal voltage label, e.g. '34.5 kV'
+             */
+            voltage?: string | null;
+        };
+        /**
+         * SldConnection
+         * @description A conductor between two elements (node or bus), by id.
+         */
+        SldConnection: {
+            /**
+             * From Id
+             * @description Id of a node or bus
+             */
+            from_id: string;
+            /**
+             * To Id
+             * @description Id of a node or bus
+             */
+            to_id: string;
+        };
+        /**
+         * SldDeviceLink
+         * @description The backend device an element shows values of, and which of its points fills each role.
+         */
+        SldDeviceLink: {
+            /**
+             * Device Id
+             * @description A device of this site
+             */
+            device_id: number;
+            /**
+             * Points
+             * @description Role -> point id of that device. An unmapped role shows as not available
+             */
+            points?: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * SldNode
+         * @description One element of the diagram, drawn as a box centered on its grid cell.
+         */
+        SldNode: {
+            /**
+             * Col
+             * @description Grid column of the element's center
+             */
+            col: number;
+            /** @description Linked device for the element's info box; only meter, bess and pv elements take one */
+            device?: components["schemas"]["SldDeviceLink"] | null;
+            /**
+             * Id
+             * @description Unique within the diagram (nodes and buses)
+             */
+            id: string;
+            /**
+             * Name
+             * @description Label shown on the element
+             */
+            name: string;
+            /**
+             * Rating
+             * @description Rating label, e.g. '5 MVA' or '2 MW / 4 MWh'
+             */
+            rating?: string | null;
+            /**
+             * Row
+             * @description Grid row of the element's center
+             */
+            row: number;
+            /**
+             * Type
+             * @description What the element is; picks its icon
+             * @enum {string}
+             */
+            type: "grid" | "poi" | "meter" | "transformer" | "breaker" | "switch" | "pv" | "inverter" | "bess" | "generator" | "wind" | "load" | "plant_controller";
+            /**
+             * Voltage
+             * @description Nominal voltage label, e.g. '34.5 kV'
+             */
+            voltage?: string | null;
+        };
+        /**
+         * SldNodeValues
+         * @description One linked element's info box: a value per role, in display order, and the device health.
+         */
+        SldNodeValues: {
+            /** Device Id */
+            device_id: number;
+            /** @description Only for element types that show health (bess, pv); null if the site declares no check */
+            health?: components["schemas"]["DeviceHealth"] | null;
+            /** Node Id */
+            node_id: string;
+            /**
+             * Values
+             * @description Every role of the element's type, in display order; null = not available
+             */
+            values: {
+                [key: string]: components["schemas"]["SldValue"] | null;
+            };
+        };
+        /**
+         * SldNotFoundDetail
+         * @description The 404 detail of the SLD routes: `error` says which thing is missing.
+         */
+        SldNotFoundDetail: {
+            /**
+             * Error
+             * @description SiteSldNotFoundError: the site exists but has no diagram yet; NotFoundError: no such site
+             * @enum {string}
+             */
+            error: "NotFoundError" | "SiteSldNotFoundError";
+            /** Message */
+            message: string;
+        };
+        /** SldNotFoundResponse */
+        SldNotFoundResponse: {
+            detail: components["schemas"]["SldNotFoundDetail"];
+        };
+        /**
+         * SldValue
+         * @description The latest reading of the point filling one role.
+         */
+        SldValue: {
+            /**
+             * Label
+             * @description The enum label for an enum point, e.g. 'discharging'
+             */
+            label?: string | null;
+            /** Point Id */
+            point_id: number;
+            /**
+             * Time
+             * @description When it was read; None if never read
+             */
+            time?: string | null;
+            /**
+             * Unit
+             * @description Unit of `value`; power roles are converted to kW
+             */
+            unit?: string | null;
+            /**
+             * Value
+             * @description Scaled value, in `unit`; None if never read
+             */
+            value?: number | null;
+        };
+        /**
+         * SldValuesResponse
+         * @description The live values of every SLD element linked to a device.
+         */
+        SldValuesResponse: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Nodes */
+            nodes: components["schemas"]["SldNodeValues"][];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Sld Revision
+             * @description The SLD revision these links come from
+             */
+            sld_revision: number;
+        };
+        /**
+         * ThresholdAlarm
+         * @description One comparison: `point <op> value`, `point <op> other point`, or a bit test.
+         */
+        ThresholdAlarm: {
+            condition: components["schemas"]["VirtualCondition"];
+            /**
+             * Deadband
+             * @description Clear hysteresis: the value must come back past the limit by this much. For a point-vs-point comparison it applies to the other point's value. Not used by bit tests.
+             * @default 0
+             */
+            deadband: number;
+            /**
+             * Delay Sec
+             * @description The condition must hold this long before the alarm raises
+             * @default 0
+             */
+            delay_sec: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "threshold";
         };
         /** TimeseriesMeta */
         TimeseriesMeta: {
@@ -2221,6 +2974,255 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VirtualCalculationDefinition */
+        VirtualCalculationDefinition: {
+            /**
+             * Function
+             * @description difference = inputs[0] - inputs[1], ratio = inputs[0] / inputs[1]
+             * @enum {string}
+             */
+            function: "sum" | "avg" | "min" | "max" | "difference" | "ratio";
+            /**
+             * Inputs
+             * @description Point IDs
+             */
+            inputs: number[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "calculation";
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Scale
+             * @description Applied after the function: result * scale + offset
+             * @default 1
+             */
+            scale: number;
+        };
+        /**
+         * VirtualCase
+         * @description When ``when`` holds, the point takes ``output``.
+         */
+        "VirtualCase-Input": {
+            /**
+             * Label
+             * @description State name, stored in enum_detail
+             */
+            label?: string | null;
+            /**
+             * Output
+             * @description State value this case sets
+             */
+            output: number;
+            when: components["schemas"]["VirtualConditionGroup-Input"];
+        };
+        /**
+         * VirtualCase
+         * @description When ``when`` holds, the point takes ``output``.
+         */
+        "VirtualCase-Output": {
+            /**
+             * Label
+             * @description State name, stored in enum_detail
+             */
+            label?: string | null;
+            /**
+             * Output
+             * @description State value this case sets
+             */
+            output: number;
+            when: components["schemas"]["VirtualConditionGroup-Output"];
+        };
+        /**
+         * VirtualCondition
+         * @description One test on one point: compare it to a value or another point, or test one of its bits.
+         * @example {
+         *       "operator": ">=",
+         *       "point_id": 7,
+         *       "type": "condition",
+         *       "value": 20
+         *     }
+         * @example {
+         *       "bit": 1,
+         *       "operator": "bit_set",
+         *       "point_id": 71,
+         *       "type": "condition"
+         *     }
+         */
+        VirtualCondition: {
+            /**
+             * Bit
+             * @description Bit test: the bit index (0 = LSB)
+             */
+            bit?: number | null;
+            /**
+             * Compare Point Id
+             * @description Comparison: another point to compare against, instead of value
+             */
+            compare_point_id?: number | null;
+            /**
+             * Operator
+             * @description Comparison (>, <, >=, <=, ==, !=) or bit test (bit_set, bit_clear). Enum states compare with == / != on the raw state value.
+             */
+            operator: (">" | "<" | ">=" | "<=" | "==" | "!=") | ("bit_set" | "bit_clear");
+            /**
+             * Point Id
+             * @description Point the condition reads
+             */
+            point_id: number;
+            /**
+             * Type
+             * @default condition
+             * @constant
+             */
+            type: "condition";
+            /**
+             * Value
+             * @description Comparison: the constant to compare against
+             */
+            value?: number | null;
+        };
+        /** VirtualConditionDefinition */
+        "VirtualConditionDefinition-Input": {
+            /**
+             * Cases
+             * @description Checked in order; the first match wins
+             */
+            cases: components["schemas"]["VirtualCase-Input"][];
+            /**
+             * Default Label
+             * @description State name of default_output
+             */
+            default_label?: string | null;
+            /**
+             * Default Output
+             * @description Output when no case matches
+             * @default 0
+             */
+            default_output: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+        };
+        /** VirtualConditionDefinition */
+        "VirtualConditionDefinition-Output": {
+            /**
+             * Cases
+             * @description Checked in order; the first match wins
+             */
+            cases: components["schemas"]["VirtualCase-Output"][];
+            /**
+             * Default Label
+             * @description State name of default_output
+             */
+            default_label?: string | null;
+            /**
+             * Default Output
+             * @description Output when no case matches
+             * @default 0
+             */
+            default_output: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "condition";
+        };
+        /**
+         * VirtualConditionGroup
+         * @description Conditions and nested groups combined with ALL (and) or ANY (or).
+         */
+        "VirtualConditionGroup-Input": {
+            /** Items */
+            items: (components["schemas"]["VirtualCondition"] | components["schemas"]["VirtualConditionGroup-Input"])[];
+            /**
+             * Match
+             * @description all = every item holds, any = at least one
+             * @enum {string}
+             */
+            match: "all" | "any";
+            /**
+             * Type
+             * @default group
+             * @constant
+             */
+            type: "group";
+        };
+        /**
+         * VirtualConditionGroup
+         * @description Conditions and nested groups combined with ALL (and) or ANY (or).
+         */
+        "VirtualConditionGroup-Output": {
+            /** Items */
+            items: (components["schemas"]["VirtualCondition"] | components["schemas"]["VirtualConditionGroup-Output"])[];
+            /**
+             * Match
+             * @description all = every item holds, any = at least one
+             * @enum {string}
+             */
+            match: "all" | "any";
+            /**
+             * Type
+             * @default group
+             * @constant
+             */
+            type: "group";
+        };
+        /**
+         * VirtualPointCreateRequest
+         * @description Create a VIRTUAL point. The server derives data_type/size from the definition's kind
+         *     (condition → enum16 with enum_detail from the case labels, calculation → float32).
+         */
+        VirtualPointCreateRequest: {
+            /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+            /**
+             * Definition
+             * @description How the value is computed from other points on the site (computed on read, not stored)
+             */
+            definition: components["schemas"]["VirtualConditionDefinition-Input"] | components["schemas"]["VirtualCalculationDefinition"];
+            /** Name */
+            name: string;
+            /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * VirtualPointUpdateRequest
+         * @description Update a VIRTUAL point; omitted fields keep their value. A new definition may change the kind.
+         */
+        VirtualPointUpdateRequest: {
+            /**
+             * Class
+             * @description Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)
+             */
+            class?: ("ANALOG" | "BINARY" | "ALARM" | "CONTROL") | null;
+            /** Definition */
+            definition?: (components["schemas"]["VirtualConditionDefinition-Input"] | components["schemas"]["VirtualCalculationDefinition"]) | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Severity
+             * @description Severity: HIGH, MEDIUM or LOW
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /** Unit */
+            unit?: string | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -2230,6 +3232,214 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_definitions_api_alarms_site__site_id__definitions_get: {
+        parameters: {
+            query?: {
+                /** @description Include deleted user alarms and retired profile alarms */
+                include_deleted?: boolean;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_definition_api_alarms_site__site_id__definitions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlarmDefinitionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_definition_api_alarms_site__site_id__definitions__alarm_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                alarm_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlarmDefinitionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_definition_api_alarms_site__site_id__definitions__alarm_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                alarm_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmDefinitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_alarms_site__site_id__events_get: {
+        parameters: {
+            query: {
+                /** @description Start (ISO, with a UTC offset) */
+                start_time: string;
+                /** @description End (ISO, with a UTC offset) */
+                end_time: string;
+                device_id?: number | null;
+                severity?: ("fault" | "warning") | null;
+                /** @description One alarm's events */
+                definition_id?: number | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_snapshot_api_alarms_site__site_id__snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlarmSnapshotResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cache_clear_all_api_cache_clear_delete: {
         parameters: {
             query?: never;
@@ -2772,6 +3982,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceScanRanges"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VirtualPointCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VirtualPointUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3829,6 +5112,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_sld_endpoint_api_sites__site_id__sld_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSldResponse"];
+                };
+            };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_site_sld_endpoint_api_sites__site_id__sld_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteSldUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSldResponse"];
+                };
+            };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_site_sld_endpoint_api_sites__site_id__sld_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSldResponse"];
+                };
+            };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_sld_values_endpoint_api_sites__site_id__sld_values_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldValuesResponse"];
+                };
+            };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
                 };
             };
             /** @description Validation Error */

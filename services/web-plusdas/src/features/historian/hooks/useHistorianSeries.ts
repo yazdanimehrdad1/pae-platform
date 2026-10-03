@@ -1,39 +1,31 @@
 import { useMemo } from 'react';
-import { useQuery, useQueries } from '@tanstack/react-query';
-import { devicesApi } from '@/api/devices';
+import { useQueries } from '@tanstack/react-query';
 import { historianApi } from '@/api/historian';
 import type { BackendPointReadings } from '@/api/types/historian';
+import { parseSelectionId } from '@/shared/lib/discretePoints';
 import type { ChartRow, TimeWindow } from '../types';
+import { buildChartRows } from '../lib/chartRows';
+import { usePointCatalog } from './usePointCatalog';
 
 export function useHistorianSeries(
   siteId: string | null,
   selectedPoints: string[],
   timeWindow: TimeWindow
 ): { data: ChartRow[]; isLoading: boolean; isError: boolean } {
-  // Reuse the cache populated by AssetTree — no extra network call
-  const { data: deviceEntries = [], isLoading: devicesLoading } = useQuery({
-    queryKey: ['site-devices-with-points', siteId],
-    queryFn: () => devicesApi.getBySiteWithPoints(siteId!),
-    enabled: !!siteId,
-  });
+  const { pointsById, isLoading: devicesLoading } = usePointCatalog(siteId);
 
-  // Group selected point IDs by the device that owns them
+  // Group the underlying point IDs by owning device; bits of one bitfield share a single fetch.
   const groups = useMemo(() => {
-    const pointDeviceMap: Record<string, string> = {};
-    for (const device of deviceEntries) {
-      for (const point of device.points) {
-        pointDeviceMap[String(point.id)] = String(device.deviceId);
-      }
-    }
     const byDevice: Record<string, string[]> = {};
-    for (const pointId of selectedPoints) {
-      const deviceId = pointDeviceMap[pointId];
+    for (const selectionId of selectedPoints) {
+      const { pointId } = parseSelectionId(selectionId);
+      const deviceId = pointsById.get(pointId)?.deviceId;
       if (!deviceId) continue;
       if (!byDevice[deviceId]) byDevice[deviceId] = [];
-      byDevice[deviceId].push(pointId);
+      if (!byDevice[deviceId].includes(pointId)) byDevice[deviceId].push(pointId);
     }
     return Object.entries(byDevice);
-  }, [deviceEntries, selectedPoints]);
+  }, [pointsById, selectedPoints]);
 
   // One API call per device group, in parallel
   const queryResults = useQueries({
@@ -53,23 +45,8 @@ export function useHistorianSeries(
   const isLoading = devicesLoading || queryResults.some(r => r.isLoading);
   const isError = queryResults.some(r => r.isError);
 
-  // Merge per-point readings into per-timestamp rows for Recharts
-  const map = new Map<number, ChartRow>();
-  for (const result of queryResults) {
-    if (!result.data) continue;
-    const response = result.data as BackendPointReadings;
-    for (const [pointId, pointData] of Object.entries(response.readings)) {
-      for (const entry of pointData.timeseries) {
-        if (entry.value == null) continue;
-        const timestamp = new Date(entry.time).getTime();
-        const row: ChartRow = map.get(timestamp) ?? { timestamp };
-        row[pointId] = entry.value;
-        map.set(timestamp, row);
-      }
-    }
-  }
-
-  const data = [...map.values()].sort((a, b) => a.timestamp - b.timestamp);
+  const responses = queryResults.map(result => result.data as BackendPointReadings | undefined).filter(Boolean);
+  const data = buildChartRows(responses, selectedPoints);
 
   return { data, isLoading, isError };
 }

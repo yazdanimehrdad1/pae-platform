@@ -30,6 +30,8 @@ async def _get_site(site_id: int) -> SiteResponse:
 
 async def list_site_endpoints(site_id: int) -> SiteEndpointsResponse:
     site = await _get_site(site_id)
+    if site.profile is None:
+        return SiteEndpointsResponse(site_id=site_id, profile=None, endpoints=[])
     profile = get_site_profile(site.profile)
     return SiteEndpointsResponse(
         site_id=site_id,
@@ -50,6 +52,8 @@ async def run_site_endpoint(
     device_id: int | None = None,
 ) -> BaseModel:
     site = await _get_site(site_id)
+    if site.profile is None:
+        raise NotFoundError(f"Endpoint '{endpoint_name}' is not available: site {site_id} has no profile")
     profile = get_site_profile(site.profile)
 
     devices = await devices_db.get_all_devices(site_id)

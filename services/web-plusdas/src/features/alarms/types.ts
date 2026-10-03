@@ -1,80 +1,66 @@
-// System alarms model (ISA-18.2 style). Mock data today (src/mocks/alarms/); the same shapes are
-// what a live source must provide (see README.md next to this file).
+// System alarms page model (ISA-18.2 style), built from backend-ot data in lib/pageData.ts:
+// alarms and events from the alarms snapshot, devices and points from the site's devices, values
+// from the latest readings. Ids are strings, as everywhere in the UI.
 
-export type Severity = 'fault' | 'warning';
-export type Protocol = 'modbus_tcp' | 'modbus_rtu';
-export type Quality = 'good' | 'stale' | 'bad';
-export type DeviceType = 'transformer' | 'generator' | 'feeder' | 'protection' | 'switch' | 'bess';
-export type Operator = '>' | '<' | '>=' | '<=' | '=' | '!=';
+import type { AlarmKind, AlarmLogRecord, AlarmRuleRecord, AlarmSeverity, AlarmSource } from "@/api/types/alarms";
+import type { DevicePointCategory } from "@/api/types/devicePoints";
+import type { ConditionPointOption } from "@/shared/components/conditions/conditionModel";
+
+export type Severity = AlarmSeverity;
+export type DeviceStatus = Severity | "normal";
 
 export interface Device {
   id: string;
   name: string;
-  type: DeviceType;
-  protocol: Protocol;
-  /** IP for Modbus TCP, serial port for Modbus RTU. */
-  address: string;
+  protocol: string;
+  host: string;
+  port: number;
   unitId: number;
-  lastPollAt: string;
+  /** When the device's newest stored native reading was taken; null if it was never polled. */
+  lastPollAt: string | null;
 }
 
-export interface Point {
-  id: string;
-  /** null for a calculated (site-level) point. */
-  deviceId: string | null;
-  /** Modbus register, or null for a calculated point. */
+/** A device point with its latest stored value; also a condition picker option. */
+export interface Point extends ConditionPointOption {
+  deviceId: string;
+  /** Modbus address; null for a standardized or virtual point. */
   register: number | null;
-  name: string;
-  unit: string;
-  kind: 'numeric' | 'discrete';
-  /** Labels of a discrete point's values, e.g. { 0: 'open', 1: 'closed' }. */
-  states?: Record<number, string>;
-  value: number;
-  quality: Quality;
-  updatedAt: string;
+  category: DevicePointCategory;
+  value: number | null;
+  updatedAt: string | null;
 }
 
-export type NotificationChannel = 'mobile' | 'email';
+export type NotificationChannel = "mobile" | "email";
 export type NotificationSettings = Record<NotificationChannel, boolean>;
 
-interface RuleBase {
+/** One alarm definition: a USER rule built in the UI, or a PROFILE alarm defined in the site's code. */
+export interface Rule {
   id: string;
   name: string;
+  source: AlarmSource;
+  kind: AlarmKind;
+  /** What a USER rule checks; null for a PROFILE alarm. */
+  rule: AlarmRuleRecord | null;
+  profileKey: string | null;
   severity: Severity;
   message: string;
+  /** Evaluated and shown in Active alarms (at most MAX_ENABLED_ALARMS per site); a disabled rule is neither. */
   enabled: boolean;
-  /** Where to send a notification when this rule raises an alarm; any combination, or none. */
   notify: NotificationSettings;
+  createdAt: string;
+  updatedAt: string;
 }
-
-/** Raises when `point operator threshold` holds for delaySec; clears past threshold ± deadband. */
-export interface ThresholdRule extends RuleBase {
-  type: 'threshold';
-  pointId: string;
-  operator: Operator;
-  threshold: number;
-  delaySec: number;
-  deadband: number;
-}
-
-/** Raises when a device has had no successful poll for more than staleAfterSec. */
-export interface CommsStaleRule extends RuleBase {
-  type: 'comms_stale';
-  deviceId: string;
-  staleAfterSec: number;
-}
-
-export type Rule = ThresholdRule | CommsStaleRule;
 
 export interface AlarmEvent {
   id: string;
   ruleId: string;
-  /** null when the rule's point is calculated (site-level). */
+  /** null for a site-level alarm. */
   deviceId: string | null;
   severity: Severity;
   raisedAt: string;
   clearedAt: string | null;
   valueAtRaise: number | null;
+  message: string;
 }
 
 /** One line of the event log: every raise and clear. */
@@ -83,7 +69,7 @@ export interface AlarmLogEntry {
   eventId: string;
   ruleId: string;
   deviceId: string | null;
-  kind: 'raised' | 'cleared';
+  kind: AlarmLogRecord["kind"];
   severity: Severity;
   at: string;
   message: string;
@@ -94,18 +80,24 @@ export interface Sample {
   v: number;
 }
 
-/** A successful or failed poll of a device. */
-export interface PollSample {
-  t: number;
-  ok: boolean;
-}
-
-export type DeviceStatus = Severity | 'normal';
-
 export interface HistoryFilter {
   deviceId?: string;
   severity?: Severity;
   ruleId?: string;
   from: number;
   to: number;
+}
+
+/** Everything the page shows for "now". */
+export interface AlarmSnapshot {
+  siteId: string;
+  /** Server time of the alarms snapshot (ms); durations are measured against it, not the browser clock. */
+  now: number;
+  devices: Device[];
+  points: Point[];
+  rules: Rule[];
+  /** Active alarms plus those cleared within the recent window (6 h). */
+  events: AlarmEvent[];
+  /** Raise and clear entries within the recent window, newest first. */
+  log: AlarmLogEntry[];
 }

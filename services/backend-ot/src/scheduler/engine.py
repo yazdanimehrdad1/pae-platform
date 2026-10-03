@@ -9,7 +9,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from config import settings
 from logger import get_logger
-from scheduler.jobs import cron_job_poll_modbus_registers_all_sites
+from scheduler.jobs import (
+    cron_job_evaluate_alarms_all_sites,
+    cron_job_poll_modbus_registers_all_sites,
+)
 from scheduler.locks import lock_manager
 
 logger = get_logger(__name__)
@@ -175,6 +178,7 @@ def register_jobs() -> None:
 
     # Register all cron jobs
     _register_modbus_polling_job()
+    _register_alarm_evaluation_job()
 
     logger.info("All scheduled jobs registered")
 
@@ -190,4 +194,17 @@ def _register_modbus_polling_job() -> None:
         trigger=IntervalTrigger(seconds=settings.poll_interval_seconds),
         job_id="modbus_poll",
         name="Modbus Register Polling"
+    )
+
+
+def _register_alarm_evaluation_job() -> None:
+    """
+    Register the alarm evaluation job: every site's enabled alarms, from stored readings, at the
+    poll interval. It runs separately from polling and reads only the database.
+    """
+    add_job(
+        job_func=cron_job_evaluate_alarms_all_sites,
+        trigger=IntervalTrigger(seconds=settings.poll_interval_seconds),
+        job_id="alarm_evaluation",
+        name="Alarm Evaluation"
     )

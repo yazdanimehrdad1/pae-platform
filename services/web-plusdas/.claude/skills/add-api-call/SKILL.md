@@ -54,10 +54,10 @@ config and same-origin", "Contracts"). This skill is the order to apply them in.
   `docs/backend-gaps.md`.
 
 ## 5. Tests
-- `src/api/<resource>.test.ts`: stub `fetch` with `vi.stubGlobal` and assert the URL (path,
-  repeated params), method, body, and the mapping. See `src/api/devices.test.ts`.
+- `tests/api/<resource>.test.ts` (tests mirror `src/` under `tests/`, importing via `@/`): stub `fetch` with `vi.stubGlobal` and assert the URL (path,
+  repeated params), method, body, and the mapping. See `tests/api/devices.test.ts`.
 - For a form or a component with logic, add a component test with Testing Library
-  (`// @vitest-environment jsdom`, see `src/features/sites/DeviceFormDialog.test.tsx`).
+  (`// @vitest-environment jsdom`, see `tests/features/sites/DeviceFormDialog.test.tsx`).
 
 ## Done when
 - `make -C services/web-plusdas lint typecheck test` passes. `test` includes the
