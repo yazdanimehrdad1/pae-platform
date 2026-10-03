@@ -2835,6 +2835,24 @@ export interface components {
             };
         };
         /**
+         * SldNotFoundDetail
+         * @description The 404 detail of the SLD routes: `error` says which thing is missing.
+         */
+        SldNotFoundDetail: {
+            /**
+             * Error
+             * @description SiteSldNotFoundError: the site exists but has no diagram yet; NotFoundError: no such site
+             * @enum {string}
+             */
+            error: "NotFoundError" | "SiteSldNotFoundError";
+            /** Message */
+            message: string;
+        };
+        /** SldNotFoundResponse */
+        SldNotFoundResponse: {
+            detail: components["schemas"]["SldNotFoundDetail"];
+        };
+        /**
          * SldValue
          * @description The latest reading of the point filling one role.
          */
@@ -5127,6 +5145,15 @@ export interface operations {
                     "application/json": components["schemas"]["SiteSldResponse"];
                 };
             };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5162,6 +5189,15 @@ export interface operations {
                     "application/json": components["schemas"]["SiteSldResponse"];
                 };
             };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5193,6 +5229,15 @@ export interface operations {
                     "application/json": components["schemas"]["SiteSldResponse"];
                 };
             };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -5222,6 +5267,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SldValuesResponse"];
+                };
+            };
+            /** @description No such site, or the site has no diagram yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SldNotFoundResponse"];
                 };
             };
             /** @description Validation Error */

@@ -42,3 +42,8 @@ class InternalError(AppError):
 class SiteProfileConfigError(AppError):
     """Raised when the site profile registry or a site's profile key is misconfigured."""
     http_status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class SiteSldNotFoundError(NotFoundError):
+    """Raised when a site exists but has no single line diagram yet (404). Its name is the `error`
+    code clients check (published in the contract as SldNotFoundDetail), not the message."""

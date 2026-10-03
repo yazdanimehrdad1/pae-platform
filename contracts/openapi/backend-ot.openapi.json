@@ -3882,6 +3882,42 @@
         "title": "SldNodeValues",
         "type": "object"
       },
+      "SldNotFoundDetail": {
+        "description": "The 404 detail of the SLD routes: `error` says which thing is missing.",
+        "properties": {
+          "error": {
+            "description": "SiteSldNotFoundError: the site exists but has no diagram yet; NotFoundError: no such site",
+            "enum": [
+              "NotFoundError",
+              "SiteSldNotFoundError"
+            ],
+            "title": "Error",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ],
+        "title": "SldNotFoundDetail",
+        "type": "object"
+      },
+      "SldNotFoundResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/SldNotFoundDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SldNotFoundResponse",
+        "type": "object"
+      },
       "SldValue": {
         "description": "The latest reading of the point filling one role.",
         "properties": {
@@ -8285,6 +8321,16 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8325,6 +8371,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
           },
           "422": {
             "content": {
@@ -8378,6 +8434,16 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8421,6 +8487,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SldNotFoundResponse"
+                }
+              }
+            },
+            "description": "No such site, or the site has no diagram yet"
           },
           "422": {
             "content": {

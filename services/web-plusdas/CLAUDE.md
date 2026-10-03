@@ -33,9 +33,11 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
 - Lint: `make lint` (`eslint .`, 0 errors required, pre-commit enforced) · `make lint-fix` /
   `make format` (`eslint --fix`; there is no Prettier).
 - Types: `make typecheck` (`tsc -p tsconfig.app.json --noEmit`, blocking; root `make check` runs it).
-- Tests: `make test` runs the API-types drift check, then vitest (`src/**/*.test.ts(x)`, next to the
-  code; Node by default, `// @vitest-environment jsdom` for a test that needs a DOM; setup in
-  `src/test/setup.ts`). No Docker. `make test-integration` runs `scripts/check_same_origin.mjs`
+- Tests: `make test` runs the API-types drift check, then vitest. **Tests live in `tests/`, never in
+  `src/`**: `tests/` mirrors `src/` (`src/api/sld.ts` -> `tests/api/sld.test.ts`) and imports the
+  code through `@/` (no relative imports into `src/`). Node by default, `// @vitest-environment jsdom`
+  for a test that needs a DOM; setup in `tests/setup.ts`. `tests/` is typechecked and linted but not
+  shipped (`.dockerignore`). No Docker. `make test-integration` runs `scripts/check_same_origin.mjs`
   against the **running** container (SPA fallback, cache headers, `/config.js`, `/api/healthz` +
   `/api/sites` through the web origin). It needs the dev stack up.
 - API types: `make api-types` regenerates `src/api/generated/backend-ot.ts` after backend-ot's

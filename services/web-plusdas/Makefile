@@ -78,7 +78,7 @@ typecheck: $(NODE_MODULES)
 
 # First fails while the generated API types are stale, like backend-ot's test_contract.py (a
 # backend-ot contract change shows up here, in root `make check`, until `make api-types`);
-# then the vitest suite (src/**/*.test.ts(x)).
+# then the vitest suite (tests/**/*.test.ts(x), mirroring src/).
 test: $(NODE_MODULES)
 	node scripts/api-types.mjs --check
 	npm run test

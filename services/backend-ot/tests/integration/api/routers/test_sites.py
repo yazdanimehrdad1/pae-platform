@@ -31,6 +31,7 @@ from schemas.api_models import (
     SldConnection,
     SldDeviceLink,
     SldNode,
+    SldNotFoundResponse,
     SldValuesResponse,
 )
 from schemas.tests_models import ApiErrorDetail, ApiErrorResponse
@@ -296,13 +297,13 @@ async def put_sld(client, site_id: int, sld: SiteSld, revision: int | None = Non
 
 
 class TestSiteSld:
-    async def test_site_without_sld_is_404(self, client):
+    async def test_site_without_sld_is_404_with_its_own_error_code(self, client):
         site = await create_site(client)
         response = await client.get(f"/api/sites/{site.site_id}/sld")
         assert response.status_code == 404
-        error = ApiErrorResponse.model_validate(response.json())
-        assert isinstance(error.detail, ApiErrorDetail)
-        assert error.detail.error == "NotFoundError"
+        # Parsed with the published 404 model: clients tell "no diagram yet" by this code.
+        error = SldNotFoundResponse.model_validate(response.json())
+        assert error.detail.error == "SiteSldNotFoundError"
         assert "no single line diagram" in error.detail.message
 
     async def test_put_without_revision_creates_revision_1(self, client):
@@ -364,9 +365,21 @@ class TestSiteSld:
         assert (await client.get(f"/api/sites/{site.site_id}/sld")).status_code == 404
 
     async def test_unknown_site_is_404_for_every_method(self, client):
-        assert (await client.get("/api/sites/999999/sld")).status_code == 404
-        assert (await put_sld(client, 999999, sld_document("inv01"))).status_code == 404
-        assert (await client.delete("/api/sites/999999/sld")).status_code == 404
+        responses = [
+            await client.get("/api/sites/999999/sld"),
+            await put_sld(client, 999999, sld_document("inv01")),
+            await client.delete("/api/sites/999999/sld"),
+        ]
+        for response in responses:
+            assert response.status_code == 404
+            # A missing site is the plain NotFoundError, not "no diagram yet".
+            assert SldNotFoundResponse.model_validate(response.json()).detail.error == "NotFoundError"
+
+    async def test_delete_without_sld_is_the_no_diagram_code(self, client):
+        site = await create_site(client)
+        response = await client.delete(f"/api/sites/{site.site_id}/sld")
+        assert response.status_code == 404
+        assert SldNotFoundResponse.model_validate(response.json()).detail.error == "SiteSldNotFoundError"
 
     async def test_soft_deleted_site_is_404_and_restore_brings_the_sld_back(self, client):
         site = await create_site(client)
@@ -529,5 +542,8 @@ class TestSldValues:
 
     async def test_no_sld_or_no_site_is_404(self, client):
         site = await create_site(client)
-        assert (await client.get(f"/api/sites/{site.site_id}/sld/values")).status_code == 404
-        assert (await client.get("/api/sites/999999/sld/values")).status_code == 404
+        no_sld = await client.get(f"/api/sites/{site.site_id}/sld/values")
+        no_site = await client.get("/api/sites/999999/sld/values")
+        assert (no_sld.status_code, no_site.status_code) == (404, 404)
+        assert SldNotFoundResponse.model_validate(no_sld.json()).detail.error == "SiteSldNotFoundError"
+        assert SldNotFoundResponse.model_validate(no_site.json()).detail.error == "NotFoundError"

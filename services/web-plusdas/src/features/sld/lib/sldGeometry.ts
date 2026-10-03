@@ -57,17 +57,28 @@ export interface InfoBoxGeometry {
   rect: Rect;
 }
 
+// One grid cell in edit mode, clickable to place an element there.
+export interface CellGeometry {
+  col: number;
+  row: number;
+  rect: Rect;
+}
+
 export interface SldGeometry {
   nodes: NodeGeometry[];
   buses: BusGeometry[];
   connections: ConnectionGeometry[];
   infoBoxes: InfoBoxGeometry[];
+  // Edit mode only: every cell of the diagram's extent plus one cell around it.
+  cells: CellGeometry[];
   viewBox: Rect;
 }
 
 export interface SldLayoutOptions {
   // Draw an info box beside every element linked to a device (meter, bess, pv).
   showInfoBoxes?: boolean;
+  // Lay out the clickable cell grid, one cell beyond the diagram on every side.
+  editing?: boolean;
 }
 
 interface Cell {
@@ -165,6 +176,30 @@ export function routeConnection(from: Element, to: Element): Point[] {
   ];
 }
 
+/** Every integer cell from the diagram's extent, grown by one cell on each side. */
+function gridCells(sld: SiteSld, cell: Cell): CellGeometry[] {
+  const cols = [
+    ...sld.nodes.map((node) => node.col),
+    ...(sld.buses ?? []).flatMap((bus) => [bus.col_start, bus.col_end]),
+  ];
+  const rows = [...sld.nodes.map((node) => node.row), ...(sld.buses ?? []).map((bus) => bus.row)];
+  const minCol = Math.floor(Math.min(...cols)) - 1;
+  const maxCol = Math.ceil(Math.max(...cols)) + 1;
+  const minRow = Math.floor(Math.min(...rows)) - 1;
+  const maxRow = Math.ceil(Math.max(...rows)) + 1;
+  const cells: CellGeometry[] = [];
+  for (let row = minRow; row <= maxRow; row += 1) {
+    for (let col = minCol; col <= maxCol; col += 1) {
+      cells.push({
+        col,
+        row,
+        rect: { x: (col - 0.5) * cell.width, y: (row - 0.5) * cell.height, width: cell.width, height: cell.height },
+      });
+    }
+  }
+  return cells;
+}
+
 /** Lay out a site's SLD in SVG units, with a viewBox that contains every element, label and info box. */
 export function computeSldGeometry(sld: SiteSld, options: SldLayoutOptions = {}): SldGeometry {
   const cell: Cell = options.showInfoBoxes
@@ -199,9 +234,12 @@ export function computeSldGeometry(sld: SiteSld, options: SldLayoutOptions = {})
     return [{ key: `${connection.from_id}->${connection.to_id}`, points: routeConnection(from, to) }];
   });
 
+  const cells = options.editing ? gridCells(sld, cell) : [];
+
   const boxes: Rect[] = [
     ...nodes.map(({ rect }) => rect),
     ...infoBoxes.map(({ rect }) => rect),
+    ...cells.map(({ rect }) => rect),
     ...buses.map(({ rect }) => rect),
     ...buses.map(({ label, labelAnchor }) => ({
       x: labelAnchor.x,
@@ -220,6 +258,7 @@ export function computeSldGeometry(sld: SiteSld, options: SldLayoutOptions = {})
     buses,
     connections,
     infoBoxes,
+    cells,
     viewBox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
   };
 }

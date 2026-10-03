@@ -26,6 +26,7 @@ from schemas.api_models import (
     SiteSldResponse,
     SiteSldUpsertRequest,
     SiteUpdateRequest,
+    SldNotFoundResponse,
     SldValuesResponse,
 )
 from utils.exceptions import AppError
@@ -167,6 +168,7 @@ async def get_comprehensive_site_endpoint(site_id: int) -> SiteComprehensiveResp
 
 @router.get(
     "/{site_id}/sld",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
     response_model=SiteSldResponse,
     summary="Get a site's single line diagram",
 )
@@ -185,6 +187,7 @@ async def get_site_sld_endpoint(site_id: int) -> SiteSldResponse:
 
 @router.put(
     "/{site_id}/sld",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
     response_model=SiteSldResponse,
     summary="Create or replace a site's single line diagram",
 )
@@ -204,6 +207,7 @@ async def put_site_sld_endpoint(site_id: int, request: SiteSldUpsertRequest) -> 
 
 @router.delete(
     "/{site_id}/sld",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
     response_model=SiteSldResponse,
     summary="Delete a site's single line diagram",
 )
@@ -223,6 +227,7 @@ async def delete_site_sld_endpoint(site_id: int) -> SiteSldResponse:
 
 @router.get(
     "/{site_id}/sld/values",
+    responses={404: {"model": SldNotFoundResponse, "description": "No such site, or the site has no diagram yet"}},
     response_model=SldValuesResponse,
     summary="Get the live values of a site's SLD elements that are linked to devices",
 )

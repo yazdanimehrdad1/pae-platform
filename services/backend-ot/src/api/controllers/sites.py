@@ -23,7 +23,7 @@ from schemas.api_models import (
     SiteUpdateRequest,
 )
 from site_profiles.profile_registry import validate_profile_key
-from utils.exceptions import ConflictError, NotFoundError, ValidationError
+from utils.exceptions import ConflictError, NotFoundError, SiteSldNotFoundError, ValidationError
 
 logger = get_logger(__name__)
 
@@ -91,7 +91,7 @@ async def get_site_sld(site_id: int) -> SiteSldResponse:
     await _require_site(site_id)
     sld = await site_slds_db.get_site_sld(site_id)
     if sld is None:
-        raise NotFoundError(f"Site {site_id} has no single line diagram")
+        raise SiteSldNotFoundError(f"Site {site_id} has no single line diagram")
     return sld
 
 
@@ -112,5 +112,5 @@ async def delete_site_sld(site_id: int) -> SiteSldResponse:
     await _require_site(site_id)
     deleted = await site_slds_db.delete_site_sld(site_id)
     if deleted is None:
-        raise NotFoundError(f"Site {site_id} has no single line diagram")
+        raise SiteSldNotFoundError(f"Site {site_id} has no single line diagram")
     return deleted

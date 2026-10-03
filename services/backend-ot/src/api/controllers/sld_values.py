@@ -23,7 +23,7 @@ from schemas.api_models import (
 )
 from schemas.site_profiles import DeviceHealthContext
 from site_profiles.profile_registry import get_site_profile
-from utils.exceptions import NotFoundError
+from utils.exceptions import NotFoundError, SiteSldNotFoundError
 
 
 async def _node_health(
@@ -47,7 +47,7 @@ async def get_sld_values(site_id: int) -> SldValuesResponse:
         raise NotFoundError(f"Site with id {site_id} not found")
     stored = await site_slds_db.get_site_sld(site_id)
     if stored is None:
-        raise NotFoundError(f"Site {site_id} has no single line diagram")
+        raise SiteSldNotFoundError(f"Site {site_id} has no single line diagram")
 
     devices = await devices_db.get_all_devices(site_id)
     device_by_id = {device.device_id: device for device in devices}

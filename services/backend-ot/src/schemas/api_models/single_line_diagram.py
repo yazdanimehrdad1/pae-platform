@@ -169,6 +169,22 @@ class SiteSld(BaseModel):
         return self
 
 
+# --- Errors -------------------------------------------------------------------------------
+
+
+class SldNotFoundDetail(BaseModel):
+    """The 404 detail of the SLD routes: `error` says which thing is missing."""
+
+    error: Literal["NotFoundError", "SiteSldNotFoundError"] = Field(
+        ..., description="SiteSldNotFoundError: the site exists but has no diagram yet; NotFoundError: no such site"
+    )
+    message: str
+
+
+class SldNotFoundResponse(BaseModel):
+    detail: SldNotFoundDetail
+
+
 # --- Live values for the info boxes (GET /api/sites/{site_id}/sld/values) ----------------
 
 

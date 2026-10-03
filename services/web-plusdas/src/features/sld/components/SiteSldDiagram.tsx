@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { SldNodeType, SldNodeValues } from "@/api/types/sld";
 import { BUS_LABEL_FONT_SIZE, NODE_HEIGHT, NODE_WIDTH, type SldGeometry } from "../lib/sldGeometry";
+import type { Cell } from "../lib/sldDraft";
 import { SldInfoBox } from "./SldInfoBox";
 
 // Record over the contract enum: a new node type in backend-ot fails the typecheck here.
@@ -53,15 +54,31 @@ const DETAIL_MAX_CHARS = 20;
 const truncate = (text: string, maxChars: number) =>
   text.length > maxChars ? `${text.slice(0, maxChars - 1)}…` : text;
 
+const SELECTED_STROKE = "hsl(var(--ring))";
+// Buses are thin; in edit mode a wider invisible band makes them easy to click.
+const BUS_HIT_HEIGHT = 18;
+
+// Edit mode: elements and empty cells are clickable, and the selection is highlighted.
+export interface SldEditInteraction {
+  selectedId: string | null;
+  selectedCell: Cell | null;
+  onSelectElement: (id: string) => void;
+  onSelectCell: (cell: Cell) => void;
+}
+
 interface SiteSldDiagramProps {
   geometry: SldGeometry;
   zoom: number;
   // Live values by element id, for the info boxes the geometry lays out.
   valuesByNode?: Map<string, SldNodeValues>;
+  editing?: SldEditInteraction;
 }
 
-export const SiteSldDiagram = ({ geometry, zoom, valuesByNode }: SiteSldDiagramProps) => {
+export const SiteSldDiagram = ({ geometry, zoom, valuesByNode, editing }: SiteSldDiagramProps) => {
   const { viewBox } = geometry;
+  const occupied = new Set(geometry.nodes.map(({ node }) => `${node.col},${node.row}`));
+  const emptyCells = geometry.cells.filter((cell) => !occupied.has(`${cell.col},${cell.row}`));
+  const clickable = editing ? { cursor: "pointer" } : undefined;
   return (
     <svg
       data-sld-diagram=""
@@ -73,6 +90,27 @@ export const SiteSldDiagram = ({ geometry, zoom, valuesByNode }: SiteSldDiagramP
       className="block"
       style={{ fontFamily: "inherit" }}
     >
+      {editing && (
+        <g data-layer="cells">
+          {emptyCells.map(({ col, row, rect }) => {
+            const isSelected = editing.selectedCell?.col === col && editing.selectedCell?.row === row;
+            return (
+              <rect
+                key={`${col},${row}`}
+                data-cell={`${col},${row}`}
+                {...rect}
+                fill={isSelected ? "hsl(var(--ring) / 0.12)" : "transparent"}
+                stroke={isSelected ? SELECTED_STROKE : "hsl(var(--border))"}
+                strokeDasharray={isSelected ? undefined : "4 6"}
+                strokeWidth={isSelected ? 2 : 1}
+                style={clickable}
+                onClick={() => editing.onSelectCell({ col, row })}
+              />
+            );
+          })}
+        </g>
+      )}
+
       <g data-layer="connections" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={2}>
         {geometry.connections.map((connection) => (
           <polyline
@@ -86,8 +124,28 @@ export const SiteSldDiagram = ({ geometry, zoom, valuesByNode }: SiteSldDiagramP
 
       <g data-layer="buses">
         {geometry.buses.map(({ bus, rect, label, labelAnchor }) => (
-          <g key={bus.id} data-bus={bus.id}>
-            <rect {...rect} rx={2} fill="hsl(var(--primary))" />
+          <g
+            key={bus.id}
+            data-bus={bus.id}
+            style={clickable}
+            onClick={editing ? () => editing.onSelectElement(bus.id) : undefined}
+          >
+            {editing && (
+              <rect
+                x={rect.x}
+                y={rect.y + rect.height / 2 - BUS_HIT_HEIGHT / 2}
+                width={rect.width}
+                height={BUS_HIT_HEIGHT}
+                fill="transparent"
+              />
+            )}
+            <rect
+              {...rect}
+              rx={2}
+              fill="hsl(var(--primary))"
+              stroke={editing?.selectedId === bus.id ? SELECTED_STROKE : undefined}
+              strokeWidth={editing?.selectedId === bus.id ? 3 : undefined}
+            />
             <text
               x={labelAnchor.x}
               y={labelAnchor.y}
@@ -107,15 +165,21 @@ export const SiteSldDiagram = ({ geometry, zoom, valuesByNode }: SiteSldDiagramP
           const accent = NODE_ACCENTS[node.type] ?? "hsl(var(--border))";
           const detail = [node.voltage, node.rating].filter(Boolean).join(" · ");
           return (
-            <g key={node.id} data-node={node.id} transform={`translate(${rect.x} ${rect.y})`}>
+            <g
+              key={node.id}
+              data-node={node.id}
+              transform={`translate(${rect.x} ${rect.y})`}
+              style={clickable}
+              onClick={editing ? () => editing.onSelectElement(node.id) : undefined}
+            >
               <title>{[node.name, detail].filter(Boolean).join(" — ")}</title>
               <rect
                 width={NODE_WIDTH}
                 height={NODE_HEIGHT}
                 rx={8}
                 fill="hsl(var(--card))"
-                stroke={accent}
-                strokeWidth={2}
+                stroke={editing?.selectedId === node.id ? SELECTED_STROKE : accent}
+                strokeWidth={editing?.selectedId === node.id ? 4 : 2}
               />
               <Icon
                 x={10}
