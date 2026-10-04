@@ -9,6 +9,7 @@ import { AssetsPanel } from "./components/AssetsPanel";
 import { ModbusPanel } from "./components/ModbusPanel";
 import { ProfilesPanel } from "./components/ProfilesPanel";
 import { RunControls, RunStateBadge } from "./components/RunControls";
+import { ScenariosPanel } from "./components/ScenariosPanel";
 import { SimulationSld } from "./components/SimulationSld";
 import { SiteSettingsForm } from "./components/SiteSettingsForm";
 import { SitesPanel } from "./components/SitesPanel";
@@ -88,6 +89,7 @@ const SimulationPage = () => {
           <TabsTrigger value="profiles">Profiles</TabsTrigger>
           <TabsTrigger value="modbus">Modbus</TabsTrigger>
           <TabsTrigger value="sites">Sites & defaults</TabsTrigger>
+          <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -136,6 +138,10 @@ const SimulationPage = () => {
 
         <TabsContent value="sites">
           {selected && <SitesPanel sites={sites.data} selected={selected} runState={runState} onSelect={setChosen} />}
+        </TabsContent>
+
+        <TabsContent value="scenarios">
+          <ScenariosPanel />
         </TabsContent>
       </Tabs>
     </div>

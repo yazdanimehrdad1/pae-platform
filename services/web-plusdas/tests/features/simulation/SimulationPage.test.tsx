@@ -131,6 +131,15 @@ describe('SimulationPage', () => {
     await waitFor(() => expect(restore).toHaveBeenCalledWith(false));
   });
 
+  it('has a Scenarios placeholder tab after Sites & defaults', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(tabs.slice(-2)).toEqual(['Sites & defaults', 'Scenarios']);
+    openTab('Scenarios');
+    expect(await screen.findByText(/Coming soon/)).toBeTruthy();
+  });
+
   it('sends a BESS setpoint and shows that it was clamped', async () => {
     const result: SetpointResult = {
       asset_type: 'bess', asset_id: 'bess1', requested: { p_kw: 9000 },
