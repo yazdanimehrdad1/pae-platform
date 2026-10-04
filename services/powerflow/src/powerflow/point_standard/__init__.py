@@ -6,7 +6,6 @@ standard point lives in this package; the Modbus adapter only serves the resulti
 - `layout`: device chunks and addresses for a site.
 - `values`: `yes` points (one powerflow value × a unit factor).
 - `calc`: `calc` points (derived values).
-- `counters`: energy counters integrated over sim time.
 - `registers`: engineering values → raw registers.
 """
 
@@ -16,7 +15,6 @@ from powerflow.point_standard.catalog import (
     ServerSupport,
     load_point_standard,
 )
-from powerflow.point_standard.counters import EnergyCounters
 from powerflow.point_standard.layout import (
     CHUNK_REGISTERS,
     POINT_LIST_FILE,
@@ -35,7 +33,6 @@ __all__ = [
     "REGISTER_SPACE",
     "Device",
     "DeviceKind",
-    "EnergyCounters",
     "PointRow",
     "PointStandard",
     "PointValue",

@@ -2,10 +2,11 @@
 
 A point's full name is `<asset_type>.<asset_id>.<point>`, e.g. `bess.bess1.soc_pct`,
 `poi.meter.p_kw`, `meter.m_bess1.p_kw` (a feeder meter), `site.sim.step_id`. HTTP field names,
-history `fields=` and the (future) Modbus/DNP3 maps all use these names.
+history `fields=` and PointRegistry use these names (the Modbus server's own names come from the
+PAE point standard, which maps onto these).
 
 `scale_hint` is the suggested resolution when a point is packed into an integer register
-(engineering value = raw × scale); a protocol map may override it.
+(engineering value = raw × scale).
 """
 
 from enum import IntEnum, IntFlag, StrEnum
@@ -28,6 +29,8 @@ from powerflow.models.status import (
 
 POI_ASSET_ID = "meter"
 SITE_ASSET_ID = "sim"
+# The engine state as the `site.sim.state` point encodes it (RunState values).
+RUN_STATE_CODES: dict[str, int] = {"stopped": 0, "running": 1, "paused": 2}
 
 
 class AssetType(StrEnum):
@@ -134,6 +137,7 @@ def _alarms(description: str, flags: type[IntFlag], source: PointSource) -> Poin
 
 VOLTAGE_ALARM_NOTE = "voltage outside 0.95-1.05 pu"
 RESERVED_NOTE = "Bits marked reserved in the model aren't set by the simulator yet."
+ENERGY_NOTE = "Integrated every converged step since the simulation started (reset/activate)."
 
 
 BESS_POINTS: tuple[PointDef, ...] = (
@@ -203,6 +207,8 @@ BESS_POINTS: tuple[PointDef, ...] = (
         BessAlarm,
         PointSource.MEASUREMENT,
     ),
+    _measurement("energy_discharged_kwh", f"AC energy discharged. {ENERGY_NOTE}", "kWh"),
+    _measurement("energy_charged_kwh", f"AC energy charged. {ENERGY_NOTE}", "kWh"),
     _nameplate("p_rated_discharge_kw", "Max discharge P.", "kW"),
     _nameplate("p_rated_charge_kw", "Max charge P (magnitude).", "kW"),
     _nameplate("s_rated_kva", "Inverter apparent power rating.", "kVA"),
@@ -296,6 +302,10 @@ PV_POINTS: tuple[PointDef, ...] = (
         PvAlarm,
         PointSource.MEASUREMENT,
     ),
+    _measurement("energy_produced_kwh", f"AC energy produced. {ENERGY_NOTE}", "kWh"),
+    _measurement(
+        "energy_produced_today_kwh", "AC energy produced since the sim day began (UTC).", "kWh"
+    ),
     _nameplate("dc_kwp", "DC capacity.", "kWp"),
     _nameplate("p_max_kw", "Inverter max AC active power.", "kW"),
     _nameplate("s_rated_kva", "Inverter apparent power rating.", "kVA"),
@@ -309,6 +319,7 @@ LOAD_POINTS: tuple[PointDef, ...] = (
     _measurement("v_pu", "Voltage at the load's bus.", "pu", 0.001),
     _state("supply_state", "Whether the load's bus is energized.", LoadSupplyState),
     _alarms(f"Alarms: {VOLTAGE_ALARM_NOTE}.", LoadAlarm, PointSource.MEASUREMENT),
+    _measurement("energy_consumed_kwh", f"Energy consumed. {ENERGY_NOTE}", "kWh"),
 )
 
 POI_POINTS: tuple[PointDef, ...] = (
@@ -330,6 +341,8 @@ POI_POINTS: tuple[PointDef, ...] = (
         MeterAlarm,
         PointSource.MEASUREMENT,
     ),
+    _measurement("energy_export_kwh", f"Energy exported to the utility. {ENERGY_NOTE}", "kWh"),
+    _measurement("energy_import_kwh", f"Energy imported from the utility. {ENERGY_NOTE}", "kWh"),
 )
 
 METER_POINTS: tuple[PointDef, ...] = (
@@ -343,6 +356,8 @@ METER_POINTS: tuple[PointDef, ...] = (
     _state(
         "meter_state", "STALE when the power flow didn't converge (last good values).", MeterState
     ),
+    _measurement("energy_export_kwh", f"Energy toward the MV bus. {ENERGY_NOTE}", "kWh"),
+    _measurement("energy_import_kwh", f"Energy from the MV bus. {ENERGY_NOTE}", "kWh"),
 )
 
 SITE_POINTS: tuple[PointDef, ...] = (
@@ -377,7 +392,7 @@ SITE_POINTS: tuple[PointDef, ...] = (
         data_type=DataType.ENUM16,
         access=Access.READ,
         source=PointSource.SIMULATION,
-        enum_values={0: "stopped", 1: "running", 2: "paused"},
+        enum_values={code: name for name, code in RUN_STATE_CODES.items()},
     ),
     PointDef(
         name="overrun_count",

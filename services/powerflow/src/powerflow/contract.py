@@ -71,7 +71,7 @@ def render_registers_contract(standard: PointStandard, sites: dict[str, SiteConf
     return _dump(
         {
             "$comment": "GENERATED from services/powerflow/docs/point-standard/*.csv "
-            "(device_types) and site_config/sites/*.json (default_sites) by "
+            "(device_types) and the default-sites migration (default_sites) by "
             "`make -C services/powerflow contract`. Do not edit by hand. default_sites covers "
             "the shipped defaults only: a running site's bases follow its stored config "
             "(GET /api/modbus/registers).",

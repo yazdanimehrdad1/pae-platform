@@ -10,7 +10,7 @@ point list or Modbus register layout.
 import json
 from pathlib import Path
 
-from conftest import DEFAULTS, POINT_STANDARD, default_site
+from conftest import DEFAULT_SITES, POINT_STANDARD, default_site
 
 from powerflow.app import create_app
 from powerflow.contract import (
@@ -42,14 +42,14 @@ class TestContracts:
     def test_committed_registers_are_current(self) -> None:
         assert REGISTERS_PATH.exists(), f"missing registers contract: {REGENERATE}"
         committed = REGISTERS_PATH.read_bytes().decode("utf-8")
-        sites = {site.name: site.config for site in DEFAULTS.sites}
+        sites = DEFAULT_SITES
         expected = render_registers_contract(POINT_STANDARD, sites)
         assert committed == expected, f"stale registers contract: {REGENERATE}"
 
     def test_registers_contract_gives_the_served_addresses(self) -> None:
         """base + offset from the contract = the address the server actually uses."""
         contract = json.loads(REGISTERS_PATH.read_text(encoding="utf-8"))
-        site = "reference_2bess_1pv"
+        site = "2bess_1pv"
         for device in build_layout(default_site(site), POINT_STANDARD):
             entry = next(
                 item

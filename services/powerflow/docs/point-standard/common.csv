@@ -8,7 +8,7 @@ DA,Device Address,unit_id,O,nameplate,RW,,uint16,1,,,,,SunSpec,SunSpec 1 DA,Modb
 Hb,Device Heartbeat,heartbeat,R,status,R,,uint16,1,,,,,SunSpec,SunSpec 802 Hb,Counter the device increments every cycle; a frozen value means the device application is hung even if Modbus answers,,,calc
 CtrlHb,Controller Heartbeat,ctrl_heartbeat,R,setpoint,RW,,uint16,1,,,,,SunSpec,SunSpec 802 CtrlHb,Counter the EMS/PPC writes every cycle; a controllable device falls back to its reversion values when it stops changing,,,no
 ACType,AC Wiring Type,ac_type,R,nameplate,R,,enum16,1,,701.ACType,"{""0"":""SINGLE_PHASE"",""1"":""SPLIT_PHASE"",""2"":""THREE_PHASE""}",,SunSpec,SunSpec 701 ACType,AC wiring of the device; DER and meters,,,calc
-WMaxRtg,Max Active Power Rating,p_rated,M,nameplate,R,W,uint16,1000,,,,,SunSpec,SunSpec 702 WMaxRtg,Nameplate max active power at unity PF; every DER (BESS/PV/genset),,pv.p_max_kw (kW),yes
+WMaxRtg,Max Active Power Rating,p_rated,M,nameplate,R,W,uint16,1000,,,,,SunSpec,SunSpec 702 WMaxRtg,Nameplate max active power at unity PF; every DER (BESS/PV/genset),,bess.p_rated_discharge_kw / pv.p_max_kw (kW),yes
 VAMaxRtg,Max Apparent Power Rating,s_rated,M,nameplate,R,VA,uint16,1000,,,,,SunSpec,SunSpec 702 VAMaxRtg,Nameplate apparent power; every DER,,bess.s_rated_kva / pv.s_rated_kva (kVA),yes
 VarMaxInjRtg,Max Injected var Rating,q_rated_inj,R,nameplate,R,var,uint16,1000,,,,,SunSpec,SunSpec 702 VarMaxInjRtg,Nameplate max reactive power injected (over-excited),,,no
 VarMaxAbsRtg,Max Absorbed var Rating,q_rated_abs,R,nameplate,R,var,uint16,1000,,,,,SunSpec,SunSpec 702 VarMaxAbsRtg,Nameplate max reactive power absorbed (under-excited; magnitude),,,no

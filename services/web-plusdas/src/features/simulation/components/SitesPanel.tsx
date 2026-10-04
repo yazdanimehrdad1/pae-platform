@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { powerflowApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
-import type { DefaultsRestoreResult, RunState, SiteList } from "@/api/types/powerflow";
+import type { RunState, SiteList } from "@/api/types/powerflow";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,11 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/shared/hooks/use-toast";
-import { powerflowKeys, useActivateSite, useRefreshPowerflow } from "../hooks/usePowerflow";
+import { useActivateSite, useRefreshPowerflow } from "../hooks/usePowerflow";
 
 interface Props {
   sites: SiteList;
@@ -38,7 +36,7 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
     mutationFn: (name: string) => powerflowApi.deleteSite(name),
     onSuccess: (_result, name) => {
       refresh();
-      toast({ title: `Deleted ${name}`, description: "Restore defaults brings a shipped site back." });
+      toast({ title: `Deleted ${name}` });
       if (name === selected) onSelect(sites.active);
     },
     onError: (error) => toast({ title: "Deleting the site failed", description: getErrorMessage(error), variant: "destructive" }),
@@ -48,7 +46,10 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>Stored sites</CardTitle>
-        <CardDescription>Site configurations stored in powerflow. One is active (loaded into the simulator).</CardDescription>
+        <CardDescription>
+          Site configurations stored in powerflow's database, the only place they live. One is active (loaded
+          into the simulator). Default sites ship with powerflow: they can be edited but not deleted.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -60,8 +61,11 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sites.sites.map((name) => {
+            {sites.sites.map(({ name, category }) => {
+              const isDefault = category === "default";
               const isActive = name === sites.active;
+              // The database's startup choice; differs from the running site only under an ACTIVE_SITE override.
+              const isStoredActive = name === sites.stored_active && !isActive;
               return (
                 <TableRow key={name} data-site-row={name}>
                   <TableCell>
@@ -70,7 +74,9 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
                     </Button>
                   </TableCell>
                   <TableCell className="space-x-2">
+                    {isDefault && <Badge variant="secondary">default</Badge>}
                     {isActive && <Badge className="bg-success/20 text-success border-success" variant="outline">active</Badge>}
+                    {isStoredActive && <Badge variant="outline">loaded at startup</Badge>}
                     {name === selected && <Badge variant="outline">selected</Badge>}
                   </TableCell>
                   <TableCell className="text-right space-x-2">
@@ -86,7 +92,8 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
                       size="sm"
                       variant="outline"
                       className="gap-1"
-                      disabled={isActive || remove.isPending}
+                      disabled={isDefault || isActive || isStoredActive || remove.isPending}
+                      title={isDefault ? "Default sites can't be deleted" : undefined}
                       aria-label={`Delete ${name}`}
                       onClick={() => setDeleting(name)}
                     >
@@ -103,8 +110,8 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete {deleting}?</AlertDialogTitle>
               <AlertDialogDescription>
-                The stored site and its Modbus maps are removed. A shipped default site can be brought back with Restore
-                defaults.
+                The stored site is removed from powerflow's database for good: there is no copy to restore it
+                from.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -118,84 +125,7 @@ function StoredSites({ sites, selected, runState, onSelect }: Props) {
   );
 }
 
-function Defaults({ runState }: { runState: RunState | undefined }) {
-  const refresh = useRefreshPowerflow();
-  const defaults = useQuery({ queryKey: powerflowKeys.defaults, queryFn: powerflowApi.getDefaults, retry: false });
-  const [overwrite, setOverwrite] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [result, setResult] = useState<DefaultsRestoreResult | null>(null);
-  const restore = useMutation({
-    mutationFn: () => powerflowApi.restoreDefaults(overwrite),
-    onSuccess: (restored) => {
-      setResult(restored);
-      refresh();
-      toast({ title: "Defaults restored", description: `${restored.sites_written.length} site(s) written` });
-    },
-    onError: (error) => toast({ title: "Restoring defaults failed", description: getErrorMessage(error), variant: "destructive" }),
-  });
-  const needsStop = overwrite && runState !== undefined && runState !== "stopped";
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Shipped defaults</CardTitle>
-        <CardDescription>
-          The default sites and Modbus maps that ship with powerflow. Restoring copies them into powerflow's database.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {defaults.isLoading && <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />}
-        {defaults.data && (
-          <ul className="text-sm text-foreground space-y-1">
-            {Object.entries(defaults.data.sites).map(([name, maps]) => (
-              <li key={name}>
-                <span className="font-medium">{name}</span>
-                {name === defaults.data.active_site && <span className="text-muted-foreground"> (default active)</span>}
-                <span className="text-muted-foreground"> · {maps.length} Modbus maps</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex items-center gap-2">
-          <Checkbox id="overwrite" checked={overwrite} onCheckedChange={(checked) => setOverwrite(checked === true)} />
-          <Label htmlFor="overwrite">Overwrite stored copies (needs the simulation stopped)</Label>
-        </div>
-        <Button className="gap-2" variant="outline" disabled={restore.isPending || needsStop} onClick={() => setConfirming(true)}>
-          <RotateCcw className="w-4 h-4" /> Restore defaults
-        </Button>
-        {needsStop && <p className="text-xs text-muted-foreground">Stop the simulation to restore with overwrite.</p>}
-        {result && (
-          <p className="text-xs text-muted-foreground" data-restore-result>
-            Written: {result.sites_written.join(", ") || "none"} · skipped: {result.sites_skipped.join(", ") || "none"}
-            {result.active_site_reloaded ? " · the active site was reloaded" : ""}
-          </p>
-        )}
-        <AlertDialog open={confirming} onOpenChange={setConfirming}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Restore the default sites?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {overwrite
-                  ? "The stored default sites and maps are replaced by the shipped files; changes saved to them are lost. Other sites are kept."
-                  : "Missing default sites and maps are added back; stored ones are kept."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => restore.mutate()}>Restore</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
-  );
-}
-
+// The stored sites (powerflow's database is the only store): activate or delete one.
 export function SitesPanel(props: Props) {
-  return (
-    <div className="space-y-4">
-      <StoredSites {...props} />
-      <Defaults runState={props.runState} />
-    </div>
-  );
+  return <StoredSites {...props} />;
 }

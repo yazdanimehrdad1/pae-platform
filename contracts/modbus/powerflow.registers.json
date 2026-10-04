@@ -1,10 +1,42 @@
 {
-  "$comment": "GENERATED from services/powerflow/docs/point-standard/*.csv (device_types) and site_config/sites/*.json (default_sites) by `make -C services/powerflow contract`. Do not edit by hand. default_sites covers the shipped defaults only: a running site's bases follow its stored config (GET /api/modbus/registers).",
+  "$comment": "GENERATED from services/powerflow/docs/point-standard/*.csv (device_types) and the default-sites migration (default_sites) by `make -C services/powerflow contract`. Do not edit by hand. default_sites covers the shipped defaults only: a running site's bases follow its stored config (GET /api/modbus/registers).",
   "address": "device base + register offset",
   "chunk_registers": 100,
   "contract": "powerflow/modbus-registers",
   "default_sites": {
-    "reference_2bess_1pv": [
+    "1bess_1pv": [
+      {
+        "asset_id": "site",
+        "base": 0,
+        "kind": "site"
+      },
+      {
+        "asset_id": "met",
+        "base": 100,
+        "kind": "met_station"
+      },
+      {
+        "asset_id": "bess1",
+        "base": 1000,
+        "kind": "bess"
+      },
+      {
+        "asset_id": "pv1",
+        "base": 2000,
+        "kind": "pv"
+      },
+      {
+        "asset_id": "load1",
+        "base": 3000,
+        "kind": "load"
+      },
+      {
+        "asset_id": "meter",
+        "base": 4000,
+        "kind": "poi_meter"
+      }
+    ],
+    "2bess_1pv": [
       {
         "asset_id": "site",
         "base": 0,
@@ -51,39 +83,7 @@
         "kind": "feeder_meter"
       }
     ],
-    "small_1bess_1pv": [
-      {
-        "asset_id": "site",
-        "base": 0,
-        "kind": "site"
-      },
-      {
-        "asset_id": "met",
-        "base": 100,
-        "kind": "met_station"
-      },
-      {
-        "asset_id": "bess1",
-        "base": 1000,
-        "kind": "bess"
-      },
-      {
-        "asset_id": "pv1",
-        "base": 2000,
-        "kind": "pv"
-      },
-      {
-        "asset_id": "load1",
-        "base": 3000,
-        "kind": "load"
-      },
-      {
-        "asset_id": "meter",
-        "base": 4000,
-        "kind": "poi_meter"
-      }
-    ],
-    "three_bess_two_pv": [
+    "3bess_2pv": [
       {
         "asset_id": "site",
         "base": 0,

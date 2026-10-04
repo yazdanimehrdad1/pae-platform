@@ -6,7 +6,7 @@ deterministic for the same config, profiles, seed and setpoint sequence.
 1. Sim time = start_time + step_index·step_s; read the PV availability and load profiles.
 2. Apply the setpoints to the asset models (limits).
 3. Set the network injections and solve.
-4. Advance the SOCs with the actual power.
+4. Advance the SOCs and the energy counters with the actual power.
 5. Return the new state and the snapshot.
 
 If the power flow fails, the state isn't advanced and the snapshot repeats the last good values
@@ -20,10 +20,13 @@ from enum import IntFlag
 
 import numpy as np
 
+from powerflow.core.energy import attach as attach_energy
+from powerflow.core.energy import integrate as integrate_energy
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.snapshot import (
     BessMeasurement,
     BusMeasurement,
+    EnergyTotals,
     LoadMeasurement,
     MeterMeasurement,
     PoiMeasurement,
@@ -65,6 +68,8 @@ class SimulationState:
     step_index: int
     bess: dict[str, bess_model.BessState]
     last_good: Snapshot | None = None
+    # Energy counters per device (core/energy.py), keyed like the point prefixes ("bess.bess1").
+    energy: dict[str, EnergyTotals] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -125,7 +130,8 @@ def simulate_step(
     except NonConvergenceError as error:
         logger.warning("step %d: power flow did not converge: %s", step_index, error)
         snapshot = _repeat_last_good(runtime, state, step_index, sim_time)
-        new_state = SimulationState(step_index, state.bess, state.last_good)
+        # Nothing is integrated: SOC and the energy counters hold their last good values.
+        new_state = SimulationState(step_index, state.bess, state.last_good, state.energy)
         return StepOutcome(new_state, snapshot, str(error))
 
     new_bess = {
@@ -135,7 +141,9 @@ def simulate_step(
         for asset_id, output in outputs.bess.items()
     }
     snapshot = build_snapshot(runtime, new_bess, outputs, network, step_index, sim_time, dt_s)
-    return StepOutcome(SimulationState(step_index, new_bess, snapshot), snapshot)
+    energy = integrate_energy(state.energy, snapshot, dt_s)
+    snapshot = attach_energy(snapshot, energy)
+    return StepOutcome(SimulationState(step_index, new_bess, snapshot, energy), snapshot)
 
 
 def _dispatch_assets(

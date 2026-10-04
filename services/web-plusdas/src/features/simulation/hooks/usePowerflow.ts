@@ -11,13 +11,10 @@ export const powerflowKeys = {
   status: ["powerflow", "status"] as const,
   sites: ["powerflow", "sites"] as const,
   site: (name: string) => ["powerflow", "site", name] as const,
-  defaults: ["powerflow", "defaults"] as const,
   profiles: ["powerflow", "profiles"] as const,
   profileCsv: (folder: string, scenario: string) => ["powerflow", "profile", folder, scenario] as const,
   assets: ["powerflow", "assets"] as const,
   modbusRegisters: ["powerflow", "modbus-registers"] as const,
-  modbusMaps: (site: string) => ["powerflow", "modbus-maps", site] as const,
-  modbusMap: (site: string, asset: string) => ["powerflow", "modbus-map", site, asset] as const,
 };
 
 const STATUS_POLL_MS = 2000;
@@ -48,7 +45,7 @@ export function useProfiles() {
   return useQuery({ queryKey: powerflowKeys.profiles, queryFn: powerflowApi.listProfiles, retry: false });
 }
 
-/** Refresh everything powerflow-side after a change (site switch, save, restore, ...). */
+/** Refresh everything powerflow-side after a change (site switch, save, delete, ...). */
 export function useRefreshPowerflow() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: powerflowKeys.all });

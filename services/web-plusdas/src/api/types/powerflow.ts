@@ -21,16 +21,12 @@ export type BessConfig = Schemas['BessConfig'];
 export type PvConfig = Schemas['PvConfig'];
 export type LoadConfig = Schemas['LoadConfig'];
 export type MeterConfig = Schemas['MeterConfig'];
-export type DefaultsInfo = Schemas['DefaultsInfo'];
-export type DefaultsRestoreResult = Schemas['DefaultsRestoreResult'];
 
 // Profile scenarios (CSV files)
 export type ProfileScenarios = Schemas['ProfileScenarios'];
 export type ProfileFolder = 'load' | 'pv';
 
-// Modbus: per-asset maps stored with each site, and the aggregator server's layout
-export type ModbusMapSummary = Schemas['ModbusMapSummary'];
-export type ModbusMap = Schemas['ModbusMap'];
+// Modbus: the aggregator server's layout
 export type ModbusRegistersResponse = Schemas['ModbusRegistersResponse'];
 export type ModbusDevice = Schemas['ModbusDevice'];
 export type ModbusRegister = Schemas['ModbusRegister'];

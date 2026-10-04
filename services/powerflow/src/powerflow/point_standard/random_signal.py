@@ -15,7 +15,6 @@ import numpy as np
 
 PERIOD_SECOND = 1.0
 PERIOD_MINUTE = 60.0
-PERIOD_HOUR = 3600.0
 
 
 @dataclass(frozen=True)

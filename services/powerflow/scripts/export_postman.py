@@ -20,9 +20,9 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT / "src"))
 
 from powerflow.app import API_VERSION, create_app  # noqa: E402
+from powerflow.storage.seed_data import default_sites  # noqa: E402
 
 OUTPUT = SERVICE_ROOT / "postman" / "powerflow.postman_collection.json"
-DEFAULTS_DIR = SERVICE_ROOT / "site_config"
 BASE_URL = "http://localhost:8020"
 # Fixed id, so regenerating produces identical bytes (Postman only needs it to be stable).
 COLLECTION_ID = "6f1f5c4e-8a53-4c1e-9f44-70f0f10e0001"
@@ -50,7 +50,7 @@ def path_value(method: str, path: str, name: str) -> str:
         return "bess.bess1"
     if name == "name" and method in ("put", "delete"):
         return "my_site"
-    return "reference_2bess_1pv"
+    return "2bess_1pv"
 
 
 def query_example(name: str) -> tuple[str, bool]:
@@ -72,13 +72,10 @@ def json_body(method: str, path: str) -> object | None:
     if path.endswith("/pv/{asset_id}/setpoint"):
         return {"p_limit_pct": 80, "pf": 0.95}
     if method == "put" and path == "/api/sites/{name}":
-        site = json.loads((DEFAULTS_DIR / "sites" / "small_1bess_1pv.json").read_text("utf-8"))
-        site["site"]["name"] = "My site (copy of small_1bess_1pv)"
+        site = default_sites()["1bess_1pv"].model_dump(mode="json")
+        site["site"]["name"] = "My site (copy of 1bess_1pv)"
         site["simulation"]["autostart"] = False
         return site
-    if method == "put" and path.endswith("/modbus-maps/{asset}"):
-        map_file = DEFAULTS_DIR / "modbus_maps" / "reference_2bess_1pv" / "bess.bess1.json"
-        return json.loads(map_file.read_text("utf-8"))
     return None
 
 

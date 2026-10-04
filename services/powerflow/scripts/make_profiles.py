@@ -1,4 +1,4 @@
-"""Regenerate the profile scenarios in site_config/profiles/ (24 h, 1-minute, deterministic).
+"""Regenerate the profile scenarios in profiles/ (24 h, 1-minute, deterministic).
 
 Usage: uv run python scripts/make_profiles.py
 
@@ -23,7 +23,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-PROFILES_DIR = Path(__file__).resolve().parents[1] / "site_config" / "profiles"
+PROFILES_DIR = Path(__file__).resolve().parents[1] / "profiles"
 DAY_START = datetime(2026, 6, 21, tzinfo=UTC)
 MINUTES_PER_DAY = 24 * 60
 LOAD_POWER_FACTOR = 0.95

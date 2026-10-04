@@ -2,12 +2,7 @@ import type {
   AssetsResponse,
   BessAssetResponse,
   BessSetpointRequest,
-  DefaultsInfo,
-  DefaultsRestoreResult,
   EngineStatus,
-  LoadAssetResponse,
-  ModbusMap,
-  ModbusMapSummary,
   ModbusRegistersResponse,
   ProfileFolder,
   ProfileScenarios,
@@ -33,7 +28,6 @@ export const powerflowApi = {
   step: (count: number) => api.post<unknown>(`/sim/step?count=${count}`, {}),
 
   // -- sites -----------------------------------------------------------------------------------
-  getActiveConfig: () => api.get<SiteConfig>('/config'),
   listSites: () => api.get<SiteList>('/sites'),
   getSite: (name: string) => api.get<SiteConfig>(site(name)),
   // Replaces the whole stored config (the active site needs the simulation stopped).
@@ -42,27 +36,18 @@ export const powerflowApi = {
   // Loads a stored site into the engine (simulation must be stopped) and restarts the interfaces.
   activateSite: (name: string) => api.post<SiteConfig>(`${site(name)}/activate`, {}),
 
-  // -- shipped defaults ------------------------------------------------------------------------
-  getDefaults: () => api.get<DefaultsInfo>('/defaults'),
-  restoreDefaults: (overwrite: boolean) =>
-    api.post<DefaultsRestoreResult>(`/defaults/restore?overwrite=${overwrite}`, {}),
-
   // -- profile scenarios (view only) -----------------------------------------------------------
   listProfiles: () => api.get<ProfileScenarios>('/profiles'),
   getProfileCsv: (folder: ProfileFolder, scenario: string) =>
     api.getText(`/profiles/${folder}/${encodeURIComponent(scenario)}`),
 
   // -- Modbus (view only) ----------------------------------------------------------------------
-  listModbusMaps: (siteName: string) => api.get<ModbusMapSummary[]>(`${site(siteName)}/modbus-maps`),
-  getModbusMap: (siteName: string, asset: string) =>
-    api.get<ModbusMap>(`${site(siteName)}/modbus-maps/${encodeURIComponent(asset)}`),
   getModbusRegisters: () => api.get<ModbusRegistersResponse>('/modbus/registers'),
 
   // -- assets of the active site and their setpoints -------------------------------------------
   getAssets: () => api.get<AssetsResponse>('/assets'),
   getBess: (id: string) => api.get<BessAssetResponse>(`/assets/bess/${encodeURIComponent(id)}`),
   getPv: (id: string) => api.get<PvAssetResponse>(`/assets/pv/${encodeURIComponent(id)}`),
-  getLoad: (id: string) => api.get<LoadAssetResponse>(`/assets/load/${encodeURIComponent(id)}`),
   setBess: (id: string, request: BessSetpointRequest) =>
     api.put<SetpointResult>(`/assets/bess/${encodeURIComponent(id)}/setpoint`, request),
   setPv: (id: string, request: PvSetpointRequest) =>

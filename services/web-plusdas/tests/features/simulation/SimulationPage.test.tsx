@@ -30,16 +30,17 @@ beforeAll(() => {
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(powerflowApi, 'listSites').mockResolvedValue({
-    active: 'reference_2bess_1pv',
-    sites: ['reference_2bess_1pv', 'small_1bess_1pv'],
+    active: '2bess_1pv',
+    stored_active: '2bess_1pv',
+    sites: [
+      { name: '1bess_1pv', category: 'default' },
+      { name: '2bess_1pv', category: 'default' },
+      { name: 'my_site', category: 'custom' },
+    ],
   });
   vi.spyOn(powerflowApi, 'getStatus').mockResolvedValue(STATUS);
   vi.spyOn(powerflowApi, 'getSite').mockResolvedValue(REFERENCE_SITE);
   vi.spyOn(powerflowApi, 'listProfiles').mockResolvedValue({ load: ['high_demand'], pv: ['clear_sky_high'] });
-  vi.spyOn(powerflowApi, 'getDefaults').mockResolvedValue({
-    active_site: 'reference_2bess_1pv',
-    sites: { reference_2bess_1pv: ['bess.bess1'], small_1bess_1pv: [] },
-  });
   vi.spyOn(powerflowApi, 'getAssets').mockResolvedValue({
     bess: REFERENCE_SITE.bess ?? [],
     pv: REFERENCE_SITE.pv ?? [],
@@ -96,46 +97,32 @@ describe('SimulationPage', () => {
     const activate = vi.spyOn(powerflowApi, 'activateSite').mockResolvedValue(REFERENCE_SITE);
     renderPage();
     await screen.findByRole('heading', { name: 'Simulation' });
-    openTab('Sites & defaults');
-    const row = await findElement('[data-site-row="small_1bess_1pv"]');
+    openTab('Sites');
+    const row = await findElement('[data-site-row="1bess_1pv"]');
     fireEvent.click(within(row).getByRole('button', { name: 'Stop & activate' }));
-    await waitFor(() => expect(activate).toHaveBeenCalledWith('small_1bess_1pv'));
+    await waitFor(() => expect(activate).toHaveBeenCalledWith('1bess_1pv'));
     expect(stop).toHaveBeenCalled();
   });
 
-  it("can't delete the active site and confirms other deletes", async () => {
+  it("can't delete the active or a default site and confirms other deletes", async () => {
     const remove = vi.spyOn(powerflowApi, 'deleteSite').mockResolvedValue(undefined);
     renderPage();
     await screen.findByRole('heading', { name: 'Simulation' });
-    openTab('Sites & defaults');
-    await screen.findByRole('button', { name: 'Delete small_1bess_1pv' });
-    expect((screen.getByRole('button', { name: 'Delete reference_2bess_1pv' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete small_1bess_1pv' }));
+    openTab('Sites');
+    await screen.findByRole('button', { name: 'Delete my_site' });
+    expect((screen.getByRole('button', { name: 'Delete 2bess_1pv' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Delete 1bess_1pv' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete my_site' }));
     const dialog = await screen.findByRole('alertdialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(remove).toHaveBeenCalledWith('small_1bess_1pv'));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('my_site'));
   });
 
-  it('asks before restoring defaults', async () => {
-    const restore = vi.spyOn(powerflowApi, 'restoreDefaults').mockResolvedValue({
-      overwrite: false, sites_written: [], sites_skipped: ['reference_2bess_1pv'],
-      maps_written: [], maps_skipped: [], active_site_reloaded: false,
-    });
-    renderPage();
-    await screen.findByRole('heading', { name: 'Simulation' });
-    openTab('Sites & defaults');
-    fireEvent.click(await screen.findByRole('button', { name: /Restore defaults/ }));
-    expect(restore).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole('alertdialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
-    await waitFor(() => expect(restore).toHaveBeenCalledWith(false));
-  });
-
-  it('has a Scenarios placeholder tab after Sites & defaults', async () => {
+  it('has a Scenarios placeholder tab after Sites', async () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Simulation' });
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs.slice(-2)).toEqual(['Sites & defaults', 'Scenarios']);
+    expect(tabs.slice(-2)).toEqual(['Sites', 'Scenarios']);
     openTab('Scenarios');
     expect(await screen.findByText(/Coming soon/)).toBeTruthy();
   });

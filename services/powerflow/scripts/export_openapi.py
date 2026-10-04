@@ -23,7 +23,7 @@ from powerflow.contract import (  # noqa: E402
 )
 from powerflow.point_standard import load_point_standard  # noqa: E402
 from powerflow.settings import settings  # noqa: E402
-from powerflow.storage.defaults import read_defaults  # noqa: E402
+from powerflow.storage.seed_data import default_sites  # noqa: E402
 
 
 def write(path: Path, text: str) -> None:
@@ -45,9 +45,7 @@ def main() -> None:
         write(args.points_output, render_points_contract())
     if args.registers_output is not None:
         standard = load_point_standard(settings.resolved_point_standard_dir())
-        defaults = read_defaults(settings.resolved_site_config_dir())
-        sites = {site.name: site.config for site in defaults.sites}
-        write(args.registers_output, render_registers_contract(standard, sites))
+        write(args.registers_output, render_registers_contract(standard, default_sites()))
 
 
 if __name__ == "__main__":

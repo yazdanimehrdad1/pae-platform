@@ -1,5 +1,4 @@
-"""The point standard on top of the simulation: CSVs, register layout, encoding, resolvers,
-energy counters."""
+"""The point standard on top of the simulation: CSVs, register layout, encoding, resolvers."""
 
 import asyncio
 import math
@@ -14,11 +13,11 @@ from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import SetpointService
 from powerflow.core.snapshot import Snapshot
 from powerflow.models.bess import BessMode, BessSetpoint
+from powerflow.models.status import LoadAlarm, LoadSupplyState
 from powerflow.network.pandapower_solver import PandapowerSolver
 from powerflow.point_standard import (
     Device,
     DeviceKind,
-    EnergyCounters,
     PointRow,
     ServerSupport,
     Sources,
@@ -96,7 +95,7 @@ class TestResolversMatchTheColumn:
 
 class TestLayout:
     def test_reference_site_bases(self) -> None:
-        devices = build_layout(default_site("reference_2bess_1pv"), POINT_STANDARD)
+        devices = build_layout(default_site("2bess_1pv"), POINT_STANDARD)
         bases = {device.label: device.base for device in devices}
         assert bases == {
             "site.site": 0,
@@ -110,9 +109,7 @@ class TestLayout:
             "feeder_meter.m_pv1": 4300,
         }
 
-    @pytest.mark.parametrize(
-        "site", ["reference_2bess_1pv", "three_bess_two_pv", "small_1bess_1pv"]
-    )
+    @pytest.mark.parametrize("site", ["2bess_1pv", "3bess_2pv", "1bess_1pv"])
     def test_chunks_fit_and_never_overlap(self, site: str) -> None:
         used: set[int] = set()
         for device in build_layout(default_site(site), POINT_STANDARD):
@@ -123,11 +120,9 @@ class TestLayout:
                 used |= addresses
 
     def test_met_station_only_for_irradiance_pv(self) -> None:
-        kinds = [
-            device.kind for device in build_layout(default_site("small_1bess_1pv"), POINT_STANDARD)
-        ]
+        kinds = [device.kind for device in build_layout(default_site("1bess_1pv"), POINT_STANDARD)]
         assert DeviceKind.MET_STATION in kinds  # its PV is irradiance-driven
-        reference = build_layout(default_site("reference_2bess_1pv"), POINT_STANDARD)
+        reference = build_layout(default_site("2bess_1pv"), POINT_STANDARD)
         assert DeviceKind.MET_STATION not in [device.kind for device in reference]
 
 
@@ -152,7 +147,7 @@ class TestEncoding:
 
 
 def reference_engine() -> tuple[Engine, PointRegistry]:
-    config = default_site("reference_2bess_1pv")
+    config = default_site("2bess_1pv")
     simulation = config.simulation.model_copy(
         update={"test_mode": True, "start_time": config.simulation.start_time.replace(hour=12)}
     )
@@ -163,16 +158,14 @@ def reference_engine() -> tuple[Engine, PointRegistry]:
     return engine, PointRegistry(engine, SetpointService(engine))
 
 
-def sources_for(
-    engine: Engine, registry: PointRegistry, snapshot: Snapshot, counters: EnergyCounters
-) -> Sources:
+def sources_for(engine: Engine, registry: PointRegistry, snapshot: Snapshot) -> Sources:
     def read(name: str) -> float | int | bool:
         _, definition = registry.resolve(name)
         if definition.source is PointSource.MEASUREMENT:
             return registry.read_from_snapshot(snapshot, name)
         return registry.read(name)
 
-    return Sources(snapshot, engine.config, read, counters, POINT_STANDARD.enums)
+    return Sources(snapshot, engine.config, read, POINT_STANDARD.enums)
 
 
 def value(sources: Sources, devices: tuple[Device, ...], label: str, point: str) -> float:
@@ -190,7 +183,7 @@ class TestValues:
         engine, registry = reference_engine()
         engine.setpoints.set_bess("bess1", BessSetpoint(-400, 0, BessMode.PQ))
         snapshot = asyncio.run(engine.step(2))
-        sources = sources_for(engine, registry, snapshot, EnergyCounters())
+        sources = sources_for(engine, registry, snapshot)
         devices = build_layout(engine.config, POINT_STANDARD)
         bess = snapshot.bess[0]
 
@@ -218,7 +211,7 @@ class TestValues:
         engine, registry = reference_engine()
         snapshot = asyncio.run(engine.step(1))
         devices = build_layout(engine.config, POINT_STANDARD)
-        image = build_image(devices, sources_for(engine, registry, snapshot, EnergyCounters()))
+        image = build_image(devices, sources_for(engine, registry, snapshot))
         bess1 = next(device for device in devices if device.label == "bess.bess1")
         cabinet = next(register for register in bess1.registers if register.row.point == "TmpCab")
         assert cabinet.row.support is ServerSupport.NO and cabinet.address not in image
@@ -262,7 +255,7 @@ class TestRandomSignal:
     def test_every_device_reports_the_same_frequency(self) -> None:
         engine, registry = reference_engine()
         snapshot = asyncio.run(engine.step(1))
-        sources = sources_for(engine, registry, snapshot, EnergyCounters())
+        sources = sources_for(engine, registry, snapshot)
         devices = build_layout(engine.config, POINT_STANDARD)
         readings = {
             value(sources, devices, "bess.bess1", "Hz"),
@@ -274,41 +267,16 @@ class TestRandomSignal:
         assert len(readings) == 1 and 59.98 <= readings.pop() <= 60.02
 
 
-class TestCounters:
-    def test_integrates_power_over_sim_time_and_resets(self) -> None:
-        engine, _ = reference_engine()
-        engine.setpoints.set_bess("bess1", BessSetpoint(500, 0, BessMode.PQ))
-        counters = EnergyCounters()
-        first = asyncio.run(engine.step(1))
-        counters.advance(first)
-        assert counters.totals("bess.bess1").wh_positive == 0  # starting point only
-        second = asyncio.run(engine.step(1))
-        counters.advance(second)
-        counters.advance(second)  # the same step twice counts once
-        expected = second.bess[0].p_kw * 1000 / 3600  # 1 s step
-        assert counters.totals("bess.bess1").wh_positive == pytest.approx(expected)
-
-        reset = second.model_copy(update={"step_id": 1})
-        counters.advance(reset)
-        assert counters.totals("bess.bess1").wh_positive == 0
-
-    def test_daily_energy_restarts_at_midnight(self) -> None:
-        engine, _ = reference_engine()
-        counters = EnergyCounters()
-        snapshot = asyncio.run(engine.step(1))
-        counters.advance(snapshot)
-        later = snapshot.model_copy(
-            update={"step_id": 2, "sim_time": snapshot.sim_time + timedelta(seconds=1)}
-        )
-        counters.advance(later)
-        assert counters.totals("pv.pv1").wh_positive_today > 0
-        next_day = later.model_copy(
-            update={"step_id": 3, "sim_time": later.sim_time + timedelta(days=1)}
-        )
-        counters.advance(next_day)
-        totals = counters.totals("pv.pv1")
-        assert totals.wh_positive_today < totals.wh_positive
-
-
 def test_reference_site_enables_modbus() -> None:
-    assert SiteConfig.model_validate(default_site("reference_2bess_1pv")).interfaces.modbus.enabled
+    assert SiteConfig.model_validate(default_site("2bess_1pv")).interfaces.modbus.enabled
+
+
+def test_load_codes_passed_through_match_the_standard() -> None:
+    """values.py passes load supply_state / alarm_flags through raw ('yes'), which is only right
+    while powerflow's codes equal the standard's pae.SupplySt / pae.LoadAlrm."""
+    enums = POINT_STANDARD.enums
+    for state in LoadSupplyState:
+        assert enums.code("pae.SupplySt", state.name) == state.value
+    for flag in LoadAlarm:
+        if flag.value and flag.name:
+            assert enums.bits("pae.LoadAlrm", flag.name) == flag.value

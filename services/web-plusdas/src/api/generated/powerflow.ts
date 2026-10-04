@@ -130,63 +130,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/config/schema": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** JSON Schema of a site config */
-        get: operations["config_schema_api_config_schema_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/defaults": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The shipped default sites and Modbus maps
-         * @description Seeded into an empty database at startup. Restore them with POST /api/defaults/restore.
-         */
-        get: operations["get_defaults_api_defaults_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/defaults/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Import the default sites and maps into the database
-         * @description Without overwrite, sites and maps already stored are kept (reported as skipped). With overwrite=true they're replaced; the simulation must be stopped (409), and the active site is reloaded if it was replaced. The active-site choice is unchanged.
-         */
-        post: operations["restore_defaults_api_defaults_restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -375,7 +318,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One JSON Schema, e.g. site-config or modbus-map */
+        /** One JSON Schema (site-config) */
         get: operations["get_schema_api_schemas__name__get"];
         put?: never;
         post?: never;
@@ -518,7 +461,7 @@ export interface paths {
         get: operations["get_site_api_sites__name__get"];
         /**
          * Create or replace a stored site
-         * @description Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it, so the simulation must be stopped (409 otherwise).
+         * @description Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it and restarts its protocol interfaces, so the simulation must be stopped (409 otherwise).
          */
         put: operations["put_site_api_sites__name__put"];
         post?: never;
@@ -540,49 +483,10 @@ export interface paths {
         put?: never;
         /**
          * Load a stored site (only while stopped)
-         * @description Rebuilds the network, resets the simulation and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start.
+         * @description Rebuilds the network, resets the simulation, restarts the protocol interfaces the site enables (e.g. Modbus) and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start.
          */
         post: operations["activate_site_api_sites__name__activate_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sites/{site}/modbus-maps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A site's per-asset Modbus maps */
-        get: operations["list_maps_api_sites__site__modbus_maps_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sites/{site}/modbus-maps/{asset}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One asset's map (asset = <asset_type>.<asset_id>, e.g. pv.pv1, poi.meter) */
-        get: operations["get_map_api_sites__site__modbus_maps__asset__get"];
-        /**
-         * Create or replace an asset's map
-         * @description Rejected (422) if the site has no such asset, the body's `asset` differs from the path, registers overlap, a point isn't in the asset type's point list, a writable point isn't on a holding register/coil (or vice versa), or the unit_id+port is already used by another map of the site.
-         */
-        put: operations["put_map_api_sites__site__modbus_maps__asset__put"];
-        post?: never;
-        /** Delete an asset's map */
-        delete: operations["delete_map_api_sites__site__modbus_maps__asset__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -709,10 +613,21 @@ export interface components {
             alarm_flags: number;
             /** Aux P Kw */
             aux_p_kw: number;
+            energy?: components["schemas"]["EnergyTotals"];
             /** Energy Available Charge Kwh */
             energy_available_charge_kwh: number;
             /** Energy Available Discharge Kwh */
             energy_available_discharge_kwh: number;
+            /**
+             * Energy Charged Kwh
+             * @default 0
+             */
+            energy_charged_kwh: number;
+            /**
+             * Energy Discharged Kwh
+             * @default 0
+             */
+            energy_discharged_kwh: number;
             /** Id */
             id: string;
             /** Limit Flag Names */
@@ -808,39 +723,6 @@ export interface components {
          * @enum {string}
          */
         DataType: "float32" | "uint16" | "uint32" | "uint64" | "enum16" | "bitfield16";
-        /** DefaultsInfo */
-        DefaultsInfo: {
-            /**
-             * Active Site
-             * @description The site made active on a fresh database.
-             */
-            active_site: string;
-            /**
-             * Sites
-             * @description Default sites and their Modbus map assets.
-             */
-            sites: {
-                [key: string]: string[];
-            };
-        };
-        /** DefaultsRestoreResult */
-        DefaultsRestoreResult: {
-            /** Active Site Reloaded */
-            active_site_reloaded: boolean;
-            /** Maps Skipped */
-            maps_skipped: string[];
-            /** Maps Written */
-            maps_written: string[];
-            /** Overwrite */
-            overwrite: boolean;
-            /**
-             * Sites Skipped
-             * @description Already stored; pass overwrite=true.
-             */
-            sites_skipped: string[];
-            /** Sites Written */
-            sites_written: string[];
-        };
         /**
          * DeviceKind
          * @enum {string}
@@ -857,6 +739,78 @@ export interface components {
             discharge?: number | null;
             /** Round Trip */
             round_trip?: number | null;
+        };
+        /**
+         * EnergyTotals
+         * @description Energy through one device since the simulation started (reset), integrated every converged
+         *     step over its real length (core/energy.py). In the device's own sign convention:
+         *     Wh, varh, VAh.
+         */
+        EnergyTotals: {
+            /** Day */
+            day?: string | null;
+            /**
+             * Vah Negative
+             * @description Apparent energy while P < 0.
+             * @default 0
+             */
+            vah_negative: number;
+            /**
+             * Vah Positive
+             * @description Apparent energy while P >= 0.
+             * @default 0
+             */
+            vah_positive: number;
+            /**
+             * Varh Negative
+             * @default 0
+             */
+            varh_negative: number;
+            /**
+             * Varh Positive
+             * @default 0
+             */
+            varh_positive: number;
+            /**
+             * Varh Q1
+             * @description |Q| energy in quadrant 1 (P >= 0, Q >= 0).
+             * @default 0
+             */
+            varh_q1: number;
+            /**
+             * Varh Q2
+             * @description Quadrant 2 (P < 0, Q >= 0).
+             * @default 0
+             */
+            varh_q2: number;
+            /**
+             * Varh Q3
+             * @description Quadrant 3 (P < 0, Q < 0).
+             * @default 0
+             */
+            varh_q3: number;
+            /**
+             * Varh Q4
+             * @description Quadrant 4 (P >= 0, Q < 0).
+             * @default 0
+             */
+            varh_q4: number;
+            /**
+             * Wh Negative
+             * @default 0
+             */
+            wh_negative: number;
+            /**
+             * Wh Positive
+             * @default 0
+             */
+            wh_positive: number;
+            /**
+             * Wh Positive Today
+             * @description Since the sim day began (UTC).
+             * @default 0
+             */
+            wh_positive_today: number;
         };
         /** EngineStatus */
         EngineStatus: {
@@ -933,6 +887,18 @@ export interface components {
         };
         /** HealthResponse */
         HealthResponse: {
+            /**
+             * Interface Errors
+             * @description Interfaces the active site enables that failed to start, with the reason.
+             */
+            interface_errors: {
+                [key: string]: string;
+            };
+            /**
+             * Interfaces
+             * @description Protocol interfaces running now (http, modbus).
+             */
+            interfaces: string[];
             /** Ok */
             ok: boolean;
             state: components["schemas"]["RunState"];
@@ -1030,6 +996,12 @@ export interface components {
             alarm_flag_names: string[];
             /** Alarm Flags */
             alarm_flags: number;
+            energy?: components["schemas"]["EnergyTotals"];
+            /**
+             * Energy Consumed Kwh
+             * @default 0
+             */
+            energy_consumed_kwh: number;
             /** Id */
             id: string;
             /** P Kw */
@@ -1069,6 +1041,18 @@ export interface components {
          *     bus (after the transformer losses).
          */
         MeterMeasurement: {
+            energy?: components["schemas"]["EnergyTotals"];
+            /**
+             * Energy Export Kwh
+             * @description Energy toward the MV bus.
+             * @default 0
+             */
+            energy_export_kwh: number;
+            /**
+             * Energy Import Kwh
+             * @default 0
+             */
+            energy_import_kwh: number;
             /**
              * I A
              * @description Current on the transformer's HV side.
@@ -1104,11 +1088,6 @@ export interface components {
             /** V Pu */
             v_pu: number;
         };
-        /**
-         * ModbusDataType
-         * @enum {string}
-         */
-        ModbusDataType: "bool" | "int16" | "uint16" | "int32" | "uint32" | "float32" | "uint64";
         /** ModbusDevice */
         ModbusDevice: {
             /** Asset Id */
@@ -1121,7 +1100,8 @@ export interface components {
         };
         /**
          * ModbusInterfaceConfig
-         * @description The maps are the files in site_config/modbus_maps/<site>/ (one per asset).
+         * @description The Modbus TCP server: one read-only aggregator laid out by the PAE point standard (see
+         *     GET /api/modbus/registers). Started or stopped when the site is activated or saved.
          */
         ModbusInterfaceConfig: {
             /**
@@ -1129,85 +1109,6 @@ export interface components {
              * @default false
              */
             enabled: boolean;
-        };
-        /**
-         * ModbusMap
-         * @description One asset's map. `asset` is `<asset_type>.<asset_id>`, e.g. `bess.bess1`.
-         */
-        ModbusMap: {
-            /** Asset */
-            asset: string;
-            /**
-             * Map Version
-             * @default 1
-             * @constant
-             */
-            map_version: 1;
-            /** Points */
-            points: components["schemas"]["ModbusPointMap"][];
-            /**
-             * Port
-             * @default 502
-             */
-            port: number;
-            /**
-             * Register Numbering
-             * @default zero_based
-             * @enum {string}
-             */
-            register_numbering: "zero_based" | "one_based";
-            /** Unit Id */
-            unit_id: number;
-        };
-        /** ModbusMapSummary */
-        ModbusMapSummary: {
-            /** Asset */
-            asset: string;
-            /**
-             * Orphaned
-             * @description True if the site no longer has this asset.
-             */
-            orphaned: boolean;
-            /** Points */
-            points: number;
-            /** Port */
-            port: number;
-            /** Unit Id */
-            unit_id: number;
-        };
-        /** ModbusPointMap */
-        ModbusPointMap: {
-            /** Address */
-            address: number;
-            /**
-             * Bit Flags
-             * @description For an alarm/flag word: bit number (0 = LSB) → flag name.
-             */
-            bit_flags?: {
-                [key: string]: string;
-            } | null;
-            data_type: components["schemas"]["ModbusDataType"];
-            /**
-             * Enum Values
-             * @description For a status enum: register value → state name.
-             */
-            enum_values?: {
-                [key: string]: string;
-            } | null;
-            /**
-             * Point
-             * @description Point name from the asset type's point list.
-             */
-            point: string;
-            register_type: components["schemas"]["RegisterType"];
-            /**
-             * Scale
-             * @description Engineering value = raw × scale.
-             * @default 1
-             */
-            scale: number;
-            /** @default big */
-            word_order: components["schemas"]["WordOrder"];
         };
         /** ModbusRegister */
         ModbusRegister: {
@@ -1245,10 +1146,20 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Error
+             * @description Why it failed to start, if it did.
+             */
+            error: string | null;
+            /**
              * Port
              * @description The port the server listens on (inside the container).
              */
             port: number;
+            /**
+             * Running
+             * @description Whether the Modbus server is actually serving now.
+             */
+            running: boolean;
             /** Unit Id */
             unit_id: number;
         };
@@ -1281,6 +1192,17 @@ export interface components {
             alarm_flags: number;
             /** Angle Deg */
             angle_deg: number;
+            energy?: components["schemas"]["EnergyTotals"];
+            /**
+             * Energy Export Kwh
+             * @default 0
+             */
+            energy_export_kwh: number;
+            /**
+             * Energy Import Kwh
+             * @default 0
+             */
+            energy_import_kwh: number;
             /** I A */
             i_a: number;
             /** Meter State */
@@ -1404,7 +1326,7 @@ export interface components {
             scale: number;
             /**
              * Scenario
-             * @description Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.
+             * @description Profile scenario: a CSV in profiles/<load|pv>/<scenario>.csv.
              */
             scenario: string;
         };
@@ -1462,7 +1384,7 @@ export interface components {
             scale: number;
             /**
              * Scenario
-             * @description Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.
+             * @description Profile scenario: a CSV in profiles/<load|pv>/<scenario>.csv.
              */
             scenario: string;
             /** @default ac_kw */
@@ -1518,6 +1440,17 @@ export interface components {
             alarm_flags: number;
             /** Curtailment Kw */
             curtailment_kw: number;
+            energy?: components["schemas"]["EnergyTotals"];
+            /**
+             * Energy Produced Kwh
+             * @default 0
+             */
+            energy_produced_kwh: number;
+            /**
+             * Energy Produced Today Kwh
+             * @default 0
+             */
+            energy_produced_today_kwh: number;
             /** Id */
             id: string;
             /** Inverter State */
@@ -1595,11 +1528,6 @@ export interface components {
             q_mode: string;
         };
         /**
-         * RegisterType
-         * @enum {string}
-         */
-        RegisterType: "holding" | "input" | "coil" | "discrete_input";
-        /**
          * RunState
          * @enum {string}
          */
@@ -1671,6 +1599,11 @@ export interface components {
             test_mode: boolean;
         };
         /**
+         * SiteCategory
+         * @enum {string}
+         */
+        SiteCategory: "default" | "custom";
+        /**
          * SiteConfig
          * @description A grid-connected site: the utility feeder, the POI, MV collectors and N BESS/PV/loads.
          */
@@ -1707,10 +1640,18 @@ export interface components {
         };
         /** SiteList */
         SiteList: {
-            /** Active */
+            /**
+             * Active
+             * @description The site the simulator is running now.
+             */
             active: string;
             /** Sites */
-            sites: string[];
+            sites: components["schemas"]["StoredSite"][];
+            /**
+             * Stored Active
+             * @description The database's active-site choice (loaded at startup). Differs from `active` only when the ACTIVE_SITE setting overrides it for this run.
+             */
+            stored_active: string | null;
         };
         /** Snapshot */
         Snapshot: {
@@ -1745,6 +1686,13 @@ export interface components {
             step_id: number;
             /** Transformers */
             transformers: components["schemas"]["TransformerMeasurement"][];
+        };
+        /** StoredSite */
+        StoredSite: {
+            /** @description `default` sites ship with powerflow and can't be deleted (they can be edited); every site created through the API is `custom`. */
+            category: components["schemas"]["SiteCategory"];
+            /** Name */
+            name: string;
         };
         /** TransformerConfig */
         TransformerConfig: {
@@ -1828,11 +1776,6 @@ export interface components {
             /** Service */
             service: string;
         };
-        /**
-         * WordOrder
-         * @enum {string}
-         */
-        WordOrder: "big" | "little";
     };
     responses: never;
     parameters: never;
@@ -2090,97 +2033,6 @@ export interface operations {
             };
         };
     };
-    config_schema_api_config_schema_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: components["schemas"]["JsonValue"];
-                    };
-                };
-            };
-        };
-    };
-    get_defaults_api_defaults_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefaultsInfo"];
-                };
-            };
-        };
-    };
-    restore_defaults_api_defaults_restore_post: {
-        parameters: {
-            query?: {
-                overwrite?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DefaultsRestoreResult"];
-                };
-            };
-            /** @description No such site, map or scenario. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not allowed now (running, or in use). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid name or content. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -2427,7 +2279,7 @@ export interface operations {
                     "text/csv": string;
                 };
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2482,7 +2334,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProfileSaveResult"];
                 };
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2530,7 +2382,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2601,7 +2453,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2819,7 +2671,7 @@ export interface operations {
                     "application/json": components["schemas"]["SiteConfig"];
                 };
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2872,7 +2724,7 @@ export interface operations {
                     "application/json": components["schemas"]["SiteConfig"];
                 };
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2919,7 +2771,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2968,208 +2820,7 @@ export interface operations {
                     "application/json": components["schemas"]["SiteConfig"];
                 };
             };
-            /** @description No such site, map or scenario. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not allowed now (running, or in use). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid name or content. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    list_maps_api_sites__site__modbus_maps_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                site: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModbusMapSummary"][];
-                };
-            };
-            /** @description No such site, map or scenario. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not allowed now (running, or in use). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid name or content. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_map_api_sites__site__modbus_maps__asset__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                site: string;
-                asset: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModbusMap"];
-                };
-            };
-            /** @description No such site, map or scenario. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not allowed now (running, or in use). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid name or content. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    put_map_api_sites__site__modbus_maps__asset__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                site: string;
-                asset: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ModbusMap"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModbusMap"];
-                };
-            };
-            /** @description No such site, map or scenario. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not allowed now (running, or in use). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid name or content. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    delete_map_api_sites__site__modbus_maps__asset__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                site: string;
-                asset: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No such site, map or scenario. */
+            /** @description No such site or scenario. */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -36,7 +36,7 @@ class TestTopology:
             GRID_IMPEDANCE,
             PoiBranchKind.IMPEDANCE,
         )
-        reference = build_topology(default_site("reference_2bess_1pv"))
+        reference = build_topology(default_site("2bess_1pv"))
         assert (reference.poi_branch, reference.poi_branch_kind) == (POI_LINE, PoiBranchKind.LINE)
 
     def test_each_asset_gets_lv_bus_transformer_and_injection(self) -> None:
@@ -118,7 +118,7 @@ def full_output_injections(config: SiteConfig) -> dict[str, Injection]:
     return injections
 
 
-@pytest.mark.parametrize("name", ["small_1bess_1pv", "reference_2bess_1pv", "three_bess_two_pv"])
+@pytest.mark.parametrize("name", ["1bess_1pv", "2bess_1pv", "3bess_2pv"])
 def test_power_balance(name: str) -> None:
     """POI P = ΣPV + ΣBESS − ΣLoad − Σaux − site losses (transformers + collector feeders)."""
     config = default_site(name)

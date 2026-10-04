@@ -2,7 +2,8 @@
 
 import asyncio
 
-from conftest import POINT_STANDARD, PROFILES, SITE_CONFIG_DIR, default_site
+import pytest
+from conftest import POINT_STANDARD, PROFILES, PROFILES_DIR, default_site
 from fastapi.testclient import TestClient
 from pymodbus.client import AsyncModbusTcpClient
 
@@ -23,7 +24,7 @@ UNIT_ID = 1
 
 
 def make_adapter() -> tuple[ModbusAdapter, Engine]:
-    config = default_site("reference_2bess_1pv")
+    config = default_site("2bess_1pv")
     simulation = config.simulation.model_copy(
         update={"test_mode": True, "start_time": config.simulation.start_time.replace(hour=12)}
     )
@@ -32,9 +33,7 @@ def make_adapter() -> tuple[ModbusAdapter, Engine]:
         SiteRuntime.build(config, PROFILES, PandapowerSolver), PandapowerSolver, PROFILES
     )
     setpoints = SetpointService(engine)
-    library = SiteLibrary(
-        InMemoryConfigRepository(), PROFILES, engine, SITE_CONFIG_DIR, "reference_2bess_1pv"
-    )
+    library = SiteLibrary(InMemoryConfigRepository(), PROFILES, engine, "2bess_1pv")
     context = AdapterContext(
         engine, PointRegistry(engine, setpoints), setpoints, library, POINT_STANDARD
     )
@@ -59,9 +58,8 @@ def test_served_values_over_tcp() -> None:
         client = AsyncModbusTcpClient("127.0.0.1", port=adapter.port)
         try:
             engine.setpoints.set_bess("bess1", BessSetpoint(-500, 0, BessMode.PQ))
-            for _ in range(10):  # the adapter integrates the counters once per step it sees
-                await engine.step(1)
-                adapter.refresh()
+            await engine.step(10)  # counters are integrated by the simulation, every step
+            adapter.refresh()
             snapshot = engine.store.latest
             assert snapshot is not None
             await client.connect()
@@ -84,10 +82,11 @@ def test_served_values_over_tcp() -> None:
             inputs = await client.read_input_registers(counter, count=2, device_id=UNIT_ID)
             assert holding.registers == inputs.registers
             raw = (holding.registers[0] << 16) | holding.registers[1]
-            charged_wh = sum(
-                -step.bess[0].p_kw * 1000 / 3600 for step in engine.store.history()[1:]
+            # Every step counts (the simulation integrates the counters), the first one too.
+            assert snapshot.bess[0].energy.wh_negative == pytest.approx(
+                sum(-step.bess[0].p_kw * 1000 / 3600 for step in engine.store.history())
             )
-            assert raw == round(charged_wh / 1000) >= 1  # scale 1000: kWh resolution
+            assert raw == round(snapshot.bess[0].energy.wh_negative / 1000) >= 1  # kWh resolution
 
             # Hz is the 60 Hz random signal (0.01 Hz units); unserved points read 0.
             hz = address_of(engine, "bess.bess1", "Hz")
@@ -124,10 +123,11 @@ def test_writes_are_refused() -> None:
     asyncio.run(scenario())
 
 
-def test_layout_endpoint(site_config_copy: object) -> None:
-    with TestClient(create_app(SITE_CONFIG_DIR, InMemoryConfigRepository())) as client:
+def test_layout_endpoint() -> None:
+    repository = InMemoryConfigRepository.with_default_sites()
+    with TestClient(create_app(PROFILES_DIR, repository)) as client:
         body = client.get("/api/modbus/registers").json()
-    assert body["enabled"] is True and body["unit_id"] == UNIT_ID
+    assert body["enabled"] is True and body["running"] is True and body["unit_id"] == UNIT_ID
     bases = {(device["kind"], device["asset_id"]): device["base"] for device in body["devices"]}
     assert bases[("bess", "bess1")] == 1000 and bases[("poi_meter", "meter")] == 4000
     bess1 = next(device for device in body["devices"] if device["asset_id"] == "bess1")

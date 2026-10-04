@@ -13,8 +13,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('powerflowApi', () => {
   it('calls the simulator same-origin under /powerflow-api', async () => {
-    const fetchMock = stubFetch(200, { active: 'a', sites: ['a', 'b'] });
-    await expect(powerflowApi.listSites()).resolves.toEqual({ active: 'a', sites: ['a', 'b'] });
+    const body = { active: 'a', stored_active: 'a', sites: [{ name: 'a', category: 'default' }] };
+    const fetchMock = stubFetch(200, body);
+    await expect(powerflowApi.listSites()).resolves.toEqual(body);
     expect(fetchMock.mock.calls[0][0]).toBe('/powerflow-api/sites');
   });
 
@@ -35,12 +36,10 @@ describe('powerflowApi', () => {
     expect(JSON.parse(init.body)).toEqual({ p_kw: 1500, mode: 'pq' });
   });
 
-  it('passes restore overwrite and step count as query parameters', async () => {
+  it('passes the step count as a query parameter', async () => {
     const fetchMock = stubFetch(200, {});
-    await powerflowApi.restoreDefaults(true);
     await powerflowApi.step(5);
-    expect(fetchMock.mock.calls[0][0]).toBe('/powerflow-api/defaults/restore?overwrite=true');
-    expect(fetchMock.mock.calls[1][0]).toBe('/powerflow-api/sim/step?count=5');
+    expect(fetchMock.mock.calls[0][0]).toBe('/powerflow-api/sim/step?count=5');
   });
 
   it('returns a profile CSV as text', async () => {

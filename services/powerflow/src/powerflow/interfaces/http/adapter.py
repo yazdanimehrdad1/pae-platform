@@ -21,7 +21,7 @@ from powerflow.errors import (
     UnknownAssetError,
     UnknownPointError,
 )
-from powerflow.interfaces.base import AdapterContext, ProtocolAdapter
+from powerflow.interfaces.base import AdapterContext, AdapterRegistry, ProtocolAdapter
 from powerflow.interfaces.http import (
     routes_assets,
     routes_config,
@@ -30,7 +30,7 @@ from powerflow.interfaces.http import (
     routes_modbus,
     routes_sim,
 )
-from powerflow.interfaces.http.dependencies import get_context
+from powerflow.interfaces.http.dependencies import get_adapters, get_context
 from powerflow.interfaces.http.schemas import HealthResponse, VersionResponse
 
 SERVICE_NAME = "powerflow"
@@ -61,8 +61,16 @@ def build_router(api_version: str) -> APIRouter:
     router = APIRouter()
 
     @router.get("/health", response_model=HealthResponse, tags=["health"], summary="Liveness")
-    async def health(context: AdapterContext = Depends(get_context)) -> HealthResponse:
-        return HealthResponse(ok=True, state=context.engine.run_state)
+    async def health(
+        context: AdapterContext = Depends(get_context),
+        adapters: AdapterRegistry = Depends(get_adapters),
+    ) -> HealthResponse:
+        return HealthResponse(
+            ok=True,
+            state=context.engine.run_state,
+            interfaces=adapters.running,
+            interface_errors=adapters.failed,
+        )
 
     @router.get("/version", response_model=VersionResponse, tags=["health"], summary="Versions")
     async def get_version() -> VersionResponse:

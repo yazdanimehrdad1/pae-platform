@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Depends
 
-from powerflow.interfaces.base import AdapterContext
-from powerflow.interfaces.http.dependencies import get_context
+from powerflow.interfaces.base import AdapterContext, AdapterRegistry
+from powerflow.interfaces.http.dependencies import get_adapters, get_context
 from powerflow.interfaces.http.schemas import (
     ModbusDevice,
     ModbusRegister,
@@ -25,10 +25,13 @@ router = APIRouter(tags=["modbus"])
 )
 async def modbus_registers(
     context: AdapterContext = Depends(get_context),
+    adapters: AdapterRegistry = Depends(get_adapters),
 ) -> ModbusRegistersResponse:
     config = context.engine.config
     return ModbusRegistersResponse(
         enabled=config.interfaces.modbus.enabled,
+        running="modbus" in adapters.running,
+        error=adapters.failed.get("modbus"),
         port=settings.modbus_port,
         unit_id=settings.modbus_unit_id,
         devices=[

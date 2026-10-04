@@ -35,9 +35,9 @@ RUN groupadd --system --gid 999 app && \
 
 COPY --from=builder /opt/venv /opt/venv
 COPY src/ ./src/
-# Shipped defaults (seeded into an empty database) and the profile scenario CSVs. compose mounts
-# a named volume on site_config/profiles, which Docker seeds from here on first use.
-COPY --chown=app:app site_config/ ./site_config/
+# The profile scenario CSVs (sites live only in the database). compose mounts a named volume on
+# profiles/, which Docker seeds from here on first use.
+COPY --chown=app:app profiles/ ./profiles/
 # The PAE point standard: the Modbus server's register layout and point list.
 COPY docs/point-standard/ ./docs/point-standard/
 

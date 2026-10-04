@@ -1,7 +1,7 @@
 """FastAPI application factory. Every route lives under /api and declares a response_model.
 
-Startup connects to Postgres (DATABASE_URL) and applies migrations, seeds the shipped defaults
-into an empty database, loads the active site (ACTIVE_SITE overrides the stored choice), builds
+Startup connects to Postgres (DATABASE_URL) and applies migrations (a fresh database gets the
+default sites from one), loads the active site (ACTIVE_SITE overrides the stored choice), builds
 the engine and the protocol-neutral data layer, starts the enabled interface adapters, and starts
 the real-time loop if `simulation.autostart` is set.
 """
@@ -17,7 +17,7 @@ from powerflow.core.engine import Engine
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import SetpointService
-from powerflow.core.site_library import SiteLibrary, seed_defaults
+from powerflow.core.site_library import SiteLibrary
 from powerflow.errors import SiteConfigError
 from powerflow.interfaces.base import AdapterContext, AdapterRegistry
 from powerflow.interfaces.http.adapter import HttpAdapter, build_router, install_error_handlers
@@ -25,8 +25,8 @@ from powerflow.interfaces.modbus.adapter import ModbusAdapter
 from powerflow.network.pandapower_solver import PandapowerSolver
 from powerflow.point_standard import load_point_standard
 from powerflow.settings import settings
+from powerflow.site_config import SiteConfig
 from powerflow.storage import ConfigRepository, ProfileStore
-from powerflow.storage.defaults import read_defaults
 from powerflow.storage.postgres import (
     PostgresConfigRepository,
     create_database_engine,
@@ -36,7 +36,7 @@ from powerflow.storage.postgres import (
 
 # The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
 # (see contracts/README.md).
-API_VERSION = "0.1.0"
+API_VERSION = "0.2.0"
 DESCRIPTION = """\
 Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,
 quasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,
@@ -73,28 +73,27 @@ async def _open_repository() -> ConfigRepository:
 
 
 def create_app(
-    site_config_dir: Path | None = None, repository: ConfigRepository | None = None
+    profiles_dir: Path | None = None, repository: ConfigRepository | None = None
 ) -> FastAPI:
-    """site_config_dir overrides SITE_CONFIG_DIR; repository replaces Postgres (tests pass an
-    InMemoryConfigRepository)."""
+    """profiles_dir overrides PROFILES_DIR; repository replaces Postgres (tests pass an
+    InMemoryConfigRepository, usually `.with_default_sites()`)."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         _configure_logging(settings.log_level)
-        defaults_dir = site_config_dir or settings.resolved_site_config_dir()
         store = repository or await _open_repository()
-        if await store.is_empty():
-            await seed_defaults(store, read_defaults(defaults_dir))
-            logger.info("empty database: seeded the defaults from %s", defaults_dir)
+        # ACTIVE_SITE overrides the stored choice for this run only (the database keeps its own).
         active_site = settings.active_site or await store.get_active_site()
         if active_site is None:
-            raise SiteConfigError("no active site: POST /api/sites/{name}/activate is needed")
+            raise SiteConfigError(
+                "no active site is stored: set ACTIVE_SITE to one of the stored sites"
+            )
         config = await store.get_site(active_site)
-        profile_store = ProfileStore(defaults_dir / "profiles")
+        profile_store = ProfileStore(profiles_dir or settings.resolved_profiles_dir())
         runtime = SiteRuntime.build(config, profile_store, PandapowerSolver)
         engine = Engine(runtime, PandapowerSolver, profile_store)
         setpoints = SetpointService(engine)
-        library = SiteLibrary(store, profile_store, engine, defaults_dir, active_site)
+        library = SiteLibrary(store, profile_store, engine, active_site)
         context = AdapterContext(
             engine=engine,
             points=PointRegistry(engine, setpoints),
@@ -115,7 +114,12 @@ def create_app(
         )
         app.state.context = context
         app.state.adapters = adapters
-        await adapters.start_enabled(config.interfaces, context)
+
+        async def restart_interfaces(new_config: SiteConfig) -> None:
+            await adapters.reconcile(new_config.interfaces, context)
+
+        library.on_config_replaced = restart_interfaces
+        await adapters.reconcile(config.interfaces, context)
         logger.info("site %r (%s) loaded", active_site, config.site.name)
         if config.simulation.autostart:
             await engine.start()

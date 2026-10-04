@@ -236,12 +236,25 @@
             "title": "Aux P Kw",
             "type": "number"
           },
+          "energy": {
+            "$ref": "#/components/schemas/EnergyTotals"
+          },
           "energy_available_charge_kwh": {
             "title": "Energy Available Charge Kwh",
             "type": "number"
           },
           "energy_available_discharge_kwh": {
             "title": "Energy Available Discharge Kwh",
+            "type": "number"
+          },
+          "energy_charged_kwh": {
+            "default": 0.0,
+            "title": "Energy Charged Kwh",
+            "type": "number"
+          },
+          "energy_discharged_kwh": {
+            "default": 0.0,
+            "title": "Energy Discharged Kwh",
             "type": "number"
           },
           "id": {
@@ -489,83 +502,6 @@
         "title": "DataType",
         "type": "string"
       },
-      "DefaultsInfo": {
-        "properties": {
-          "active_site": {
-            "description": "The site made active on a fresh database.",
-            "title": "Active Site",
-            "type": "string"
-          },
-          "sites": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "description": "Default sites and their Modbus map assets.",
-            "title": "Sites",
-            "type": "object"
-          }
-        },
-        "required": [
-          "active_site",
-          "sites"
-        ],
-        "title": "DefaultsInfo",
-        "type": "object"
-      },
-      "DefaultsRestoreResult": {
-        "properties": {
-          "active_site_reloaded": {
-            "title": "Active Site Reloaded",
-            "type": "boolean"
-          },
-          "maps_skipped": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Maps Skipped",
-            "type": "array"
-          },
-          "maps_written": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Maps Written",
-            "type": "array"
-          },
-          "overwrite": {
-            "title": "Overwrite",
-            "type": "boolean"
-          },
-          "sites_skipped": {
-            "description": "Already stored; pass overwrite=true.",
-            "items": {
-              "type": "string"
-            },
-            "title": "Sites Skipped",
-            "type": "array"
-          },
-          "sites_written": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Sites Written",
-            "type": "array"
-          }
-        },
-        "required": [
-          "overwrite",
-          "sites_written",
-          "sites_skipped",
-          "maps_written",
-          "maps_skipped",
-          "active_site_reloaded"
-        ],
-        "title": "DefaultsRestoreResult",
-        "type": "object"
-      },
       "DeviceKind": {
         "enum": [
           "site",
@@ -624,6 +560,87 @@
           }
         },
         "title": "EfficiencyConfig",
+        "type": "object"
+      },
+      "EnergyTotals": {
+        "description": "Energy through one device since the simulation started (reset), integrated every converged\nstep over its real length (core/energy.py). In the device's own sign convention:\nWh, varh, VAh.",
+        "properties": {
+          "day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "vah_negative": {
+            "default": 0.0,
+            "description": "Apparent energy while P < 0.",
+            "title": "Vah Negative",
+            "type": "number"
+          },
+          "vah_positive": {
+            "default": 0.0,
+            "description": "Apparent energy while P >= 0.",
+            "title": "Vah Positive",
+            "type": "number"
+          },
+          "varh_negative": {
+            "default": 0.0,
+            "title": "Varh Negative",
+            "type": "number"
+          },
+          "varh_positive": {
+            "default": 0.0,
+            "title": "Varh Positive",
+            "type": "number"
+          },
+          "varh_q1": {
+            "default": 0.0,
+            "description": "|Q| energy in quadrant 1 (P >= 0, Q >= 0).",
+            "title": "Varh Q1",
+            "type": "number"
+          },
+          "varh_q2": {
+            "default": 0.0,
+            "description": "Quadrant 2 (P < 0, Q >= 0).",
+            "title": "Varh Q2",
+            "type": "number"
+          },
+          "varh_q3": {
+            "default": 0.0,
+            "description": "Quadrant 3 (P < 0, Q < 0).",
+            "title": "Varh Q3",
+            "type": "number"
+          },
+          "varh_q4": {
+            "default": 0.0,
+            "description": "Quadrant 4 (P >= 0, Q < 0).",
+            "title": "Varh Q4",
+            "type": "number"
+          },
+          "wh_negative": {
+            "default": 0.0,
+            "title": "Wh Negative",
+            "type": "number"
+          },
+          "wh_positive": {
+            "default": 0.0,
+            "title": "Wh Positive",
+            "type": "number"
+          },
+          "wh_positive_today": {
+            "default": 0.0,
+            "description": "Since the sim day began (UTC).",
+            "title": "Wh Positive Today",
+            "type": "number"
+          }
+        },
+        "title": "EnergyTotals",
         "type": "object"
       },
       "EngineStatus": {
@@ -774,6 +791,22 @@
       },
       "HealthResponse": {
         "properties": {
+          "interface_errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Interfaces the active site enables that failed to start, with the reason.",
+            "title": "Interface Errors",
+            "type": "object"
+          },
+          "interfaces": {
+            "description": "Protocol interfaces running now (http, modbus).",
+            "items": {
+              "type": "string"
+            },
+            "title": "Interfaces",
+            "type": "array"
+          },
           "ok": {
             "title": "Ok",
             "type": "boolean"
@@ -784,7 +817,9 @@
         },
         "required": [
           "ok",
-          "state"
+          "state",
+          "interfaces",
+          "interface_errors"
         ],
         "title": "HealthResponse",
         "type": "object"
@@ -1016,6 +1051,14 @@
             "title": "Alarm Flags",
             "type": "integer"
           },
+          "energy": {
+            "$ref": "#/components/schemas/EnergyTotals"
+          },
+          "energy_consumed_kwh": {
+            "default": 0.0,
+            "title": "Energy Consumed Kwh",
+            "type": "number"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -1101,6 +1144,20 @@
       "MeterMeasurement": {
         "description": "A feeder meter on the HV side of an asset's transformer. Positive P/Q = toward the MV\nbus (after the transformer losses).",
         "properties": {
+          "energy": {
+            "$ref": "#/components/schemas/EnergyTotals"
+          },
+          "energy_export_kwh": {
+            "default": 0.0,
+            "description": "Energy toward the MV bus.",
+            "title": "Energy Export Kwh",
+            "type": "number"
+          },
+          "energy_import_kwh": {
+            "default": 0.0,
+            "title": "Energy Import Kwh",
+            "type": "number"
+          },
           "i_a": {
             "description": "Current on the transformer's HV side.",
             "title": "I A",
@@ -1166,19 +1223,6 @@
         "title": "MeterMeasurement",
         "type": "object"
       },
-      "ModbusDataType": {
-        "enum": [
-          "bool",
-          "int16",
-          "uint16",
-          "int32",
-          "uint32",
-          "float32",
-          "uint64"
-        ],
-        "title": "ModbusDataType",
-        "type": "string"
-      },
       "ModbusDevice": {
         "properties": {
           "asset_id": {
@@ -1211,7 +1255,7 @@
       },
       "ModbusInterfaceConfig": {
         "additionalProperties": false,
-        "description": "The maps are the files in site_config/modbus_maps/<site>/ (one per asset).",
+        "description": "The Modbus TCP server: one read-only aggregator laid out by the PAE point standard (see\nGET /api/modbus/registers). Started or stopped when the site is activated or saved.",
         "properties": {
           "enabled": {
             "default": false,
@@ -1220,164 +1264,6 @@
           }
         },
         "title": "ModbusInterfaceConfig",
-        "type": "object"
-      },
-      "ModbusMap": {
-        "additionalProperties": false,
-        "description": "One asset's map. `asset` is `<asset_type>.<asset_id>`, e.g. `bess.bess1`.",
-        "properties": {
-          "asset": {
-            "pattern": "^(bess|pv|load|poi|site|meter)\\.[A-Za-z0-9_-]+$",
-            "title": "Asset",
-            "type": "string"
-          },
-          "map_version": {
-            "const": 1,
-            "default": 1,
-            "title": "Map Version",
-            "type": "integer"
-          },
-          "points": {
-            "items": {
-              "$ref": "#/components/schemas/ModbusPointMap"
-            },
-            "minItems": 1,
-            "title": "Points",
-            "type": "array"
-          },
-          "port": {
-            "default": 502,
-            "maximum": 65535.0,
-            "minimum": 1.0,
-            "title": "Port",
-            "type": "integer"
-          },
-          "register_numbering": {
-            "default": "zero_based",
-            "enum": [
-              "zero_based",
-              "one_based"
-            ],
-            "title": "Register Numbering",
-            "type": "string"
-          },
-          "unit_id": {
-            "maximum": 247.0,
-            "minimum": 1.0,
-            "title": "Unit Id",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "asset",
-          "unit_id",
-          "points"
-        ],
-        "title": "ModbusMap",
-        "type": "object"
-      },
-      "ModbusMapSummary": {
-        "properties": {
-          "asset": {
-            "title": "Asset",
-            "type": "string"
-          },
-          "orphaned": {
-            "description": "True if the site no longer has this asset.",
-            "title": "Orphaned",
-            "type": "boolean"
-          },
-          "points": {
-            "title": "Points",
-            "type": "integer"
-          },
-          "port": {
-            "title": "Port",
-            "type": "integer"
-          },
-          "unit_id": {
-            "title": "Unit Id",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "asset",
-          "unit_id",
-          "port",
-          "points",
-          "orphaned"
-        ],
-        "title": "ModbusMapSummary",
-        "type": "object"
-      },
-      "ModbusPointMap": {
-        "additionalProperties": false,
-        "properties": {
-          "address": {
-            "maximum": 65535.0,
-            "minimum": 0.0,
-            "title": "Address",
-            "type": "integer"
-          },
-          "bit_flags": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "For an alarm/flag word: bit number (0 = LSB) → flag name.",
-            "title": "Bit Flags"
-          },
-          "data_type": {
-            "$ref": "#/components/schemas/ModbusDataType"
-          },
-          "enum_values": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "For a status enum: register value → state name.",
-            "title": "Enum Values"
-          },
-          "point": {
-            "description": "Point name from the asset type's point list.",
-            "title": "Point",
-            "type": "string"
-          },
-          "register_type": {
-            "$ref": "#/components/schemas/RegisterType"
-          },
-          "scale": {
-            "default": 1.0,
-            "description": "Engineering value = raw × scale.",
-            "title": "Scale",
-            "type": "number"
-          },
-          "word_order": {
-            "$ref": "#/components/schemas/WordOrder",
-            "default": "big"
-          }
-        },
-        "required": [
-          "point",
-          "register_type",
-          "address",
-          "data_type"
-        ],
-        "title": "ModbusPointMap",
         "type": "object"
       },
       "ModbusRegister": {
@@ -1435,10 +1321,27 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it failed to start, if it did.",
+            "title": "Error"
+          },
           "port": {
             "description": "The port the server listens on (inside the container).",
             "title": "Port",
             "type": "integer"
+          },
+          "running": {
+            "description": "Whether the Modbus server is actually serving now.",
+            "title": "Running",
+            "type": "boolean"
           },
           "unit_id": {
             "title": "Unit Id",
@@ -1447,6 +1350,8 @@
         },
         "required": [
           "enabled",
+          "running",
+          "error",
           "port",
           "unit_id",
           "devices"
@@ -1509,6 +1414,19 @@
           },
           "angle_deg": {
             "title": "Angle Deg",
+            "type": "number"
+          },
+          "energy": {
+            "$ref": "#/components/schemas/EnergyTotals"
+          },
+          "energy_export_kwh": {
+            "default": 0.0,
+            "title": "Energy Export Kwh",
+            "type": "number"
+          },
+          "energy_import_kwh": {
+            "default": 0.0,
+            "title": "Energy Import Kwh",
             "type": "number"
           },
           "i_a": {
@@ -1787,7 +1705,7 @@
             "type": "number"
           },
           "scenario": {
-            "description": "Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.",
+            "description": "Profile scenario: a CSV in profiles/<load|pv>/<scenario>.csv.",
             "pattern": "^[a-z0-9_]+$",
             "title": "Scenario",
             "type": "string"
@@ -1918,7 +1836,7 @@
             "type": "number"
           },
           "scenario": {
-            "description": "Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.",
+            "description": "Profile scenario: a CSV in profiles/<load|pv>/<scenario>.csv.",
             "pattern": "^[a-z0-9_]+$",
             "title": "Scenario",
             "type": "string"
@@ -2046,6 +1964,19 @@
           },
           "curtailment_kw": {
             "title": "Curtailment Kw",
+            "type": "number"
+          },
+          "energy": {
+            "$ref": "#/components/schemas/EnergyTotals"
+          },
+          "energy_produced_kwh": {
+            "default": 0.0,
+            "title": "Energy Produced Kwh",
+            "type": "number"
+          },
+          "energy_produced_today_kwh": {
+            "default": 0.0,
+            "title": "Energy Produced Today Kwh",
             "type": "number"
           },
           "id": {
@@ -2235,16 +2166,6 @@
         "title": "PvSetpointState",
         "type": "object"
       },
-      "RegisterType": {
-        "enum": [
-          "holding",
-          "input",
-          "coil",
-          "discrete_input"
-        ],
-        "title": "RegisterType",
-        "type": "string"
-      },
       "RunState": {
         "enum": [
           "stopped",
@@ -2375,6 +2296,14 @@
         "title": "SimulationConfig",
         "type": "object"
       },
+      "SiteCategory": {
+        "enum": [
+          "default",
+          "custom"
+        ],
+        "title": "SiteCategory",
+        "type": "string"
+      },
       "SiteConfig": {
         "additionalProperties": false,
         "description": "A grid-connected site: the utility feeder, the POI, MV collectors and N BESS/PV/loads.",
@@ -2455,19 +2384,33 @@
       "SiteList": {
         "properties": {
           "active": {
+            "description": "The site the simulator is running now.",
             "title": "Active",
             "type": "string"
           },
           "sites": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/StoredSite"
             },
             "title": "Sites",
             "type": "array"
+          },
+          "stored_active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The database's active-site choice (loaded at startup). Differs from `active` only when the ACTIVE_SITE setting overrides it for this run.",
+            "title": "Stored Active"
           }
         },
         "required": [
           "active",
+          "stored_active",
           "sites"
         ],
         "title": "SiteList",
@@ -2550,6 +2493,24 @@
           "meters"
         ],
         "title": "Snapshot",
+        "type": "object"
+      },
+      "StoredSite": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/SiteCategory",
+            "description": "`default` sites ship with powerflow and can't be deleted (they can be edited); every site created through the API is `custom`."
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "category"
+        ],
+        "title": "StoredSite",
         "type": "object"
       },
       "TransformerConfig": {
@@ -2724,21 +2685,13 @@
         ],
         "title": "VersionResponse",
         "type": "object"
-      },
-      "WordOrder": {
-        "enum": [
-          "big",
-          "little"
-        ],
-        "title": "WordOrder",
-        "type": "string"
       }
     }
   },
   "info": {
     "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
     "title": "powerflow",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -3064,117 +3017,6 @@
         "summary": "The active site config",
         "tags": [
           "config"
-        ]
-      }
-    },
-    "/api/config/schema": {
-      "get": {
-        "operationId": "config_schema_api_config_schema_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/JsonValue"
-                  },
-                  "title": "Response Config Schema Api Config Schema Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "JSON Schema of a site config",
-        "tags": [
-          "config"
-        ]
-      }
-    },
-    "/api/defaults": {
-      "get": {
-        "description": "Seeded into an empty database at startup. Restore them with POST /api/defaults/restore.",
-        "operationId": "get_defaults_api_defaults_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DefaultsInfo"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "The shipped default sites and Modbus maps",
-        "tags": [
-          "defaults"
-        ]
-      }
-    },
-    "/api/defaults/restore": {
-      "post": {
-        "description": "Without overwrite, sites and maps already stored are kept (reported as skipped). With overwrite=true they're replaced; the simulation must be stopped (409), and the active site is reloaded if it was replaced. The active-site choice is unchanged.",
-        "operationId": "restore_defaults_api_defaults_restore_post",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "overwrite",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Overwrite",
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DefaultsRestoreResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No such site, map or scenario."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed now (running, or in use)."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid name or content."
-          }
-        },
-        "summary": "Import the default sites and maps into the database",
-        "tags": [
-          "defaults"
         ]
       }
     },
@@ -3525,7 +3367,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -3593,7 +3435,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -3673,7 +3515,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -3764,7 +3606,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -3787,7 +3629,7 @@
             "description": "Invalid name or content."
           }
         },
-        "summary": "One JSON Schema, e.g. site-config or modbus-map",
+        "summary": "One JSON Schema (site-config)",
         "tags": [
           "schemas"
         ]
@@ -4011,7 +3853,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -4071,7 +3913,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -4100,7 +3942,7 @@
         ]
       },
       "put": {
-        "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it, so the simulation must be stopped (409 otherwise).",
+        "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it and restarts its protocol interfaces, so the simulation must be stopped (409 otherwise).",
         "operationId": "put_site_api_sites__name__put",
         "parameters": [
           {
@@ -4142,7 +3984,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -4173,7 +4015,7 @@
     },
     "/api/sites/{name}/activate": {
       "post": {
-        "description": "Rebuilds the network, resets the simulation and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start.",
+        "description": "Rebuilds the network, resets the simulation, restarts the protocol interfaces the site enables (e.g. Modbus) and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start.",
         "operationId": "activate_site_api_sites__name__activate_post",
         "parameters": [
           {
@@ -4205,7 +4047,7 @@
                 }
               }
             },
-            "description": "No such site, map or scenario."
+            "description": "No such site or scenario."
           },
           "409": {
             "content": {
@@ -4231,285 +4073,6 @@
         "summary": "Load a stored site (only while stopped)",
         "tags": [
           "sites"
-        ]
-      }
-    },
-    "/api/sites/{site}/modbus-maps": {
-      "get": {
-        "operationId": "list_maps_api_sites__site__modbus_maps_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "site",
-            "required": true,
-            "schema": {
-              "title": "Site",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ModbusMapSummary"
-                  },
-                  "title": "Response List Maps Api Sites  Site  Modbus Maps Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No such site, map or scenario."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed now (running, or in use)."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid name or content."
-          }
-        },
-        "summary": "A site's per-asset Modbus maps",
-        "tags": [
-          "modbus maps"
-        ]
-      }
-    },
-    "/api/sites/{site}/modbus-maps/{asset}": {
-      "delete": {
-        "operationId": "delete_map_api_sites__site__modbus_maps__asset__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "site",
-            "required": true,
-            "schema": {
-              "title": "Site",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "asset",
-            "required": true,
-            "schema": {
-              "title": "Asset",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No such site, map or scenario."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed now (running, or in use)."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid name or content."
-          }
-        },
-        "summary": "Delete an asset's map",
-        "tags": [
-          "modbus maps"
-        ]
-      },
-      "get": {
-        "operationId": "get_map_api_sites__site__modbus_maps__asset__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "site",
-            "required": true,
-            "schema": {
-              "title": "Site",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "asset",
-            "required": true,
-            "schema": {
-              "title": "Asset",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModbusMap"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No such site, map or scenario."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed now (running, or in use)."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid name or content."
-          }
-        },
-        "summary": "One asset's map (asset = <asset_type>.<asset_id>, e.g. pv.pv1, poi.meter)",
-        "tags": [
-          "modbus maps"
-        ]
-      },
-      "put": {
-        "description": "Rejected (422) if the site has no such asset, the body's `asset` differs from the path, registers overlap, a point isn't in the asset type's point list, a writable point isn't on a holding register/coil (or vice versa), or the unit_id+port is already used by another map of the site.",
-        "operationId": "put_map_api_sites__site__modbus_maps__asset__put",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "site",
-            "required": true,
-            "schema": {
-              "title": "Site",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "asset",
-            "required": true,
-            "schema": {
-              "title": "Asset",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ModbusMap"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModbusMap"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "No such site, map or scenario."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed now (running, or in use)."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid name or content."
-          }
-        },
-        "summary": "Create or replace an asset's map",
-        "tags": [
-          "modbus maps"
         ]
       }
     },

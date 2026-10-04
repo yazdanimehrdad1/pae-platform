@@ -1,7 +1,19 @@
-"""Storage: sites, Modbus maps and the active site in a database (ConfigRepository); profile
-scenarios as CSV files (ProfileStore); the shipped defaults read from site_config/."""
+"""Storage: sites and the active site in a database (ConfigRepository; the default sites come from
+a data migration), and profile scenarios as CSV files (ProfileStore)."""
 
 from powerflow.storage.profile_store import ProfileFolder, ProfileStore
-from powerflow.storage.repository import ConfigRepository, InMemoryConfigRepository
+from powerflow.storage.repository import (
+    ConfigRepository,
+    InMemoryConfigRepository,
+    SiteCategory,
+    StoredSite,
+)
 
-__all__ = ["ConfigRepository", "InMemoryConfigRepository", "ProfileFolder", "ProfileStore"]
+__all__ = [
+    "ConfigRepository",
+    "InMemoryConfigRepository",
+    "ProfileFolder",
+    "ProfileStore",
+    "SiteCategory",
+    "StoredSite",
+]

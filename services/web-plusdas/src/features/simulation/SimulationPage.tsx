@@ -64,7 +64,7 @@ const SimulationPage = () => {
               <SelectValue placeholder="Select site" />
             </SelectTrigger>
             <SelectContent>
-              {sites.data.sites.map((name) => (
+              {sites.data.sites.map(({ name }) => (
                 <SelectItem key={name} value={name}>
                   {name}
                   {name === active ? " (active)" : ""}
@@ -88,7 +88,7 @@ const SimulationPage = () => {
           <TabsTrigger value="assets">Assets & setpoints</TabsTrigger>
           <TabsTrigger value="profiles">Profiles</TabsTrigger>
           <TabsTrigger value="modbus">Modbus</TabsTrigger>
-          <TabsTrigger value="sites">Sites & defaults</TabsTrigger>
+          <TabsTrigger value="sites">Sites</TabsTrigger>
           <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
         </TabsList>
 
@@ -134,7 +134,9 @@ const SimulationPage = () => {
           <ProfilesPanel />
         </TabsContent>
 
-        <TabsContent value="modbus">{selected && <ModbusPanel siteName={selected} />}</TabsContent>
+        <TabsContent value="modbus">
+          <ModbusPanel />
+        </TabsContent>
 
         <TabsContent value="sites">
           {selected && <SitesPanel sites={sites.data} selected={selected} runState={runState} onSelect={setChosen} />}

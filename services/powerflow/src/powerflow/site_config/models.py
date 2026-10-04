@@ -1,5 +1,5 @@
-"""The site config schema (Pydantic v2). One model backs the startup JSON file, PUT /config and
-GET /config/schema.
+"""The site config schema (Pydantic v2). One model backs the stored sites (PUT /sites/{name}) and
+GET /schemas/site-config.
 
 Units are in the field names (kW, kvar, kVA, kWh, kV, %, s). Sign conventions are in the README.
 """
@@ -178,7 +178,7 @@ class PvAvailabilitySource(StrEnum):
     IRRADIANCE = "irradiance"  # the profile is irradiance (W/m2), column ghi_wm2
 
 
-# Scenario names are file stems under site_config/profiles/<load|pv>/; the pattern also keeps
+# Scenario names are file stems under profiles/<load|pv>/; the pattern also keeps
 # them from escaping that folder.
 SCENARIO_PATTERN = r"^[a-z0-9_]+$"
 
@@ -186,7 +186,7 @@ SCENARIO_PATTERN = r"^[a-z0-9_]+$"
 class ProfileRef(StrictModel):
     scenario: str = Field(
         pattern=SCENARIO_PATTERN,
-        description="Profile scenario: a CSV in site_config/profiles/<load|pv>/<scenario>.csv.",
+        description="Profile scenario: a CSV in profiles/<load|pv>/<scenario>.csv.",
     )
     scale: float = Field(default=1.0, ge=0, description="Multiplies every profile value.")
     loop: bool = Field(default=True, description="Repeat the profile; else hold the ends.")
@@ -257,7 +257,8 @@ class HttpInterfaceConfig(StrictModel):
 
 
 class ModbusInterfaceConfig(StrictModel):
-    """The maps are the files in site_config/modbus_maps/<site>/ (one per asset)."""
+    """The Modbus TCP server: one read-only aggregator laid out by the PAE point standard (see
+    GET /api/modbus/registers). Started or stopped when the site is activated or saved."""
 
     enabled: bool = False
 

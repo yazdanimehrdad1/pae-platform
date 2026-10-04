@@ -47,9 +47,10 @@ POINT_LIST_FILE: dict[DeviceKind, str] = {
 }
 GROUP_BASE = {"site": 0, "bess": 1000, "pv": 2000, "gen_load": 3000, "meter": 4000}
 GROUP_SIZE = 1000
-SITE_ASSET_ID = "site"
-MET_STATION_ASSET_ID = "met"
-POI_METER_ASSET_ID = "meter"
+# Device ids in the Modbus layout (not powerflow asset ids: those are in powerflow.points).
+SITE_DEVICE_ID = "site"
+MET_STATION_DEVICE_ID = "met"
+POI_METER_DEVICE_ID = "meter"
 
 
 @dataclass(frozen=True)
@@ -113,9 +114,11 @@ def _group(
 
 def build_layout(config: SiteConfig, standard: PointStandard) -> tuple[Device, ...]:
     """Every device of the site, at its base address."""
-    devices = _group(standard, DeviceKind.SITE, [SITE_ASSET_ID], GROUP_BASE["site"])
+    devices = _group(standard, DeviceKind.SITE, [SITE_DEVICE_ID], GROUP_BASE["site"])
     if any(pv.availability.source is PvAvailabilitySource.IRRADIANCE for pv in config.pv):
-        devices += _group(standard, DeviceKind.MET_STATION, [MET_STATION_ASSET_ID], 0, first_slot=1)
+        devices += _group(
+            standard, DeviceKind.MET_STATION, [MET_STATION_DEVICE_ID], 0, first_slot=1
+        )
     devices += _group(
         standard, DeviceKind.BESS, [bess.id for bess in config.bess], GROUP_BASE["bess"]
     )
@@ -123,7 +126,7 @@ def build_layout(config: SiteConfig, standard: PointStandard) -> tuple[Device, .
     devices += _group(
         standard, DeviceKind.LOAD, [load.id for load in config.loads], GROUP_BASE["gen_load"]
     )
-    devices += _group(standard, DeviceKind.POI_METER, [POI_METER_ASSET_ID], GROUP_BASE["meter"])
+    devices += _group(standard, DeviceKind.POI_METER, [POI_METER_DEVICE_ID], GROUP_BASE["meter"])
     devices += _group(
         standard,
         DeviceKind.FEEDER_METER,

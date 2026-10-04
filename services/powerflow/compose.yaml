@@ -41,13 +41,19 @@ services:
       - path: .env
         required: false
     environment:
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
       - DATABASE_URL=postgresql+asyncpg://powerflow:${POWERFLOW_POSTGRES_PASSWORD:-powerflow}@powerflow-postgres:5432/powerflow
-    # Profile scenario CSVs (not in the database yet). Docker seeds the volume from the image's
-    # site_config/profiles on first use; `make down-all` deletes it (back to the shipped CSVs).
+      # Container values for settings a host-oriented .env could also set (it's loaded above):
+      # the Modbus server always listens on 502 inside (published as POWERFLOW_MODBUS_PORT),
+      # the CSV folders are the image's, and ACTIVE_SITE is never inherited.
+      - MODBUS_HOST=0.0.0.0
+      - MODBUS_PORT=502
+      - PROFILES_DIR=profiles
+      - POINT_STANDARD_DIR=docs/point-standard
+      - ACTIVE_SITE=
+    # Profile scenario CSVs. Docker seeds the volume from the image's profiles/ on first use;
+    # `make down-all` deletes it (back to the shipped CSVs).
     volumes:
-      - powerflow-profiles:/app/site_config/profiles
+      - powerflow-profiles:/app/profiles
     depends_on:
       powerflow-postgres:
         condition: service_healthy

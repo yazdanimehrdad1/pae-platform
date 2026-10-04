@@ -1,49 +1,48 @@
-"""SiteLibrary: the stored configuration and switching between sites.
+"""SiteLibrary: the stored sites and switching between them.
 
-- **Sites, their Modbus maps and the active site** live in the database (ConfigRepository).
+- **Sites and the active site** live in the database (ConfigRepository), the only store for them.
+  A fresh database gets the default sites from a data migration (0003_default_sites.sql); they
+  are category `default` and can't be deleted (they can be edited).
 - **Profile scenarios** are CSV files (ProfileStore).
-- **The shipped defaults** in site_config/ are only a seed: they're imported into an empty
-  database at startup, and on demand through `restore_defaults`.
 
 Every write is validated before it's stored. Changing what's running goes through the engine:
 activating a site, saving the active site, and saving a profile scenario the active site uses
-(hot-reloaded, even while running).
+(hot-reloaded, even while running). After the engine's config is replaced, `on_config_replaced`
+runs (the app restarts the protocol interfaces there).
 """
 
 import io
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pandas as pd
 from pydantic import BaseModel, Field, JsonValue
 
 from powerflow.core.engine import Engine, RunState
-from powerflow.errors import InUseError, NotFoundError, ProfileError, SiteConfigError
-from powerflow.points import POI_ASSET_ID, SITE_ASSET_ID, AssetType
-from powerflow.points.modbus_map import ModbusMap, check_map_against_points
+from powerflow.errors import InUseError, NotFoundError, ProfileError, ProtectedSiteError
 from powerflow.profiles import Profile, ProfileKind, parse_profile_csv
 from powerflow.site_config import SiteConfig
-from powerflow.storage import ConfigRepository, ProfileFolder, ProfileStore
-from powerflow.storage.defaults import Defaults, read_defaults
-from powerflow.storage.names import check_map_name, check_site_name
+from powerflow.storage import (
+    ConfigRepository,
+    ProfileFolder,
+    ProfileStore,
+    SiteCategory,
+    StoredSite,
+)
+from powerflow.storage.names import check_site_name
 
-SCHEMA_MODELS: dict[str, type[SiteConfig] | type[ModbusMap]] = {
-    "site-config": SiteConfig,
-    "modbus-map": ModbusMap,
-}
+SCHEMA_MODELS: dict[str, type[SiteConfig]] = {"site-config": SiteConfig}
+
+ConfigReplacedHook = Callable[[SiteConfig], Awaitable[None]]
 
 
 class SiteList(BaseModel):
-    active: str
-    sites: list[str]
-
-
-class ModbusMapSummary(BaseModel):
-    asset: str
-    unit_id: int
-    port: int
-    points: int
-    orphaned: bool = Field(description="True if the site no longer has this asset.")
+    active: str = Field(description="The site the simulator is running now.")
+    stored_active: str | None = Field(
+        description="The database's active-site choice (loaded at startup). Differs from "
+        "`active` only when the ACTIVE_SITE setting overrides it for this run."
+    )
+    sites: list[StoredSite]
 
 
 class ProfileScenarios(BaseModel):
@@ -61,27 +60,8 @@ class ProfileSaveResult(BaseModel):
     reloaded_assets: list[str] = Field(description="Active-site assets now using the new data.")
 
 
-class DefaultsInfo(BaseModel):
-    active_site: str = Field(description="The site made active on a fresh database.")
-    sites: dict[str, list[str]] = Field(description="Default sites and their Modbus map assets.")
-
-
-class DefaultsRestoreResult(BaseModel):
-    overwrite: bool
-    sites_written: list[str]
-    sites_skipped: list[str] = Field(description="Already stored; pass overwrite=true.")
-    maps_written: list[str]
-    maps_skipped: list[str]
-    active_site_reloaded: bool
-
-
-async def seed_defaults(repository: ConfigRepository, defaults: Defaults) -> None:
-    """Fill an empty database with the default sites, maps and active site."""
-    for site in defaults.sites:
-        await repository.put_site(site.name, site.config)
-        for asset, modbus_map in site.maps.items():
-            await repository.put_map(site.name, asset, modbus_map)
-    await repository.set_active_site(defaults.active_site)
+async def _nothing(_config: SiteConfig) -> None:
+    """Default config-replaced hook."""
 
 
 class SiteLibrary:
@@ -90,14 +70,14 @@ class SiteLibrary:
         repository: ConfigRepository,
         profile_store: ProfileStore,
         engine: Engine,
-        defaults_dir: Path,
         active_site: str,
+        on_config_replaced: ConfigReplacedHook = _nothing,
     ) -> None:
         self._repository = repository
         self._profile_store = profile_store
         self._engine = engine
-        self._defaults_dir = defaults_dir
         self._active = active_site
+        self.on_config_replaced = on_config_replaced
 
     @property
     def active_site(self) -> str:
@@ -106,25 +86,37 @@ class SiteLibrary:
     # -- sites -----------------------------------------------------------------------------
 
     async def list_sites(self) -> SiteList:
-        return SiteList(active=self._active, sites=await self._repository.list_sites())
+        return SiteList(
+            active=self._active,
+            stored_active=await self._repository.get_active_site(),
+            sites=await self._repository.list_sites(),
+        )
 
     async def get_site(self, name: str) -> SiteConfig:
         return await self._repository.get_site(check_site_name(name))
 
     async def save_site(self, name: str, config: SiteConfig) -> SiteConfig:
-        """Validate and store a site. Saving the active site reloads it, so the simulation must
-        be stopped first."""
+        """Validate and store a site. Saving the active site reloads it (stored first, then
+        loaded), so the simulation must be stopped first."""
         check_site_name(name)
         self._check_scenarios(config)
-        if name == self._active:
-            if self._engine.run_state is not RunState.STOPPED:
-                raise InUseError(f"{name!r} is the active site: stop the simulation first")
-            await self._engine.replace_config(config)
+        is_active = name == self._active
+        if is_active and self._engine.run_state is not RunState.STOPPED:
+            raise InUseError(f"{name!r} is the active site: stop the simulation first")
         await self._repository.put_site(name, config)
+        if is_active:
+            await self._engine.replace_config(config)
+            await self.on_config_replaced(config)
         return config
 
     async def delete_site(self, name: str) -> None:
-        if check_site_name(name) == self._active:
+        """Delete a stored custom site. Default sites, the running site and the database's
+        active-site choice (the one loaded at startup) can't be deleted."""
+        check_site_name(name)
+        stored = {site.name: site.category for site in await self._repository.list_sites()}
+        if stored.get(name) is SiteCategory.DEFAULT:
+            raise ProtectedSiteError(f"{name!r} is a default site and can't be deleted")
+        if name in (self._active, await self._repository.get_active_site()):
             raise InUseError(f"{name!r} is the active site; activate another one first")
         await self._repository.delete_site(name)
 
@@ -135,6 +127,7 @@ class SiteLibrary:
         await self._engine.replace_config(config)
         await self._repository.set_active_site(name)
         self._active = name
+        await self.on_config_replaced(config)
         return config
 
     def _check_scenarios(self, config: SiteConfig) -> None:
@@ -152,52 +145,6 @@ class SiteLibrary:
         if missing:
             raise ProfileError(f"unknown profile scenario(s): {missing}")
 
-    # -- Modbus maps (per site) -------------------------------------------------------------
-
-    async def list_maps(self, site: str) -> list[ModbusMapSummary]:
-        config = await self._repository.get_site(check_site_name(site))
-        summaries: list[ModbusMapSummary] = []
-        for asset in await self._repository.list_maps(site):
-            modbus_map = await self._repository.get_map(site, asset)
-            summaries.append(
-                ModbusMapSummary(
-                    asset=asset,
-                    unit_id=modbus_map.unit_id,
-                    port=modbus_map.port,
-                    points=len(modbus_map.points),
-                    orphaned=not _asset_in_site(config, modbus_map),
-                )
-            )
-        return summaries
-
-    async def get_map(self, site: str, asset: str) -> ModbusMap:
-        return await self._repository.get_map(check_site_name(site), check_map_name(asset))
-
-    async def save_map(self, site: str, asset: str, modbus_map: ModbusMap) -> ModbusMap:
-        """Validate a map against the point list and the site, then store it."""
-        config = await self._repository.get_site(check_site_name(site))
-        check_map_name(asset)
-        if modbus_map.asset != asset:
-            raise SiteConfigError(f"map is for {modbus_map.asset!r} but was saved as {asset!r}")
-        if not _asset_in_site(config, modbus_map):
-            raise SiteConfigError(f"site {site!r} has no asset {asset!r}")
-        problems = check_map_against_points(modbus_map)
-        if problems:
-            raise SiteConfigError(f"map doesn't fit the point list: {problems}")
-        for other in await self._repository.list_maps(site):
-            if other == asset:
-                continue
-            other_map = await self._repository.get_map(site, other)
-            if (other_map.port, other_map.unit_id) == (modbus_map.port, modbus_map.unit_id):
-                raise SiteConfigError(
-                    f"unit_id {modbus_map.unit_id} on port {modbus_map.port} is already {other}"
-                )
-        await self._repository.put_map(site, asset, modbus_map)
-        return modbus_map
-
-    async def delete_map(self, site: str, asset: str) -> None:
-        await self._repository.delete_map(check_site_name(site), check_map_name(asset))
-
     # -- schemas (from code) ---------------------------------------------------------------
 
     def list_schemas(self) -> list[str]:
@@ -207,50 +154,6 @@ class SiteLibrary:
         if name not in SCHEMA_MODELS:
             raise NotFoundError(f"no schema {name!r}")
         return SCHEMA_MODELS[name].model_json_schema()
-
-    # -- defaults (site_config/, read-only seed) --------------------------------------------
-
-    def defaults_info(self) -> DefaultsInfo:
-        defaults = read_defaults(self._defaults_dir)
-        return DefaultsInfo(
-            active_site=defaults.active_site,
-            sites={site.name: sorted(site.maps) for site in defaults.sites},
-        )
-
-    async def restore_defaults(self, overwrite: bool) -> DefaultsRestoreResult:
-        """Import the default sites and maps. Without overwrite, stored items are kept; with
-        overwrite they're replaced (the simulation must be stopped, since the active site may
-        change). The active-site choice is left as it is."""
-        if overwrite and self._engine.run_state is not RunState.STOPPED:
-            raise InUseError("stop the simulation before restoring defaults with overwrite")
-        defaults = read_defaults(self._defaults_dir)
-        stored_sites = set(await self._repository.list_sites())
-        result = DefaultsRestoreResult(
-            overwrite=overwrite,
-            sites_written=[],
-            sites_skipped=[],
-            maps_written=[],
-            maps_skipped=[],
-            active_site_reloaded=False,
-        )
-        for site in defaults.sites:
-            if site.name in stored_sites and not overwrite:
-                result.sites_skipped.append(site.name)
-            else:
-                await self._repository.put_site(site.name, site.config)
-                result.sites_written.append(site.name)
-            stored_maps = set(await self._repository.list_maps(site.name))
-            for asset, modbus_map in site.maps.items():
-                label = f"{site.name}/{asset}"
-                if asset in stored_maps and not overwrite:
-                    result.maps_skipped.append(label)
-                else:
-                    await self._repository.put_map(site.name, asset, modbus_map)
-                    result.maps_written.append(label)
-        if self._active in result.sites_written:
-            await self._engine.replace_config(await self._repository.get_site(self._active))
-            result.active_site_reloaded = True
-        return result
 
     # -- profiles (CSV files for now) --------------------------------------------------------
 
@@ -267,9 +170,9 @@ class SiteLibrary:
         """Delete a scenario that no stored site uses."""
         self._profile_store.profile_path(folder, scenario)  # 404 before the usage scan
         users = [
-            site
+            site.name
             for site in await self._repository.list_sites()
-            if scenario in _scenarios_used(await self._repository.get_site(site), folder)
+            if scenario in _scenarios_used(await self._repository.get_site(site.name), folder)
         ]
         if users:
             raise InUseError(f"{folder}/{scenario} is used by site(s) {users}")
@@ -319,22 +222,6 @@ class SiteLibrary:
             raise ProfileError(f"the active site uses {scenario!r} as {missing}; column missing")
         profiles = [parse_profile_csv(csv_text, kind, loop=True) for kind in kinds]
         return profiles[0]
-
-
-def _asset_in_site(config: SiteConfig, modbus_map: ModbusMap) -> bool:
-    match modbus_map.asset_type:
-        case AssetType.BESS:
-            return any(bess.id == modbus_map.asset_id for bess in config.bess)
-        case AssetType.PV:
-            return any(pv.id == modbus_map.asset_id for pv in config.pv)
-        case AssetType.LOAD:
-            return any(load.id == modbus_map.asset_id for load in config.loads)
-        case AssetType.POI:
-            return modbus_map.asset_id == POI_ASSET_ID
-        case AssetType.SITE:
-            return modbus_map.asset_id == SITE_ASSET_ID
-        case AssetType.METER:
-            return any(meter.id == modbus_map.asset_id for meter in config.meters)
 
 
 def _scenarios_used(config: SiteConfig, folder: ProfileFolder) -> set[str]:

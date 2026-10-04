@@ -43,8 +43,8 @@ backlog. Remove an item when it's done; the commit that closes it records the de
 signs and enums per asset class. powerflow's Modbus server serves it (the `powerflow_server`
 column says which points); its HTTP point lists don't follow it yet. Align one service at a time,
 provider first, with its contract regenerated (the gap table is in that folder's README.md):
-- **powerflow:** decide whether the per-asset DB Modbus maps (`/api/sites/{site}/modbus-maps`)
-  stay now that the server uses the standard layout; model frequency (`Hz` is `no` today).
+- **powerflow:** model frequency (`Hz` is a random signal today); make Modbus writable and add
+  fault/event injection (the Scenarios tab), see Phase 2 of the powerflow cleanup.
 - **mock-modbus:** sign BESS power and current, add meter/relay/genset/met devices, and declare
   data_type and access in the contract.
 - **backend-ot:** replace the placeholder STANDARDIZED templates with the tier-M points (lookup by

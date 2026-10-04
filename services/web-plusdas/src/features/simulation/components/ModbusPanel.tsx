@@ -67,8 +67,8 @@ function AggregatorLayout() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           Modbus server{" "}
-          <Badge variant="outline" className={data.enabled ? SUPPORT_STYLE.yes : ""}>
-            {data.enabled ? "enabled" : "disabled"}
+          <Badge variant="outline" className={data.running ? SUPPORT_STYLE.yes : ""} data-modbus-state>
+            {data.running ? "running" : data.enabled ? "not running" : "disabled"}
           </Badge>
         </CardTitle>
         <CardDescription>
@@ -77,6 +77,11 @@ function AggregatorLayout() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {data.error && (
+          <p role="alert" className="text-sm rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive">
+            Failed to start: {data.error}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <Switch id="served-only" checked={servedOnly} onCheckedChange={setServedOnly} />
           <Label htmlFor="served-only">Only points powerflow serves (yes / calc)</Label>
@@ -109,79 +114,7 @@ function AggregatorLayout() {
   );
 }
 
-function SiteMaps({ siteName }: { siteName: string }) {
-  const maps = useQuery({ queryKey: powerflowKeys.modbusMaps(siteName), queryFn: () => powerflowApi.listModbusMaps(siteName), retry: false });
-  const [open, setOpen] = useState<string | null>(null);
-  const detail = useQuery({
-    queryKey: powerflowKeys.modbusMap(siteName, open ?? ""),
-    queryFn: () => powerflowApi.getModbusMap(siteName, open as string),
-    enabled: Boolean(open),
-    retry: false,
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Per-asset Modbus maps · {siteName}</CardTitle>
-        <CardDescription>Stored with the site (one unit id per asset). The Modbus server above doesn't use them. View only.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {maps.isLoading && <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />}
-        {maps.isError && <p role="alert" className="text-destructive">{getErrorMessage(maps.error)}</p>}
-        {(maps.data ?? []).map((summary) => {
-          const isOpen = open === summary.asset;
-          return (
-            <div key={summary.asset} className="border border-border rounded-md">
-              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(isOpen ? null : summary.asset)}>
-                {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                <span>{summary.asset}</span>
-                <span className="text-muted-foreground text-xs">
-                  unit {summary.unit_id} · port {summary.port} · {summary.points} points
-                </span>
-                {summary.orphaned && <Badge variant="outline">orphaned</Badge>}
-              </Button>
-              {isOpen && (
-                <div className="px-3 pb-3">
-                  {detail.isLoading && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
-                  {detail.data && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Point</TableHead>
-                          <TableHead>Register</TableHead>
-                          <TableHead>Address</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Scale</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {detail.data.points.map((point) => (
-                          <TableRow key={`${point.register_type}-${point.address}`}>
-                            <TableCell>{point.point}</TableCell>
-                            <TableCell>{point.register_type}</TableCell>
-                            <TableCell className="font-mono">{point.address}</TableCell>
-                            <TableCell>{point.data_type}</TableCell>
-                            <TableCell>{point.scale ?? 1}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function ModbusPanel({ siteName }: { siteName: string }) {
-  return (
-    <div className="space-y-4">
-      <AggregatorLayout />
-      <SiteMaps siteName={siteName} />
-    </div>
-  );
+// The Modbus server of the active site. View only.
+export function ModbusPanel() {
+  return <AggregatorLayout />;
 }

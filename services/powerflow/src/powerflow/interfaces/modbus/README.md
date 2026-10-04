@@ -10,9 +10,9 @@ config has `interfaces.modbus.enabled: true`.
   only serves the resulting register image. The layout table is in the point standard's README,
   `contracts/modbus/powerflow.registers.json` publishes it, and `GET /api/modbus/registers`
   returns it for the active site.
-- **Refresh:** a background task checks the engine every 0.25 s. On a new step it advances the
-  energy counters and rebuilds the image; when the active site changes it rebuilds the layout and
-  restarts the counters.
+- **Refresh:** a background task checks the engine every 0.25 s. On a new step it rebuilds the
+  image (the energy counters come with the snapshot: the simulation integrates them every step);
+  when the active site changes it rebuilds the layout.
 - **Reads:** one shared pymodbus register block (`SimDevice` + `SimData`), so FC03 (holding) and
   FC04 (input) return the same values. The device's async `action` hook copies the current image
   into the requested range on every read. Addresses are zero-based.
@@ -24,6 +24,7 @@ config has `interfaces.modbus.enabled: true`.
 (`docs/point-standard`). Compose publishes 502 as host port `POWERFLOW_MODBUS_PORT` (1502),
 because mock-modbus owns host port 502 in the dev stack.
 
-## Not used
-The per-asset `ModbusMap`s stored with each site (`/api/sites/{site}/modbus-maps`, one unit id
-per asset) predate this server and don't drive it.
+## Lifecycle
+The app's `AdapterRegistry.reconcile` starts or stops the server whenever the engine's config
+changes (startup, activating a site, saving the active site). A failed start (e.g. the port is
+taken) doesn't fail the request: `GET /api/health` and `GET /api/modbus/registers` report it.

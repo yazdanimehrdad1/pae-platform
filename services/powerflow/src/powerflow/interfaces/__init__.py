@@ -1,1 +1,2 @@
-"""Protocol adapters: http (implemented), modbus and dnp3 (placeholders)."""
+"""Protocol adapters: http and modbus (a read-only aggregator over the PAE point standard);
+dnp3 is a placeholder."""

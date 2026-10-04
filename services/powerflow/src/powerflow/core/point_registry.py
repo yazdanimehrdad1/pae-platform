@@ -1,7 +1,8 @@
 """PointRegistry: read and write any point by its full name (`bess.bess1.soc_pct`).
 
-This is the protocol-neutral surface future Modbus/DNP3 adapters bind their maps to. Writes go
-through SetpointService, so they're validated and clamped exactly like HTTP setpoints.
+The protocol-neutral read surface: the Modbus server reads setpoint and nameplate values through
+it, and HTTP lists and reads points with it. `write` (through SetpointService, so validated and
+clamped exactly like HTTP setpoints) is the path for a writable protocol adapter.
 """
 
 from collections.abc import Callable
@@ -9,7 +10,7 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from powerflow.core.engine import Engine, RunState
+from powerflow.core.engine import Engine
 from powerflow.core.setpoints import (
     BessSetpointRequest,
     PvSetpointRequest,
@@ -29,6 +30,7 @@ from powerflow.models.status import site_alarms
 from powerflow.points.definitions import (
     POI_ASSET_ID,
     POINT_LISTS,
+    RUN_STATE_CODES,
     SITE_ASSET_ID,
     Access,
     AssetType,
@@ -38,11 +40,6 @@ from powerflow.points.definitions import (
 )
 
 PointValue = float | int | bool
-RUN_STATE_CODES: dict[RunState, int] = {
-    RunState.STOPPED: 0,
-    RunState.RUNNING: 1,
-    RunState.PAUSED: 2,
-}
 BESS_MODES_BY_CODE = {code: mode for mode, code in BESS_MODE_CODES.items()}
 
 

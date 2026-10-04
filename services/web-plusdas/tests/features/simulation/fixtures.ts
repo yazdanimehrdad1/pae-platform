@@ -19,7 +19,7 @@ const bess = (id: string) => ({
   transformer: transformer(2750),
 });
 
-// Shaped like powerflow's reference_2bess_1pv: POI line, one collector tied by a switch, two BESS
+// Shaped like powerflow's 2bess_1pv: POI line, one collector tied by a switch, two BESS
 // and a PV with feeder meters, and a load on the POI.
 export const REFERENCE_SITE: SiteConfig = {
   schema_version: 1,

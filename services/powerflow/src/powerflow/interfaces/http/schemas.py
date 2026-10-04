@@ -23,6 +23,10 @@ OpenApiResponses = dict[int | str, dict[str, object]]
 class HealthResponse(BaseModel):
     ok: bool
     state: RunState
+    interfaces: list[str] = Field(description="Protocol interfaces running now (http, modbus).")
+    interface_errors: dict[str, str] = Field(
+        description="Interfaces the active site enables that failed to start, with the reason."
+    )
 
 
 class VersionResponse(BaseModel):
@@ -112,6 +116,8 @@ class ModbusRegistersResponse(BaseModel):
     """The Modbus server's register layout for the active site."""
 
     enabled: bool = Field(description="Whether the active site enables interfaces.modbus.")
+    running: bool = Field(description="Whether the Modbus server is actually serving now.")
+    error: str | None = Field(description="Why it failed to start, if it did.")
     port: int = Field(description="The port the server listens on (inside the container).")
     unit_id: int
     devices: list[ModbusDevice]

@@ -8,7 +8,6 @@ from conftest import SERVICE_ROOT
 
 from powerflow.app import create_app
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest
-from powerflow.points.modbus_map import ModbusMap
 from powerflow.profiles import ProfileKind, parse_profile_csv
 from powerflow.site_config import SiteConfig
 
@@ -57,7 +56,6 @@ def test_example_bodies_are_valid() -> None:
         ("PUT", "setpoint", "bess"): BessSetpointRequest,
         ("PUT", "setpoint", "pv"): PvSetpointRequest,
         ("PUT", ":name", "sites"): SiteConfig,
-        ("PUT", ":asset", "sites"): ModbusMap,
     }
     collection = json.loads(load_exporter().render_collection())
     checked = 0
@@ -75,4 +73,4 @@ def test_example_bodies_are_valid() -> None:
                 model = models[(request["method"], path[-1], area)]
                 model.model_validate_json(body["raw"])
             checked += 1
-    assert checked == 5
+    assert checked == 4  # the BESS and PV setpoints, a site, a profile CSV

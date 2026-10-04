@@ -12,7 +12,7 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
   web-plusdas/       the UI: Vite + React SPA served by nginx, /api proxied same-origin to backend-ot
                      and /powerflow-api to powerflow (the Simulation page)
   powerflow/         microgrid power flow simulator (pandapower) for EMS development: setpoints in,
-                     measurements out; site configs + Modbus maps in its own Postgres, via the API
+                     measurements out; sites in its own Postgres (the only store), via the API
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
@@ -61,7 +61,7 @@ the root, and `make -C services/<svc> help` in each service.
   `make up` resets, stopping every platform container (including services started on their own)
   before starting the dev stack, and `make down` stops them all (data volumes kept). `make down-all`
   is the destructive clean slate: it also deletes volumes (postgres/redis data, including
-  powerflow's stored sites, Modbus maps and profile edits), images and networks. To run one
+  powerflow's stored sites and profile edits), images and networks. To run one
   service alone, `make down` here first; a service's `up`/`build` refuses while the dev stack
   runs.
 

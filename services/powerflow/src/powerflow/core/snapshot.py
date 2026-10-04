@@ -1,13 +1,32 @@
 """The measurement snapshot published after every step. Field names are point names (see
-`powerflow.points`), so HTTP, history and future protocol maps all use the same names."""
+`powerflow.points`), so HTTP, history and PointRegistry all use the same names."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True)
+
+
+class EnergyTotals(FrozenModel):
+    """Energy through one device since the simulation started (reset), integrated every converged
+    step over its real length (core/energy.py). In the device's own sign convention:
+    Wh, varh, VAh."""
+
+    wh_positive: float = 0.0
+    wh_negative: float = 0.0  # magnitude
+    varh_positive: float = 0.0
+    varh_negative: float = 0.0  # magnitude
+    vah_positive: float = Field(default=0.0, description="Apparent energy while P >= 0.")
+    vah_negative: float = Field(default=0.0, description="Apparent energy while P < 0.")
+    varh_q1: float = Field(default=0.0, description="|Q| energy in quadrant 1 (P >= 0, Q >= 0).")
+    varh_q2: float = Field(default=0.0, description="Quadrant 2 (P < 0, Q >= 0).")
+    varh_q3: float = Field(default=0.0, description="Quadrant 3 (P < 0, Q < 0).")
+    varh_q4: float = Field(default=0.0, description="Quadrant 4 (P >= 0, Q < 0).")
+    wh_positive_today: float = Field(default=0.0, description="Since the sim day began (UTC).")
+    day: date | None = None
 
 
 class BusMeasurement(FrozenModel):
@@ -48,6 +67,9 @@ class PoiMeasurement(FrozenModel):
     meter_state_name: str
     alarm_flags: int
     alarm_flag_names: list[str]
+    energy_export_kwh: float = 0.0
+    energy_import_kwh: float = 0.0
+    energy: EnergyTotals = Field(default_factory=EnergyTotals)
 
 
 class MeterMeasurement(FrozenModel):
@@ -65,6 +87,9 @@ class MeterMeasurement(FrozenModel):
     i_a: float = Field(description="Current on the transformer's HV side.")
     meter_state: int
     meter_state_name: str
+    energy_export_kwh: float = Field(default=0.0, description="Energy toward the MV bus.")
+    energy_import_kwh: float = 0.0
+    energy: EnergyTotals = Field(default_factory=EnergyTotals)
 
 
 class BessMeasurement(FrozenModel):
@@ -92,6 +117,9 @@ class BessMeasurement(FrozenModel):
     operating_state_name: str
     alarm_flags: int
     alarm_flag_names: list[str]
+    energy_discharged_kwh: float = 0.0
+    energy_charged_kwh: float = 0.0
+    energy: EnergyTotals = Field(default_factory=EnergyTotals)
 
 
 class PvMeasurement(FrozenModel):
@@ -114,6 +142,9 @@ class PvMeasurement(FrozenModel):
     inverter_state_name: str
     alarm_flags: int
     alarm_flag_names: list[str]
+    energy_produced_kwh: float = 0.0
+    energy_produced_today_kwh: float = 0.0
+    energy: EnergyTotals = Field(default_factory=EnergyTotals)
 
 
 class LoadMeasurement(FrozenModel):
@@ -129,6 +160,8 @@ class LoadMeasurement(FrozenModel):
     supply_state_name: str
     alarm_flags: int
     alarm_flag_names: list[str]
+    energy_consumed_kwh: float = 0.0
+    energy: EnergyTotals = Field(default_factory=EnergyTotals)
 
 
 class Snapshot(FrozenModel):

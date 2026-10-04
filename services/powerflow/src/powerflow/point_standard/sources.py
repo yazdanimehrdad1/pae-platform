@@ -1,5 +1,5 @@
-"""What a point resolver can see: one snapshot, the site config, any powerflow point by name, the
-energy counters and the enum table. A resolver is `fn(sources, device) -> value | None`
+"""What a point resolver can see: one snapshot (with its energy counters), the site config, any
+powerflow point by name, and the enum table. A resolver is `fn(sources, device) -> value | None`
 (None leaves the register at 0)."""
 
 from collections.abc import Callable
@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from powerflow.core.snapshot import Snapshot
 from powerflow.point_standard.catalog import EnumTable
-from powerflow.point_standard.counters import EnergyCounters
 from powerflow.point_standard.layout import Device, DeviceKind
 from powerflow.site_config import SiteConfig
 
@@ -21,7 +20,6 @@ class Sources:
     # A powerflow point by full name (`bess.bess1.p_setpoint_kw`). Measurement points come from
     # `snapshot`, setpoint and nameplate points from the engine.
     read: Callable[[str], PointValue]
-    counters: EnergyCounters
     enums: EnumTable
 
 

@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "6f1f5c4e-8a53-4c1e-9f44-70f0f10e0001",
-    "name": "powerflow 0.1.0",
+    "name": "powerflow 0.2.0",
     "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -191,24 +191,6 @@
             },
             "description": "To change it: PUT /api/sites/{name}, then POST /api/sites/{name}/activate."
           }
-        },
-        {
-          "name": "JSON Schema of a site config",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/config/schema",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "config",
-                "schema"
-              ]
-            }
-          }
         }
       ]
     },
@@ -250,7 +232,7 @@
               "variable": [
                 {
                   "key": "name",
-                  "value": "reference_2bess_1pv"
+                  "value": "2bess_1pv"
                 }
               ]
             }
@@ -283,10 +265,10 @@
                 }
               ]
             },
-            "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it, so the simulation must be stopped (409 otherwise).",
+            "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it and restarts its protocol interfaces, so the simulation must be stopped (409 otherwise).",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"schema_version\": 1,\n  \"site\": {\n    \"name\": \"My site (copy of small_1bess_1pv)\"\n  },\n  \"simulation\": {\n    \"step_s\": 1.0,\n    \"start_time\": \"2026-06-21T06:00:00Z\",\n    \"autostart\": false,\n    \"test_mode\": false,\n    \"seed\": 1,\n    \"history_size\": 3600\n  },\n  \"grid\": {\n    \"vn_kv\": 12.47,\n    \"vm_pu\": 1.0,\n    \"sc_mva\": 100.0,\n    \"x_r\": 5.0\n  },\n  \"bess\": [\n    {\n      \"id\": \"bess1\",\n      \"inverter\": {\n        \"s_rated_kva\": 2750,\n        \"p_discharge_max_kw\": 2500,\n        \"p_charge_max_kw\": 2500,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\",\n        \"ramp_kw_per_s\": 500\n      },\n      \"battery\": {\n        \"capacity_kwh\": 10000,\n        \"soc_initial_pct\": 50,\n        \"efficiency\": {\n          \"round_trip\": 0.9\n        }\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 2750,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 5.75,\n        \"x_r\": 7.0\n      }\n    }\n  ],\n  \"pv\": [\n    {\n      \"id\": \"pv1\",\n      \"dc_kwp\": 6500,\n      \"loss_factor\": 0.05,\n      \"inverter\": {\n        \"s_rated_kva\": 5500,\n        \"p_max_kw\": 5000,\n        \"v_lv_kv\": 0.69\n      },\n      \"availability\": {\n        \"scenario\": \"cloudy_dynamic\",\n        \"source\": \"irradiance\"\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 5500,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 6.0,\n        \"x_r\": 8.0\n      }\n    }\n  ],\n  \"loads\": [\n    {\n      \"id\": \"load1\",\n      \"profile\": {\n        \"scenario\": \"low_demand\"\n      }\n    }\n  ]\n}",
+              "raw": "{\n  \"schema_version\": 1,\n  \"site\": {\n    \"name\": \"My site (copy of 1bess_1pv)\"\n  },\n  \"simulation\": {\n    \"step_s\": 1.0,\n    \"start_time\": \"2026-06-21T06:00:00Z\",\n    \"autostart\": false,\n    \"test_mode\": false,\n    \"seed\": 1,\n    \"history_size\": 3600\n  },\n  \"grid\": {\n    \"vn_kv\": 12.47,\n    \"vm_pu\": 1.0,\n    \"va_degree\": 0.0,\n    \"sc_mva\": 100.0,\n    \"x_r\": 5.0\n  },\n  \"poi\": {\n    \"line\": null\n  },\n  \"collectors\": [\n    {\n      \"id\": \"mv1\",\n      \"feeder\": null\n    }\n  ],\n  \"bess\": [\n    {\n      \"id\": \"bess1\",\n      \"name\": null,\n      \"collector\": \"mv1\",\n      \"inverter\": {\n        \"s_rated_kva\": 2750.0,\n        \"p_discharge_max_kw\": 2500.0,\n        \"p_charge_max_kw\": 2500.0,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\",\n        \"ramp_kw_per_s\": 500.0\n      },\n      \"battery\": {\n        \"capacity_kwh\": 10000.0,\n        \"soc_min_pct\": 5.0,\n        \"soc_max_pct\": 95.0,\n        \"soc_initial_pct\": 50.0,\n        \"efficiency\": {\n          \"charge\": null,\n          \"discharge\": null,\n          \"round_trip\": 0.9\n        },\n        \"aux_load_kw\": 0.0\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 2750.0,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 5.75,\n        \"x_r\": 7.0,\n        \"no_load_loss_kw\": 0.0,\n        \"i0_pct\": 0.0\n      }\n    }\n  ],\n  \"pv\": [\n    {\n      \"id\": \"pv1\",\n      \"name\": null,\n      \"collector\": \"mv1\",\n      \"dc_kwp\": 6500.0,\n      \"loss_factor\": 0.05,\n      \"inverter\": {\n        \"s_rated_kva\": 5500.0,\n        \"p_max_kw\": 5000.0,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\"\n      },\n      \"availability\": {\n        \"scenario\": \"cloudy_dynamic\",\n        \"scale\": 1.0,\n        \"loop\": true,\n        \"source\": \"irradiance\"\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 5500.0,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 6.0,\n        \"x_r\": 8.0,\n        \"no_load_loss_kw\": 0.0,\n        \"i0_pct\": 0.0\n      }\n    }\n  ],\n  \"loads\": [\n    {\n      \"id\": \"load1\",\n      \"name\": null,\n      \"bus\": \"poi\",\n      \"profile\": {\n        \"scenario\": \"low_demand\",\n        \"scale\": 1.0,\n        \"loop\": true\n      },\n      \"noise\": null,\n      \"transformer\": null\n    }\n  ],\n  \"meters\": [],\n  \"interfaces\": {\n    \"http\": {\n      \"enabled\": true\n    },\n    \"modbus\": {\n      \"enabled\": false\n    },\n    \"dnp3\": {\n      \"enabled\": false\n    }\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -338,146 +320,11 @@
               "variable": [
                 {
                   "key": "name",
-                  "value": "reference_2bess_1pv"
+                  "value": "2bess_1pv"
                 }
               ]
             },
-            "description": "Rebuilds the network, resets the simulation and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start."
-          }
-        }
-      ]
-    },
-    {
-      "name": "modbus maps",
-      "item": [
-        {
-          "name": "A site's per-asset Modbus maps",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "sites",
-                ":site",
-                "modbus-maps"
-              ],
-              "variable": [
-                {
-                  "key": "site",
-                  "value": "reference_2bess_1pv"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "One asset's map (asset = <asset_type>.<asset_id>, e.g. pv.pv1, poi.meter)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps/:asset",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "sites",
-                ":site",
-                "modbus-maps",
-                ":asset"
-              ],
-              "variable": [
-                {
-                  "key": "site",
-                  "value": "reference_2bess_1pv"
-                },
-                {
-                  "key": "asset",
-                  "value": "bess.bess1"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Create or replace an asset's map",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps/:asset",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "sites",
-                ":site",
-                "modbus-maps",
-                ":asset"
-              ],
-              "variable": [
-                {
-                  "key": "site",
-                  "value": "reference_2bess_1pv"
-                },
-                {
-                  "key": "asset",
-                  "value": "bess.bess1"
-                }
-              ]
-            },
-            "description": "Rejected (422) if the site has no such asset, the body's `asset` differs from the path, registers overlap, a point isn't in the asset type's point list, a writable point isn't on a holding register/coil (or vice versa), or the unit_id+port is already used by another map of the site.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"map_version\": 1,\n  \"asset\": \"bess.bess1\",\n  \"unit_id\": 1,\n  \"port\": 502,\n  \"register_numbering\": \"zero_based\",\n  \"points\": [\n    {\n      \"point\": \"p_setpoint_kw\",\n      \"register_type\": \"holding\",\n      \"address\": 0,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"q_setpoint_kvar\",\n      \"register_type\": \"holding\",\n      \"address\": 2,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"mode_cmd\",\n      \"register_type\": \"holding\",\n      \"address\": 4,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"enum_values\": {\n        \"0\": \"idle\",\n        \"1\": \"pq\",\n        \"2\": \"offline\"\n      }\n    },\n    {\n      \"point\": \"p_cmd_kw\",\n      \"register_type\": \"input\",\n      \"address\": 0,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"q_cmd_kvar\",\n      \"register_type\": \"input\",\n      \"address\": 2,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_kw\",\n      \"register_type\": \"input\",\n      \"address\": 4,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"q_kvar\",\n      \"register_type\": \"input\",\n      \"address\": 6,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"s_kva\",\n      \"register_type\": \"input\",\n      \"address\": 8,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"soc_pct\",\n      \"register_type\": \"input\",\n      \"address\": 10,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 0.1\n    },\n    {\n      \"point\": \"energy_available_discharge_kwh\",\n      \"register_type\": \"input\",\n      \"address\": 12,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"energy_available_charge_kwh\",\n      \"register_type\": \"input\",\n      \"address\": 14,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_available_discharge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 16,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_available_charge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 18,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"status\",\n      \"register_type\": \"input\",\n      \"address\": 20,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"enum_values\": {\n        \"0\": \"IDLE\",\n        \"1\": \"RUNNING\",\n        \"2\": \"OFFLINE\",\n        \"3\": \"FAULT\"\n      }\n    },\n    {\n      \"point\": \"limit_flags\",\n      \"register_type\": \"input\",\n      \"address\": 21,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"bit_flags\": {\n        \"0\": \"P_LIMIT\",\n        \"1\": \"S_LIMIT\",\n        \"2\": \"SOC_LIMIT\",\n        \"3\": \"RAMP_LIMIT\"\n      }\n    },\n    {\n      \"point\": \"aux_p_kw\",\n      \"register_type\": \"input\",\n      \"address\": 22,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"v_lv_pu\",\n      \"register_type\": \"input\",\n      \"address\": 24,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 0.001\n    },\n    {\n      \"point\": \"v_lv_kv\",\n      \"register_type\": \"input\",\n      \"address\": 26,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 0.001\n    },\n    {\n      \"point\": \"operating_state\",\n      \"register_type\": \"input\",\n      \"address\": 28,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"enum_values\": {\n        \"0\": \"OFF\",\n        \"1\": \"STANDBY\",\n        \"2\": \"CHARGING\",\n        \"3\": \"DISCHARGING\",\n        \"4\": \"FAULT\"\n      }\n    },\n    {\n      \"point\": \"alarm_flags\",\n      \"register_type\": \"input\",\n      \"address\": 29,\n      \"data_type\": \"uint16\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0,\n      \"bit_flags\": {\n        \"0\": \"SOC_LOW_WARNING\",\n        \"1\": \"SOC_HIGH_WARNING\",\n        \"2\": \"UNDERVOLTAGE\",\n        \"3\": \"OVERVOLTAGE\",\n        \"4\": \"TRANSFORMER_OVERLOAD\",\n        \"5\": \"OVER_TEMPERATURE\",\n        \"6\": \"COMM_LOSS\"\n      }\n    },\n    {\n      \"point\": \"p_rated_discharge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 100,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"p_rated_charge_kw\",\n      \"register_type\": \"input\",\n      \"address\": 102,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"s_rated_kva\",\n      \"register_type\": \"input\",\n      \"address\": 104,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"capacity_kwh\",\n      \"register_type\": \"input\",\n      \"address\": 106,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"soc_min_pct\",\n      \"register_type\": \"input\",\n      \"address\": 108,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    },\n    {\n      \"point\": \"soc_max_pct\",\n      \"register_type\": \"input\",\n      \"address\": 110,\n      \"data_type\": \"int32\",\n      \"word_order\": \"big\",\n      \"scale\": 1.0\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete an asset's map",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/sites/:site/modbus-maps/:asset",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "sites",
-                ":site",
-                "modbus-maps",
-                ":asset"
-              ],
-              "variable": [
-                {
-                  "key": "site",
-                  "value": "reference_2bess_1pv"
-                },
-                {
-                  "key": "asset",
-                  "value": "bess.bess1"
-                }
-              ]
-            }
+            "description": "Rebuilds the network, resets the simulation, restarts the protocol interfaces the site enables (e.g. Modbus) and records the site as the one to load at startup. The engine stays stopped: POST /api/sim/start."
           }
         }
       ]
@@ -622,7 +469,7 @@
           }
         },
         {
-          "name": "One JSON Schema, e.g. site-config or modbus-map",
+          "name": "One JSON Schema (site-config)",
           "request": {
             "method": "GET",
             "header": [],
@@ -643,54 +490,6 @@
                 }
               ]
             }
-          }
-        }
-      ]
-    },
-    {
-      "name": "defaults",
-      "item": [
-        {
-          "name": "The shipped default sites and Modbus maps",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/defaults",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "defaults"
-              ]
-            },
-            "description": "Seeded into an empty database at startup. Restore them with POST /api/defaults/restore."
-          }
-        },
-        {
-          "name": "Import the default sites and maps into the database",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/defaults/restore?overwrite=false",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "defaults",
-                "restore"
-              ],
-              "query": [
-                {
-                  "key": "overwrite",
-                  "value": "false"
-                }
-              ]
-            },
-            "description": "Without overwrite, sites and maps already stored are kept (reported as skipped). With overwrite=true they're replaced; the simulation must be stopped (409), and the active site is reloaded if it was replaced. The active-site choice is unchanged."
           }
         }
       ]

@@ -4,7 +4,7 @@ import copy
 from typing import Any
 
 import pytest
-from conftest import DEFAULT_SITE_NAMES, DEFAULTS, default_site, site_config_dict
+from conftest import DEFAULT_ACTIVE_SITE, DEFAULT_SITE_NAMES, default_site, site_config_dict
 from pydantic import ValidationError
 
 from powerflow.site_config import SiteConfig
@@ -16,11 +16,11 @@ def test_default_sites_validate(name: str) -> None:
 
 
 def test_default_active_site_exists() -> None:
-    assert DEFAULTS.active_site in DEFAULT_SITE_NAMES
+    assert DEFAULT_ACTIVE_SITE in DEFAULT_SITE_NAMES
 
 
 def test_reference_site_matches_the_spec() -> None:
-    config = default_site("reference_2bess_1pv")
+    config = default_site("2bess_1pv")
     assert config.grid.vn_kv == 12.47 and config.grid.sc_mva == 100 and config.grid.x_r == 5
     assert [bess.inverter.p_discharge_max_kw for bess in config.bess] == [2500, 2500]
     assert [bess.battery.capacity_kwh for bess in config.bess] == [10000, 10000]

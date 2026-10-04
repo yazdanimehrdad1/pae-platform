@@ -23,7 +23,7 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration contract \
-	profiles modbus-maps postman build rebuild up down down-all restart logs ps clean run
+	profiles postman build rebuild up down down-all restart logs ps clean run
 
 # Standalone stack (powerflow + its Postgres). Host ports: POWERFLOW_HTTP_PORT (8020),
 # POWERFLOW_POSTGRES_PORT (5436), POWERFLOW_MODBUS_PORT (1502).
@@ -53,8 +53,7 @@ help:
 	@echo "  test-integration integration tests on a throwaway Postgres (Docker)"
 	@echo "  run              run the API on the host (port 8020; needs Postgres on 5436)"
 	@echo "  contract         regenerate the OpenAPI, points and Modbus registers contracts"
-	@echo "  profiles         regenerate the profile scenarios in site_config/profiles/"
-	@echo "  modbus-maps      regenerate the default Modbus map files (the DB is untouched)"
+	@echo "  profiles         regenerate the profile scenarios in profiles/"
 	@echo "  postman          regenerate postman/powerflow.postman_collection.json"
 	@echo ""
 	@echo "Containers (docker compose):"
@@ -97,8 +96,6 @@ contract:
 profiles:
 	$(UV_RUN) python scripts/make_profiles.py
 
-modbus-maps:
-	$(UV_RUN) python scripts/make_modbus_maps.py
 
 # Run after any route change; `make test` fails while the collection is stale.
 postman:

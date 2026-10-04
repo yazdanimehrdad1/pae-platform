@@ -255,6 +255,28 @@
         "access": "R",
         "bit_flags": null,
         "data_type": "float32",
+        "description": "AC energy discharged. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_discharged_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "AC energy charged. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_charged_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
         "description": "Max discharge P.",
         "enum_values": null,
         "name": "p_rated_discharge_kw",
@@ -401,6 +423,17 @@
         "scale_hint": null,
         "source": "measurement",
         "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Energy consumed. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_consumed_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
       }
     ],
     "meter": [
@@ -494,6 +527,28 @@
         "scale_hint": null,
         "source": "measurement",
         "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Energy toward the MV bus. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_export_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Energy from the MV bus. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_import_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
       }
     ],
     "poi": [
@@ -637,6 +692,28 @@
         "scale_hint": null,
         "source": "measurement",
         "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Energy exported to the utility. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_export_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Energy imported from the utility. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_import_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
       }
     ],
     "pv": [
@@ -872,6 +949,28 @@
         "scale_hint": null,
         "source": "measurement",
         "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "AC energy produced. Integrated every converged step since the simulation started (reset/activate).",
+        "enum_values": null,
+        "name": "energy_produced_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "AC energy produced since the sim day began (UTC).",
+        "enum_values": null,
+        "name": "energy_produced_today_kwh",
+        "scale_hint": 1.0,
+        "source": "measurement",
+        "unit": "kWh"
       },
       {
         "access": "R",

@@ -5,7 +5,7 @@
 - **Currents:** I = S/(√3·V_LL) (kVA/kV = A).
 - **States and alarms:** powerflow's own status/flag codes, translated to the SunSpec/PAE codes
   in enums.csv by symbol name, so the numbers come from the standard.
-- **Energy:** lifetime and daily counters from `EnergyCounters`.
+- **Energy:** the counters the simulation keeps on each snapshot measurement (`energy`).
 - **Site:** fleet sums over the BESS and PV assets.
 - **Frequency:** not simulated; a time-bucketed random signal around 60 Hz
   (`random_signal.GRID_HZ`), the same for every device.
@@ -17,13 +17,14 @@ from typing import Protocol, TypeVar
 
 from powerflow.core.snapshot import (
     BessMeasurement,
+    EnergyTotals,
     LoadMeasurement,
     MeterMeasurement,
     PoiMeasurement,
     PvMeasurement,
 )
 from powerflow.models import status
-from powerflow.models.bess import BessFlag, BessStatus
+from powerflow.models.bess import BESS_MODE_CODES, BessFlag, BessMode, BessStatus
 from powerflow.models.common import power_factor
 from powerflow.models.pv import PvFlag, PvQMode, PvStatus
 from powerflow.models.status import (
@@ -41,7 +42,8 @@ from powerflow.site_config import PvAvailabilitySource
 
 SQRT3 = math.sqrt(3.0)
 KILO = 1000.0
-MODE_PQ, MODE_OFFLINE = 1, 2  # BESS mode_cmd codes (powerflow.models.bess.BESS_MODE_CODES)
+MODE_PQ = BESS_MODE_CODES[BessMode.PQ]  # the mode_cmd point's codes
+MODE_OFFLINE = BESS_MODE_CODES[BessMode.OFFLINE]
 STATE_MARGIN_PCT = 0.01  # SoC this close to a limit counts as FULL / EMPTY
 
 
@@ -149,11 +151,27 @@ def _a_max(sources: Sources, device: Device) -> float:
     return _current_a(_setpoint(sources, device, "s_rated_kva"), _inverter_kv(sources, device))
 
 
+def _energy(sources: Sources, device: Device) -> EnergyTotals:
+    """The device's energy counters, from its snapshot measurement."""
+    snapshot = sources.snapshot
+    match device.kind:
+        case DeviceKind.BESS:
+            return _find(snapshot.bess, device).energy
+        case DeviceKind.PV:
+            return _find(snapshot.pv, device).energy
+        case DeviceKind.LOAD:
+            return _find(snapshot.loads, device).energy
+        case DeviceKind.FEEDER_METER:
+            return _find(snapshot.meters, device).energy
+        case DeviceKind.POI_METER | DeviceKind.SITE | DeviceKind.MET_STATION:
+            return snapshot.poi.energy
+
+
 def _totals(attribute: str) -> Resolver:
-    """A counter of the device's own powerflow asset (see counters.Totals)."""
+    """One of the device's energy counters (see core/snapshot.EnergyTotals)."""
 
     def resolve(sources: Sources, device: Device) -> float:
-        return float(getattr(sources.counters.totals(powerflow_prefix(device)), attribute))
+        return float(getattr(_energy(sources, device), attribute))
 
     return resolve
 
@@ -280,8 +298,7 @@ BESS: dict[str, Resolver] = {
     ),
     "DoD": lambda sources, device: 100.0 - _bess(sources, device).soc_pct,
     "NCyc": lambda sources, device: math.floor(
-        sources.counters.totals(powerflow_prefix(device)).wh_positive
-        / (_setpoint(sources, device, "capacity_kwh") * KILO)
+        _energy(sources, device).wh_positive / (_setpoint(sources, device, "capacity_kwh") * KILO)
     ),
     "WSetEna": lambda sources, device: _ena(sources, _bess_mode(sources, device) == MODE_PQ),
     "WSetMod": lambda sources, _device: sources.enums.code("704.WSetMod", "WATTS"),
@@ -436,13 +453,6 @@ def _meter_pf(sources: Sources, device: Device) -> float:
     return _meter(sources, device).pf
 
 
-def _quadrant(index: int) -> Resolver:
-    def resolve(sources: Sources, device: Device) -> float:
-        return sources.counters.totals(powerflow_prefix(device)).varh_quadrant[index]
-
-    return resolve
-
-
 def _meter_events(sources: Sources, device: Device) -> int:
     meter = _meter(sources, device)
     alarms = status.meter_alarms(meter.p_kw, meter.v_pu, meter.pf, meter.s_kva)
@@ -488,10 +498,10 @@ METER: dict[str, Resolver] = {
     "TotWhImp": _totals("wh_negative"),
     "TotVAhExp": _totals("vah_positive"),
     "TotVAhImp": _totals("vah_negative"),
-    "TotVArhImpQ1": _quadrant(0),
-    "TotVArhImpQ2": _quadrant(1),
-    "TotVArhExpQ3": _quadrant(2),
-    "TotVArhExpQ4": _quadrant(3),
+    "TotVArhImpQ1": _totals("varh_q1"),
+    "TotVArhImpQ2": _totals("varh_q2"),
+    "TotVArhExpQ3": _totals("varh_q3"),
+    "TotVArhExpQ4": _totals("varh_q4"),
     "VUnb": lambda _sources, _device: 0.0,
     "AUnb": lambda _sources, _device: 0.0,
     "Evt": _meter_events,
@@ -515,8 +525,7 @@ def _bess_total(attribute: str) -> Resolver:
 
 def _pv_counter_total(attribute: str) -> Resolver:
     return lambda sources, _device: sum(
-        float(getattr(sources.counters.totals(f"pv.{pv.id}"), attribute))
-        for pv in sources.snapshot.pv
+        float(getattr(pv.energy, attribute)) for pv in sources.snapshot.pv
     )
 
 

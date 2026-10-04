@@ -19,7 +19,7 @@ aggregator using the PAE point standard (see [Modbus server](#modbus-server)). D
 - **With the platform:** `make up` at the repo root builds and starts powerflow and its Postgres with the rest of the dev stack. Then open http://localhost:8020/docs.
 - **Alone, in Docker:** `make down` at the root first, then `make -C services/powerflow up`. That builds the image and starts powerflow plus `powerflow-postgres`, waiting until both are healthy.
 - **On the host:** start the database (for example `make -C services/powerflow up`, then stop only the app container), or point `DATABASE_URL` at any Postgres. Then run `make -C services/powerflow run`.
-- **First start:** on an empty database, powerflow seeds the shipped defaults from `site_config/` and runs the default active site, `reference_2bess_1pv`. That site is 12.47 kV with a 100 MVA / X/R 5 grid, 2 × 2.5 MW / 10 MWh BESS, 5 MWac PV (all on 12.47/0.48 kV step-ups) and a 3 MW peak load, with a feeder meter on each step-up's 12.47 kV side.
+- **First start:** the database migrations create the three default sites (`0003_default_sites.sql`) and powerflow runs the default active site, `2bess_1pv`. That site is 12.47 kV with a 100 MVA / X/R 5 grid, 2 × 2.5 MW / 10 MWh BESS, 5 MWac PV (all on 12.47/0.48 kV step-ups) and a 3 MW peak load, with a feeder meter on each step-up's 12.47 kV side.
 - **Choosing the site:** switch with `POST /api/sites/{name}/activate`. For one run only, set `ACTIVE_SITE`.
 
 ```sh
@@ -49,27 +49,21 @@ Units: kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, seconds.
 | What | Where | API |
 |---|---|---|
 | Site configs (`SiteConfig`) | Postgres `sites` (JSONB) | `/api/sites`, `/api/sites/{name}` (+ `/activate`) |
-| Modbus maps, one per asset per site | Postgres `modbus_maps` (JSONB; deleted with their site) | `/api/sites/{site}/modbus-maps/{asset}` |
 | The active site | Postgres `app_state` | `POST /api/sites/{name}/activate` |
-| Profile scenarios | **CSV files** in `site_config/profiles/{load,pv}/` (not in the database yet) | `/api/profiles/{load\|pv}/{scenario}` |
-| JSON Schemas | generated from code | `/api/schemas/{site-config,modbus-map}` |
+| Profile scenarios | **CSV files** in `profiles/{load,pv}/` (`PROFILES_DIR`) | `/api/profiles/{load\|pv}/{scenario}` |
+| JSON Schema | generated from code | `/api/schemas/site-config` |
 
 - **Database:** powerflow owns its own Postgres, `powerflow-postgres` (host port 5436), set by `DATABASE_URL`. The SQL migrations in `src/powerflow/storage/migrations/` run at startup.
 - **Writes:** every write is validated before it's stored.
-- **Shipped defaults** (read-only seed data):
-  - `site_config/sites/*.json`, `site_config/modbus_maps/<site>/*.json` and `site_config/active.json`.
-  - They're imported into an empty database at startup.
-  - `POST /api/defaults/restore` re-imports them. Items already stored are kept; `?overwrite=true` replaces them, and the simulation must be stopped for that.
-  - `GET /api/defaults` lists them.
-  - The API never writes these files.
+- **The database is the only store for sites.** There are no site files: a fresh database gets the three default sites and the active site from the data migration `0003_default_sites.sql` (full configs, every field explicit). Sites are stored with every field, so a later change to a code default never changes a stored site. To change a default site for everyone, add a migration; to change it in one database, `PUT /api/sites/{name}`. A deleted site is gone.
+- **Site categories:** every stored site is `default` or `custom` (`GET /api/sites` lists each with its category). The three default sites (`1bess_1pv`, `2bess_1pv`, `3bess_2pv`) are `default`: they can be edited but not deleted (409). Every site created through the API is `custom`; only a migration (`0004_site_categories.sql`) sets `default`.
+- **`ACTIVE_SITE`** overrides the stored active site for one run only; `GET /api/sites` then reports both (`active`, `stored_active`), and neither can be deleted.
 - **Profile edits:** `PUT /api/profiles/...` writes the CSV files. In the container they live on the `powerflow-profiles` volume, which Docker seeds from the image; on the host they go straight into the repo folder.
-- **Resetting:** `make -C services/powerflow down-all` deletes the database and profile volumes, which resets everything to the shipped defaults. It's destructive, so only run it on purpose.
-- **Regenerating the shipped files:**
-  - `make -C services/powerflow profiles` regenerates the profile CSVs.
-  - `make -C services/powerflow modbus-maps` regenerates the default map files. The database is untouched: use restore with overwrite to load them.
+- **Resetting:** `make -C services/powerflow down-all` deletes the database and profile volumes; the next start migrates a fresh database (the default sites) and reseeds the profile volume from the image. It's destructive, so only run it on purpose.
+- **Regenerating the profile CSVs:** `make -C services/powerflow profiles`.
 
 ## Site config (JSON)
-One Pydantic model (`SiteConfig`) validates the default site files, `PUT /api/sites/{name}`,
+One Pydantic model (`SiteConfig`) validates the migration's default sites, `PUT /api/sites/{name}`,
 what's read back from the database, and `GET /api/schemas/site-config`. Unknown keys are
 rejected. The sections are:
 - **`simulation`:** `step_s`, `start_time` (sim time starts here and advances 1:1 with wall-clock), `autostart`, `test_mode` (enables manual stepping), `seed`, `history_size`.
@@ -82,7 +76,7 @@ rejected. The sections are:
 - **`pv[]`:** `dc_kwp`, `loss_factor`, `inverter` (`s_rated_kva`, `p_max_kw`), `availability` (`source`: `ac_kw` | `irradiance`, plus a profile `scenario` from `profiles/pv/`, `scale` and `loop`), `transformer`.
 - **`loads[]`:** `bus` (`poi` or a collector id), `profile` (`scenario` from `profiles/load/`, `scale`, `loop`), optional `noise` (% std, seeded), optional `transformer`.
 - **`meters[]`:** feeder meters, each `{id, name?, transformer}`. `transformer` is the BESS, PV or load (with a transformer) whose transformer is metered on its HV side, between the MV bus and the transformer. A meter has no impedance: it reads the transformer's HV-terminal P/Q/I and the MV bus voltage.
-- **`interfaces`:** `http` is always on; `modbus` starts the Modbus server (enabled on `reference_2bess_1pv`); `dnp3` isn't implemented yet, so enabling it only logs a warning.
+- **`interfaces`:** `http` is always on; `modbus` starts the Modbus server (enabled on `2bess_1pv`); `dnp3` isn't implemented yet, so enabling it only logs a warning.
 
 Validation also checks:
 - ids are unique and every reference points at something that exists;
@@ -125,12 +119,10 @@ Validation also checks:
 | Area | Endpoints |
 |---|---|
 | Simulation | `POST sim/start`, `sim/pause`, `sim/stop`, `sim/reset`, `sim/step?count=N` · `GET sim/status` |
-| Active config | `GET config` · `GET config/schema` |
-| Sites | `GET sites` · `GET`/`PUT`/`DELETE sites/{name}` · `POST sites/{name}/activate` (while stopped) |
-| Modbus maps | `GET sites/{site}/modbus-maps` · `GET`/`PUT`/`DELETE sites/{site}/modbus-maps/{asset}` (e.g. `pv.pv1`, `poi.meter`) |
+| Active config | `GET config` · `GET schemas/site-config` |
+| Sites | `GET sites` (name + category) · `GET`/`PUT`/`DELETE sites/{name}` (DELETE: custom sites only) · `POST sites/{name}/activate` (while stopped) |
 | Profiles | `GET profiles` · `GET`/`PUT`/`DELETE profiles/{load\|pv}/{scenario}` (text/csv; DELETE refused while a site uses it) |
 | Schemas | `GET schemas` · `GET schemas/{name}` (`site-config`, `modbus-map`; read-only) |
-| Defaults | `GET defaults` · `POST defaults/restore?overwrite=` |
 | Assets | `GET assets` (includes `meters`) · `GET assets/{bess,pv,load}/{id}` · `PUT assets/{bess,pv}/{id}/setpoint` |
 | Points | `GET points` · `GET points/{name}` |
 | Measurements | `GET measurements/latest`, `measurements/poi` · `GET measurements/history?from=&to=&fields=&format=json\|csv` |
@@ -162,22 +154,8 @@ Validation also checks:
 - **Load:** P, Q, S, pf, voltage.
 - **POI:** P, Q, S, pf, V (kV, pu), angle, current, site losses.
 - **Feeder meter:** P, Q, S, pf, MV bus V (kV, pu), HV-side current, `meter_state` (STALE on non-convergence, like the POI).
+- **Energy:** `energy_discharged_kwh`/`energy_charged_kwh` (BESS), `energy_produced_kwh`/`energy_produced_today_kwh` (PV), `energy_consumed_kwh` (load), `energy_export_kwh`/`energy_import_kwh` (POI and feeder meters). The simulation integrates them every converged step over its real length (exact for `sim/step?count=N`), holds them while the power flow fails, and restarts them on reset or activate. The full set (by direction, VAh, reactive quadrants, today) is each measurement's `energy` in the snapshot; the Modbus counters come from there.
 - **Site:** `step_id`, `sim_time_epoch_s`, `converged`, `state`, `overrun_count`.
-
-**Per-asset Modbus maps** (stored with each site; the Modbus server below doesn't use them)
-- **Format:** `ModbusMap` in `points/modbus_map.py`, with its JSON Schema at `GET /api/schemas/modbus-map`. Each site has a map for every asset (BESS, PV, load, POI meter, site status, feeder meters), stored in the database and editable at `/api/sites/{site}/modbus-maps/{asset}`. The shipped defaults are in `site_config/modbus_maps/<site>/`.
-- **Contents:** each asset gets its own unit ID and port. Each map entry binds a point to a register type, address, data type, word order and scale (engineering value = raw × scale).
-- **Default layout** (`default_map()`; `make modbus-maps` regenerates the default files):
-  - Unit IDs run from 1 per site, in the order BESS, PV, loads, POI meter, site status, then feeder meters (last, so adding a meter moves no existing unit ID), all on port 502.
-  - RW setpoints go in holding registers from 0, read-only points in input registers from 0, and nameplate points in input registers from 100.
-  - Measured values are int32 at the point's `scale_hint`; enums and flags are uint16. Word order is big.
-- **Validation:**
-  - overlapping registers are rejected;
-  - every entry must name a real point, with RW points on writable registers;
-  - the asset must exist in that site;
-  - a unit ID + port can belong to only one map in a site.
-
-  If a site later drops an asset, its map is kept but listed as `orphaned: true`. Deleting a site deletes its maps.
 
 ## Modbus server
 - **What:** one Modbus TCP aggregator (container port 502, host port `POWERFLOW_MODBUS_PORT` = 1502; unit id 1), started when the active site has `interfaces.modbus.enabled`. Settings: `MODBUS_HOST`, `MODBUS_PORT`, `MODBUS_UNIT_ID`, `POINT_STANDARD_DIR`.
@@ -185,13 +163,14 @@ Validation also checks:
 - **Frequency:** not simulated; `Hz` is a random signal around 60 Hz (± 0.02, new value every sim second, seeded), from the reusable `RandomSignal` in `src/powerflow/point_standard/random_signal.py`.
 - **Values:** the CSVs' `powerflow_server` column says which points are served: `yes` (a simulation value × a unit factor), `calc` (derived: per-phase values, SunSpec state and alarm codes, energy counters, fleet totals) or `no` (reads 0). All of that code is in `src/powerflow/point_standard/`.
 - **Read-only:** FC03 and FC04 return the same values; writes get ILLEGAL_FUNCTION. Setpoints stay on HTTP.
+- **Lifecycle:** started or stopped whenever the engine's config changes (startup, activating a site, saving the active site). A failed start (port taken) doesn't fail the request; `GET /api/health` (`interfaces`, `interface_errors`) and `GET /api/modbus/registers` (`running`, `error`) report it.
 - Adapter details: `src/powerflow/interfaces/modbus/README.md`.
 
 ## Tests
-- **`make -C services/powerflow test`** runs the unit tests with no Docker. They use an in-memory configuration store and take about 45 s. They cover:
+- **`make -C services/powerflow test`** runs the unit tests with no Docker. They use an in-memory configuration store holding what a migrated database holds, and take about 45 s. They cover:
   - the models, profiles and config validation;
   - the network: the hand-calculated transformer, power balance, scaling and non-convergence;
   - the engine: determinism, 24 h SOC, and real-time pacing with a fake clock;
   - points, the setpoint path and every API route;
-  - the default Modbus maps against their generator.
-- **`make -C services/powerflow test-integration`** runs the same repository tests against a real Postgres, in a throwaway compose project (tmpfs, no host ports). It also checks idempotent migrations, and that the app seeds the defaults and keeps edits across a restart.
+  - the energy counters, the Modbus server over TCP and the point-standard layout, contract and resolvers.
+- **`make -C services/powerflow test-integration`** runs the same repository tests against a real Postgres, in a throwaway compose project (tmpfs, no host ports). It also checks the migrations (idempotent, a fresh database gets exactly the default sites, a stale one is refreshed once by `0003`, the old default-site names are renamed by `0004`), that sites are stored with every field, and that the app keeps edits across a restart.

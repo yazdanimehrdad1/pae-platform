@@ -3,8 +3,8 @@
 The register layout and every value come from `powerflow.point_standard`. This module only
 serves them:
 
-- A background task watches for new snapshots. On each new step it advances the energy
-  counters and rebuilds the register image; when the active site changes, it rebuilds the layout
+- A background task watches for new snapshots. On each new step it rebuilds the register image
+  (energy counters come with the snapshot); when the active site changes, it rebuilds the layout
   too.
 - pymodbus serves a single shared register block, so FC03 (holding) and FC04 (input) read the
   same values. The device's `action` hook copies the current image into the block on every read.
@@ -25,7 +25,6 @@ from powerflow.interfaces.base import AdapterContext, ProtocolAdapter
 from powerflow.point_standard import (
     REGISTER_SPACE,
     Device,
-    EnergyCounters,
     PointValue,
     Sources,
     build_image,
@@ -45,7 +44,6 @@ class ModbusAdapter(ProtocolAdapter):
         self._context = context
         self._address = (host, port)
         self._unit_id = unit_id
-        self._counters = EnergyCounters()
         self._config: SiteConfig | None = None
         self._devices: tuple[Device, ...] = ()
         self._step_id: int | None = None
@@ -70,7 +68,12 @@ class ModbusAdapter(ProtocolAdapter):
             action=self._on_request,
         )
         self._server = ModbusTcpServer(device, address=self._address)
-        await self._server.serve_forever(background=True)
+        try:
+            await self._server.serve_forever(background=True)
+        except RuntimeError as error:  # pymodbus: "Could not start listen" (port taken, ...)
+            raise OSError(
+                f"Modbus can't listen on {self._address[0]}:{self._address[1]}"
+            ) from error
         self._task = asyncio.create_task(self._refresh_loop())
         logger.info(
             "modbus: serving %d devices on %s:%d unit %d",
@@ -94,7 +97,6 @@ class ModbusAdapter(ProtocolAdapter):
         if engine.config is not self._config:
             self._config = engine.config
             self._devices = build_layout(engine.config, self._context.point_standard)
-            self._counters.reset()
             self._step_id = None
         latest = engine.store.latest
         if latest is None:
@@ -102,12 +104,10 @@ class ModbusAdapter(ProtocolAdapter):
             return
         if latest.step_id == self._step_id:
             return
-        self._counters.advance(latest)
         sources = Sources(
             snapshot=latest,
             config=engine.config,
             read=partial(self._read, latest),
-            counters=self._counters,
             enums=self._context.point_standard.enums,
         )
         self._image = build_image(self._devices, sources)
