@@ -11,6 +11,7 @@ sign conventions.
 - The network and its solver (pandapower, Newton-Raphson).
 - The real-time simulation engine and its in-memory measurement history.
 - The protocol-neutral point lists (`src/powerflow/points/`) and the Modbus map format.
+- The PAE point standard (`docs/point-standard/*.csv`) and the Modbus TCP server that serves it (`src/powerflow/point_standard/` maps and calculates every point; `interfaces/modbus/` serves the image).
 - The HTTP API under `/api`.
 
 **Does NOT own**
@@ -32,11 +33,11 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists
 - **`make up` / `down` / `logs`:** a standalone container on `POWERFLOW_HTTP_PORT` (default 8020). `up`/`build` refuse while the root dev stack runs.
 
 ## Contracts
-- **Provides:** `contracts/openapi/powerflow.openapi.json` and `contracts/powerflow/points.json`, both written by `make contract`. Contract versions: `API_VERSION` in `src/powerflow/app.py` and `POINTS_CONTRACT_VERSION` in `src/powerflow/contract.py`. `make test` fails while either is stale (`tests/test_contract.py`).
+- **Provides:** `contracts/openapi/powerflow.openapi.json`, `contracts/powerflow/points.json` and `contracts/modbus/powerflow.registers.json` (the Modbus server's register layout), all written by `make contract`. Contract versions: `API_VERSION` in `src/powerflow/app.py`, `POINTS_CONTRACT_VERSION` and `REGISTERS_CONTRACT_VERSION` in `src/powerflow/contract.py`. `make test` fails while any is stale (`tests/test_contract.py`).
 - **Consumes:** none. Consume other services only through `contracts/` and the network, never their code or files.
 
 ## Layout (dependencies point inward)
-- **`interfaces/`** (http implemented; modbus/dnp3 are placeholder READMEs) → **`core/`** (engine, step, state store, SetpointService, PointRegistry) → **`models/`**, **`network/`**, **`profiles/`**, **`site_config/`**.
+- **`interfaces/`** (http; modbus = read-only aggregator over `point_standard/`; dnp3 is a placeholder README) → **`point_standard/`** (CSV layout, yes/calc resolvers, energy counters) → **`core/`** (engine, step, state store, SetpointService, PointRegistry) → **`models/`**, **`network/`**, **`profiles/`**, **`site_config/`**.
 - **`models/` is pure:** no pandapower, no clock.
 - **`network/pandapower_solver.py`** is the only module that imports pandapower, behind `PowerFlowSolver`.
 - **`core/step.py` is a pure function:** time and setpoints are passed in, which is what makes runs deterministic.
@@ -56,6 +57,8 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists
 - Every feature or fix ships with tests, and `make lint typecheck` stays clean.
 
 ## Gotchas
+- **Point standard CSVs drive the Modbus server:** a new `yes`/`calc` value in the `powerflow_server` column needs a resolver in `point_standard/values.py` or `calc.py`, and vice versa (`test_point_standard.py` checks both ways). Rows are packed in CSV order, so inserting a row mid-file moves every later address: append instead. Any CSV change means `make contract`; a moved offset is a breaking change to the registers contract (bump `REGISTERS_CONTRACT_VERSION`).
+- **Modbus port:** tests run the server on an ephemeral loopback port (autouse fixture in `conftest.py`). A host `make run` binds `MODBUS_PORT` (502), which mock-modbus also uses while the dev stack is up.
 - **Grid impedance:** in pandapower, `ext_grid`'s `s_sc_max_mva`/`rx_max` only affect short-circuit studies. The power flow sees the grid strength through an explicit impedance element (see `network/topology.py`).
 - **Site losses:** transformers plus collector feeders. They exclude the grid equivalent and the POI line, which are on the utility side of the POI meter.
 - **`step_id` is the sim tick:** a real-time overrun skips ticks, so ids can have gaps and the skipped time is integrated as one longer step.

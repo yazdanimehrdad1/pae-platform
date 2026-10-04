@@ -55,3 +55,7 @@ class InvalidNameError(PowerflowError):
 
 class InUseError(InvalidStateError):
     """The item can't change now because it's in use (e.g. deleting the active site)."""
+
+
+class PointStandardError(PowerflowError):
+    """The point-standard CSVs are invalid, or a site doesn't fit the Modbus register layout."""

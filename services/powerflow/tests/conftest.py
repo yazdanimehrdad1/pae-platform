@@ -7,7 +7,10 @@ from typing import Any
 
 import pytest
 
+from powerflow.point_standard import PointStandard, load_point_standard
 from powerflow.points.modbus_map import ModbusMap
+from powerflow.settings import SERVICE_ROOT as POWERFLOW_ROOT
+from powerflow.settings import settings
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ProfileStore
 from powerflow.storage.defaults import read_defaults
@@ -18,6 +21,7 @@ SITE_CONFIG_DIR = SERVICE_ROOT / "site_config"
 DEFAULTS = read_defaults(SITE_CONFIG_DIR)
 DEFAULT_SITE_NAMES = [site.name for site in DEFAULTS.sites]
 PROFILES = ProfileStore(SITE_CONFIG_DIR / "profiles")
+POINT_STANDARD: PointStandard = load_point_standard(POWERFLOW_ROOT / "docs" / "point-standard")
 
 
 def default_site(name: str) -> SiteConfig:
@@ -82,6 +86,14 @@ def site_config_dict(n_bess: int = 1, n_pv: int = 1, n_loads: int = 1) -> dict[s
 
 def make_site_config(n_bess: int = 1, n_pv: int = 1, n_loads: int = 1) -> SiteConfig:
     return SiteConfig.model_validate(site_config_dict(n_bess, n_pv, n_loads))
+
+
+@pytest.fixture(autouse=True)
+def modbus_on_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Apps started in tests (the reference site enables Modbus) listen on an ephemeral
+    loopback port, never on 502."""
+    monkeypatch.setattr(settings, "modbus_host", "127.0.0.1")
+    monkeypatch.setattr(settings, "modbus_port", 0)
 
 
 @pytest.fixture

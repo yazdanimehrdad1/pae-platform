@@ -7,7 +7,8 @@ depend on each other through the machine-readable contracts published here.
 |---|---|---|---|
 | `modbus/mock-modbus.devices.json` — every simulated device and register | `services/mock-modbus` | `make -C services/mock-modbus contract` | backend-ot dev seed (`tests/seed_db/mock_modbus_seed.py`) |
 | `openapi/powerflow.openapi.json` — powerflow HTTP API (OpenAPI 3.1, from `create_app().openapi()`) | `services/powerflow` | `make -C services/powerflow contract` | none yet (the EMS, future) |
-| `powerflow/points.json` — powerflow's protocol-neutral point lists (`<asset_type>.<asset_id>.<point>`) that its Modbus/DNP3 maps and the EMS bind to | `services/powerflow` | `make -C services/powerflow contract` | none yet |
+| `powerflow/points.json` — powerflow's protocol-neutral point lists (`<asset_type>.<asset_id>.<point>`) that its HTTP API, per-asset maps and the EMS bind to. (Its Modbus TCP server is laid out from the PAE point standard instead: see the next row.) | `services/powerflow` | `make -C services/powerflow contract` | none yet |
+| `modbus/powerflow.registers.json` — powerflow's Modbus TCP server: one aggregator (port 502, unit 1); a register template per device kind (offsets, types, scales, enum/bit labels, `powerflow_server` yes/calc/no) and each shipped default site's device bases (address = base + offset; port 502 is the container port, 1502 on the dev host) | `services/powerflow` | `make -C services/powerflow contract` | backend-ot (future: polls powerflow over Modbus) |
 | `openapi/backend-ot.openapi.json` — backend-ot HTTP API (OpenAPI 3.1, from `create_app().openapi()`) | `services/backend-ot` | `make -C services/backend-ot contract` | `services/web-plusdas` (TypeScript types generated with `make -C services/web-plusdas api-types`; its `make test` fails while they are stale), optimizer *(future)* |
 
 ## Rules
@@ -28,7 +29,9 @@ depend on each other through the machine-readable contracts published here.
   field that becomes required; a changed type or unit. Adding is not breaking. Where the version
   lives: mock-modbus → `CONTRACT_VERSION` in `app/contract.py`; backend-ot → `version=` in
   `create_app()` (`src/app.py`), published as `info.version`; powerflow → `API_VERSION` in
-  `src/powerflow/app.py` (OpenAPI) and `POINTS_CONTRACT_VERSION` in `src/powerflow/contract.py`.
+  `src/powerflow/app.py` (OpenAPI), and `POINTS_CONTRACT_VERSION` / `REGISTERS_CONTRACT_VERSION`
+  in `src/powerflow/contract.py`. For the Modbus registers, a moved offset or base, a removed
+  point, or a changed type, scale or unit is breaking.
 - **Consumers never import provider code**, and never read a provider's files outside
   `contracts/`. **Typed clients are generated, committed inside the consumer, and drift-checked
   by its tests.** web-plusdas uses openapi-typescript (types only) into

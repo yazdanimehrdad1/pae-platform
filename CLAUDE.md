@@ -70,7 +70,7 @@ the root, and `make -C services/<svc> help` in each service.
 | mock-modbus | 502 |
 | web-plusdas | 5173 (http; `make -C services/web-plusdas run` dev server: 5174) |
 | optimizer (reserved) | 8010 |
-| powerflow | 8020 (http), 5436 (postgres) |
+| powerflow | 8020 (http), 5436 (postgres), 1502 (modbus; 502 in the container) |
 
 ## Contracts
 Rules and the contract list are in `contracts/README.md`. For a change that alters what a service

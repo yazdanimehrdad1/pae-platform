@@ -994,6 +994,30 @@
           }
         }
       ]
+    },
+    {
+      "name": "modbus",
+      "item": [
+        {
+          "name": "Register layout of the Modbus server for the active site",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/modbus/registers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "modbus",
+                "registers"
+              ]
+            },
+            "description": "One aggregator device (one port, one unit id); each device owns a 100-register chunk. `powerflow_server` says whether a point is served (yes / calc) or always reads 0 (no)."
+          }
+        }
+      ]
     }
   ]
 }

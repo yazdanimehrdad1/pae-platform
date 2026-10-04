@@ -2,9 +2,9 @@
 
 This is the reference list of Modbus points for each kind of power asset on a PAE site. A device map, a simulator or the EMS should name, scale and interpret a point the way this list says. Vendor register maps stay as they are; what this standard fixes is the meaning each register is mapped to.
 
-**Status:** draft v0.1 (2026-10-02). Nothing in the repo conforms to it yet. See [Alignment gaps](#alignment-gaps) for what each service would change.
+**Status:** draft v0.1 (2026-10-02). powerflow's Modbus server serves it (see [powerflow Modbus server](#powerflow-modbus-server)); the other services don't conform yet. See [Alignment gaps](#alignment-gaps) for what each would change.
 
-This folder is hand-written documentation, and no service imports it. It is not a contract, because `contracts/` holds only generated files. When a service publishes maps that follow this standard, those maps become that service's contract.
+This folder lives in powerflow (`services/powerflow/docs/point-standard/`) because powerflow reads it at runtime: its Modbus server takes the register layout and point list from these CSVs, and its image ships them. It is hand-written; consumers use the generated contract `contracts/modbus/powerflow.registers.json` (`make -C services/powerflow contract`), or `GET /api/modbus/registers` for the running site.
 
 ## Files
 
@@ -46,6 +46,7 @@ This folder is hand-written documentation, and no service imports it. It is not 
 | `enum_detail` | Required on every enum point; empty otherwise. JSON map of **value → label**, e.g. `{"1":"OFF","2":"EMPTY","3":"DISCHARGING","4":"CHARGING",…}`. This is the format backend-ot stores in `device_points.enum_detail`, so it can be copied in as-is. |
 | `bitfield_detail` | Required on every bitfield point; empty otherwise. JSON map of **bit number → label** (bit 0 = least significant bit), e.g. `{"0":"GROUND_FAULT","1":"DC_OVER_VOLT",…}`. This is the format backend-ot stores in `device_points.bitfield_detail`; it adds the `bit-` prefix itself. |
 | `source`, `source_ref` | Where the definition comes from (`SunSpec 802 SoC`, `IEC 61850 XCBR.Pos`, `PAE`). |
+| `powerflow_server` | Whether powerflow's Modbus server fills the point: **`yes`** = straight from a simulation result (times a unit factor), **`calc`** = derived from results (per-phase values on the balanced network, state and alarm translations, energy counters, fleet sums; the code is in `services/powerflow/src/powerflow/point_standard/`), **`no`** = not simulated, the register reads 0. |
 | `mock_modbus`, `powerflow` | What today's register or point is called in each service, so they can be aligned later. `(kW)` means the existing point uses a different unit. `(different codes)` means it is the same idea with a different numbering. `(partial)` means it covers only part of the point. |
 
 ## Conventions
@@ -145,8 +146,28 @@ The `mock_modbus` and `powerflow` columns in the CSVs map each point row by row.
 | Service | Gap |
 |---|---|
 | mock-modbus | Has no meter, relay, genset, transformer or met-station device; the only meter-like points are the POI block inside `device_3`. BESS power and current are unsigned, so direction is lost. Units are mixed (W/kW, Wh/kWh/MWh). The two meters disagree on frequency (50 Hz vs 60 Hz). Enums are 1-based custom codes. The contract has no access, data_type or word-order field. |
-| powerflow | Balanced positive-sequence model only: no per-phase values, no L-L AB/BC/CA, no frequency, no energy counters (`TotWhImp/Exp`, `TotWhInj/Abs`). Everything is in kW. Status enums are 0-based custom codes, not `InvSt`/`ChaSt`/`State`. PV has no `WMaxLimPctEna`, no `SetInvState`, no enable registers. There is no Modbus server yet, so the maps can adopt standard names before anything binds to them. |
+| powerflow | Balanced positive-sequence model only: no per-phase values, no L-L AB/BC/CA, no frequency, no energy counters (`TotWhImp/Exp`, `TotWhInj/Abs`). Everything is in kW. Status enums are 0-based custom codes, not `InvSt`/`ChaSt`/`State`. PV has no `WMaxLimPctEna`, no `SetInvState`, no enable registers. Its Modbus server now serves this standard (yes/calc in the `powerflow_server` column). Frequency isn't modelled: `Hz` is a random signal around 60 Hz. |
 | backend-ot | The `STANDARDIZED` points (`device_standardized_points.py`) are three placeholders per type that nothing polls. They could be replaced by the tier-M rows of these files, with `qty` as the lookup key. Code finds points by native name (`active_power`, `poi_active_power_total`, `inverter_state`, `battery_state`, `bms_state`), and SLD roles (`vab`, `ia`, `soc`, `power`) need a mapping to `qty`. Device types have no METER template, and no type for TRANSFORMER or MET. |
+
+## powerflow Modbus server
+
+powerflow serves the simulated site as one Modbus TCP aggregator: one port (502 in the container, 1502 on the dev host), one unit id (1), when the active site sets `interfaces.modbus.enabled`.
+
+| Group | Base address | Devices (100 registers each) |
+|---|---|---|
+| Site | 0 | plant controller (`plant_controller.csv`) at 0; met station (`met_station.csv`) at 100 when a PV is irradiance-driven |
+| BESS | 1000 | BESS n at 1000 + 100·(n−1) |
+| PV | 2000 | PV n at 2000 + 100·(n−1) |
+| Gensets / loads | 3000 | load n at 3000 + 100·(n−1) (no gensets in powerflow) |
+| Meters / relays | 4000 | POI meter at 4000, feeder meters from 4100 in config order |
+
+- **Inside a chunk:** the device's CSV rows in file order, then `common.csv`'s rows. Every row gets an address whether served or not, so serving more points later moves nothing. String rows (identity text) are left out; `_<n>` rows are instance 1.
+- **Addresses** are zero-based wire addresses, and holding (FC03) and input (FC04) registers return the same values.
+- **Encoding:** the `data_type` and `scale` columns, big-endian, high word first; values saturate at the type's range. Points marked `no` read 0.
+- **Read-only:** writes get exception 1 (illegal function). Setpoints stay on powerflow's HTTP API.
+- **Frequency:** powerflow solves a steady state, so it has no frequency of its own. `Hz` / `SiteHz` come from a time-bucketed random signal (`point_standard/random_signal.py`): 60 Hz ± 0.02, a new value every sim second, the same on every device, reproducible for a given site `seed`. The same `RandomSignal` (nominal, spread, period in seconds, key) is meant for other unsimulated points later.
+- **Contract:** `contracts/modbus/powerflow.registers.json` is generated from these CSVs: a register template per device kind (offsets from the device base) plus each default site's device bases. A moved offset is breaking, so add new rows at the end of a file.
+- **Discovering the layout:** `GET /api/modbus/registers` lists every device, address, point, type, scale and `powerflow_server` value for the active site.
 
 ## Sources
 

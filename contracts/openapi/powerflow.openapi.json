@@ -566,6 +566,19 @@
         "title": "DefaultsRestoreResult",
         "type": "object"
       },
+      "DeviceKind": {
+        "enum": [
+          "site",
+          "met_station",
+          "bess",
+          "pv",
+          "load",
+          "poi_meter",
+          "feeder_meter"
+        ],
+        "title": "DeviceKind",
+        "type": "string"
+      },
       "EfficiencyConfig": {
         "additionalProperties": false,
         "description": "Either charge + discharge efficiencies, or a round-trip efficiency split evenly.",
@@ -1166,6 +1179,36 @@
         "title": "ModbusDataType",
         "type": "string"
       },
+      "ModbusDevice": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "base": {
+            "title": "Base",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DeviceKind"
+          },
+          "registers": {
+            "items": {
+              "$ref": "#/components/schemas/ModbusRegister"
+            },
+            "title": "Registers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "asset_id",
+          "base",
+          "registers"
+        ],
+        "title": "ModbusDevice",
+        "type": "object"
+      },
       "ModbusInterfaceConfig": {
         "additionalProperties": false,
         "description": "The maps are the files in site_config/modbus_maps/<site>/ (one per asset).",
@@ -1335,6 +1378,80 @@
           "data_type"
         ],
         "title": "ModbusPointMap",
+        "type": "object"
+      },
+      "ModbusRegister": {
+        "properties": {
+          "address": {
+            "description": "Zero-based register address (holding and input alike).",
+            "title": "Address",
+            "type": "integer"
+          },
+          "data_type": {
+            "title": "Data Type",
+            "type": "string"
+          },
+          "point": {
+            "description": "Point name from the PAE point standard.",
+            "title": "Point",
+            "type": "string"
+          },
+          "powerflow_server": {
+            "$ref": "#/components/schemas/ServerSupport"
+          },
+          "scale": {
+            "description": "Engineering value = raw × scale.",
+            "title": "Scale",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "point",
+          "data_type",
+          "scale",
+          "unit",
+          "powerflow_server"
+        ],
+        "title": "ModbusRegister",
+        "type": "object"
+      },
+      "ModbusRegistersResponse": {
+        "description": "The Modbus server's register layout for the active site.",
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/ModbusDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Whether the active site enables interfaces.modbus.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "port": {
+            "description": "The port the server listens on (inside the container).",
+            "title": "Port",
+            "type": "integer"
+          },
+          "unit_id": {
+            "title": "Unit Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "port",
+          "unit_id",
+          "devices"
+        ],
+        "title": "ModbusRegistersResponse",
         "type": "object"
       },
       "NoiseConfig": {
@@ -2135,6 +2252,16 @@
           "paused"
         ],
         "title": "RunState",
+        "type": "string"
+      },
+      "ServerSupport": {
+        "description": "The `powerflow_server` column: can the powerflow Modbus server fill this point?",
+        "enum": [
+          "yes",
+          "calc",
+          "no"
+        ],
+        "title": "ServerSupport",
         "type": "string"
       },
       "SetpointResult": {
@@ -3245,6 +3372,28 @@
         "summary": "The POI meter",
         "tags": [
           "measurements"
+        ]
+      }
+    },
+    "/api/modbus/registers": {
+      "get": {
+        "description": "One aggregator device (one port, one unit id); each device owns a 100-register chunk. `powerflow_server` says whether a point is served (yes / calc) or always reads 0 (no).",
+        "operationId": "modbus_registers_api_modbus_registers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModbusRegistersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Register layout of the Modbus server for the active site",
+        "tags": [
+          "modbus"
         ]
       }
     },

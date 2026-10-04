@@ -1,27 +1,29 @@
-# Modbus TCP adapter (placeholder)
+# Modbus TCP adapter
 
-Not implemented yet. The package only exists so the adapter can be added later without
-touching the simulation core.
+`ModbusAdapter` (`adapter.py`) serves the simulated site the way a site aggregator would: one TCP
+server, one unit id, every device in its own 100-register chunk. It starts when the active site
+config has `interfaces.modbus.enabled: true`.
 
-## Intended scope
-- A `ProtocolAdapter` (see `interfaces/base.py`) named `modbus`, registered in the app's
-  `AdapterRegistry` and started when the site config has `interfaces.modbus.enabled: true`.
-- It serves one Modbus device per simulated asset, each at its own unit ID (and optionally its
-  own port), as described by the **active site's** maps (stored in the database, editable at
-  `/api/sites/{site}/modbus-maps`). That is how real site devices appear to an EMS.
-- The map format is `powerflow.points.modbus_map.ModbusMap`; its JSON Schema is at
-  `GET /api/schemas/modbus-map`. The maps are stored per site in the database, and every
-  default site ships with a map for each asset (the default layout from `default_map()`).
-  Each entry binds a point name from the protocol-neutral point list (`powerflow.points`) to a
-  register type, address, data type, word order and scale (engineering value = raw × scale).
-- **Reads:** register values come from `PointRegistry.read("<asset>.<point>")`, and are refreshed
-  each step.
-- **Writes:** holding registers and coils go to `PointRegistry.write(...)`. That goes through
-  `SetpointService`, so Modbus setpoints are validated and clamped exactly like HTTP ones.
-- A 32-bit value spans two registers, in the map's `word_order`.
-- **Library:** likely `pymodbus` (already used by backend-ot). Adding it needs the user's OK.
+## What it serves
+- **Layout and values** come from `powerflow.point_standard`, which reads the PAE point standard
+  (`docs/point-standard/*.csv`). That package holds every mapping and calculation; this adapter
+  only serves the resulting register image. The layout table is in the point standard's README,
+  `contracts/modbus/powerflow.registers.json` publishes it, and `GET /api/modbus/registers`
+  returns it for the active site.
+- **Refresh:** a background task checks the engine every 0.25 s. On a new step it advances the
+  energy counters and rebuilds the image; when the active site changes it rebuilds the layout and
+  restarts the counters.
+- **Reads:** one shared pymodbus register block (`SimDevice` + `SimData`), so FC03 (holding) and
+  FC04 (input) return the same values. The device's async `action` hook copies the current image
+  into the requested range on every read. Addresses are zero-based.
+- **Writes:** refused with exception 1 (ILLEGAL_FUNCTION). Setpoints are HTTP-only for now; a
+  writable server would route writes through `PointRegistry.write` → `SetpointService`.
 
-## Not in scope
-- **Direct access to models or the solver:** the adapter never touches asset models or the
-  solver.
-- **Engine control:** start/stop/config stay HTTP-only.
+## Settings (`settings.py`)
+`MODBUS_HOST` (0.0.0.0), `MODBUS_PORT` (502), `MODBUS_UNIT_ID` (1), `POINT_STANDARD_DIR`
+(`docs/point-standard`). Compose publishes 502 as host port `POWERFLOW_MODBUS_PORT` (1502),
+because mock-modbus owns host port 502 in the dev stack.
+
+## Not used
+The per-asset `ModbusMap`s stored with each site (`/api/sites/{site}/modbus-maps`, one unit id
+per asset) predate this server and don't drive it.

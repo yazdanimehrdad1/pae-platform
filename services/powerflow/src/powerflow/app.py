@@ -21,7 +21,9 @@ from powerflow.core.site_library import SiteLibrary, seed_defaults
 from powerflow.errors import SiteConfigError
 from powerflow.interfaces.base import AdapterContext, AdapterRegistry
 from powerflow.interfaces.http.adapter import HttpAdapter, build_router, install_error_handlers
+from powerflow.interfaces.modbus.adapter import ModbusAdapter
 from powerflow.network.pandapower_solver import PandapowerSolver
+from powerflow.point_standard import load_point_standard
 from powerflow.settings import settings
 from powerflow.storage import ConfigRepository, ProfileStore
 from powerflow.storage.defaults import read_defaults
@@ -98,9 +100,19 @@ def create_app(
             points=PointRegistry(engine, setpoints),
             setpoints=setpoints,
             library=library,
+            point_standard=load_point_standard(settings.resolved_point_standard_dir()),
         )
         adapters = AdapterRegistry()
         adapters.register(HttpAdapter.name, lambda _: HttpAdapter())
+        adapters.register(
+            ModbusAdapter.name,
+            lambda adapter_context: ModbusAdapter(
+                adapter_context,
+                settings.modbus_host,
+                settings.modbus_port,
+                settings.modbus_unit_id,
+            ),
+        )
         app.state.context = context
         app.state.adapters = adapters
         await adapters.start_enabled(config.interfaces, context)

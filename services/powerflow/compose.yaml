@@ -4,7 +4,8 @@
 #   - service and volume names are prefixed `powerflow-` (unique once every service's compose
 #     file is included into one project);
 #   - no container_name and no external networks;
-#   - host ports are overridable: POWERFLOW_HTTP_PORT / POWERFLOW_POSTGRES_PORT;
+#   - host ports are overridable: POWERFLOW_HTTP_PORT / POWERFLOW_POSTGRES_PORT /
+#     POWERFLOW_MODBUS_PORT (1502 on the host: mock-modbus owns 502 in the dev stack);
 #   - container-network values (hostnames, internal ports) are set in `environment:`, which
 #     overrides anything the optional .env supplies for host-side runs.
 name: powerflow
@@ -33,6 +34,8 @@ services:
     build: .
     ports:
       - "${POWERFLOW_HTTP_PORT:-8020}:8000"
+      # Modbus TCP (when the active site enables interfaces.modbus).
+      - "${POWERFLOW_MODBUS_PORT:-1502}:502"
     # Service settings; optional. See .env.example.
     env_file:
       - path: .env

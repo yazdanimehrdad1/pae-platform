@@ -6,8 +6,8 @@ A grid-connected site you can drive like a real one. The EMS writes setpoints. E
 2. solves the balanced, positive-sequence, steady-state power flow (pandapower Newton-Raphson);
 3. publishes a measurement snapshot.
 
-HTTP is the implemented interface. Modbus TCP and DNP3 are placeholders built on the same
-protocol-neutral point lists.
+Interfaces: HTTP (always on) and a read-only Modbus TCP server that serves the site as one
+aggregator using the PAE point standard (see [Modbus server](#modbus-server)). DNP3 is a placeholder.
 
 ```
 [utility source] ─ grid impedance (S_sc, X/R) ─ [POI] (─ optional POI line)
@@ -82,7 +82,7 @@ rejected. The sections are:
 - **`pv[]`:** `dc_kwp`, `loss_factor`, `inverter` (`s_rated_kva`, `p_max_kw`), `availability` (`source`: `ac_kw` | `irradiance`, plus a profile `scenario` from `profiles/pv/`, `scale` and `loop`), `transformer`.
 - **`loads[]`:** `bus` (`poi` or a collector id), `profile` (`scenario` from `profiles/load/`, `scale`, `loop`), optional `noise` (% std, seeded), optional `transformer`.
 - **`meters[]`:** feeder meters, each `{id, name?, transformer}`. `transformer` is the BESS, PV or load (with a transformer) whose transformer is metered on its HV side, between the MV bus and the transformer. A meter has no impedance: it reads the transformer's HV-terminal P/Q/I and the MV bus voltage.
-- **`interfaces`:** `http` is always on; `modbus` and `dnp3` are not implemented yet, so enabling them only logs a warning. A site's Modbus maps are stored with it in the database.
+- **`interfaces`:** `http` is always on; `modbus` starts the Modbus server (enabled on `reference_2bess_1pv`); `dnp3` isn't implemented yet, so enabling it only logs a warning.
 
 Validation also checks:
 - ids are unique and every reference points at something that exists;
@@ -134,6 +134,7 @@ Validation also checks:
 | Assets | `GET assets` (includes `meters`) · `GET assets/{bess,pv,load}/{id}` · `PUT assets/{bess,pv}/{id}/setpoint` |
 | Points | `GET points` · `GET points/{name}` |
 | Measurements | `GET measurements/latest`, `measurements/poi` · `GET measurements/history?from=&to=&fields=&format=json\|csv` |
+| Modbus | `GET modbus/registers` (the Modbus server's register layout for the active site) |
 | Service | `GET health`, `GET version` |
 
 **Setpoints**
@@ -163,7 +164,7 @@ Validation also checks:
 - **Feeder meter:** P, Q, S, pf, MV bus V (kV, pu), HV-side current, `meter_state` (STALE on non-convergence, like the POI).
 - **Site:** `step_id`, `sim_time_epoch_s`, `converged`, `state`, `overrun_count`.
 
-**Modbus maps** (format only; no server yet)
+**Per-asset Modbus maps** (stored with each site; the Modbus server below doesn't use them)
 - **Format:** `ModbusMap` in `points/modbus_map.py`, with its JSON Schema at `GET /api/schemas/modbus-map`. Each site has a map for every asset (BESS, PV, load, POI meter, site status, feeder meters), stored in the database and editable at `/api/sites/{site}/modbus-maps/{asset}`. The shipped defaults are in `site_config/modbus_maps/<site>/`.
 - **Contents:** each asset gets its own unit ID and port. Each map entry binds a point to a register type, address, data type, word order and scale (engineering value = raw × scale).
 - **Default layout** (`default_map()`; `make modbus-maps` regenerates the default files):
@@ -177,7 +178,14 @@ Validation also checks:
   - a unit ID + port can belong to only one map in a site.
 
   If a site later drops an asset, its map is kept but listed as `orphaned: true`. Deleting a site deletes its maps.
-- **Scope of the future server:** see `src/powerflow/interfaces/modbus/README.md`.
+
+## Modbus server
+- **What:** one Modbus TCP aggregator (container port 502, host port `POWERFLOW_MODBUS_PORT` = 1502; unit id 1), started when the active site has `interfaces.modbus.enabled`. Settings: `MODBUS_HOST`, `MODBUS_PORT`, `MODBUS_UNIT_ID`, `POINT_STANDARD_DIR`.
+- **Register layout:** from the PAE point standard in `docs/point-standard/` (shipped in the image). Each device owns 100 registers: site 0 (met station 100), BESS from 1000, PV from 2000, loads from 3000, POI meter 4000 and feeder meters from 4100. The layout is published as the contract `contracts/modbus/powerflow.registers.json` (`make contract`), and `GET /api/modbus/registers` lists the active site's. Details are in `docs/point-standard/README.md`.
+- **Frequency:** not simulated; `Hz` is a random signal around 60 Hz (± 0.02, new value every sim second, seeded), from the reusable `RandomSignal` in `src/powerflow/point_standard/random_signal.py`.
+- **Values:** the CSVs' `powerflow_server` column says which points are served: `yes` (a simulation value × a unit factor), `calc` (derived: per-phase values, SunSpec state and alarm codes, energy counters, fleet totals) or `no` (reads 0). All of that code is in `src/powerflow/point_standard/`.
+- **Read-only:** FC03 and FC04 return the same values; writes get ILLEGAL_FUNCTION. Setpoints stay on HTTP.
+- Adapter details: `src/powerflow/interfaces/modbus/README.md`.
 
 ## Tests
 - **`make -C services/powerflow test`** runs the unit tests with no Docker. They use an in-memory configuration store and take about 45 s. They cover:

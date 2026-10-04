@@ -27,6 +27,7 @@ from powerflow.interfaces.http import (
     routes_config,
     routes_library,
     routes_measurements,
+    routes_modbus,
     routes_sim,
 )
 from powerflow.interfaces.http.dependencies import get_context
@@ -77,6 +78,7 @@ def build_router(api_version: str) -> APIRouter:
     router.include_router(routes_library.router)
     router.include_router(routes_assets.router)
     router.include_router(routes_measurements.router)
+    router.include_router(routes_modbus.router)
     return router
 
 

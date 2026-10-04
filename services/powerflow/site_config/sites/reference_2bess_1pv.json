@@ -168,7 +168,7 @@
       "enabled": true
     },
     "modbus": {
-      "enabled": false
+      "enabled": true
     },
     "dnp3": {
       "enabled": false

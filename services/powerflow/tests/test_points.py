@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from conftest import (
     DEFAULT_SITE_NAMES,
+    POINT_STANDARD,
     PROFILES,
     SITE_CONFIG_DIR,
     default_site,
@@ -59,7 +60,13 @@ def make_context(
     library = SiteLibrary(
         InMemoryConfigRepository(), PROFILES, engine, SITE_CONFIG_DIR, "three_bess_two_pv"
     )
-    return AdapterContext(engine=engine, points=registry, setpoints=service, library=library)
+    return AdapterContext(
+        engine=engine,
+        points=registry,
+        setpoints=service,
+        library=library,
+        point_standard=POINT_STANDARD,
+    )
 
 
 class TestPointLists:

@@ -1,9 +1,9 @@
 """ProtocolAdapter interface and the adapter registry.
 
 An adapter exposes the simulator over one protocol. It only uses the AdapterContext: the engine
-for control/status, the PointRegistry to read and write points, the SetpointService, and the
-SiteLibrary (stored sites, Modbus maps, profile scenarios). It never imports asset models or
-the solver, so adding Modbus or DNP3 doesn't touch the core.
+for control/status, the PointRegistry to read and write points, the SetpointService, the
+SiteLibrary (stored sites, Modbus maps, profile scenarios) and the PAE point standard. It never
+imports asset models or the solver, so adding Modbus or DNP3 doesn't touch the core.
 """
 
 import logging
@@ -15,6 +15,7 @@ from powerflow.core.engine import Engine
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.setpoints import SetpointService
 from powerflow.core.site_library import SiteLibrary
+from powerflow.point_standard import PointStandard
 from powerflow.site_config.models import InterfacesConfig
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class AdapterContext:
     points: PointRegistry
     setpoints: SetpointService
     library: SiteLibrary
+    point_standard: PointStandard
 
 
 class ProtocolAdapter(ABC):
