@@ -40,7 +40,7 @@ class BessStatus(IntEnum):
     IDLE = 0
     RUNNING = 1
     OFFLINE = 2
-    FAULT = 3  # reserved for event injection (asset trips)
+    FAULT = 3  # tripped (an injected asset_fault condition)
 
 
 class BessFlag(IntFlag):

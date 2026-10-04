@@ -115,6 +115,9 @@ export function SiteSettingsForm({ siteName, config, isActive, runState }: Props
   const loadScenarios = profiles.data?.load ?? [];
   const pvScenarios = profiles.data?.pv ?? [];
   const modbusChanged = edits.modbusEnabled !== (config.interfaces?.modbus?.enabled ?? false);
+  const startsNow = edits.simulation.start_time === "now";
+  const configuredStart = config.simulation?.start_time;
+  const fixedStart = configuredStart && configuredStart !== "now" ? configuredStart : "2026-01-01T00:00:00Z";
 
   return (
     <Card>
@@ -132,8 +135,25 @@ export function SiteSettingsForm({ siteName, config, isActive, runState }: Props
             <NumberField id="step_s" label="Step (s)" value={edits.simulation.step_s} step={0.5} min={0.1} onChange={(step_s) => setSimulation({ step_s })} />
             <div className="space-y-1">
               <Label htmlFor="start_time">Start time (UTC, ISO 8601)</Label>
-              <Input id="start_time" value={edits.simulation.start_time} onChange={(event) => setSimulation({ start_time: event.target.value })} />
+              <Input
+                id="start_time"
+                value={edits.simulation.start_time}
+                disabled={startsNow}
+                onChange={(event) => setSimulation({ start_time: event.target.value })}
+              />
+              <div className="flex items-center gap-2 pt-1">
+                <Switch
+                  id="start_now"
+                  checked={startsNow}
+                  onCheckedChange={(now) => setSimulation({ start_time: now ? "now" : fixedStart })}
+                />
+                <Label htmlFor="start_now" className="text-xs text-muted-foreground">
+                  Now (the wall clock when a run starts fresh or is reset)
+                </Label>
+              </div>
             </div>
+            <NumberField id="speed" label="Speed (× real time, up to 100)" value={edits.simulation.speed} step={1} min={0.1} onChange={(speed) => setSimulation({ speed })} />
+            <NumberField id="start_step" label="Start step" value={edits.simulation.start_step} step={1} min={0} onChange={(start_step) => setSimulation({ start_step })} />
             <NumberField id="seed" label="Seed" value={edits.simulation.seed} min={0} onChange={(seed) => setSimulation({ seed })} />
             <NumberField id="history_size" label="History size (snapshots)" value={edits.simulation.history_size} min={1} onChange={(history_size) => setSimulation({ history_size })} />
             <div className="flex items-center gap-2 pt-6">
@@ -178,7 +198,9 @@ export function SiteSettingsForm({ siteName, config, isActive, runState }: Props
             <Label htmlFor="modbus">Modbus TCP server</Label>
           </div>
           {modbusChanged && (
-            <p className="text-xs text-muted-foreground">Takes effect when the site is (re)activated.</p>
+            <p className="text-xs text-muted-foreground">
+              {isActive ? "Saving restarts the active site's interfaces." : "Takes effect when the site is activated."}
+            </p>
           )}
         </section>
 

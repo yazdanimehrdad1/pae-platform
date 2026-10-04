@@ -6,8 +6,9 @@ import pytest
 from conftest import TRANSFORMER_2750, default_site, make_site_config
 
 from powerflow.errors import NonConvergenceError
+from powerflow.network.energization import energize
 from powerflow.network.pandapower_solver import PandapowerSolver
-from powerflow.network.solver import Injection
+from powerflow.network.solver import GridState, Injection
 from powerflow.network.topology import (
     GRID_IMPEDANCE,
     POI_LINE,
@@ -153,3 +154,44 @@ def test_non_convergence_raises_and_solver_recovers() -> None:
         solver.solve({load_injection("load1"): Injection(5_000_000, 0)})  # 5 GW on 100 MVA
     result = solver.solve(full_output_injections(config))
     assert 0.9 < result.buses["poi"].vm_pu < 1.1
+
+
+class TestBreakers:
+    """Breakers take elements out of service; dead buses read 0 V, not a failed power flow."""
+
+    def test_energize_follows_open_breakers(self) -> None:
+        topology = build_topology(default_site("2bess_1pv"))
+        normal = energize(topology, ())
+        assert {"poi", lv_bus("bess1"), lv_bus("pv1")} <= normal.buses
+        one_open = energize(topology, {"bess1"})
+        assert lv_bus("bess1") not in one_open.buses and lv_bus("bess2") in one_open.buses
+        assert not one_open.injection_live(bess_injection("bess1"))
+        dead_site = energize(topology, {"poi"})
+        assert "poi" not in dead_site.buses and not dead_site.injections
+
+    def test_load_without_transformer_opens_only_itself(self) -> None:
+        topology = build_topology(default_site("2bess_1pv"))  # load1 sits on the POI bus
+        energization = energize(topology, {"load1"})
+        assert "poi" in energization.buses
+        assert not energization.injection_live(load_injection("load1"))
+
+    def test_open_breakers_solve_with_dead_buses_at_zero(self) -> None:
+        config = default_site("2bess_1pv")
+        solver = PandapowerSolver(build_topology(config))
+        injections = full_output_injections(config)
+        normal = solver.solve(injections)
+        one_open = solver.solve(injections, GridState(open_breakers=frozenset({"bess1"})))
+        assert one_open.buses[lv_bus("bess1")].vm_pu == 0
+        assert one_open.transformers[transformer_name("bess1")].p_hv_kw == 0
+        dead = solver.solve(injections, GridState(open_breakers=frozenset({"poi"})))
+        assert dead.poi.p_kw == 0 and dead.buses["poi"].vm_pu == 0
+        assert all(result.p_hv_kw == 0 for result in dead.transformers.values())
+        reclosed = solver.solve(injections)  # warm start reset after switching
+        assert reclosed.poi.p_kw == pytest.approx(normal.poi.p_kw, rel=1e-6)
+
+    def test_source_voltage_override(self) -> None:
+        config = default_site("2bess_1pv")
+        solver = PandapowerSolver(build_topology(config))
+        sagged = solver.solve({}, GridState(slack_vm_pu=0.9))
+        assert sagged.buses["poi"].vm_pu == pytest.approx(0.9, abs=0.01)
+        assert solver.solve({}).buses["poi"].vm_pu == pytest.approx(1.0, abs=0.01)

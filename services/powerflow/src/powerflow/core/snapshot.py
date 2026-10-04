@@ -5,6 +5,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from powerflow.conditions import ActiveConditions
+
 
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -70,6 +72,9 @@ class PoiMeasurement(FrozenModel):
     energy_export_kwh: float = 0.0
     energy_import_kwh: float = 0.0
     energy: EnergyTotals = Field(default_factory=EnergyTotals)
+    breaker_state: int = Field(default=1, description="The POI breaker: 0 OPEN, 1 CLOSED.")
+    breaker_state_name: str = "CLOSED"
+    hz: float = Field(default=0.0, description="Grid frequency (0 while de-energised).")
 
 
 class MeterMeasurement(FrozenModel):
@@ -120,6 +125,8 @@ class BessMeasurement(FrozenModel):
     energy_discharged_kwh: float = 0.0
     energy_charged_kwh: float = 0.0
     energy: EnergyTotals = Field(default_factory=EnergyTotals)
+    breaker_state: int = Field(default=1, description="Its breaker: 0 OPEN, 1 CLOSED.")
+    breaker_state_name: str = "CLOSED"
 
 
 class PvMeasurement(FrozenModel):
@@ -145,6 +152,8 @@ class PvMeasurement(FrozenModel):
     energy_produced_kwh: float = 0.0
     energy_produced_today_kwh: float = 0.0
     energy: EnergyTotals = Field(default_factory=EnergyTotals)
+    breaker_state: int = Field(default=1, description="Its breaker: 0 OPEN, 1 CLOSED.")
+    breaker_state_name: str = "CLOSED"
 
 
 class LoadMeasurement(FrozenModel):
@@ -162,6 +171,8 @@ class LoadMeasurement(FrozenModel):
     alarm_flag_names: list[str]
     energy_consumed_kwh: float = 0.0
     energy: EnergyTotals = Field(default_factory=EnergyTotals)
+    breaker_state: int = Field(default=1, description="Its breaker: 0 OPEN, 1 CLOSED.")
+    breaker_state_name: str = "CLOSED"
 
 
 class Snapshot(FrozenModel):
@@ -177,3 +188,8 @@ class Snapshot(FrozenModel):
     pv: list[PvMeasurement]
     loads: list[LoadMeasurement]
     meters: list[MeterMeasurement] = Field(description="Feeder meters, in config order.")
+    conditions: ActiveConditions | None = Field(
+        default=None,
+        description="The injected conditions at this step (true state: comm loss freezes the "
+        "measurements above, not this).",
+    )

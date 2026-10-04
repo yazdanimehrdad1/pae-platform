@@ -66,9 +66,10 @@ Units: kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, seconds.
 One Pydantic model (`SiteConfig`) validates the migration's default sites, `PUT /api/sites/{name}`,
 what's read back from the database, and `GET /api/schemas/site-config`. Unknown keys are
 rejected. The sections are:
-- **`simulation`:** `step_s`, `start_time` (sim time starts here and advances 1:1 with wall-clock), `autostart`, `test_mode` (enables manual stepping), `seed`, `history_size`.
+- **`simulation`:** `step_s`, `start_time` (the sim time of step 0: an ISO time, or `"now"` = the wall clock when a run starts fresh or is reset), `speed` (sim seconds per wall-clock second, up to 100), `start_step` (a fresh run starts after this step), `autostart`, `test_mode` (enables manual stepping), `seed`, `history_size`.
 - **`grid`:** `vn_kv` (12.47), `vm_pu`, `sc_mva`, `x_r`. The grid is modelled as a source behind |Z| = V²/S_sc.
-- **`poi.line`:** an optional POI cable. **`collectors`:** MV buses, each with an optional feeder line, otherwise tied to the POI bus.
+- **`poi.line`:** an optional POI cable. **`poi.breaker`:** `{closed}`, the POI breaker's initial position. **`collectors`:** MV buses, each with an optional feeder line, otherwise tied to the POI bus.
+- **`breaker`** on every BESS, PV and load: `{closed}` (default true), the initial position of its breaker (on the HV side of its step-up; a load without a transformer: the load itself). Breakers are named by asset id, so `"poi"` can't be an asset id.
 - **`bess[]`:**
   - `inverter`: `s_rated_kva`, `p_discharge_max_kw`, `p_charge_max_kw`, `v_lv_kv`, `priority` (`p`|`q`), `ramp_kw_per_s`.
   - `battery`: `capacity_kwh`, SOC min/max/initial, `efficiency` (`charge`+`discharge`, or `round_trip`, split as √η), `aux_load_kw`.
@@ -109,25 +110,42 @@ Validation also checks:
 - **Load:** profile × scale, with optional Gaussian noise. The noise is seeded per (seed, step), so a run is deterministic.
 
 ## Engine
-- **Real time:** tick k is due at anchor + k·step_s. If a step overruns, the missed ticks are skipped (`step_id` jumps and the skipped time is integrated as one longer step), `overrun_count` increments and a warning is logged.
-- **States:** `start`, `pause` (resuming continues sim time without a jump), `stop` (keeps state; required for `PUT /config`), `reset` (initial state, empty history).
+- **Real time:** tick k is due at anchor + k·step_s/`speed`. If a step overruns, the missed ticks are skipped (`step_id` jumps and the skipped time is integrated as one longer step), `overrun_count` increments and a warning is logged. `PUT /api/sim/speed` changes the speed at runtime (re-anchoring); reset or reloading the site restores `simulation.speed`.
+- **States:** `start`, `pause` (resuming continues sim time without a jump), `stop` (keeps state; required to save the active site), `reset` (step `start_step`, empty history, conditions and speed from the config; `"now"` is read again), and `scheduled`: `POST /api/sim/start {"at": "<ISO time>"}` waits for that wall-clock time (lost on restart; stop cancels it).
+- **Clock:** the origin (sim time of step 0) is `start_time`, or for `"now"` the wall clock at reset and when a fresh run starts (not on resume), to the second. `GET /api/sim/status` reports `start_time` (resolved), `start_step`, `speed` and `scheduled_start`.
 - **Test mode:** `POST /api/sim/step?count=N` exists only with `test_mode: true` and while not running. It is used for long-horizon tests.
 - **Non-convergence:** the last good values are republished with `converged: false`, SOC doesn't advance, and `nonconverged_count` increments. The loop keeps running.
 - **Determinism:** the same config, profiles, seed and setpoint sequence give the same snapshots.
 
+## Injected conditions and event scenarios
+Conditions are an input to every step, like setpoints, applied live or by an event scenario:
+- **Breakers** (`{"type": "breaker", "breaker": "bess1" | "poi", "closed": false}`): an open asset breaker takes the asset OFFLINE (a load: de-energised); an open POI breaker de-energises the whole site (no islanding: 0 V, 0 Hz, converged, nothing integrated).
+- **Asset faults** (`asset_fault`, BESS/PV, `cause`: `trip`, `over_temperature` (BESS), `ground_fault`/`dc_overvoltage` (PV)): P = Q = 0 and status FAULT, plus the cause's alarm bit; `active: false` clears it.
+- **Comm loss** (`comm_loss`, `target`: `asset`, `meter`, `poi_meter`): what the device publishes freezes at its last values with the COMM_LOSS bit (meters: STALE), and its Modbus heartbeat stops; the physics keep running underneath. Each snapshot's `conditions` carries the true state.
+- **Grid events:** `grid_voltage` (`vm_pu` 0.5–1.5, the source voltage) and `grid_frequency` (`hz` 55–65); `null` restores the config's value.
+- **Live:** `POST /api/sim/conditions` (any run state; the next step applies it), `GET` the current ones, `POST /api/sim/conditions/clear` (back to the config's breakers, nothing injected; stops the scenario). Reset and activate also clear them.
+- **Event scenarios:** stored per site in Postgres (`event_scenarios`, deleted with the site): a list of `{at, change, label}`, where `at` is `{"kind": "step", "step": N}` (before the Nth step after the scenario starts) or `{"kind": "sim_time", "sim_time": ...}` (before the first step at or after it; one already past at start is `missed`). One plays at a time (`POST /api/sim/event-scenario/start {"name"}`, `.../stop`), deterministically under `sim/step?count=N`; skipped ticks fire every event in the gap, in order. A scenario is validated against its site when saved, when listed (`valid`/`problems` after a site edit) and when started.
+
 ## HTTP API (`/api`; OpenAPI at `/docs`)
 | Area | Endpoints |
 |---|---|
-| Simulation | `POST sim/start`, `sim/pause`, `sim/stop`, `sim/reset`, `sim/step?count=N` · `GET sim/status` |
+| Simulation | `POST sim/start` (optional `{"at"}`), `sim/pause`, `sim/stop`, `sim/reset`, `sim/step?count=N` · `PUT sim/speed` · `GET sim/status` |
+| Conditions | `GET`/`POST sim/conditions` · `POST sim/conditions/clear` · `POST sim/event-scenario/start`, `sim/event-scenario/stop` |
+| Event scenarios | `GET sites/{site}/event-scenarios` · `GET`/`PUT`/`DELETE sites/{site}/event-scenarios/{name}` |
 | Active config | `GET config` · `GET schemas/site-config` |
 | Sites | `GET sites` (name + category) · `GET`/`PUT`/`DELETE sites/{name}` (DELETE: custom sites only) · `POST sites/{name}/activate` (while stopped) |
 | Profiles | `GET profiles` · `GET`/`PUT`/`DELETE profiles/{load\|pv}/{scenario}` (text/csv; DELETE refused while a site uses it) |
-| Schemas | `GET schemas` · `GET schemas/{name}` (`site-config`, `modbus-map`; read-only) |
+| Schemas | `GET schemas` · `GET schemas/{name}` (`site-config`; read-only) |
 | Assets | `GET assets` (includes `meters`) · `GET assets/{bess,pv,load}/{id}` · `PUT assets/{bess,pv}/{id}/setpoint` |
 | Points | `GET points` · `GET points/{name}` |
 | Measurements | `GET measurements/latest`, `measurements/poi` · `GET measurements/history?from=&to=&fields=&format=json\|csv` |
+| Devices (point standard) | `GET devices` · `GET devices/{kind}/{asset_id}` · `GET devices/{kind}/{asset_id}/history?points=W&points=Var&from=&to=` |
 | Modbus | `GET modbus/registers` (the Modbus server's register layout for the active site) |
 | Service | `GET health`, `GET version` |
+
+**Two views of the same measurements**
+- **Native** (`measurements/*`, `assets/*`, `points/*`): powerflow's own names (`bess.bess1.p_kw`), kW and 0-based codes; the snapshot is the whole simulation state (buses, transformers, losses, conditions).
+- **Point standard** (`devices/*`): the site as the Modbus server's devices (site, met station, BESS, PV, loads, POI and feeder meters), each point with its standard name, label, SI unit, standard enum/bit code and the code's label. Values come from the same resolvers that fill the Modbus registers (a test checks every served value encodes to the exact register words), before encoding: Modbus rounds them to the row's `scale` and saturates them to its type. `served: no` points are null. History is resolved from each stored snapshot; points derived from a setpoint (e.g. `WSet`) are null there, since setpoints aren't recorded.
 
 **Setpoints**
 - **Partial updates:** omitted fields keep their value.
@@ -135,7 +153,7 @@ Validation also checks:
 - **Out-of-range values** are clamped to the static limits. The response's `accepted`, `clamped` and `flags` report what was applied.
 - **Dynamic limits** (SOC, ramp) show in each measurement's `limit_flags`.
 
-**Status codes:** 404 for an unknown asset or point; 409 for the wrong engine state or for no data yet.
+**Status codes:** 404 for an unknown asset, point, site or scenario; 409 for the wrong engine state, no data yet, or a scenario already playing; 422 for a condition that doesn't apply to the site.
 
 **Missed steps:** every snapshot carries `step_id`, so a poller can detect missed steps and backfill from `history`.
 
@@ -151,16 +169,18 @@ Validation also checks:
   - RW: `p_limit_kw`, `p_limit_pct`, `q_setpoint_kvar`, `pf_setpoint`.
   - Measurements: available, limit, actual P/Q/S/pf, curtailment, irradiance, status, flags, voltage.
   - Nameplate ratings.
-- **Load:** P, Q, S, pf, voltage.
-- **POI:** P, Q, S, pf, V (kV, pu), angle, current, site losses.
-- **Feeder meter:** P, Q, S, pf, MV bus V (kV, pu), HV-side current, `meter_state` (STALE on non-convergence, like the POI).
+- **Load:** P, Q, S, pf, voltage, supply state, alarms.
+- **POI:** P, Q, S, pf, V (kV, pu), angle, current, site losses, `hz` (grid frequency; 0 while de-energised).
+- **Breakers:** `breaker_state` (0 OPEN, 1 CLOSED) on BESS, PV, load and the POI.
+- **Feeder meter:** P, Q, S, pf, MV bus V (kV, pu), HV-side current, `meter_state` (STALE on non-convergence or comm loss, like the POI).
 - **Energy:** `energy_discharged_kwh`/`energy_charged_kwh` (BESS), `energy_produced_kwh`/`energy_produced_today_kwh` (PV), `energy_consumed_kwh` (load), `energy_export_kwh`/`energy_import_kwh` (POI and feeder meters). The simulation integrates them every converged step over its real length (exact for `sim/step?count=N`), holds them while the power flow fails, and restarts them on reset or activate. The full set (by direction, VAh, reactive quadrants, today) is each measurement's `energy` in the snapshot; the Modbus counters come from there.
 - **Site:** `step_id`, `sim_time_epoch_s`, `converged`, `state`, `overrun_count`.
 
 ## Modbus server
 - **What:** one Modbus TCP aggregator (container port 502, host port `POWERFLOW_MODBUS_PORT` = 1502; unit id 1), started when the active site has `interfaces.modbus.enabled`. Settings: `MODBUS_HOST`, `MODBUS_PORT`, `MODBUS_UNIT_ID`, `POINT_STANDARD_DIR`.
 - **Register layout:** from the PAE point standard in `docs/point-standard/` (shipped in the image). Each device owns 100 registers: site 0 (met station 100), BESS from 1000, PV from 2000, loads from 3000, POI meter 4000 and feeder meters from 4100. The layout is published as the contract `contracts/modbus/powerflow.registers.json` (`make contract`), and `GET /api/modbus/registers` lists the active site's. Details are in `docs/point-standard/README.md`.
-- **Frequency:** not simulated; `Hz` is a random signal around 60 Hz (± 0.02, new value every sim second, seeded), from the reusable `RandomSignal` in `src/powerflow/point_standard/random_signal.py`.
+- **Frequency:** the snapshot's `poi.hz`: nominal 60 Hz or an injected excursion, plus a seeded ± 0.02 Hz wander (a new value every sim second, `models/grid.py` on the reusable `RandomSignal`); 0 on a de-energised device.
+- **Injected conditions:** `BrkPos` (the last row of every device, IEC 61850 Dbpos) is the device's breaker; a faulted inverter reports InvSt FAULT and counts in the site's `NInvFlt`; an open POI breaker is site `GridMode` BLACKOUT; a comm-lost device's values and `Hb` freeze and the site raises DEVICE_COMM_LOSS.
 - **Values:** the CSVs' `powerflow_server` column says which points are served: `yes` (a simulation value × a unit factor), `calc` (derived: per-phase values, SunSpec state and alarm codes, energy counters, fleet totals) or `no` (reads 0). All of that code is in `src/powerflow/point_standard/`.
 - **Read-only:** FC03 and FC04 return the same values; writes get ILLEGAL_FUNCTION. Setpoints stay on HTTP.
 - **Lifecycle:** started or stopped whenever the engine's config changes (startup, activating a site, saving the active site). A failed start (port taken) doesn't fail the request; `GET /api/health` (`interfaces`, `interface_errors`) and `GET /api/modbus/registers` (`running`, `error`) report it.

@@ -43,8 +43,9 @@ backlog. Remove an item when it's done; the commit that closes it records the de
 signs and enums per asset class. powerflow's Modbus server serves it (the `powerflow_server`
 column says which points); its HTTP point lists don't follow it yet. Align one service at a time,
 provider first, with its contract regenerated (the gap table is in that folder's README.md):
-- **powerflow:** model frequency (`Hz` is a random signal today); make Modbus writable and add
-  fault/event injection (the Scenarios tab), see Phase 2 of the powerflow cleanup.
+- **powerflow:** make Modbus writable (setpoints over the protocol, through `PointRegistry.write`).
+  Breakers, faults, comm loss and grid V/Hz events are injectable (Scenarios tab); frequency is
+  still nominal plus a wander, not a dynamic model.
 - **mock-modbus:** sign BESS power and current, add meter/relay/genset/met devices, and declare
   data_type and access in the contract.
 - **backend-ot:** replace the placeholder STANDARDIZED templates with the tier-M points (lookup by

@@ -11,6 +11,7 @@ import asyncio
 import logging
 import re
 from pathlib import Path
+from typing import TypeVar
 
 from sqlalchemy import (
     Column,
@@ -27,6 +28,7 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from powerflow.conditions.scenario import EventScenario
 from powerflow.errors import NotFoundError, SiteConfigError
 from powerflow.site_config import SiteConfig
 from powerflow.storage.repository import ConfigRepository, SiteCategory, StoredSite
@@ -44,6 +46,14 @@ sites_table = Table(
     Column("name", Text, primary_key=True),
     Column("config", JSONB, nullable=False),
     Column("category", Text, nullable=False, server_default=SiteCategory.CUSTOM.value),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+event_scenarios_table = Table(
+    "event_scenarios",
+    metadata,
+    Column("site", Text, primary_key=True),
+    Column("name", Text, primary_key=True),
+    Column("scenario", JSONB, nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 state_table = Table(
@@ -186,6 +196,48 @@ class PostgresConfigRepository(ConfigRepository):
             )
             await connection.execute(statement)
 
+    async def list_event_scenarios(self, site: str) -> list[str]:
+        async with self._engine.connect() as connection:
+            await _require_site(connection, site)
+            result = await connection.execute(
+                select(event_scenarios_table.c.name)
+                .where(event_scenarios_table.c.site == site)
+                .order_by("name")
+            )
+            return [row.name for row in result]
+
+    async def get_event_scenario(self, site: str, name: str) -> EventScenario:
+        async with self._engine.connect() as connection:
+            document = await connection.scalar(
+                select(event_scenarios_table.c.scenario).where(
+                    event_scenarios_table.c.site == site, event_scenarios_table.c.name == name
+                )
+            )
+        if document is None:
+            raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
+        return _validate(EventScenario, document, f"event scenario {site}/{name}")
+
+    async def put_event_scenario(self, site: str, name: str, scenario: EventScenario) -> None:
+        document = scenario.model_dump(mode="json")
+        statement = insert(event_scenarios_table).values(site=site, name=name, scenario=document)
+        statement = statement.on_conflict_do_update(
+            index_elements=[event_scenarios_table.c.site, event_scenarios_table.c.name],
+            set_={"scenario": statement.excluded.scenario, "updated_at": func.now()},
+        )
+        async with self._engine.begin() as connection:
+            await _require_site(connection, site)
+            await connection.execute(statement)
+
+    async def delete_event_scenario(self, site: str, name: str) -> None:
+        async with self._engine.begin() as connection:
+            result = await connection.execute(
+                delete(event_scenarios_table)
+                .where(event_scenarios_table.c.site == site, event_scenarios_table.c.name == name)
+                .returning(event_scenarios_table.c.name)
+            )
+            if result.first() is None:
+                raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
+
     async def close(self) -> None:
         await self._engine.dispose()
 
@@ -196,7 +248,10 @@ async def _require_site(connection: AsyncConnection, name: str) -> None:
         raise NotFoundError(f"no site {name!r}")
 
 
-def _validate(model: type[SiteConfig], document: object, label: str) -> SiteConfig:
+StoredModel = TypeVar("StoredModel", SiteConfig, EventScenario)
+
+
+def _validate(model: type[StoredModel], document: object, label: str) -> StoredModel:
     try:
         return model.model_validate(document)
     except ValueError as error:

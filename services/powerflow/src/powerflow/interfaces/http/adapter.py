@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from powerflow.errors import (
+    ConditionError,
     InvalidNameError,
     InvalidStateError,
     NotFoundError,
@@ -24,7 +25,10 @@ from powerflow.errors import (
 from powerflow.interfaces.base import AdapterContext, AdapterRegistry, ProtocolAdapter
 from powerflow.interfaces.http import (
     routes_assets,
+    routes_conditions,
     routes_config,
+    routes_devices,
+    routes_event_scenarios,
     routes_library,
     routes_measurements,
     routes_modbus,
@@ -43,6 +47,7 @@ STATUS_BY_ERROR: list[tuple[type[PowerflowError], int]] = [
     (SetpointError, 422),
     (ProfileError, 422),
     (SiteConfigError, 422),
+    (ConditionError, 422),
     (PointAccessError, 422),
 ]
 
@@ -82,10 +87,13 @@ def build_router(api_version: str) -> APIRouter:
         )
 
     router.include_router(routes_sim.router)
+    router.include_router(routes_conditions.router)
     router.include_router(routes_config.router)
     router.include_router(routes_library.router)
+    router.include_router(routes_event_scenarios.router)
     router.include_router(routes_assets.router)
     router.include_router(routes_measurements.router)
+    router.include_router(routes_devices.router)
     router.include_router(routes_modbus.router)
     return router
 

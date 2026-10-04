@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from powerflow.core.engine import Engine
+from powerflow.core.event_scenario_library import EventScenarioLibrary
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import SetpointService
@@ -100,6 +101,7 @@ def create_app(
             setpoints=setpoints,
             library=library,
             point_standard=load_point_standard(settings.resolved_point_standard_dir()),
+            scenarios=EventScenarioLibrary(store, engine, library),
         )
         adapters = AdapterRegistry()
         adapters.register(HttpAdapter.name, lambda _: HttpAdapter())

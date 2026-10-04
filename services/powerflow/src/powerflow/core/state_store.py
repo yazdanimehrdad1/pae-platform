@@ -1,4 +1,5 @@
-"""Protocol-neutral data layer: the latest snapshot + history, and the latest setpoints.
+"""Protocol-neutral data layer: the latest snapshot + history, the latest setpoints and the
+injected conditions.
 
 Adapters read measurements from here and write setpoints through SetpointService; they never
 touch asset models or the solver. Thread-safe: the engine publishes from a worker thread.
@@ -6,9 +7,11 @@ touch asset models or the solver. Thread-safe: the engine publishes from a worke
 
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
 
+from powerflow.conditions import Conditions
 from powerflow.core.snapshot import Snapshot
 from powerflow.core.step import Setpoints
 from powerflow.errors import UnknownAssetError
@@ -97,3 +100,24 @@ class SetpointStore:
             self._setpoints = replace(
                 self._setpoints, pv={**self._setpoints.pv, asset_id: setpoint}
             )
+
+
+class ConditionStore:
+    """The injected conditions the next step applies (breakers, faults, comm loss, grid)."""
+
+    def __init__(self, conditions: Conditions) -> None:
+        self._lock = threading.Lock()
+        self._conditions = conditions
+
+    def snapshot(self) -> Conditions:
+        with self._lock:
+            return self._conditions
+
+    def replace_all(self, conditions: Conditions) -> None:
+        with self._lock:
+            self._conditions = conditions
+
+    def update(self, change: Callable[[Conditions], Conditions]) -> Conditions:
+        with self._lock:
+            self._conditions = change(self._conditions)
+            return self._conditions

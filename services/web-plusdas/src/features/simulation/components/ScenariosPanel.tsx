@@ -1,26 +1,21 @@
-import { FlaskConical } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ConditionsReport, SiteConfig } from "@/api/types/powerflow";
+import { EventScenarioList } from "./scenarios/EventScenarioList";
+import { LiveConditions } from "./scenarios/LiveConditions";
 
-// Placeholder: mock scenarios (faults, status changes, ...) the user will define and inject into
-// the simulation. powerflow has no endpoint for them yet.
-export function ScenariosPanel() {
+interface Props {
+  siteName: string;
+  config: SiteConfig;
+  isActive: boolean;
+  report: ConditionsReport | undefined;
+}
+
+// Scenarios: inject conditions (breakers, faults, comm loss, grid events) into the simulation,
+// live or as a stored, timed event scenario of the selected site.
+export function ScenariosPanel({ siteName, config, isActive, report }: Props) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-primary" />
-          Scenarios
-          <Badge variant="outline">Coming soon</Badge>
-        </CardTitle>
-        <CardDescription>
-          Define mock scenarios to play into the simulation, such as an asset fault, a status change or a
-          communication loss, and watch how the site and the EMS respond.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">Nothing to configure yet.</p>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <LiveConditions config={config} report={isActive ? report : undefined} enabled={isActive} />
+      <EventScenarioList siteName={siteName} config={config} isActive={isActive} report={isActive ? report : undefined} />
+    </div>
   );
 }

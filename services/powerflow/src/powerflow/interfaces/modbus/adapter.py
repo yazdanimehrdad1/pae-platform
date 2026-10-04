@@ -14,23 +14,19 @@ serves them:
 import asyncio
 import logging
 from contextlib import suppress
-from functools import partial
 
 from pymodbus.constants import ExcCodes
 from pymodbus.server import ModbusTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 
-from powerflow.core.snapshot import Snapshot
 from powerflow.interfaces.base import AdapterContext, ProtocolAdapter
 from powerflow.point_standard import (
     REGISTER_SPACE,
     Device,
-    PointValue,
-    Sources,
     build_image,
     build_layout,
 )
-from powerflow.points import PointSource
+from powerflow.point_standard.sources import sources_from
 from powerflow.site_config import SiteConfig
 
 logger = logging.getLogger(__name__)
@@ -104,21 +100,11 @@ class ModbusAdapter(ProtocolAdapter):
             return
         if latest.step_id == self._step_id:
             return
-        sources = Sources(
-            snapshot=latest,
-            config=engine.config,
-            read=partial(self._read, latest),
-            enums=self._context.point_standard.enums,
+        sources = sources_from(
+            latest, engine.config, self._context.points, self._context.point_standard.enums
         )
         self._image = build_image(self._devices, sources)
         self._step_id = latest.step_id
-
-    def _read(self, snapshot: Snapshot, name: str) -> PointValue:
-        points = self._context.points
-        _, definition = points.resolve(name)
-        if definition.source is PointSource.MEASUREMENT:
-            return points.read_from_snapshot(snapshot, name)
-        return points.read(name)
 
     async def _refresh_loop(self) -> None:
         while True:

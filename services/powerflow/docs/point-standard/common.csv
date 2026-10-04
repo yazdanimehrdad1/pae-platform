@@ -16,3 +16,4 @@ VNomRtg,Nominal AC Voltage Rating,v_nom,R,nameplate,R,V,uint16,0.1,,,,,SunSpec,S
 VMaxRtg,Max AC Voltage Rating,v_max,O,nameplate,R,V,uint16,0.1,,,,,SunSpec,SunSpec 702 VMaxRtg,Max continuous AC voltage,,,no
 VMinRtg,Min AC Voltage Rating,v_min,O,nameplate,R,V,uint16,0.1,,,,,SunSpec,SunSpec 702 VMinRtg,Min continuous AC voltage,,,no
 AMaxRtg,Max AC Current Rating,i_rated,R,nameplate,R,A,uint16,1,,,,,SunSpec,SunSpec 702 AMaxRtg,Nameplate max AC current,,,calc
+BrkPos,Connection Breaker Position,brk_pos,O,status,R,,enum16,1,,pae.Dbpos,"{""0"":""INTERMEDIATE"",""1"":""OPEN"",""2"":""CLOSED"",""3"":""BAD_STATE""}",,IEC61850,IEC 61850 XCBR.Pos,"Position of the device's connection breaker (site and POI meter: the POI breaker; feeder meter: its asset's). Last common row so no existing offset moves",,bess/pv/load.breaker_state; poi.meter.breaker_state,calc

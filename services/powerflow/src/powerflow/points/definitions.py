@@ -18,6 +18,7 @@ from powerflow.models.pv import PvFlag, PvQMode, PvStatus
 from powerflow.models.status import (
     BessAlarm,
     BessOperatingState,
+    BreakerState,
     LoadAlarm,
     LoadSupplyState,
     MeterAlarm,
@@ -30,7 +31,7 @@ from powerflow.models.status import (
 POI_ASSET_ID = "meter"
 SITE_ASSET_ID = "sim"
 # The engine state as the `site.sim.state` point encodes it (RunState values).
-RUN_STATE_CODES: dict[str, int] = {"stopped": 0, "running": 1, "paused": 2}
+RUN_STATE_CODES: dict[str, int] = {"stopped": 0, "running": 1, "paused": 2, "scheduled": 3}
 
 
 class AssetType(StrEnum):
@@ -136,7 +137,7 @@ def _alarms(description: str, flags: type[IntFlag], source: PointSource) -> Poin
 
 
 VOLTAGE_ALARM_NOTE = "voltage outside 0.95-1.05 pu"
-RESERVED_NOTE = "Bits marked reserved in the model aren't set by the simulator yet."
+RESERVED_NOTE = "Fault-cause and COMM_LOSS bits come from injected conditions."
 ENERGY_NOTE = "Integrated every converged step since the simulation started (reset/activate)."
 
 
@@ -209,6 +210,7 @@ BESS_POINTS: tuple[PointDef, ...] = (
     ),
     _measurement("energy_discharged_kwh", f"AC energy discharged. {ENERGY_NOTE}", "kWh"),
     _measurement("energy_charged_kwh", f"AC energy charged. {ENERGY_NOTE}", "kWh"),
+    _state("breaker_state", "Its breaker (HV side of the step-up); open = OFFLINE.", BreakerState),
     _nameplate("p_rated_discharge_kw", "Max discharge P.", "kW"),
     _nameplate("p_rated_charge_kw", "Max charge P (magnitude).", "kW"),
     _nameplate("s_rated_kva", "Inverter apparent power rating.", "kVA"),
@@ -306,6 +308,7 @@ PV_POINTS: tuple[PointDef, ...] = (
     _measurement(
         "energy_produced_today_kwh", "AC energy produced since the sim day began (UTC).", "kWh"
     ),
+    _state("breaker_state", "Its breaker (HV side of the step-up); open = OFFLINE.", BreakerState),
     _nameplate("dc_kwp", "DC capacity.", "kWp"),
     _nameplate("p_max_kw", "Inverter max AC active power.", "kW"),
     _nameplate("s_rated_kva", "Inverter apparent power rating.", "kVA"),
@@ -318,8 +321,13 @@ LOAD_POINTS: tuple[PointDef, ...] = (
     _measurement("pf", "Power factor, signed with Q (+ lagging).", "", 0.001),
     _measurement("v_pu", "Voltage at the load's bus.", "pu", 0.001),
     _state("supply_state", "Whether the load's bus is energized.", LoadSupplyState),
-    _alarms(f"Alarms: {VOLTAGE_ALARM_NOTE}.", LoadAlarm, PointSource.MEASUREMENT),
+    _alarms(
+        f"Alarms: {VOLTAGE_ALARM_NOTE}. COMM_LOSS comes from injected conditions.",
+        LoadAlarm,
+        PointSource.MEASUREMENT,
+    ),
     _measurement("energy_consumed_kwh", f"Energy consumed. {ENERGY_NOTE}", "kWh"),
+    _state("breaker_state", "Its breaker; open = de-energised.", BreakerState),
 )
 
 POI_POINTS: tuple[PointDef, ...] = (
@@ -334,7 +342,9 @@ POI_POINTS: tuple[PointDef, ...] = (
     _measurement("p_loss_total_kw", "Site losses: transformers + collector feeders.", "kW"),
     _measurement("q_loss_total_kvar", "Site reactive losses.", "kvar"),
     _state(
-        "meter_state", "STALE when the power flow didn't converge (last good values).", MeterState
+        "meter_state",
+        "STALE: the power flow didn't converge or comm loss (last good values).",
+        MeterState,
     ),
     _alarms(
         f"Alarms: {VOLTAGE_ALARM_NOTE}, exporting / importing (|P| > 1 kW), |pf| < 0.9.",
@@ -343,6 +353,12 @@ POI_POINTS: tuple[PointDef, ...] = (
     ),
     _measurement("energy_export_kwh", f"Energy exported to the utility. {ENERGY_NOTE}", "kWh"),
     _measurement("energy_import_kwh", f"Energy imported from the utility. {ENERGY_NOTE}", "kWh"),
+    _state(
+        "breaker_state", "The POI breaker; open = the whole site is de-energised.", BreakerState
+    ),
+    _measurement(
+        "hz", "Grid frequency (nominal or an injected excursion; 0 while de-energised).", "Hz", 0.01
+    ),
 )
 
 METER_POINTS: tuple[PointDef, ...] = (
@@ -354,7 +370,9 @@ METER_POINTS: tuple[PointDef, ...] = (
     _measurement("v_pu", "MV bus voltage.", "pu", 0.001),
     _measurement("i_a", "Current on the transformer's HV side.", "A", 0.1),
     _state(
-        "meter_state", "STALE when the power flow didn't converge (last good values).", MeterState
+        "meter_state",
+        "STALE: the power flow didn't converge or comm loss (last good values).",
+        MeterState,
     ),
     _measurement("energy_export_kwh", f"Energy toward the MV bus. {ENERGY_NOTE}", "kWh"),
     _measurement("energy_import_kwh", f"Energy from the MV bus. {ENERGY_NOTE}", "kWh"),

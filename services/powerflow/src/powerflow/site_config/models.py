@@ -25,10 +25,26 @@ class SiteInfo(StrictModel):
 
 class SimulationConfig(StrictModel):
     step_s: float = Field(default=1.0, gt=0, le=3600, description="Simulation step (s).")
-    start_time: AwareDatetime = Field(
+    start_time: AwareDatetime | Literal["now"] = Field(
         default=datetime(2026, 1, 1, tzinfo=UTC),
-        description="Sim clock origin (timezone-aware ISO 8601). Sim time then advances 1:1 "
-        "with wall-clock.",
+        description='Sim clock origin: a timezone-aware ISO 8601 time, or "now" (the wall clock '
+        "when the run starts fresh or is reset, to the second). Sim time then advances at "
+        "`speed` × wall-clock.",
+    )
+    speed: float = Field(
+        default=1.0,
+        gt=0,
+        le=100,
+        description="Sim seconds per wall-clock second (e.g. 10 = ten times faster than real "
+        "time). Each step still covers step_s of sim time. Changeable at runtime (PUT "
+        "/sim/speed).",
+    )
+    start_step: int = Field(
+        default=0,
+        ge=0,
+        le=100_000_000,
+        description="The step a fresh run (or reset) starts from: the first step computed is "
+        "start_step + 1, at sim time start_time + (start_step + 1)·step_s.",
     )
     autostart: bool = Field(default=True, description="Start the real-time loop at startup.")
     test_mode: bool = Field(
@@ -64,9 +80,20 @@ class LineConfig(StrictModel):
         return self
 
 
+class BreakerConfig(StrictModel):
+    """An asset's (or the POI's) connection breaker. `closed` is its position at start and
+    reset; it can be switched at runtime (POST /api/sim/conditions, event scenarios)."""
+
+    closed: bool = Field(default=True, description="Initial position (true = closed).")
+
+
 class PoiConfig(StrictModel):
     line: LineConfig | None = Field(
         default=None, description="Optional POI line/cable between the POI and the grid."
+    )
+    breaker: BreakerConfig = Field(
+        default_factory=BreakerConfig,
+        description="The POI breaker. Open = the whole site is de-energised (no islanding).",
     )
 
 
@@ -171,6 +198,10 @@ class BessConfig(StrictModel):
     inverter: BessInverterConfig
     battery: BatteryConfig
     transformer: TransformerConfig
+    breaker: BreakerConfig = Field(
+        default_factory=BreakerConfig,
+        description="Breaker on the HV side of the step-up transformer.",
+    )
 
 
 class PvAvailabilitySource(StrEnum):
@@ -218,6 +249,10 @@ class PvConfig(StrictModel):
     inverter: PvInverterConfig
     availability: PvAvailabilityConfig
     transformer: TransformerConfig
+    breaker: BreakerConfig = Field(
+        default_factory=BreakerConfig,
+        description="Breaker on the HV side of the step-up transformer.",
+    )
 
 
 class NoiseConfig(StrictModel):
@@ -233,6 +268,10 @@ class LoadConfig(StrictModel):
     noise: NoiseConfig | None = None
     transformer: TransformerConfig | None = Field(
         default=None, description="Optional transformer; its LV side feeds the load."
+    )
+    breaker: BreakerConfig = Field(
+        default_factory=BreakerConfig,
+        description="Breaker feeding the load (on its transformer's HV side, if it has one).",
     )
 
 
@@ -304,6 +343,9 @@ class SiteConfig(StrictModel):
         duplicates = sorted({asset_id for asset_id in asset_ids if asset_ids.count(asset_id) > 1})
         if duplicates:
             raise ValueError(f"asset ids must be unique across bess/pv/loads: {duplicates}")
+        if POI_BUS_ID in asset_ids:
+            # Breakers are named by asset id, and "poi" is the POI breaker.
+            raise ValueError(f'"{POI_BUS_ID}" is reserved and can\'t be an asset id')
 
         for asset in [*self.bess, *self.pv]:
             if asset.collector not in collector_ids:

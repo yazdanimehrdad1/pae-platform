@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { powerflowApi } from "@/api";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { getErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AssetsPanel } from "./components/AssetsPanel";
+import { MeasurementsPanel } from "./components/MeasurementsPanel";
 import { ModbusPanel } from "./components/ModbusPanel";
 import { ProfilesPanel } from "./components/ProfilesPanel";
 import { RunControls, RunStateBadge } from "./components/RunControls";
@@ -13,7 +15,15 @@ import { ScenariosPanel } from "./components/ScenariosPanel";
 import { SimulationSld } from "./components/SimulationSld";
 import { SiteSettingsForm } from "./components/SiteSettingsForm";
 import { SitesPanel } from "./components/SitesPanel";
-import { useActivateSite, useSimStatus, useSite, useSites } from "./hooks/usePowerflow";
+import {
+  useActivateSite,
+  useConditions,
+  usePowerflowCommand,
+  useSimStatus,
+  useSite,
+  useSites,
+} from "./hooks/usePowerflow";
+import type { SldLive } from "./lib/sldLayout";
 
 // The powerflow simulator: pick one of the stored sites, run it, send setpoints, and look at its
 // profiles and Modbus layout. Sites can't be created here, only selected (and a few selection
@@ -28,6 +38,20 @@ const SimulationPage = () => {
   const runState = status.data?.state;
   const active = sites.data?.active;
   const selectedIsActive = selected !== null && selected === active;
+  const conditions = useConditions(selectedIsActive);
+  const breakerCommand = usePowerflowCommand("Switching the breaker failed");
+  const report = selectedIsActive ? conditions.data : undefined;
+  const live = useMemo<SldLive | undefined>(
+    () =>
+      report && {
+        openBreakers: new Set(report.breakers.filter((breaker) => !breaker.closed).map((breaker) => breaker.id)),
+        faulted: new Set(report.faults.map((fault) => fault.asset_id)),
+        commLost: new Set(report.comm_loss.map((item) => (item.target === "poi_meter" ? "poi_meter" : item.id ?? ""))),
+      },
+    [report],
+  );
+  const toggleBreaker = (id: string, closed: boolean) =>
+    breakerCommand.mutate(() => powerflowApi.applyCondition({ type: "breaker", breaker: id, closed }));
 
   if (sites.isLoading) {
     return (
@@ -86,6 +110,7 @@ const SimulationPage = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Site settings</TabsTrigger>
           <TabsTrigger value="assets">Assets & setpoints</TabsTrigger>
+          <TabsTrigger value="measurements">Measurements</TabsTrigger>
           <TabsTrigger value="profiles">Profiles</TabsTrigger>
           <TabsTrigger value="modbus">Modbus</TabsTrigger>
           <TabsTrigger value="sites">Sites</TabsTrigger>
@@ -103,13 +128,18 @@ const SimulationPage = () => {
               <CardTitle>{site.data?.site?.name ?? selected}</CardTitle>
               <CardDescription>
                 Single line diagram of {selected}
-                {selectedIsActive ? " (the active site)" : ", not active: Activate it to simulate it"}.
+                {selectedIsActive
+                  ? " (the active site): live breaker positions and conditions; click a breaker to switch it"
+                  : ", not active: Activate it to simulate it"}
+                .
               </CardDescription>
             </CardHeader>
             <CardContent>
               {site.isLoading && <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />}
               {site.isError && <p role="alert" className="text-destructive">{getErrorMessage(site.error)}</p>}
-              {site.data && <SimulationSld config={site.data} />}
+              {site.data && (
+                <SimulationSld config={site.data} live={live} onToggleBreaker={selectedIsActive ? toggleBreaker : undefined} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -130,6 +160,10 @@ const SimulationPage = () => {
           <AssetsPanel selectedIsActive={selectedIsActive} />
         </TabsContent>
 
+        <TabsContent value="measurements">
+          <MeasurementsPanel selectedIsActive={selectedIsActive} />
+        </TabsContent>
+
         <TabsContent value="profiles">
           <ProfilesPanel />
         </TabsContent>
@@ -143,7 +177,9 @@ const SimulationPage = () => {
         </TabsContent>
 
         <TabsContent value="scenarios">
-          <ScenariosPanel />
+          {site.data && selected && (
+            <ScenariosPanel siteName={selected} config={site.data} isActive={selectedIsActive} report={report} />
+          )}
         </TabsContent>
       </Tabs>
     </div>

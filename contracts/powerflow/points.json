@@ -244,7 +244,7 @@
           "6": "COMM_LOSS"
         },
         "data_type": "bitfield16",
-        "description": "Alarms: SOC within 5 % of a limit, voltage outside 0.95-1.05 pu, transformer > 100 %. Bits marked reserved in the model aren't set by the simulator yet.",
+        "description": "Alarms: SOC within 5 % of a limit, voltage outside 0.95-1.05 pu, transformer > 100 %. Fault-cause and COMM_LOSS bits come from injected conditions.",
         "enum_values": null,
         "name": "alarm_flags",
         "scale_hint": null,
@@ -272,6 +272,20 @@
         "scale_hint": 1.0,
         "source": "measurement",
         "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Its breaker (HV side of the step-up); open = OFFLINE.",
+        "enum_values": {
+          "0": "OPEN",
+          "1": "CLOSED"
+        },
+        "name": "breaker_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
       },
       {
         "access": "R",
@@ -414,10 +428,11 @@
         "access": "R",
         "bit_flags": {
           "0": "UNDERVOLTAGE",
-          "1": "OVERVOLTAGE"
+          "1": "OVERVOLTAGE",
+          "3": "COMM_LOSS"
         },
         "data_type": "bitfield16",
-        "description": "Alarms: voltage outside 0.95-1.05 pu.",
+        "description": "Alarms: voltage outside 0.95-1.05 pu. COMM_LOSS comes from injected conditions.",
         "enum_values": null,
         "name": "alarm_flags",
         "scale_hint": null,
@@ -434,6 +449,20 @@
         "scale_hint": 1.0,
         "source": "measurement",
         "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Its breaker; open = de-energised.",
+        "enum_values": {
+          "0": "OPEN",
+          "1": "CLOSED"
+        },
+        "name": "breaker_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
       }
     ],
     "meter": [
@@ -518,7 +547,7 @@
         "access": "R",
         "bit_flags": null,
         "data_type": "enum16",
-        "description": "STALE when the power flow didn't converge (last good values).",
+        "description": "STALE: the power flow didn't converge or comm loss (last good values).",
         "enum_values": {
           "0": "OK",
           "1": "STALE"
@@ -666,7 +695,7 @@
         "access": "R",
         "bit_flags": null,
         "data_type": "enum16",
-        "description": "STALE when the power flow didn't converge (last good values).",
+        "description": "STALE: the power flow didn't converge or comm loss (last good values).",
         "enum_values": {
           "0": "OK",
           "1": "STALE"
@@ -714,6 +743,31 @@
         "scale_hint": 1.0,
         "source": "measurement",
         "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "The POI breaker; open = the whole site is de-energised.",
+        "enum_values": {
+          "0": "OPEN",
+          "1": "CLOSED"
+        },
+        "name": "breaker_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "float32",
+        "description": "Grid frequency (nominal or an injected excursion; 0 while de-energised).",
+        "enum_values": null,
+        "name": "hz",
+        "scale_hint": 0.01,
+        "source": "measurement",
+        "unit": "Hz"
       }
     ],
     "pv": [
@@ -872,7 +926,8 @@
           "0": "OFF",
           "1": "PRODUCING",
           "2": "CURTAILED",
-          "3": "OFFLINE"
+          "3": "OFFLINE",
+          "4": "FAULT"
         },
         "name": "status",
         "scale_hint": null,
@@ -940,10 +995,11 @@
           "1": "OVERVOLTAGE",
           "2": "TRANSFORMER_OVERLOAD",
           "3": "GROUND_FAULT",
-          "4": "DC_OVERVOLTAGE"
+          "4": "DC_OVERVOLTAGE",
+          "5": "COMM_LOSS"
         },
         "data_type": "bitfield16",
-        "description": "Alarms: voltage outside 0.95-1.05 pu, transformer > 100 %. Bits marked reserved in the model aren't set by the simulator yet.",
+        "description": "Alarms: voltage outside 0.95-1.05 pu, transformer > 100 %. Fault-cause and COMM_LOSS bits come from injected conditions.",
         "enum_values": null,
         "name": "alarm_flags",
         "scale_hint": null,
@@ -971,6 +1027,20 @@
         "scale_hint": 1.0,
         "source": "measurement",
         "unit": "kWh"
+      },
+      {
+        "access": "R",
+        "bit_flags": null,
+        "data_type": "enum16",
+        "description": "Its breaker (HV side of the step-up); open = OFFLINE.",
+        "enum_values": {
+          "0": "OPEN",
+          "1": "CLOSED"
+        },
+        "name": "breaker_state",
+        "scale_hint": null,
+        "source": "measurement",
+        "unit": ""
       },
       {
         "access": "R",
@@ -1048,7 +1118,8 @@
         "enum_values": {
           "0": "stopped",
           "1": "running",
-          "2": "paused"
+          "2": "paused",
+          "3": "scheduled"
         },
         "name": "state",
         "scale_hint": null,

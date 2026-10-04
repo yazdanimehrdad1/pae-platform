@@ -1,6 +1,7 @@
 """Simulation control: /sim/*."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
+from pydantic import AwareDatetime, BaseModel, Field
 
 from powerflow.core.engine import MAX_MANUAL_STEPS, EngineStatus
 from powerflow.core.snapshot import Snapshot
@@ -19,9 +20,44 @@ async def status(context: AdapterContext = Depends(get_context)) -> EngineStatus
     return context.engine.status()
 
 
-@router.post("/start", response_model=EngineStatus, summary="Start or resume real-time")
-async def start(context: AdapterContext = Depends(get_context)) -> EngineStatus:
-    await context.engine.start()
+class StartRequest(BaseModel):
+    at: AwareDatetime | None = Field(
+        default=None,
+        description="Start at this wall-clock time (state SCHEDULED until then); omitted or "
+        "past = now.",
+    )
+
+
+class SpeedRequest(BaseModel):
+    speed: float = Field(gt=0, le=100, description="Sim seconds per wall-clock second.")
+
+
+@router.post(
+    "/start",
+    response_model=EngineStatus,
+    summary="Start or resume real-time (now, or scheduled)",
+    description="No body (or no `at`) starts now. A start replaces a pending schedule; "
+    "POST /sim/stop cancels one.",
+)
+async def start(
+    request: StartRequest | None = Body(default=None),
+    context: AdapterContext = Depends(get_context),
+) -> EngineStatus:
+    await context.engine.start(request.at if request is not None else None)
+    return context.engine.status()
+
+
+@router.put(
+    "/speed",
+    response_model=EngineStatus,
+    summary="Set the speed factor",
+    description="Sim seconds per wall-clock second (0 < speed ≤ 100), until reset or the site "
+    "is reloaded (then simulation.speed applies). A running loop re-anchors.",
+)
+async def set_speed(
+    request: SpeedRequest, context: AdapterContext = Depends(get_context)
+) -> EngineStatus:
+    await context.engine.set_speed(request.speed)
     return context.engine.status()
 
 

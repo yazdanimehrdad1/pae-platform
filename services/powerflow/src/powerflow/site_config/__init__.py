@@ -1,4 +1,4 @@
-"""The site config: a JSON file validated by `SiteConfig` (Pydantic v2)."""
+"""The site config schema: `SiteConfig` (Pydantic v2), stored per site in Postgres."""
 
 from powerflow.site_config.models import (
     POI_BUS_ID,
@@ -8,6 +8,7 @@ from powerflow.site_config.models import (
     Priority,
     PvAvailabilitySource,
     PvConfig,
+    SimulationConfig,
     SiteConfig,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "Priority",
     "PvAvailabilitySource",
     "PvConfig",
+    "SimulationConfig",
     "SiteConfig",
 ]

@@ -36,10 +36,10 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists
 - **Consumes:** none. Consume other services only through `contracts/` and the network, never their code or files.
 
 ## Layout (dependencies point inward)
-- **`interfaces/`** (http; modbus = read-only aggregator over `point_standard/`; dnp3 is a placeholder README) → **`point_standard/`** (CSV layout, yes/calc resolvers) → **`core/`** (engine, step + energy counters, state store, SetpointService, PointRegistry, SiteLibrary) → **`points/`**, **`storage/`** (repositories, migrations, profile files) → **`models/`**, **`network/`**, **`profiles/`**, **`site_config/`**.
+- **`interfaces/`** (http; modbus = read-only aggregator over `point_standard/`; dnp3 is a placeholder README) → **`point_standard/`** (CSV layout, yes/calc resolvers, `readings` = the same values per device for HTTP `/devices`) → **`core/`** (engine + clock, step + energy counters, state store, SetpointService, PointRegistry, SiteLibrary, EventScenarioLibrary) → **`points/`**, **`storage/`** (repositories, migrations, profile files) → **`conditions/`** (injected conditions and event scenarios: pure models, validate/apply, the scenario player) → **`models/`**, **`network/`** (topology, energisation, solver), **`profiles/`**, **`site_config/`**.
 - **`models/` is pure:** no pandapower, no clock.
 - **`network/pandapower_solver.py`** is the only module that imports pandapower, behind `PowerFlowSolver`.
-- **`core/step.py` is a pure function:** time and setpoints are passed in, which is what makes runs deterministic.
+- **`core/step.py` is a pure function:** time, setpoints and injected conditions are passed in, which is what makes runs deterministic. The engine applies a playing event scenario's due events under its compute lock, before the step. The only wall-clock reads are the engine's injected `wall_clock` (for `start_time: "now"` and scheduled starts).
 - **Adapters** use only `AdapterContext` (engine, PointRegistry, SetpointService). Every setpoint, from any protocol, goes through `SetpointService`.
 
 ## Conventions
@@ -62,6 +62,9 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists
 - **Site losses:** transformers plus collector feeders. They exclude the grid equivalent and the POI line, which are on the utility side of the POI meter.
 - **`step_id` is the sim tick:** a real-time overrun skips ticks, so ids can have gaps and the skipped time is integrated as one longer step.
 - **Non-convergence** keeps the last good snapshot (`converged=false`) and doesn't advance SOC.
+- **De-energised is not non-convergence:** buses cut off by an open breaker read 0 V (`network/energization.py`); a non-finite voltage on an energised bus still raises NonConvergenceError.
+- **"Scenario" means two things:** a profile scenario (a load/PV CSV) and an event scenario (a timeline of injected conditions). Code, tables and URLs say `event_scenario` for the second.
+- **Point-standard rows go at the end of `common.csv`** if every device needs one: a row added to an asset CSV moves the common block (`BrkPos` is the last common row; BESS uses 98 of its 100 registers).
 - **Uploaded profiles:** a scenario saved with PUT keeps each asset's configured `scale`/`loop`, and hot-reloads into active-site assets even while running.
 - **Tests never write the repo's `profiles/`:** anything that writes uses the `profiles_copy` fixture (a tmp copy). App tests use `InMemoryConfigRepository.with_default_sites()` (what a migrated database holds).
 - **Container data** lives on volumes, not in git: `powerflow-postgres-data` for the sites and the active site, and `powerflow-profiles` for the profile CSVs. `make down-all` (and root `make down-all`) deletes them; the next start migrates a fresh database (the default sites).

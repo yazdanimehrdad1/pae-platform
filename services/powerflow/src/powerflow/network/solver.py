@@ -55,6 +55,18 @@ class PoiResult:
 
 
 @dataclass(frozen=True)
+class GridState:
+    """Per-step network state besides the injections: which breakers are open (BreakerSpec
+    names) and the source voltage (None = the topology's own, from the site config)."""
+
+    open_breakers: frozenset[str] = frozenset()
+    slack_vm_pu: float | None = None
+
+
+NORMAL_GRID = GridState()
+
+
+@dataclass(frozen=True)
 class NetworkResult:
     buses: dict[str, BusResult]
     transformers: dict[str, TransformerResult]
@@ -67,9 +79,13 @@ class PowerFlowSolver(ABC):
     """Solves the balanced, positive-sequence, steady-state power flow of one topology."""
 
     @abstractmethod
-    def solve(self, injections: dict[str, Injection]) -> NetworkResult:
-        """Solve with these injections (keyed by InjectionSpec.name; missing ones are 0).
-        Raises NonConvergenceError when it doesn't converge."""
+    def solve(
+        self, injections: dict[str, Injection], grid: GridState = NORMAL_GRID
+    ) -> NetworkResult:
+        """Solve with these injections (keyed by InjectionSpec.name; missing ones are 0) and
+        this grid state. De-energised buses (cut off by open breakers) report 0 V and the
+        branches feeding them carry nothing. Raises NonConvergenceError when it doesn't
+        converge."""
 
 
 # Builds a solver for a topology (a solver class whose constructor takes the topology fits).

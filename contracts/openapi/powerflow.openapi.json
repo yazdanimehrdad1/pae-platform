@@ -9,6 +9,97 @@
         "title": "Access",
         "type": "string"
       },
+      "ActiveConditions": {
+        "description": "The true conditions (what's injected now), whatever comm loss hides.",
+        "properties": {
+          "breakers": {
+            "items": {
+              "$ref": "#/components/schemas/BreakerStatus"
+            },
+            "title": "Breakers",
+            "type": "array"
+          },
+          "comm_loss": {
+            "items": {
+              "$ref": "#/components/schemas/CommLossStatus"
+            },
+            "title": "Comm Loss",
+            "type": "array"
+          },
+          "faults": {
+            "items": {
+              "$ref": "#/components/schemas/FaultStatus"
+            },
+            "title": "Faults",
+            "type": "array"
+          },
+          "grid_hz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Injected frequency; null = nominal.",
+            "title": "Grid Hz"
+          },
+          "grid_vm_pu": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Injected source voltage; null = grid.vm_pu.",
+            "title": "Grid Vm Pu"
+          }
+        },
+        "required": [
+          "breakers",
+          "faults",
+          "comm_loss",
+          "grid_vm_pu",
+          "grid_hz"
+        ],
+        "title": "ActiveConditions",
+        "type": "object"
+      },
+      "AssetFaultChange": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "description": "false clears the fault.",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "asset_id": {
+            "description": "A BESS or PV id.",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "cause": {
+            "$ref": "#/components/schemas/FaultCause",
+            "default": "trip",
+            "description": "trip (any); over_temperature (BESS); ground_fault, dc_overvoltage (PV)."
+          },
+          "type": {
+            "const": "asset_fault",
+            "default": "asset_fault",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id"
+        ],
+        "title": "AssetFaultChange",
+        "type": "object"
+      },
       "AssetsResponse": {
         "description": "Every asset with its static parameters (as configured).",
         "properties": {
@@ -130,6 +221,10 @@
           "battery": {
             "$ref": "#/components/schemas/BatteryConfig"
           },
+          "breaker": {
+            "$ref": "#/components/schemas/BreakerConfig",
+            "description": "Breaker on the HV side of the step-up transformer."
+          },
           "collector": {
             "default": "mv1",
             "title": "Collector",
@@ -235,6 +330,17 @@
           "aux_p_kw": {
             "title": "Aux P Kw",
             "type": "number"
+          },
+          "breaker_state": {
+            "default": 1,
+            "description": "Its breaker: 0 OPEN, 1 CLOSED.",
+            "title": "Breaker State",
+            "type": "integer"
+          },
+          "breaker_state_name": {
+            "default": "CLOSED",
+            "title": "Breaker State Name",
+            "type": "string"
           },
           "energy": {
             "$ref": "#/components/schemas/EnergyTotals"
@@ -429,6 +535,76 @@
         "title": "BessSetpointState",
         "type": "object"
       },
+      "BreakerChange": {
+        "additionalProperties": false,
+        "properties": {
+          "breaker": {
+            "description": "An asset id (BESS, PV or load), or \"poi\".",
+            "title": "Breaker",
+            "type": "string"
+          },
+          "closed": {
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "type": {
+            "const": "breaker",
+            "default": "breaker",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "breaker",
+          "closed"
+        ],
+        "title": "BreakerChange",
+        "type": "object"
+      },
+      "BreakerConfig": {
+        "additionalProperties": false,
+        "description": "An asset's (or the POI's) connection breaker. `closed` is its position at start and\nreset; it can be switched at runtime (POST /api/sim/conditions, event scenarios).",
+        "properties": {
+          "closed": {
+            "default": true,
+            "description": "Initial position (true = closed).",
+            "title": "Closed",
+            "type": "boolean"
+          }
+        },
+        "title": "BreakerConfig",
+        "type": "object"
+      },
+      "BreakerStatus": {
+        "properties": {
+          "closed": {
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "The asset id, or \"poi\".",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "poi",
+              "bess",
+              "pv",
+              "load"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "closed"
+        ],
+        "title": "BreakerStatus",
+        "type": "object"
+      },
       "BusMeasurement": {
         "properties": {
           "angle_deg": {
@@ -490,6 +666,152 @@
         "title": "CollectorConfig",
         "type": "object"
       },
+      "CommLossChange": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "description": "false restores communication.",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The asset or feeder meter id (none for poi_meter).",
+            "title": "Id"
+          },
+          "target": {
+            "$ref": "#/components/schemas/CommTarget"
+          },
+          "type": {
+            "const": "comm_loss",
+            "default": "comm_loss",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "CommLossChange",
+        "type": "object"
+      },
+      "CommLossStatus": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "since_step": {
+            "description": "The step whose values stay published.",
+            "title": "Since Step",
+            "type": "integer"
+          },
+          "target": {
+            "$ref": "#/components/schemas/CommTarget"
+          }
+        },
+        "required": [
+          "target",
+          "id",
+          "since_step"
+        ],
+        "title": "CommLossStatus",
+        "type": "object"
+      },
+      "CommTarget": {
+        "enum": [
+          "asset",
+          "meter",
+          "poi_meter"
+        ],
+        "title": "CommTarget",
+        "type": "string"
+      },
+      "ConditionsReport": {
+        "properties": {
+          "breakers": {
+            "items": {
+              "$ref": "#/components/schemas/BreakerStatus"
+            },
+            "title": "Breakers",
+            "type": "array"
+          },
+          "comm_loss": {
+            "items": {
+              "$ref": "#/components/schemas/CommLossStatus"
+            },
+            "title": "Comm Loss",
+            "type": "array"
+          },
+          "faults": {
+            "items": {
+              "$ref": "#/components/schemas/FaultStatus"
+            },
+            "title": "Faults",
+            "type": "array"
+          },
+          "grid_hz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Injected frequency; null = nominal.",
+            "title": "Grid Hz"
+          },
+          "grid_vm_pu": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Injected source voltage; null = grid.vm_pu.",
+            "title": "Grid Vm Pu"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The event scenario playing (or finished, until stopped or cleared)."
+          }
+        },
+        "required": [
+          "breakers",
+          "faults",
+          "comm_loss",
+          "grid_vm_pu",
+          "grid_hz",
+          "scenario"
+        ],
+        "title": "ConditionsReport",
+        "type": "object"
+      },
       "DataType": {
         "enum": [
           "float32",
@@ -501,6 +823,46 @@
         ],
         "title": "DataType",
         "type": "string"
+      },
+      "DeviceHistory": {
+        "properties": {
+          "asset_id": {
+            "description": "The Modbus device id (site, met, meter, or the asset id).",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "base": {
+            "description": "First Modbus register of the device's 100-register chunk.",
+            "title": "Base",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DeviceKind"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceSample"
+            },
+            "title": "Samples",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "asset_id",
+          "base",
+          "points",
+          "samples"
+        ],
+        "title": "DeviceHistory",
+        "type": "object"
       },
       "DeviceKind": {
         "enum": [
@@ -514,6 +876,110 @@
         ],
         "title": "DeviceKind",
         "type": "string"
+      },
+      "DeviceReadings": {
+        "properties": {
+          "asset_id": {
+            "description": "The Modbus device id (site, met, meter, or the asset id).",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "base": {
+            "description": "First Modbus register of the device's 100-register chunk.",
+            "title": "Base",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DeviceKind"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PointReading"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "asset_id",
+          "base",
+          "points"
+        ],
+        "title": "DeviceReadings",
+        "type": "object"
+      },
+      "DeviceSample": {
+        "properties": {
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "sim_time": {
+            "format": "date-time",
+            "title": "Sim Time",
+            "type": "string"
+          },
+          "step_id": {
+            "title": "Step Id",
+            "type": "integer"
+          },
+          "values": {
+            "description": "One per requested point, in order.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "step_id",
+          "sim_time",
+          "converged",
+          "values"
+        ],
+        "title": "DeviceSample",
+        "type": "object"
+      },
+      "DevicesSnapshot": {
+        "properties": {
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceReadings"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "sim_time": {
+            "format": "date-time",
+            "title": "Sim Time",
+            "type": "string"
+          },
+          "step_id": {
+            "title": "Step Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step_id",
+          "sim_time",
+          "converged",
+          "devices"
+        ],
+        "title": "DevicesSnapshot",
+        "type": "object"
       },
       "EfficiencyConfig": {
         "additionalProperties": false,
@@ -683,9 +1149,50 @@
             "title": "Overrun Count",
             "type": "integer"
           },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The event scenario playing (or finished).",
+            "title": "Scenario"
+          },
+          "scheduled_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When a SCHEDULED run starts.",
+            "title": "Scheduled Start"
+          },
           "sim_time": {
             "format": "date-time",
             "title": "Sim Time",
+            "type": "string"
+          },
+          "speed": {
+            "description": "Sim seconds per wall-clock second.",
+            "title": "Speed",
+            "type": "number"
+          },
+          "start_step": {
+            "description": "The step a fresh run or a reset starts from.",
+            "title": "Start Step",
+            "type": "integer"
+          },
+          "start_time": {
+            "description": "The sim time of step 0 (resolved for \"now\").",
+            "format": "date-time",
+            "title": "Start Time",
             "type": "string"
           },
           "state": {
@@ -715,7 +1222,12 @@
           "nonconverged_count",
           "last_step_duration_ms",
           "history_count",
-          "history_size"
+          "history_size",
+          "scenario",
+          "speed",
+          "start_time",
+          "start_step",
+          "scheduled_start"
         ],
         "title": "EngineStatus",
         "type": "object"
@@ -731,6 +1243,114 @@
           "detail"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "EventScenario": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioEvent"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "EventScenario",
+        "type": "object"
+      },
+      "EventScenarioSummary": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "event_count": {
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "valid": {
+            "description": "Whether every event applies to the site as stored now.",
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "event_count",
+          "valid",
+          "problems"
+        ],
+        "title": "EventScenarioSummary",
+        "type": "object"
+      },
+      "FaultCause": {
+        "enum": [
+          "trip",
+          "over_temperature",
+          "ground_fault",
+          "dc_overvoltage"
+        ],
+        "title": "FaultCause",
+        "type": "string"
+      },
+      "FaultStatus": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "cause": {
+            "$ref": "#/components/schemas/FaultCause"
+          }
+        },
+        "required": [
+          "asset_id",
+          "cause"
+        ],
+        "title": "FaultStatus",
         "type": "object"
       },
       "GridConfig": {
@@ -774,6 +1394,66 @@
           }
         },
         "title": "GridConfig",
+        "type": "object"
+      },
+      "GridFrequencyChange": {
+        "additionalProperties": false,
+        "properties": {
+          "hz": {
+            "anyOf": [
+              {
+                "maximum": 65.0,
+                "minimum": 55.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Grid frequency; null restores nominal.",
+            "title": "Hz"
+          },
+          "type": {
+            "const": "grid_frequency",
+            "default": "grid_frequency",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hz"
+        ],
+        "title": "GridFrequencyChange",
+        "type": "object"
+      },
+      "GridVoltageChange": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "grid_voltage",
+            "default": "grid_voltage",
+            "title": "Type",
+            "type": "string"
+          },
+          "vm_pu": {
+            "anyOf": [
+              {
+                "maximum": 1.5,
+                "minimum": 0.5,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Source voltage (pu); null restores grid.vm_pu.",
+            "title": "Vm Pu"
+          }
+        },
+        "required": [
+          "vm_pu"
+        ],
+        "title": "GridVoltageChange",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -831,6 +1511,29 @@
         ],
         "title": "HistoryFormat",
         "type": "string"
+      },
+      "HistoryPoint": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "point": {
+            "title": "Point",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "label",
+          "unit"
+        ],
+        "title": "HistoryPoint",
+        "type": "object"
       },
       "HistoryResponse": {
         "properties": {
@@ -982,6 +1685,10 @@
       "LoadConfig": {
         "additionalProperties": false,
         "properties": {
+          "breaker": {
+            "$ref": "#/components/schemas/BreakerConfig",
+            "description": "Breaker feeding the load (on its transformer's HV side, if it has one)."
+          },
           "bus": {
             "default": "poi",
             "description": "\"poi\" or a collector id.",
@@ -1050,6 +1757,17 @@
           "alarm_flags": {
             "title": "Alarm Flags",
             "type": "integer"
+          },
+          "breaker_state": {
+            "default": 1,
+            "description": "Its breaker: 0 OPEN, 1 CLOSED.",
+            "title": "Breaker State",
+            "type": "integer"
+          },
+          "breaker_state_name": {
+            "default": "CLOSED",
+            "title": "Breaker State Name",
+            "type": "string"
           },
           "energy": {
             "$ref": "#/components/schemas/EnergyTotals"
@@ -1383,6 +2101,10 @@
       "PoiConfig": {
         "additionalProperties": false,
         "properties": {
+          "breaker": {
+            "$ref": "#/components/schemas/BreakerConfig",
+            "description": "The POI breaker. Open = the whole site is de-energised (no islanding)."
+          },
           "line": {
             "anyOf": [
               {
@@ -1416,6 +2138,17 @@
             "title": "Angle Deg",
             "type": "number"
           },
+          "breaker_state": {
+            "default": 1,
+            "description": "The POI breaker: 0 OPEN, 1 CLOSED.",
+            "title": "Breaker State",
+            "type": "integer"
+          },
+          "breaker_state_name": {
+            "default": "CLOSED",
+            "title": "Breaker State Name",
+            "type": "string"
+          },
           "energy": {
             "$ref": "#/components/schemas/EnergyTotals"
           },
@@ -1427,6 +2160,12 @@
           "energy_import_kwh": {
             "default": 0.0,
             "title": "Energy Import Kwh",
+            "type": "number"
+          },
+          "hz": {
+            "default": 0.0,
+            "description": "Grid frequency (0 while de-energised).",
+            "title": "Hz",
             "type": "number"
           },
           "i_a": {
@@ -1595,6 +2334,66 @@
           "source"
         ],
         "title": "PointDef",
+        "type": "object"
+      },
+      "PointReading": {
+        "properties": {
+          "data_type": {
+            "title": "Data Type",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "point": {
+            "description": "Standard point name (SunSpec where one exists).",
+            "title": "Point",
+            "type": "string"
+          },
+          "served": {
+            "$ref": "#/components/schemas/ServerSupport",
+            "description": "yes / calc: simulated; no: not served (null)."
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Enum: the code's label. Bitfield: the set bits' labels.",
+            "title": "Text"
+          },
+          "unit": {
+            "description": "SI unit, no prefix (W, var, V, A, Hz, Wh, %, ...).",
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Engineering value; null when not served.",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "point",
+          "label",
+          "unit",
+          "data_type",
+          "served",
+          "value"
+        ],
+        "title": "PointReading",
         "type": "object"
       },
       "PointSource": {
@@ -1866,6 +2665,10 @@
           "availability": {
             "$ref": "#/components/schemas/PvAvailabilityConfig"
           },
+          "breaker": {
+            "$ref": "#/components/schemas/BreakerConfig",
+            "description": "Breaker on the HV side of the step-up transformer."
+          },
           "collector": {
             "default": "mv1",
             "title": "Collector",
@@ -1961,6 +2764,17 @@
           "alarm_flags": {
             "title": "Alarm Flags",
             "type": "integer"
+          },
+          "breaker_state": {
+            "default": 1,
+            "description": "Its breaker: 0 OPEN, 1 CLOSED.",
+            "title": "Breaker State",
+            "type": "integer"
+          },
+          "breaker_state_name": {
+            "default": "CLOSED",
+            "title": "Breaker State Name",
+            "type": "string"
           },
           "curtailment_kw": {
             "title": "Curtailment Kw",
@@ -2170,10 +2984,135 @@
         "enum": [
           "stopped",
           "running",
-          "paused"
+          "paused",
+          "scheduled"
         ],
         "title": "RunState",
         "type": "string"
+      },
+      "ScenarioEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "discriminator": {
+              "mapping": {
+                "sim_time": "#/components/schemas/TimeTrigger",
+                "step": "#/components/schemas/StepTrigger"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/StepTrigger"
+              },
+              {
+                "$ref": "#/components/schemas/TimeTrigger"
+              }
+            ],
+            "title": "At"
+          },
+          "change": {
+            "discriminator": {
+              "mapping": {
+                "asset_fault": "#/components/schemas/AssetFaultChange",
+                "breaker": "#/components/schemas/BreakerChange",
+                "comm_loss": "#/components/schemas/CommLossChange",
+                "grid_frequency": "#/components/schemas/GridFrequencyChange",
+                "grid_voltage": "#/components/schemas/GridVoltageChange"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BreakerChange"
+              },
+              {
+                "$ref": "#/components/schemas/AssetFaultChange"
+              },
+              {
+                "$ref": "#/components/schemas/CommLossChange"
+              },
+              {
+                "$ref": "#/components/schemas/GridVoltageChange"
+              },
+              {
+                "$ref": "#/components/schemas/GridFrequencyChange"
+              }
+            ],
+            "title": "Change"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "at",
+          "change"
+        ],
+        "title": "ScenarioEvent",
+        "type": "object"
+      },
+      "ScenarioStatus": {
+        "properties": {
+          "finished": {
+            "title": "Finished",
+            "type": "boolean"
+          },
+          "fired": {
+            "title": "Fired",
+            "type": "integer"
+          },
+          "missed": {
+            "description": "sim_time events already in the past at start.",
+            "title": "Missed",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The step the next event fires before.",
+            "title": "Next Step"
+          },
+          "started_step": {
+            "title": "Started Step",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Events in the scenario.",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "started_step",
+          "total",
+          "fired",
+          "missed",
+          "next_step",
+          "finished"
+        ],
+        "title": "ScenarioStatus",
+        "type": "object"
       },
       "ServerSupport": {
         "description": "The `powerflow_server` column: can the powerflow Modbus server fill this point?",
@@ -2271,12 +3210,36 @@
             "title": "Seed",
             "type": "integer"
           },
+          "speed": {
+            "default": 1.0,
+            "description": "Sim seconds per wall-clock second (e.g. 10 = ten times faster than real time). Each step still covers step_s of sim time. Changeable at runtime (PUT /sim/speed).",
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Speed",
+            "type": "number"
+          },
+          "start_step": {
+            "default": 0,
+            "description": "The step a fresh run (or reset) starts from: the first step computed is start_step + 1, at sim time start_time + (start_step + 1)·step_s.",
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Start Step",
+            "type": "integer"
+          },
           "start_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "const": "now",
+                "type": "string"
+              }
+            ],
             "default": "2026-01-01T00:00:00Z",
-            "description": "Sim clock origin (timezone-aware ISO 8601). Sim time then advances 1:1 with wall-clock.",
-            "format": "date-time",
-            "title": "Start Time",
-            "type": "string"
+            "description": "Sim clock origin: a timezone-aware ISO 8601 time, or \"now\" (the wall clock when the run starts fresh or is reset, to the second). Sim time then advances at `speed` × wall-clock.",
+            "title": "Start Time"
           },
           "step_s": {
             "default": 1.0,
@@ -2432,6 +3395,17 @@
             "title": "Buses",
             "type": "array"
           },
+          "conditions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveConditions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The injected conditions at this step (true state: comm loss freezes the measurements above, not this)."
+          },
           "converged": {
             "description": "False: the power flow failed this step and the values are the last good ones.",
             "title": "Converged",
@@ -2495,6 +3469,76 @@
         "title": "Snapshot",
         "type": "object"
       },
+      "SpeedRequest": {
+        "properties": {
+          "speed": {
+            "description": "Sim seconds per wall-clock second.",
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Speed",
+            "type": "number"
+          }
+        },
+        "required": [
+          "speed"
+        ],
+        "title": "SpeedRequest",
+        "type": "object"
+      },
+      "StartRequest": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Start at this wall-clock time (state SCHEDULED until then); omitted or past = now.",
+            "title": "At"
+          }
+        },
+        "title": "StartRequest",
+        "type": "object"
+      },
+      "StartScenarioRequest": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "StartScenarioRequest",
+        "type": "object"
+      },
+      "StepTrigger": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "step",
+            "default": "step",
+            "title": "Kind",
+            "type": "string"
+          },
+          "step": {
+            "description": "Fires before the Nth step after the scenario starts.",
+            "minimum": 1.0,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "title": "StepTrigger",
+        "type": "object"
+      },
       "StoredSite": {
         "properties": {
           "category": {
@@ -2511,6 +3555,28 @@
           "category"
         ],
         "title": "StoredSite",
+        "type": "object"
+      },
+      "TimeTrigger": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "sim_time",
+            "default": "sim_time",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sim_time": {
+            "description": "Fires before the first step at or after it.",
+            "format": "date-time",
+            "title": "Sim Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sim_time"
+        ],
+        "title": "TimeTrigger",
         "type": "object"
       },
       "TransformerConfig": {
@@ -3017,6 +4083,237 @@
         "summary": "The active site config",
         "tags": [
           "config"
+        ]
+      }
+    },
+    "/api/devices": {
+      "get": {
+        "description": "The active site laid out by the PAE point standard (the Modbus server's devices), each point with its engineering value in SI units, standard enum/bit codes and their labels. `served: no` points are null (Modbus reads 0 there).",
+        "operationId": "list_devices_api_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicesSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such device or point."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No step has run yet."
+          }
+        },
+        "summary": "Every device's standard points, from the latest snapshot",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/{kind}/{asset_id}": {
+      "get": {
+        "operationId": "get_device_api_devices__kind___asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DeviceKind"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicesSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such device or point."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No step has run yet."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One device's standard points, from the latest snapshot",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/{kind}/{asset_id}/history": {
+      "get": {
+        "description": "Resolved from each historic snapshot (oldest first). Points derived from a setpoint are null: setpoints aren't recorded in history.",
+        "operationId": "device_history_api_devices__kind___asset_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DeviceKind"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": true,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Points",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHistory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such device or point."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No step has run yet."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Standard points of one device over the in-memory history",
+        "tags": [
+          "devices"
         ]
       }
     },
@@ -3635,6 +4932,219 @@
         ]
       }
     },
+    "/api/sim/conditions": {
+      "get": {
+        "operationId": "get_conditions_api_sim_conditions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The injected conditions now",
+        "tags": [
+          "conditions"
+        ]
+      },
+      "post": {
+        "description": "Open/close a breaker, fault or clear an asset, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.",
+        "operationId": "apply_condition_api_sim_conditions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "asset_fault": "#/components/schemas/AssetFaultChange",
+                    "breaker": "#/components/schemas/BreakerChange",
+                    "comm_loss": "#/components/schemas/CommLossChange",
+                    "grid_frequency": "#/components/schemas/GridFrequencyChange",
+                    "grid_voltage": "#/components/schemas/GridVoltageChange"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BreakerChange"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AssetFaultChange"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommLossChange"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridVoltageChange"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridFrequencyChange"
+                  }
+                ],
+                "title": "Change"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such asset, meter, breaker or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Another event scenario is playing."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The change doesn't apply to this site."
+          }
+        },
+        "summary": "Apply one condition change now",
+        "tags": [
+          "conditions"
+        ]
+      }
+    },
+    "/api/sim/conditions/clear": {
+      "post": {
+        "description": "Stops the event scenario and returns to the site config's breaker positions, with no faults, comm loss or grid events.",
+        "operationId": "clear_conditions_api_sim_conditions_clear_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear every injected condition",
+        "tags": [
+          "conditions"
+        ]
+      }
+    },
+    "/api/sim/event-scenario/start": {
+      "post": {
+        "description": "Its events fire from the current step on (step triggers count from here).",
+        "operationId": "start_scenario_api_sim_event_scenario_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartScenarioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such asset, meter, breaker or scenario."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Another event scenario is playing."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The change doesn't apply to this site."
+          }
+        },
+        "summary": "Play a stored event scenario of the active site",
+        "tags": [
+          "conditions"
+        ]
+      }
+    },
+    "/api/sim/event-scenario/stop": {
+      "post": {
+        "operationId": "stop_scenario_api_sim_event_scenario_stop_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionsReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop the event scenario (its conditions stay)",
+        "tags": [
+          "conditions"
+        ]
+      }
+    },
     "/api/sim/pause": {
       "post": {
         "operationId": "pause_api_sim_pause_post",
@@ -3687,9 +5197,20 @@
         ]
       }
     },
-    "/api/sim/start": {
-      "post": {
-        "operationId": "start_api_sim_start_post",
+    "/api/sim/speed": {
+      "put": {
+        "description": "Sim seconds per wall-clock second (0 < speed ≤ 100), until reset or the site is reloaded (then simulation.speed applies). A running loop re-anchors.",
+        "operationId": "set_speed_api_sim_speed_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeedRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -3700,9 +5221,68 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "summary": "Start or resume real-time",
+        "summary": "Set the speed factor",
+        "tags": [
+          "simulation"
+        ]
+      }
+    },
+    "/api/sim/start": {
+      "post": {
+        "description": "No body (or no `at`) starts now. A start replaces a pending schedule; POST /sim/stop cancels one.",
+        "operationId": "start_api_sim_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/StartRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start or resume real-time (now, or scheduled)",
         "tags": [
           "simulation"
         ]
@@ -4073,6 +5653,246 @@
         "summary": "Load a stored site (only while stopped)",
         "tags": [
           "sites"
+        ]
+      }
+    },
+    "/api/sites/{site}/event-scenarios": {
+      "get": {
+        "description": "Each is re-checked against the site as stored now (`valid`, `problems`).",
+        "operationId": "list_event_scenarios_api_sites__site__event_scenarios_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EventScenarioSummary"
+                  },
+                  "title": "Response List Event Scenarios Api Sites  Site  Event Scenarios Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site or event scenario."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name, or an event doesn't fit the site."
+          }
+        },
+        "summary": "The site's event scenarios",
+        "tags": [
+          "event scenarios"
+        ]
+      }
+    },
+    "/api/sites/{site}/event-scenarios/{name}": {
+      "delete": {
+        "operationId": "delete_event_scenario_api_sites__site__event_scenarios__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site or event scenario."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name, or an event doesn't fit the site."
+          }
+        },
+        "summary": "Delete a scenario",
+        "tags": [
+          "event scenarios"
+        ]
+      },
+      "get": {
+        "operationId": "get_event_scenario_api_sites__site__event_scenarios__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventScenario"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site or event scenario."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name, or an event doesn't fit the site."
+          }
+        },
+        "summary": "One scenario",
+        "tags": [
+          "event scenarios"
+        ]
+      },
+      "put": {
+        "description": "Every event's change is validated against the site's stored config.",
+        "operationId": "put_event_scenario_api_sites__site__event_scenarios__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventScenario"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventScenario"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such site or event scenario."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name, or an event doesn't fit the site."
+          }
+        },
+        "summary": "Create or replace a scenario",
+        "tags": [
+          "event scenarios"
         ]
       }
     },

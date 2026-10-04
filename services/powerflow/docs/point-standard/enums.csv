@@ -257,3 +257,4 @@ pae.SupplySt,enum,1,ENERGIZED,PAE,Load supply state
 pae.LoadAlrm,bitfield,0,UNDERVOLTAGE,PAE,Load alarm
 pae.LoadAlrm,bitfield,1,OVERVOLTAGE,PAE,Load alarm
 pae.LoadAlrm,bitfield,2,OVERLOAD,PAE,Load alarm
+pae.LoadAlrm,bitfield,3,COMM_LOSS,PAE,Load alarm; the load stopped answering (injected comm loss)

@@ -1,6 +1,7 @@
 """The Modbus adapter over a real TCP socket: reads, word order, holding = input, read-only."""
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
 from conftest import POINT_STANDARD, PROFILES, PROFILES_DIR, default_site
@@ -9,6 +10,7 @@ from pymodbus.client import AsyncModbusTcpClient
 
 from powerflow.app import create_app
 from powerflow.core.engine import Engine
+from powerflow.core.event_scenario_library import EventScenarioLibrary
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import SetpointService
@@ -26,16 +28,18 @@ UNIT_ID = 1
 def make_adapter() -> tuple[ModbusAdapter, Engine]:
     config = default_site("2bess_1pv")
     simulation = config.simulation.model_copy(
-        update={"test_mode": True, "start_time": config.simulation.start_time.replace(hour=12)}
+        update={"test_mode": True, "start_time": datetime(2026, 1, 1, 12, tzinfo=UTC)}
     )
     config = config.model_copy(update={"simulation": simulation})
     engine = Engine(
         SiteRuntime.build(config, PROFILES, PandapowerSolver), PandapowerSolver, PROFILES
     )
     setpoints = SetpointService(engine)
-    library = SiteLibrary(InMemoryConfigRepository(), PROFILES, engine, "2bess_1pv")
+    repository = InMemoryConfigRepository()
+    library = SiteLibrary(repository, PROFILES, engine, "2bess_1pv")
+    scenarios = EventScenarioLibrary(repository, engine, library)
     context = AdapterContext(
-        engine, PointRegistry(engine, setpoints), setpoints, library, POINT_STANDARD
+        engine, PointRegistry(engine, setpoints), setpoints, library, POINT_STANDARD, scenarios
     )
     return ModbusAdapter(context, "127.0.0.1", 0, UNIT_ID), engine
 

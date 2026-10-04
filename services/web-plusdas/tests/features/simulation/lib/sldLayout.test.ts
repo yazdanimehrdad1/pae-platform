@@ -48,3 +48,48 @@ describe('layoutSite', () => {
     }
   });
 });
+
+describe('layoutSite breakers and live conditions', () => {
+  const breakers = (shapes: SldShape[]) =>
+    shapes.filter((shape) => shape.kind === 'breaker').map((shape) => [shape.breaker?.id, shape.breaker?.closed]);
+
+  it('draws the POI breaker and one per asset, closed by default', () => {
+    expect(breakers(layoutSite(REFERENCE_SITE).shapes)).toEqual([
+      ['poi', true],
+      ['load1', true],
+      ['bess1', true],
+      ['bess2', true],
+      ['pv1', true],
+    ]);
+  });
+
+  it('shows the live positions and flags assets', () => {
+    const { shapes } = layoutSite(REFERENCE_SITE, {
+      openBreakers: new Set(['bess1']),
+      faulted: new Set(['pv1']),
+      commLost: new Set(['m_bess2', 'poi_meter']),
+    });
+    expect(breakers(shapes).find(([id]) => id === 'bess1')).toEqual(['bess1', false]);
+    const flags = (id: string) => shapes.find((shape) => shape.id === id)?.flags;
+    expect(flags('bess:bess1')).toEqual(['offline']);
+    expect(flags('pv:pv1')).toEqual(['fault']);
+    expect(flags('meter:m_bess2')).toEqual(['comm loss']);
+    expect(flags('poi_meter')).toEqual(['comm loss']);
+  });
+
+  it('an open POI breaker takes every asset offline', () => {
+    const { shapes } = layoutSite(REFERENCE_SITE, {
+      openBreakers: new Set(['poi']),
+      faulted: new Set(),
+      commLost: new Set(),
+    });
+    const assets = shapes.filter((shape) => ['bess', 'pv', 'load'].includes(shape.kind));
+    expect(assets.every((shape) => shape.flags?.includes('offline'))).toBe(true);
+  });
+
+  it('uses the config breaker positions without live conditions', () => {
+    const site = structuredClone(REFERENCE_SITE);
+    site.pv![0].breaker = { closed: false };
+    expect(breakers(layoutSite(site).shapes).find(([id]) => id === 'pv1')).toEqual(['pv1', false]);
+  });
+});

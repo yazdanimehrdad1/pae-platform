@@ -13,7 +13,9 @@ export interface ProfileChoice {
 export interface SiteEdits {
   simulation: {
     step_s: number;
-    start_time: string;
+    start_time: string; // ISO 8601, or "now"
+    speed: number;
+    start_step: number;
     seed: number;
     autostart: boolean;
     test_mode: boolean;
@@ -28,6 +30,8 @@ export interface SiteEdits {
 const SIMULATION_DEFAULTS: SiteEdits['simulation'] = {
   step_s: 1,
   start_time: '2026-01-01T00:00:00Z',
+  speed: 1,
+  start_step: 0,
   seed: 0,
   autostart: true,
   test_mode: false,
@@ -40,6 +44,8 @@ export function editsFromConfig(config: SiteConfig): SiteEdits {
     simulation: {
       step_s: simulation.step_s ?? SIMULATION_DEFAULTS.step_s,
       start_time: simulation.start_time ?? SIMULATION_DEFAULTS.start_time,
+      speed: simulation.speed ?? SIMULATION_DEFAULTS.speed,
+      start_step: simulation.start_step ?? SIMULATION_DEFAULTS.start_step,
       seed: simulation.seed ?? SIMULATION_DEFAULTS.seed,
       autostart: simulation.autostart ?? SIMULATION_DEFAULTS.autostart,
       test_mode: simulation.test_mode ?? SIMULATION_DEFAULTS.test_mode,

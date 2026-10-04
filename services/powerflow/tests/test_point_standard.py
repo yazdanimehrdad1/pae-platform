@@ -7,12 +7,21 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from conftest import POINT_STANDARD, PROFILES, default_site
 
+from powerflow.conditions import (
+    AssetFaultChange,
+    BreakerChange,
+    CommLossChange,
+    CommTarget,
+    GridFrequencyChange,
+)
 from powerflow.core.engine import Engine
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import SetpointService
 from powerflow.core.snapshot import Snapshot
 from powerflow.models.bess import BessMode, BessSetpoint
+from powerflow.models.grid import grid_frequency_hz
+from powerflow.models.random_signal import PERIOD_MINUTE, PERIOD_SECOND, RandomSignal
 from powerflow.models.status import LoadAlarm, LoadSupplyState
 from powerflow.network.pandapower_solver import PandapowerSolver
 from powerflow.point_standard import (
@@ -27,13 +36,7 @@ from powerflow.point_standard import (
     resolver_for,
 )
 from powerflow.point_standard.calc import CALC_RESOLVERS
-from powerflow.point_standard.layout import POINT_LIST_FILE
-from powerflow.point_standard.random_signal import (
-    GRID_HZ,
-    PERIOD_MINUTE,
-    PERIOD_SECOND,
-    RandomSignal,
-)
+from powerflow.point_standard.layout import POINT_LIST_FILE, device_template
 from powerflow.point_standard.values import DIRECT_RESOLVERS
 from powerflow.points import PointSource
 from powerflow.site_config import SiteConfig
@@ -149,7 +152,7 @@ class TestEncoding:
 def reference_engine() -> tuple[Engine, PointRegistry]:
     config = default_site("2bess_1pv")
     simulation = config.simulation.model_copy(
-        update={"test_mode": True, "start_time": config.simulation.start_time.replace(hour=12)}
+        update={"test_mode": True, "start_time": datetime(2026, 1, 1, 12, tzinfo=UTC)}
     )
     config = config.model_copy(update={"simulation": simulation})
     engine = Engine(
@@ -238,7 +241,10 @@ class TestRandomSignal:
         assert signal.value_at(T0, seed=7) != other_key.value_at(T0, seed=7)
 
     def test_stays_within_nominal_plus_minus_spread(self) -> None:
-        values = [GRID_HZ.value_at(T0 + timedelta(seconds=step), seed=3) for step in range(500)]
+        values = [
+            grid_frequency_hz(T0 + timedelta(seconds=step), 3, None, energized=True)
+            for step in range(500)
+        ]
         assert all(59.98 <= value <= 60.02 for value in values)
         assert max(values) - min(values) > 0.02  # it really varies
 
@@ -280,3 +286,58 @@ def test_load_codes_passed_through_match_the_standard() -> None:
     for flag in LoadAlarm:
         if flag.value and flag.name:
             assert enums.bits("pae.LoadAlrm", flag.name) == flag.value
+
+
+class TestInjectedConditions:
+    """What the Modbus server shows for breakers, faults, comm loss and grid events."""
+
+    def test_breaker_position_is_the_last_register_of_every_device(self) -> None:
+        # Appended last, so adding it moved no existing address.
+        for kind in DeviceKind:
+            assert device_template(POINT_STANDARD, kind)[-1].row.point == "BrkPos"
+
+    def test_breakers_faults_and_blackout(self) -> None:
+        engine, registry = reference_engine()
+        engine.apply_condition(BreakerChange(breaker="bess1", closed=False))
+        engine.apply_condition(AssetFaultChange(asset_id="pv1"))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        devices = build_layout(engine.config, POINT_STANDARD)
+        enums = POINT_STANDARD.enums
+        assert value(sources, devices, "bess.bess1", "BrkPos") == enums.code("pae.Dbpos", "OPEN")
+        assert value(sources, devices, "bess.bess2", "BrkPos") == enums.code("pae.Dbpos", "CLOSED")
+        assert value(sources, devices, "feeder_meter.m_bess1", "BrkPos") == enums.code(
+            "pae.Dbpos", "OPEN"
+        )
+        assert value(sources, devices, "bess.bess1", "Hz") == 0  # de-energised
+        assert value(sources, devices, "bess.bess1", "ConnSt") == enums.code(
+            "701.ConnSt", "DISCONNECTED"
+        )
+        assert value(sources, devices, "pv.pv1", "InvSt") == enums.code("701.InvSt", "FAULT")
+        assert value(sources, devices, "site.site", "NInvFlt") == 1
+        assert value(sources, devices, "site.site", "GridMode") == enums.code(
+            "pae.GridMode", "GRID_TIED"
+        )
+        engine.apply_condition(BreakerChange(breaker="poi", closed=False))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        assert value(sources, devices, "site.site", "GridMode") == enums.code(
+            "pae.GridMode", "BLACKOUT"
+        )
+        assert value(sources, devices, "site.site", "SiteHz") == 0
+
+    def test_comm_loss_freezes_the_heartbeat_and_alarms_the_site(self) -> None:
+        engine, registry = reference_engine()
+        asyncio.run(engine.step(2))
+        engine.apply_condition(CommLossChange(target=CommTarget.ASSET, id="bess1"))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(3)))
+        devices = build_layout(engine.config, POINT_STANDARD)
+        assert value(sources, devices, "bess.bess1", "Hb") == 2
+        assert value(sources, devices, "bess.bess2", "Hb") == 5
+        alarms = int(value(sources, devices, "site.site", "Alrm"))
+        assert alarms & POINT_STANDARD.enums.bits("pae.PpcAlrm", "DEVICE_COMM_LOSS")
+
+    def test_grid_frequency_excursion(self) -> None:
+        engine, registry = reference_engine()
+        engine.apply_condition(GridFrequencyChange(hz=59.5))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        devices = build_layout(engine.config, POINT_STANDARD)
+        assert 59.48 <= value(sources, devices, "pv.pv1", "Hz") <= 59.52

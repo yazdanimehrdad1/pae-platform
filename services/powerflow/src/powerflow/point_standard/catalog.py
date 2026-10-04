@@ -48,6 +48,7 @@ class PointRow:
     support: ServerSupport
     enum_detail: dict[str, str] | None = None  # value → label (enum points)
     bitfield_detail: dict[str, str] | None = None  # bit number → label (bitfield points)
+    label: str = ""  # the CSV's human-readable name
 
     @property
     def width(self) -> int:
@@ -131,6 +132,7 @@ def _point_row(path: Path, raw: dict[str, str]) -> PointRow | None:
         support=support,
         enum_detail=_detail(path, raw, "enum_detail"),
         bitfield_detail=_detail(path, raw, "bitfield_detail"),
+        label=raw.get("label", ""),
     )
 
 

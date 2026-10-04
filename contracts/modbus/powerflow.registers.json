@@ -1368,6 +1368,23 @@
           "signed": false,
           "unit": "A",
           "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 97,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
+          "width": 1
         }
       ]
     },
@@ -2083,6 +2100,23 @@
           "signed": false,
           "unit": "A",
           "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 66,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
+          "width": 1
         }
       ]
     },
@@ -2228,7 +2262,8 @@
           "bitfield_detail": {
             "0": "UNDERVOLTAGE",
             "1": "OVERVOLTAGE",
-            "2": "OVERLOAD"
+            "2": "OVERLOAD",
+            "3": "COMM_LOSS"
           },
           "data_type": "bitfield16",
           "enum_detail": null,
@@ -2440,6 +2475,23 @@
           "scale": 1.0,
           "signed": false,
           "unit": "A",
+          "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 29,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
           "width": 1
         }
       ]
@@ -2793,6 +2845,23 @@
           "scale": 1.0,
           "signed": false,
           "unit": "A",
+          "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 28,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
           "width": 1
         }
       ]
@@ -3508,6 +3577,23 @@
           "scale": 1.0,
           "signed": false,
           "unit": "A",
+          "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 66,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
           "width": 1
         }
       ]
@@ -4364,6 +4450,23 @@
           "signed": false,
           "unit": "A",
           "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 67,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
+          "width": 1
         }
       ]
     },
@@ -5053,6 +5156,23 @@
           "scale": 1.0,
           "signed": false,
           "unit": "A",
+          "width": 1
+        },
+        {
+          "bitfield_detail": null,
+          "data_type": "enum16",
+          "enum_detail": {
+            "0": "INTERMEDIATE",
+            "1": "OPEN",
+            "2": "CLOSED",
+            "3": "BAD_STATE"
+          },
+          "offset": 55,
+          "point": "BrkPos",
+          "powerflow_server": "calc",
+          "scale": 1.0,
+          "signed": false,
+          "unit": "",
           "width": 1
         }
       ]

@@ -80,6 +80,16 @@ class TestSimulationControl:
     def test_step_count_validated(self, client: TestClient) -> None:
         assert client.post("/api/sim/step", params={"count": 0}).status_code == 422
 
+    def test_scheduled_start_and_speed(self, client: TestClient) -> None:
+        client.post("/api/sim/stop")
+        status = client.post("/api/sim/start", json={"at": "2099-01-01T00:00:00Z"}).json()
+        assert status["state"] == "scheduled"
+        assert status["scheduled_start"] == "2099-01-01T00:00:00Z"
+        assert client.post("/api/sim/stop").json()["state"] == "stopped"
+        assert client.put("/api/sim/speed", json={"speed": 10}).json()["speed"] == 10
+        assert client.put("/api/sim/speed", json={"speed": 0}).status_code == 422
+        assert client.put("/api/sim/speed", json={"speed": 101}).status_code == 422
+
     def test_state_conflicts(self, client: TestClient) -> None:
         assert client.post("/api/sim/pause").status_code == 409
         assert client.get("/api/measurements/latest").status_code == 409

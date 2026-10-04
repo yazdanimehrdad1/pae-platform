@@ -11,6 +11,7 @@ from conftest import (
 from pydantic import ValidationError
 
 from powerflow.core.engine import Engine
+from powerflow.core.event_scenario_library import EventScenarioLibrary
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest, SetpointService
@@ -45,13 +46,15 @@ def make_services(
 def make_context(
     engine: Engine, service: SetpointService, registry: PointRegistry
 ) -> AdapterContext:
-    library = SiteLibrary(InMemoryConfigRepository(), PROFILES, engine, "3bess_2pv")
+    repository = InMemoryConfigRepository()
+    library = SiteLibrary(repository, PROFILES, engine, "3bess_2pv")
     return AdapterContext(
         engine=engine,
         points=registry,
         setpoints=service,
         library=library,
         point_standard=POINT_STANDARD,
+        scenarios=EventScenarioLibrary(repository, engine, library),
     )
 
 

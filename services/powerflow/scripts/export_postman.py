@@ -37,6 +37,8 @@ EXAMPLE_LOAD_CSV = (
 
 def path_value(method: str, path: str, name: str) -> str:
     """A working example value for a path parameter."""
+    if path.startswith("/api/devices"):
+        return {"kind": "bess", "asset_id": "bess1"}[name]
     if name == "asset_id":
         return {"bess": "bess1", "pv": "pv1", "load": "load1"}[path.split("/")[3]]
     if path.startswith("/api/schemas"):
@@ -46,6 +48,8 @@ def path_value(method: str, path: str, name: str) -> str:
     if path.startswith("/api/profiles"):
         writes = method in ("put", "delete")
         return {"folder": "load", "scenario": "my_scenario" if writes else "typical"}[name]
+    if "/event-scenarios" in path:
+        return {"site": "2bess_1pv", "name": "bess1_trip"}[name]
     if name == "asset":
         return "bess.bess1"
     if name == "name" and method in ("put", "delete"):
@@ -60,6 +64,7 @@ def query_example(name: str) -> tuple[str, bool]:
         "overwrite": ("false", False),
         "fields": ("poi.meter.p_kw,bess.bess1.soc_pct", False),
         "format": ("json", False),
+        "points": ("W", False),
         "from": ("2026-06-21T06:00:00Z", True),
         "to": ("2026-06-21T07:00:00Z", True),
     }
@@ -71,6 +76,33 @@ def json_body(method: str, path: str) -> object | None:
         return {"p_kw": 1500, "q_kvar": 0, "mode": "pq"}
     if path.endswith("/pv/{asset_id}/setpoint"):
         return {"p_limit_pct": 80, "pf": 0.95}
+    if method == "post" and path == "/api/sim/conditions":
+        return {"type": "breaker", "breaker": "bess1", "closed": False}
+    if method == "post" and path == "/api/sim/start":
+        return {}  # start now; {"at": "<ISO time>"} schedules it
+    if method == "put" and path == "/api/sim/speed":
+        return {"speed": 10}
+    if method == "post" and path == "/api/sim/event-scenario/start":
+        return {"name": "bess1_trip"}
+    if method == "put" and path == "/api/sites/{site}/event-scenarios/{name}":
+        return {
+            "description": "Trip BESS 1 for a minute, then sag the grid",
+            "events": [
+                {
+                    "at": {"kind": "step", "step": 10},
+                    "change": {"type": "asset_fault", "asset_id": "bess1"},
+                    "label": "trip",
+                },
+                {
+                    "at": {"kind": "step", "step": 70},
+                    "change": {"type": "asset_fault", "asset_id": "bess1", "active": False},
+                },
+                {
+                    "at": {"kind": "step", "step": 80},
+                    "change": {"type": "grid_voltage", "vm_pu": 0.9},
+                },
+            ],
+        }
     if method == "put" and path == "/api/sites/{name}":
         site = default_sites()["1bess_1pv"].model_dump(mode="json")
         site["site"]["name"] = "My site (copy of 1bess_1pv)"

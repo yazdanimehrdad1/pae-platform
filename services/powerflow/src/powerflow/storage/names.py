@@ -21,3 +21,7 @@ def check_name(name: str, pattern: re.Pattern[str], kind: str) -> str:
 
 def check_site_name(name: str) -> str:
     return check_name(name, SITE_NAME_PATTERN, "site")
+
+
+def check_event_scenario_name(name: str) -> str:
+    return check_name(name, SITE_NAME_PATTERN, "event scenario")

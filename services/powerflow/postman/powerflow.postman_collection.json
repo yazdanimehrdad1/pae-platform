@@ -73,10 +73,15 @@
           }
         },
         {
-          "name": "Start or resume real-time",
+          "name": "Start or resume real-time (now, or scheduled)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/sim/start",
               "host": [
@@ -87,6 +92,49 @@
                 "sim",
                 "start"
               ]
+            },
+            "description": "No body (or no `at`) starts now. A start replaces a pending schedule; POST /sim/stop cancels one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Set the speed factor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/speed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "speed"
+              ]
+            },
+            "description": "Sim seconds per wall-clock second (0 < speed ≤ 100), until reset or the site is reloaded (then simulation.speed applies). A running loop re-anchors.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"speed\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
@@ -167,6 +215,135 @@
               ]
             },
             "description": "Only with `simulation.test_mode: true` and while not running; otherwise 409. Returns the last step's snapshot."
+          }
+        }
+      ]
+    },
+    {
+      "name": "conditions",
+      "item": [
+        {
+          "name": "The injected conditions now",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/conditions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "conditions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Apply one condition change now",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/conditions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "conditions"
+              ]
+            },
+            "description": "Open/close a breaker, fault or clear an asset, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"breaker\",\n  \"breaker\": \"bess1\",\n  \"closed\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Clear every injected condition",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/conditions/clear",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "conditions",
+                "clear"
+              ]
+            },
+            "description": "Stops the event scenario and returns to the site config's breaker positions, with no faults, comm loss or grid events."
+          }
+        },
+        {
+          "name": "Play a stored event scenario of the active site",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/event-scenario/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "event-scenario",
+                "start"
+              ]
+            },
+            "description": "Its events fire from the current step on (step triggers count from here).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bess1_trip\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Stop the event scenario (its conditions stay)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/event-scenario/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "event-scenario",
+                "stop"
+              ]
+            }
           }
         }
       ]
@@ -268,7 +445,7 @@
             "description": "Validated (schema, references, profile scenarios exist) before it's written. Saving the active site reloads it and restarts its protocol interfaces, so the simulation must be stopped (409 otherwise).",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"schema_version\": 1,\n  \"site\": {\n    \"name\": \"My site (copy of 1bess_1pv)\"\n  },\n  \"simulation\": {\n    \"step_s\": 1.0,\n    \"start_time\": \"2026-06-21T06:00:00Z\",\n    \"autostart\": false,\n    \"test_mode\": false,\n    \"seed\": 1,\n    \"history_size\": 3600\n  },\n  \"grid\": {\n    \"vn_kv\": 12.47,\n    \"vm_pu\": 1.0,\n    \"va_degree\": 0.0,\n    \"sc_mva\": 100.0,\n    \"x_r\": 5.0\n  },\n  \"poi\": {\n    \"line\": null\n  },\n  \"collectors\": [\n    {\n      \"id\": \"mv1\",\n      \"feeder\": null\n    }\n  ],\n  \"bess\": [\n    {\n      \"id\": \"bess1\",\n      \"name\": null,\n      \"collector\": \"mv1\",\n      \"inverter\": {\n        \"s_rated_kva\": 2750.0,\n        \"p_discharge_max_kw\": 2500.0,\n        \"p_charge_max_kw\": 2500.0,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\",\n        \"ramp_kw_per_s\": 500.0\n      },\n      \"battery\": {\n        \"capacity_kwh\": 10000.0,\n        \"soc_min_pct\": 5.0,\n        \"soc_max_pct\": 95.0,\n        \"soc_initial_pct\": 50.0,\n        \"efficiency\": {\n          \"charge\": null,\n          \"discharge\": null,\n          \"round_trip\": 0.9\n        },\n        \"aux_load_kw\": 0.0\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 2750.0,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 5.75,\n        \"x_r\": 7.0,\n        \"no_load_loss_kw\": 0.0,\n        \"i0_pct\": 0.0\n      }\n    }\n  ],\n  \"pv\": [\n    {\n      \"id\": \"pv1\",\n      \"name\": null,\n      \"collector\": \"mv1\",\n      \"dc_kwp\": 6500.0,\n      \"loss_factor\": 0.05,\n      \"inverter\": {\n        \"s_rated_kva\": 5500.0,\n        \"p_max_kw\": 5000.0,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\"\n      },\n      \"availability\": {\n        \"scenario\": \"cloudy_dynamic\",\n        \"scale\": 1.0,\n        \"loop\": true,\n        \"source\": \"irradiance\"\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 5500.0,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 6.0,\n        \"x_r\": 8.0,\n        \"no_load_loss_kw\": 0.0,\n        \"i0_pct\": 0.0\n      }\n    }\n  ],\n  \"loads\": [\n    {\n      \"id\": \"load1\",\n      \"name\": null,\n      \"bus\": \"poi\",\n      \"profile\": {\n        \"scenario\": \"low_demand\",\n        \"scale\": 1.0,\n        \"loop\": true\n      },\n      \"noise\": null,\n      \"transformer\": null\n    }\n  ],\n  \"meters\": [],\n  \"interfaces\": {\n    \"http\": {\n      \"enabled\": true\n    },\n    \"modbus\": {\n      \"enabled\": false\n    },\n    \"dnp3\": {\n      \"enabled\": false\n    }\n  }\n}",
+              "raw": "{\n  \"schema_version\": 1,\n  \"site\": {\n    \"name\": \"My site (copy of 1bess_1pv)\"\n  },\n  \"simulation\": {\n    \"step_s\": 1.0,\n    \"start_time\": \"2026-06-21T06:00:00Z\",\n    \"speed\": 1.0,\n    \"start_step\": 0,\n    \"autostart\": false,\n    \"test_mode\": false,\n    \"seed\": 1,\n    \"history_size\": 3600\n  },\n  \"grid\": {\n    \"vn_kv\": 12.47,\n    \"vm_pu\": 1.0,\n    \"va_degree\": 0.0,\n    \"sc_mva\": 100.0,\n    \"x_r\": 5.0\n  },\n  \"poi\": {\n    \"line\": null,\n    \"breaker\": {\n      \"closed\": true\n    }\n  },\n  \"collectors\": [\n    {\n      \"id\": \"mv1\",\n      \"feeder\": null\n    }\n  ],\n  \"bess\": [\n    {\n      \"id\": \"bess1\",\n      \"name\": null,\n      \"collector\": \"mv1\",\n      \"inverter\": {\n        \"s_rated_kva\": 2750.0,\n        \"p_discharge_max_kw\": 2500.0,\n        \"p_charge_max_kw\": 2500.0,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\",\n        \"ramp_kw_per_s\": 500.0\n      },\n      \"battery\": {\n        \"capacity_kwh\": 10000.0,\n        \"soc_min_pct\": 5.0,\n        \"soc_max_pct\": 95.0,\n        \"soc_initial_pct\": 50.0,\n        \"efficiency\": {\n          \"charge\": null,\n          \"discharge\": null,\n          \"round_trip\": 0.9\n        },\n        \"aux_load_kw\": 0.0\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 2750.0,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 5.75,\n        \"x_r\": 7.0,\n        \"no_load_loss_kw\": 0.0,\n        \"i0_pct\": 0.0\n      },\n      \"breaker\": {\n        \"closed\": true\n      }\n    }\n  ],\n  \"pv\": [\n    {\n      \"id\": \"pv1\",\n      \"name\": null,\n      \"collector\": \"mv1\",\n      \"dc_kwp\": 6500.0,\n      \"loss_factor\": 0.05,\n      \"inverter\": {\n        \"s_rated_kva\": 5500.0,\n        \"p_max_kw\": 5000.0,\n        \"v_lv_kv\": 0.69,\n        \"priority\": \"p\"\n      },\n      \"availability\": {\n        \"scenario\": \"cloudy_dynamic\",\n        \"scale\": 1.0,\n        \"loop\": true,\n        \"source\": \"irradiance\"\n      },\n      \"transformer\": {\n        \"s_rated_kva\": 5500.0,\n        \"vn_hv_kv\": 12.47,\n        \"vn_lv_kv\": 0.69,\n        \"z_pct\": 6.0,\n        \"x_r\": 8.0,\n        \"no_load_loss_kw\": 0.0,\n        \"i0_pct\": 0.0\n      },\n      \"breaker\": {\n        \"closed\": true\n      }\n    }\n  ],\n  \"loads\": [\n    {\n      \"id\": \"load1\",\n      \"name\": null,\n      \"bus\": \"poi\",\n      \"profile\": {\n        \"scenario\": \"low_demand\",\n        \"scale\": 1.0,\n        \"loop\": true\n      },\n      \"noise\": null,\n      \"transformer\": null,\n      \"breaker\": {\n        \"closed\": true\n      }\n    }\n  ],\n  \"meters\": [],\n  \"interfaces\": {\n    \"http\": {\n      \"enabled\": true\n    },\n    \"modbus\": {\n      \"enabled\": false\n    },\n    \"dnp3\": {\n      \"enabled\": false\n    }\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -487,6 +664,142 @@
                 {
                   "key": "name",
                   "value": "site-config"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "event scenarios",
+      "item": [
+        {
+          "name": "The site's event scenarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/event-scenarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "event-scenarios"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "2bess_1pv"
+                }
+              ]
+            },
+            "description": "Each is re-checked against the site as stored now (`valid`, `problems`)."
+          }
+        },
+        {
+          "name": "One scenario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/event-scenarios/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "event-scenarios",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "2bess_1pv"
+                },
+                {
+                  "key": "name",
+                  "value": "bess1_trip"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create or replace a scenario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/event-scenarios/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "event-scenarios",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "2bess_1pv"
+                },
+                {
+                  "key": "name",
+                  "value": "bess1_trip"
+                }
+              ]
+            },
+            "description": "Every event's change is validated against the site's stored config.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Trip BESS 1 for a minute, then sag the grid\",\n  \"events\": [\n    {\n      \"at\": {\n        \"kind\": \"step\",\n        \"step\": 10\n      },\n      \"change\": {\n        \"type\": \"asset_fault\",\n        \"asset_id\": \"bess1\"\n      },\n      \"label\": \"trip\"\n    },\n    {\n      \"at\": {\n        \"kind\": \"step\",\n        \"step\": 70\n      },\n      \"change\": {\n        \"type\": \"asset_fault\",\n        \"asset_id\": \"bess1\",\n        \"active\": false\n      }\n    },\n    {\n      \"at\": {\n        \"kind\": \"step\",\n        \"step\": 80\n      },\n      \"change\": {\n        \"type\": \"grid_voltage\",\n        \"vm_pu\": 0.9\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a scenario",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sites/:site/event-scenarios/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sites",
+                ":site",
+                "event-scenarios",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "site",
+                  "value": "2bess_1pv"
+                },
+                {
+                  "key": "name",
+                  "value": "bess1_trip"
                 }
               ]
             }
@@ -790,6 +1103,105 @@
                 }
               ]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "devices",
+      "item": [
+        {
+          "name": "Every device's standard points, from the latest snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices"
+              ]
+            },
+            "description": "The active site laid out by the PAE point standard (the Modbus server's devices), each point with its engineering value in SI units, standard enum/bit codes and their labels. `served: no` points are null (Modbus reads 0 there)."
+          }
+        },
+        {
+          "name": "One device's standard points, from the latest snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/:kind/:asset_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                ":kind",
+                ":asset_id"
+              ],
+              "variable": [
+                {
+                  "key": "kind",
+                  "value": "bess"
+                },
+                {
+                  "key": "asset_id",
+                  "value": "bess1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Standard points of one device over the in-memory history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/:kind/:asset_id/history?points=W",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                ":kind",
+                ":asset_id",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "points",
+                  "value": "W"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-06-21T06:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-06-21T07:00:00Z",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "kind",
+                  "value": "bess"
+                },
+                {
+                  "key": "asset_id",
+                  "value": "bess1"
+                }
+              ]
+            },
+            "description": "Resolved from each historic snapshot (oldest first). Points derived from a setpoint are null: setpoints aren't recorded in history."
           }
         }
       ]

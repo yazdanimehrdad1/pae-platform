@@ -40,3 +40,32 @@ export type BessSetpointRequest = Schemas['BessSetpointRequest'];
 export type PvSetpointRequest = Schemas['PvSetpointRequest'];
 export type SetpointResult = Schemas['SetpointResult'];
 export type BessMode = NonNullable<BessSetpointRequest['mode']>;
+
+// Injected conditions (breakers, faults, comm loss, grid events) and event scenarios
+export type ConditionsReport = Schemas['ConditionsReport'];
+export type BreakerStatus = Schemas['BreakerStatus'];
+export type FaultCause = Schemas['FaultCause'];
+export type CommTarget = Schemas['CommTarget'];
+export type BreakerChange = Schemas['BreakerChange'];
+export type AssetFaultChange = Schemas['AssetFaultChange'];
+export type CommLossChange = Schemas['CommLossChange'];
+export type GridVoltageChange = Schemas['GridVoltageChange'];
+export type GridFrequencyChange = Schemas['GridFrequencyChange'];
+export type ConditionChange =
+  | BreakerChange
+  | AssetFaultChange
+  | CommLossChange
+  | GridVoltageChange
+  | GridFrequencyChange;
+export type EventScenario = Schemas['EventScenario'];
+export type ScenarioEvent = Schemas['ScenarioEvent'];
+export type EventScenarioSummary = Schemas['EventScenarioSummary'];
+export type ScenarioStatus = Schemas['ScenarioStatus'];
+
+// Measurements: the native snapshot, and the PAE point-standard device view
+export type Snapshot = Schemas['Snapshot'];
+export type DevicesSnapshot = Schemas['DevicesSnapshot'];
+export type DeviceReadings = Schemas['DeviceReadings'];
+export type PointReading = Schemas['PointReading'];
+export type DeviceKind = DeviceReadings['kind'];
+export type DeviceHistory = Schemas['DeviceHistory'];

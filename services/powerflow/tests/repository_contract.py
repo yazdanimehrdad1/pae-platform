@@ -5,6 +5,8 @@ empty repository."""
 import pytest
 from conftest import default_site, make_site_config
 
+from powerflow.conditions import BreakerChange
+from powerflow.conditions.scenario import EventScenario, ScenarioEvent, StepTrigger
 from powerflow.errors import NotFoundError
 from powerflow.storage import ConfigRepository, SiteCategory, StoredSite
 
@@ -44,4 +46,40 @@ async def check_active_site(repository: ConfigRepository) -> None:
     assert await repository.get_active_site() is None
 
 
-CONTRACT_CHECKS = [check_sites, check_active_site]
+def scenario_with(breaker: str) -> EventScenario:
+    return EventScenario(
+        events=[
+            ScenarioEvent(
+                at=StepTrigger(step=1), change=BreakerChange(breaker=breaker, closed=False)
+            )
+        ]
+    )
+
+
+async def check_event_scenarios(repository: ConfigRepository) -> None:
+    with pytest.raises(NotFoundError):
+        await repository.list_event_scenarios("alpha")
+    with pytest.raises(NotFoundError):
+        await repository.put_event_scenario("alpha", "trip", scenario_with("bess1"))
+    await repository.put_site("alpha", make_site_config())
+    await repository.put_site("beta", make_site_config())
+    assert await repository.list_event_scenarios("alpha") == []
+    await repository.put_event_scenario("alpha", "trip", scenario_with("bess1"))
+    await repository.put_event_scenario("alpha", "blackout", scenario_with("poi"))
+    await repository.put_event_scenario("beta", "trip", scenario_with("pv1"))
+    assert await repository.list_event_scenarios("alpha") == ["blackout", "trip"]
+    assert await repository.get_event_scenario("beta", "trip") == scenario_with("pv1")
+    await repository.put_event_scenario("alpha", "trip", scenario_with("load1"))  # upsert
+    assert await repository.get_event_scenario("alpha", "trip") == scenario_with("load1")
+    await repository.delete_event_scenario("alpha", "blackout")
+    with pytest.raises(NotFoundError):
+        await repository.get_event_scenario("alpha", "blackout")
+    with pytest.raises(NotFoundError):
+        await repository.delete_event_scenario("alpha", "blackout")
+    await repository.delete_site("alpha")  # its scenarios go with it
+    with pytest.raises(NotFoundError):
+        await repository.get_event_scenario("alpha", "trip")
+    assert await repository.list_event_scenarios("beta") == ["trip"]
+
+
+CONTRACT_CHECKS = [check_sites, check_active_site, check_event_scenarios]

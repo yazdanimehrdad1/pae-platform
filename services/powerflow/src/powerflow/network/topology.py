@@ -7,6 +7,8 @@
 [col:<id>] ─ step-up transformer ─ [lv:<asset>] ─ BESS/PV (+ BESS aux load)
 [poi | col:<id>] ─ (optional transformer ─ [lv:<load>]) ─ site load
 ```
+Breakers: the POI breaker opens the POI branch (the grid side of the POI meter); an asset's
+breaker opens its step-up transformer (or, for a load without one, the load itself).
 The POI meter is the branch leaving the POI bus toward the grid, oriented from the POI, so its
 from-end P/Q is export-positive. Site losses are the transformers and collector feeders: they
 exclude the grid equivalent and the POI line, which are on the utility side of the meter.
@@ -132,6 +134,23 @@ class PoiBranchKind(StrEnum):
     LINE = "line"
 
 
+class BreakerElement(StrEnum):
+    """The element a breaker takes out of service when it opens."""
+
+    TRANSFORMER = "transformer"
+    IMPEDANCE = "impedance"
+    LINE = "line"
+    INJECTION = "injection"
+
+
+@dataclass(frozen=True)
+class BreakerSpec:
+    name: str  # the asset id, or "poi"
+    element_kind: BreakerElement
+    element: str  # the TransformerSpec / ImpedanceSpec / LineSpec / InjectionSpec name
+    closed: bool  # initial position, from the site config
+
+
 @dataclass(frozen=True)
 class Topology:
     buses: tuple[BusSpec, ...]
@@ -146,6 +165,7 @@ class Topology:
     poi_branch_kind: PoiBranchKind
     # Branches whose losses count as site losses (inside the POI meter).
     site_lines: tuple[str, ...]
+    breakers: tuple[BreakerSpec, ...] = ()
 
     def bus(self, name: str) -> BusSpec:
         return next(bus for bus in self.buses if bus.name == name)
@@ -199,6 +219,7 @@ def build_topology(config: SiteConfig) -> Topology:
     transformers: list[TransformerSpec] = []
     injections: list[InjectionSpec] = []
     site_lines: list[str] = []
+    breakers: list[BreakerSpec] = []
 
     r_ohm, x_ohm = grid_impedance_ohm(grid_kv, config.grid.sc_mva, config.grid.x_r)
     if config.poi.line is None:
@@ -209,6 +230,10 @@ def build_topology(config: SiteConfig) -> Topology:
         impedance = ImpedanceSpec(GRID_IMPEDANCE, GRID_BUS, SOURCE_BUS, r_ohm, x_ohm, grid_kv)
         lines.append(_line(POI_LINE, POI_BUS_ID, GRID_BUS, config.poi.line))
         poi_branch, poi_branch_kind = POI_LINE, PoiBranchKind.LINE
+    poi_element = (
+        BreakerElement.LINE if poi_branch_kind is PoiBranchKind.LINE else BreakerElement.IMPEDANCE
+    )
+    breakers.append(BreakerSpec(POI_BUS_ID, poi_element, poi_branch, config.poi.breaker.closed))
 
     for collector in config.collectors:
         bus_name = collector_bus(collector.id)
@@ -229,11 +254,21 @@ def build_topology(config: SiteConfig) -> Topology:
         injections.append(
             InjectionSpec(bess_aux_injection(bess.id), lv_bus(bess.id), InjectionKind.LOAD)
         )
+        breakers.append(
+            BreakerSpec(
+                bess.id, BreakerElement.TRANSFORMER, transformer_name(bess.id), bess.breaker.closed
+            )
+        )
     for pv in config.pv:
         buses.append(BusSpec(lv_bus(pv.id), pv.transformer.vn_lv_kv))
         transformers.append(_transformer(pv.id, collector_bus(pv.collector), pv.transformer))
         injections.append(
             InjectionSpec(pv_injection(pv.id), lv_bus(pv.id), InjectionKind.GENERATOR)
+        )
+        breakers.append(
+            BreakerSpec(
+                pv.id, BreakerElement.TRANSFORMER, transformer_name(pv.id), pv.breaker.closed
+            )
         )
     for load in config.loads:
         mv_bus = POI_BUS_ID if load.bus == POI_BUS_ID else collector_bus(load.bus)
@@ -243,6 +278,15 @@ def build_topology(config: SiteConfig) -> Topology:
             transformers.append(_transformer(load.id, mv_bus, load.transformer))
             load_bus = lv_bus(load.id)
         injections.append(InjectionSpec(load_injection(load.id), load_bus, InjectionKind.LOAD))
+        if load.transformer is not None:
+            element = BreakerSpec(
+                load.id, BreakerElement.TRANSFORMER, transformer_name(load.id), load.breaker.closed
+            )
+        else:
+            element = BreakerSpec(
+                load.id, BreakerElement.INJECTION, load_injection(load.id), load.breaker.closed
+            )
+        breakers.append(element)
 
     return Topology(
         buses=tuple(buses),
@@ -262,4 +306,5 @@ def build_topology(config: SiteConfig) -> Topology:
         poi_branch=poi_branch,
         poi_branch_kind=poi_branch_kind,
         site_lines=tuple(site_lines),
+        breakers=tuple(breakers),
     )

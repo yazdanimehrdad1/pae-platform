@@ -10,7 +10,7 @@ AphB,Current B,i_b,O,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 203 AphB,Phase 
 AphC,Current C,i_c,O,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 203 AphC,Phase C current,,,calc
 TotWhImp,Energy Consumed,e_imp,R,counter,R,Wh,uint32,1000,,,,,SunSpec,SunSpec 203 TotWhImp,Lifetime energy consumed,,,calc
 SupplySt,Supply State,supply_state,R,status,R,,enum16,1,,pae.SupplySt,"{""0"":""DE_ENERGIZED"",""1"":""ENERGIZED""}",,PAE,PAE,Load energised or not,,load.supply_state,yes
-Alrm,Load Alarms,load_alarm,O,alarm,R,,bitfield16,1,,pae.LoadAlrm,,"{""0"":""UNDERVOLTAGE"",""1"":""OVERVOLTAGE"",""2"":""OVERLOAD""}",PAE,PAE,Load alarm word,,load.alarm_flags,yes
+Alrm,Load Alarms,load_alarm,O,alarm,R,,bitfield16,1,,pae.LoadAlrm,,"{""0"":""UNDERVOLTAGE"",""1"":""OVERVOLTAGE"",""2"":""OVERLOAD"",""3"":""COMM_LOSS""}",PAE,PAE,Load alarm word,,load.alarm_flags,yes
 ShedCmd,Shed Command,cmd_shed,O,setpoint,RW,,enum16,1,,pae.Active,"{""0"":""NORMAL"",""1"":""ACTIVE""}",,PAE,PAE,Controllable load: write ACTIVE to shed / NORMAL to restore,,,no
 ShedSt,Shed State,shed_state,O,status,R,,enum16,1,,pae.Active,"{""0"":""NORMAL"",""1"":""ACTIVE""}",,PAE,PAE,Controllable load: currently shed,,,no
 WLim,Power Limit,p_lim,O,setpoint,RW,W,uint16,1000,,,,,PAE,PAE,Controllable load: max consumption (e.g. EV charger),,,no

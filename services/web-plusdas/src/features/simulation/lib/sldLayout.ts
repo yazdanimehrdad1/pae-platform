@@ -11,18 +11,21 @@ import type {
 // A static single line diagram of a powerflow site, laid out top to bottom the way powerflow
 // builds its network (powerflow network/topology.py):
 //
-//   utility source ─ grid equivalent ─ (POI line) ─ POI meter ─ POI bus
-//   POI bus ─ loads on the POI (optional transformer)
+//   utility source ─ grid equivalent ─ (POI line) ─ POI breaker ─ POI meter ─ POI bus
+//   POI bus ─ loads on the POI (breaker, optional transformer)
 //   POI bus ─ feeder line or closed switch ─ collector bus
-//   collector bus ─ (feeder meter) ─ step-up transformer ─ LV bus ─ BESS / PV / load
+//   collector bus ─ (feeder meter) ─ breaker ─ step-up transformer ─ LV bus ─ BESS / PV / load
 //
-// Pure: config in, shapes with coordinates out. SimulationSld.tsx only draws them.
+// Pure: config (and optionally the live injected conditions) in, shapes with coordinates out.
+// SimulationSld.tsx only draws them. Without live conditions, breakers show the config's
+// initial positions.
 
 export type SldShapeKind =
   | 'source'
   | 'impedance'
   | 'line'
   | 'switch'
+  | 'breaker'
   | 'meter'
   | 'bus'
   | 'transformer'
@@ -39,6 +42,15 @@ export interface SldShape {
   height: number;
   label: string;
   details: string[];
+  breaker?: { id: string; closed: boolean }; // a breaker: its id ("poi" or the asset id)
+  flags?: string[]; // an asset or meter: live conditions, e.g. "fault", "offline", "comm loss"
+}
+
+/** The live conditions the diagram reflects (the active site's, from GET /sim/conditions). */
+export interface SldLive {
+  openBreakers: Set<string>;
+  faulted: Set<string>; // BESS/PV ids
+  commLost: Set<string>; // asset ids, meter ids, and "poi_meter"
 }
 
 export interface SldLink {
@@ -59,6 +71,7 @@ const ROW = 92;
 const ASSET_BOX = { width: 180, height: 76 };
 const DEVICE_BOX = { width: 44, height: 44 };
 const SMALL_BOX = { width: 60, height: 30 };
+const BREAKER_BOX = { width: 18, height: 18 };
 
 type Asset =
   | { kind: 'bess'; config: BessConfig }
@@ -111,7 +124,22 @@ function lvKv(asset: Asset, transformer: TransformerConfig | null): number | nul
 }
 
 /** Shapes and links for a site, sized to its asset count. */
-export function layoutSite(config: SiteConfig): SldLayout {
+export function layoutSite(config: SiteConfig, live?: SldLive): SldLayout {
+  const initiallyOpen = new Set<string>([
+    ...(config.poi?.breaker?.closed === false ? ['poi'] : []),
+    ...[...(config.bess ?? []), ...(config.pv ?? []), ...(config.loads ?? [])]
+      .filter((asset) => asset.breaker?.closed === false)
+      .map((asset) => asset.id),
+  ]);
+  const openBreakers = live?.openBreakers ?? initiallyOpen;
+  const siteDead = openBreakers.has('poi');
+  const commLost = live?.commLost ?? new Set<string>();
+  const assetFlags = (id: string): string[] => [
+    ...(live?.faulted.has(id) ? ['fault'] : []),
+    ...(siteDead || openBreakers.has(id) ? ['offline'] : []),
+    ...(commLost.has(id) ? ['comm loss'] : []),
+  ];
+  const meterFlags = (id: string): string[] => (commLost.has(id) ? ['comm loss'] : []);
   const grid: Partial<GridConfig> = config.grid ?? {};
   const gridKv = grid.vn_kv ?? 12.47;
   const collectors = config.collectors?.length ? config.collectors : [{ id: 'mv1' }];
@@ -142,6 +170,12 @@ export function layoutSite(config: SiteConfig): SldLayout {
     return shape;
   };
   const link = (x1: number, y1: number, x2: number, y2: number) => links.push({ from: [x1, y1], to: [x2, y2] });
+  // A breaker drawn on the middle of a vertical link (the link runs through it).
+  const breakerOn = (id: string, x: number, y1: number, y2: number) =>
+    add({
+      id: `brk:${id}`, kind: 'breaker', x, y: (y1 + y2) / 2, ...BREAKER_BOX, label: `breaker ${id}`,
+      details: [openBreakers.has(id) ? 'open' : 'closed'], breaker: { id, closed: !openBreakers.has(id) },
+    });
 
   // Utility side, down the centre.
   let y = 50;
@@ -161,8 +195,14 @@ export function layoutSite(config: SiteConfig): SldLayout {
     }));
   }
   y += ROW;
-  chain.push(add({ id: 'poi_meter', kind: 'meter', x: centre, y, ...DEVICE_BOX, label: 'POI meter', details: ['+ = export'] }));
+  chain.push(add({
+    id: 'poi_meter', kind: 'meter', x: centre, y, ...DEVICE_BOX, label: 'POI meter', details: ['+ = export'],
+    flags: meterFlags('poi_meter'),
+  }));
   chain.slice(1).forEach((shape, index) => link(centre, chain[index].y + chain[index].height / 2, centre, shape.y - shape.height / 2));
+  // The POI breaker opens the branch on the grid side of the POI meter.
+  const beforeMeter = chain[chain.length - 2];
+  breakerOn('poi', centre, beforeMeter.y + beforeMeter.height / 2, y - DEVICE_BOX.height / 2);
 
   // POI bus across every column.
   y += ROW * 0.75;
@@ -185,7 +225,10 @@ export function layoutSite(config: SiteConfig): SldLayout {
     let top = busY;
     let rowY = startY;
     if (meter) {
-      const shape = add({ id: `meter:${meter.id}`, kind: 'meter', x, y: rowY, ...DEVICE_BOX, label: meter.name ?? meter.id, details: ['+ = toward bus'] });
+      const shape = add({
+        id: `meter:${meter.id}`, kind: 'meter', x, y: rowY, ...DEVICE_BOX, label: meter.name ?? meter.id,
+        details: ['+ = toward bus'], flags: meterFlags(meter.id),
+      });
       link(x, top, x, shape.y - shape.height / 2);
       top = shape.y + shape.height / 2;
     }
@@ -193,14 +236,19 @@ export function layoutSite(config: SiteConfig): SldLayout {
     if (transformer) {
       const shape = add({ id: `tx:${asset.config.id}`, kind: 'transformer', x, y: rowY, ...DEVICE_BOX, label: `tx:${asset.config.id}`, details: transformerDetails(transformer) });
       link(x, top, x, shape.y - shape.height / 2);
+      breakerOn(asset.config.id, x, top, shape.y - shape.height / 2);
       const kv = lvKv(asset, transformer);
       const lvY = rowY + ROW * 0.75;
       add({ id: `bus:lv:${asset.config.id}`, kind: 'bus', x: x - 50, y: lvY, width: 100, height: 4, label: kv ? `${kv} kV` : 'LV', details: [] });
       link(x, shape.y + shape.height / 2, x, lvY);
       top = lvY;
     }
-    const box = add({ id: `${asset.kind}:${asset.config.id}`, kind: asset.kind, x, y: assetY, ...ASSET_BOX, label: assetLabel(asset), details: assetDetails(asset) });
+    const box = add({
+      id: `${asset.kind}:${asset.config.id}`, kind: asset.kind, x, y: assetY, ...ASSET_BOX, label: assetLabel(asset),
+      details: assetDetails(asset), flags: assetFlags(asset.config.id),
+    });
     link(x, top, x, box.y - box.height / 2);
+    if (!transformer) breakerOn(asset.config.id, x, top, box.y - box.height / 2);
   };
 
   let column = 0;

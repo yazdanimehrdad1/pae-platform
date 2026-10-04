@@ -7,14 +7,18 @@
   in enums.csv by symbol name, so the numbers come from the standard.
 - **Energy:** the counters the simulation keeps on each snapshot measurement (`energy`).
 - **Site:** fleet sums over the BESS and PV assets.
-- **Frequency:** not simulated; a time-bucketed random signal around 60 Hz
-  (`random_signal.GRID_HZ`), the same for every device.
+- **Frequency:** the snapshot's grid frequency (`poi.hz`: nominal or an injected excursion,
+  plus a small wander), the same for every device; 0 on a de-energised device.
+- **Injected conditions:** a comm-lost device publishes frozen values (the snapshot already holds
+  them) and a frozen heartbeat; `BrkPos` is the device's breaker (the site and POI meter: the
+  POI breaker; a feeder meter: its asset's).
 """
 
 import math
 from collections.abc import Callable, Sequence
 from typing import Protocol, TypeVar
 
+from powerflow.conditions import CommTarget
 from powerflow.core.snapshot import (
     BessMeasurement,
     EnergyTotals,
@@ -30,13 +34,13 @@ from powerflow.models.pv import PvFlag, PvQMode, PvStatus
 from powerflow.models.status import (
     BessAlarm,
     BessOperatingState,
+    BreakerState,
     MeterAlarm,
     MeterState,
     PvAlarm,
     PvInverterState,
 )
 from powerflow.point_standard.layout import Device, DeviceKind
-from powerflow.point_standard.random_signal import GRID_HZ
 from powerflow.point_standard.sources import Resolver, Sources, powerflow_prefix
 from powerflow.site_config import PvAvailabilitySource
 
@@ -134,8 +138,51 @@ def _ac_type(sources: Sources, _device: Device) -> int:
     return sources.enums.code("701.ACType", "THREE_PHASE")
 
 
-def _heartbeat(sources: Sources, _device: Device) -> int:
+def _comm_key(device: Device) -> tuple[CommTarget, str | None] | None:
+    """The comm-loss target a device answers for (the site and met station: none)."""
+    match device.kind:
+        case DeviceKind.BESS | DeviceKind.PV | DeviceKind.LOAD:
+            return CommTarget.ASSET, device.asset_id
+        case DeviceKind.FEEDER_METER:
+            return CommTarget.METER, device.asset_id
+        case DeviceKind.POI_METER:
+            return CommTarget.POI_METER, None
+        case DeviceKind.SITE | DeviceKind.MET_STATION:
+            return None
+
+
+def _heartbeat(sources: Sources, device: Device) -> int:
+    """The step counter; frozen at the step comm was lost, like a hung device."""
+    conditions = sources.snapshot.conditions
+    key = _comm_key(device)
+    if conditions is not None and key is not None:
+        for lost in conditions.comm_loss:
+            if (lost.target, lost.id) == key:
+                return lost.since_step % 65536
     return sources.snapshot.step_id % 65536
+
+
+def _breaker_pos(sources: Sources, device: Device) -> int | None:
+    snapshot = sources.snapshot
+    match device.kind:
+        case DeviceKind.BESS:
+            state = _bess(sources, device).breaker_state
+        case DeviceKind.PV:
+            state = _pv(sources, device).breaker_state
+        case DeviceKind.LOAD:
+            state = _load(sources, device).breaker_state
+        case DeviceKind.FEEDER_METER:
+            asset_id = next(
+                meter.transformer for meter in sources.config.meters if meter.id == device.asset_id
+            )
+            assets = [*snapshot.bess, *snapshot.pv, *snapshot.loads]
+            state = next(asset.breaker_state for asset in assets if asset.id == asset_id)
+        case DeviceKind.POI_METER | DeviceKind.SITE:
+            state = snapshot.poi.breaker_state
+        case DeviceKind.MET_STATION:
+            return None
+    symbol = "CLOSED" if state == BreakerState.CLOSED else "OPEN"
+    return sources.enums.code("pae.Dbpos", symbol)
 
 
 def _inverter_kv(sources: Sources, device: Device) -> float:
@@ -176,11 +223,25 @@ def _totals(attribute: str) -> Resolver:
     return resolve
 
 
-def _grid_hz(sources: Sources, _device: Device) -> float:
-    return GRID_HZ.value_at(sources.snapshot.sim_time, sources.config.simulation.seed)
+def _device_v_pu(sources: Sources, device: Device) -> float:
+    match device.kind:
+        case DeviceKind.BESS:
+            return _bess(sources, device).v_lv_pu
+        case DeviceKind.PV:
+            return _pv(sources, device).v_lv_pu
+        case DeviceKind.LOAD:
+            return _load(sources, device).v_pu
+        case DeviceKind.POI_METER | DeviceKind.FEEDER_METER:
+            return _meter(sources, device).v_pu
+        case DeviceKind.SITE | DeviceKind.MET_STATION:
+            return sources.snapshot.poi.v_pu
 
 
-COMMON: dict[str, Resolver] = {"Hb": _heartbeat, "ACType": _ac_type}
+def _grid_hz(sources: Sources, device: Device) -> float:
+    return sources.snapshot.poi.hz if _device_v_pu(sources, device) > 0 else 0.0
+
+
+COMMON: dict[str, Resolver] = {"Hb": _heartbeat, "ACType": _ac_type, "BrkPos": _breaker_pos}
 DER_COMMON: dict[str, Resolver] = {**COMMON, "VNomRtg": _v_nom, "AMaxRtg": _a_max}
 
 
@@ -258,7 +319,9 @@ BESS: dict[str, Resolver] = {
     "InvSt": _bess_inv_state,
     "ConnSt": lambda sources, device: sources.enums.code(
         "701.ConnSt",
-        "DISCONNECTED" if _bess(sources, device).status == BessStatus.OFFLINE else "CONNECTED",
+        "DISCONNECTED"
+        if _bess(sources, device).status in (BessStatus.OFFLINE, BessStatus.FAULT)
+        else "CONNECTED",
     ),
     "DERMode": lambda sources, _device: sources.enums.bits("701.DERMode", "GRID_FOLLOWING"),
     "Alrm": lambda sources, device: _map_bits(
@@ -358,7 +421,9 @@ PV: dict[str, Resolver] = {
     ),
     "ConnSt": lambda sources, device: sources.enums.code(
         "701.ConnSt",
-        "DISCONNECTED" if _pv(sources, device).status == PvStatus.OFFLINE else "CONNECTED",
+        "DISCONNECTED"
+        if _pv(sources, device).status in (PvStatus.OFFLINE, PvStatus.FAULT)
+        else "CONNECTED",
     ),
     "Alrm": lambda sources, device: _map_bits(
         sources,
@@ -369,6 +434,7 @@ PV: dict[str, Resolver] = {
             PvAlarm.OVERVOLTAGE: "AC_OVER_VOLT",
             PvAlarm.GROUND_FAULT: "GROUND_FAULT",
             PvAlarm.DC_OVERVOLTAGE: "DC_OVER_VOLT",
+            PvAlarm.COMM_LOSS: None,  # a comm-lost device can't report it; the site does
         },
     ),
     "DERMode": lambda sources, device: (
@@ -544,8 +610,23 @@ def _count_inverters(*states: PvInverterState) -> Resolver:
 
 
 def _site_alarms(sources: Sources, _device: Device) -> int:
-    stale = sources.snapshot.poi.meter_state == MeterState.STALE
-    return sources.enums.bits("pae.PpcAlrm", "POI_METER_FAIL") if stale else 0
+    """POI meter STALE → POI_METER_FAIL; any comm-lost asset or feeder meter →
+    DEVICE_COMM_LOSS (the plant controller notices a device stopped answering)."""
+    snapshot = sources.snapshot
+    value = 0
+    if snapshot.poi.meter_state == MeterState.STALE:
+        value |= sources.enums.bits("pae.PpcAlrm", "POI_METER_FAIL")
+    conditions = snapshot.conditions
+    if conditions is not None and any(
+        lost.target is not CommTarget.POI_METER for lost in conditions.comm_loss
+    ):
+        value |= sources.enums.bits("pae.PpcAlrm", "DEVICE_COMM_LOSS")
+    return value
+
+
+def _grid_mode(sources: Sources, _device: Device) -> int:
+    dead = sources.snapshot.poi.breaker_state == BreakerState.OPEN
+    return sources.enums.code("pae.GridMode", "BLACKOUT" if dead else "GRID_TIED")
 
 
 SITE: dict[str, Resolver] = {
@@ -572,7 +653,7 @@ SITE: dict[str, Resolver] = {
     "NInvStby": _count_inverters(PvInverterState.OFF, PvInverterState.SLEEPING),
     "NInvFlt": _count_inverters(PvInverterState.FAULT),
     "NInvDrt": _count_inverters(PvInverterState.THROTTLED),
-    "GridMode": lambda sources, _device: sources.enums.code("pae.GridMode", "GRID_TIED"),
+    "GridMode": _grid_mode,
     "Alrm": _site_alarms,
 }
 

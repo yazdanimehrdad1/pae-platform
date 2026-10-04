@@ -7,6 +7,7 @@ standard point lives in this package; the Modbus adapter only serves the resulti
 - `values`: `yes` points (one powerflow value × a unit factor).
 - `calc`: `calc` points (derived values).
 - `registers`: engineering values → raw registers.
+- `readings`: engineering values with enum/bit labels, per device (the HTTP device view).
 """
 
 from powerflow.point_standard.catalog import (

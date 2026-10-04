@@ -130,6 +130,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every device's standard points, from the latest snapshot
+         * @description The active site laid out by the PAE point standard (the Modbus server's devices), each point with its engineering value in SI units, standard enum/bit codes and their labels. `served: no` points are null (Modbus reads 0 there).
+         */
+        get: operations["list_devices_api_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/devices/{kind}/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One device's standard points, from the latest snapshot */
+        get: operations["get_device_api_devices__kind___asset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/devices/{kind}/{asset_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Standard points of one device over the in-memory history
+         * @description Resolved from each historic snapshot (oldest first). Points derived from a setpoint are null: setpoints aren't recorded in history.
+         */
+        get: operations["device_history_api_devices__kind___asset_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -328,6 +385,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sim/conditions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The injected conditions now */
+        get: operations["get_conditions_api_sim_conditions_get"];
+        put?: never;
+        /**
+         * Apply one condition change now
+         * @description Open/close a breaker, fault or clear an asset, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.
+         */
+        post: operations["apply_condition_api_sim_conditions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim/conditions/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear every injected condition
+         * @description Stops the event scenario and returns to the site config's breaker positions, with no faults, comm loss or grid events.
+         */
+        post: operations["clear_conditions_api_sim_conditions_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim/event-scenario/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Play a stored event scenario of the active site
+         * @description Its events fire from the current step on (step triggers count from here).
+         */
+        post: operations["start_scenario_api_sim_event_scenario_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim/event-scenario/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop the event scenario (its conditions stay) */
+        post: operations["stop_scenario_api_sim_event_scenario_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sim/pause": {
         parameters: {
             query?: never;
@@ -362,6 +497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sim/speed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the speed factor
+         * @description Sim seconds per wall-clock second (0 < speed ≤ 100), until reset or the site is reloaded (then simulation.speed applies). A running loop re-anchors.
+         */
+        put: operations["set_speed_api_sim_speed_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sim/start": {
         parameters: {
             query?: never;
@@ -371,7 +526,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start or resume real-time */
+        /**
+         * Start or resume real-time (now, or scheduled)
+         * @description No body (or no `at`) starts now. A start replaces a pending schedule; POST /sim/stop cancels one.
+         */
         post: operations["start_api_sim_start_post"];
         delete?: never;
         options?: never;
@@ -492,6 +650,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site}/event-scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The site's event scenarios
+         * @description Each is re-checked against the site as stored now (`valid`, `problems`).
+         */
+        get: operations["list_event_scenarios_api_sites__site__event_scenarios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{site}/event-scenarios/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One scenario */
+        get: operations["get_event_scenario_api_sites__site__event_scenarios__name__get"];
+        /**
+         * Create or replace a scenario
+         * @description Every event's change is validated against the site's stored config.
+         */
+        put: operations["put_event_scenario_api_sites__site__event_scenarios__name__put"];
+        post?: never;
+        /** Delete a scenario */
+        delete: operations["delete_event_scenario_api_sites__site__event_scenarios__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/version": {
         parameters: {
             query?: never;
@@ -518,6 +718,52 @@ export interface components {
          * @enum {string}
          */
         Access: "R" | "RW";
+        /**
+         * ActiveConditions
+         * @description The true conditions (what's injected now), whatever comm loss hides.
+         */
+        ActiveConditions: {
+            /** Breakers */
+            breakers: components["schemas"]["BreakerStatus"][];
+            /** Comm Loss */
+            comm_loss: components["schemas"]["CommLossStatus"][];
+            /** Faults */
+            faults: components["schemas"]["FaultStatus"][];
+            /**
+             * Grid Hz
+             * @description Injected frequency; null = nominal.
+             */
+            grid_hz: number | null;
+            /**
+             * Grid Vm Pu
+             * @description Injected source voltage; null = grid.vm_pu.
+             */
+            grid_vm_pu: number | null;
+        };
+        /** AssetFaultChange */
+        AssetFaultChange: {
+            /**
+             * Active
+             * @description false clears the fault.
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Asset Id
+             * @description A BESS or PV id.
+             */
+            asset_id: string;
+            /**
+             * @description trip (any); over_temperature (BESS); ground_fault, dc_overvoltage (PV).
+             * @default trip
+             */
+            cause: components["schemas"]["FaultCause"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "asset_fault";
+        };
         /**
          * AssetsResponse
          * @description Every asset with its static parameters (as configured).
@@ -569,6 +815,8 @@ export interface components {
         /** BessConfig */
         BessConfig: {
             battery: components["schemas"]["BatteryConfig"];
+            /** @description Breaker on the HV side of the step-up transformer. */
+            breaker?: components["schemas"]["BreakerConfig"];
             /**
              * Collector
              * @default mv1
@@ -613,6 +861,17 @@ export interface components {
             alarm_flags: number;
             /** Aux P Kw */
             aux_p_kw: number;
+            /**
+             * Breaker State
+             * @description Its breaker: 0 OPEN, 1 CLOSED.
+             * @default 1
+             */
+            breaker_state: number;
+            /**
+             * Breaker State Name
+             * @default CLOSED
+             */
+            breaker_state_name: string;
             energy?: components["schemas"]["EnergyTotals"];
             /** Energy Available Charge Kwh */
             energy_available_charge_kwh: number;
@@ -693,6 +952,49 @@ export interface components {
             /** Q Kvar */
             q_kvar: number;
         };
+        /** BreakerChange */
+        BreakerChange: {
+            /**
+             * Breaker
+             * @description An asset id (BESS, PV or load), or "poi".
+             */
+            breaker: string;
+            /** Closed */
+            closed: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "breaker";
+        };
+        /**
+         * BreakerConfig
+         * @description An asset's (or the POI's) connection breaker. `closed` is its position at start and
+         *     reset; it can be switched at runtime (POST /api/sim/conditions, event scenarios).
+         */
+        BreakerConfig: {
+            /**
+             * Closed
+             * @description Initial position (true = closed).
+             * @default true
+             */
+            closed: boolean;
+        };
+        /** BreakerStatus */
+        BreakerStatus: {
+            /** Closed */
+            closed: boolean;
+            /**
+             * Id
+             * @description The asset id, or "poi".
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "poi" | "bess" | "pv" | "load";
+        };
         /** BusMeasurement */
         BusMeasurement: {
             /** Angle Deg */
@@ -718,16 +1020,138 @@ export interface components {
             /** Id */
             id: string;
         };
+        /** CommLossChange */
+        CommLossChange: {
+            /**
+             * Active
+             * @description false restores communication.
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Id
+             * @description The asset or feeder meter id (none for poi_meter).
+             */
+            id?: string | null;
+            target: components["schemas"]["CommTarget"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "comm_loss";
+        };
+        /** CommLossStatus */
+        CommLossStatus: {
+            /** Id */
+            id: string | null;
+            /**
+             * Since Step
+             * @description The step whose values stay published.
+             */
+            since_step: number;
+            target: components["schemas"]["CommTarget"];
+        };
+        /**
+         * CommTarget
+         * @enum {string}
+         */
+        CommTarget: "asset" | "meter" | "poi_meter";
+        /** ConditionsReport */
+        ConditionsReport: {
+            /** Breakers */
+            breakers: components["schemas"]["BreakerStatus"][];
+            /** Comm Loss */
+            comm_loss: components["schemas"]["CommLossStatus"][];
+            /** Faults */
+            faults: components["schemas"]["FaultStatus"][];
+            /**
+             * Grid Hz
+             * @description Injected frequency; null = nominal.
+             */
+            grid_hz: number | null;
+            /**
+             * Grid Vm Pu
+             * @description Injected source voltage; null = grid.vm_pu.
+             */
+            grid_vm_pu: number | null;
+            /** @description The event scenario playing (or finished, until stopped or cleared). */
+            scenario: components["schemas"]["ScenarioStatus"] | null;
+        };
         /**
          * DataType
          * @enum {string}
          */
         DataType: "float32" | "uint16" | "uint32" | "uint64" | "enum16" | "bitfield16";
+        /** DeviceHistory */
+        DeviceHistory: {
+            /**
+             * Asset Id
+             * @description The Modbus device id (site, met, meter, or the asset id).
+             */
+            asset_id: string;
+            /**
+             * Base
+             * @description First Modbus register of the device's 100-register chunk.
+             */
+            base: number;
+            kind: components["schemas"]["DeviceKind"];
+            /** Points */
+            points: components["schemas"]["HistoryPoint"][];
+            /** Samples */
+            samples: components["schemas"]["DeviceSample"][];
+        };
         /**
          * DeviceKind
          * @enum {string}
          */
         DeviceKind: "site" | "met_station" | "bess" | "pv" | "load" | "poi_meter" | "feeder_meter";
+        /** DeviceReadings */
+        DeviceReadings: {
+            /**
+             * Asset Id
+             * @description The Modbus device id (site, met, meter, or the asset id).
+             */
+            asset_id: string;
+            /**
+             * Base
+             * @description First Modbus register of the device's 100-register chunk.
+             */
+            base: number;
+            kind: components["schemas"]["DeviceKind"];
+            /** Points */
+            points: components["schemas"]["PointReading"][];
+        };
+        /** DeviceSample */
+        DeviceSample: {
+            /** Converged */
+            converged: boolean;
+            /**
+             * Sim Time
+             * Format: date-time
+             */
+            sim_time: string;
+            /** Step Id */
+            step_id: number;
+            /**
+             * Values
+             * @description One per requested point, in order.
+             */
+            values: (number | null)[];
+        };
+        /** DevicesSnapshot */
+        DevicesSnapshot: {
+            /** Converged */
+            converged: boolean;
+            /** Devices */
+            devices: components["schemas"]["DeviceReadings"][];
+            /**
+             * Sim Time
+             * Format: date-time
+             */
+            sim_time: string;
+            /** Step Id */
+            step_id: number;
+        };
         /**
          * EfficiencyConfig
          * @description Either charge + discharge efficiencies, or a round-trip efficiency split evenly.
@@ -827,10 +1251,36 @@ export interface components {
             /** Overrun Count */
             overrun_count: number;
             /**
+             * Scenario
+             * @description The event scenario playing (or finished).
+             */
+            scenario: string | null;
+            /**
+             * Scheduled Start
+             * @description When a SCHEDULED run starts.
+             */
+            scheduled_start: string | null;
+            /**
              * Sim Time
              * Format: date-time
              */
             sim_time: string;
+            /**
+             * Speed
+             * @description Sim seconds per wall-clock second.
+             */
+            speed: number;
+            /**
+             * Start Step
+             * @description The step a fresh run or a reset starts from.
+             */
+            start_step: number;
+            /**
+             * Start Time
+             * Format: date-time
+             * @description The sim time of step 0 (resolved for "now").
+             */
+            start_time: string;
             state: components["schemas"]["RunState"];
             /** Step Id */
             step_id: number;
@@ -843,6 +1293,46 @@ export interface components {
         ErrorResponse: {
             /** Detail */
             detail: string;
+        };
+        /** EventScenario */
+        EventScenario: {
+            /** Description */
+            description?: string | null;
+            /** Events */
+            events: components["schemas"]["ScenarioEvent"][];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+        };
+        /** EventScenarioSummary */
+        EventScenarioSummary: {
+            /** Description */
+            description: string | null;
+            /** Event Count */
+            event_count: number;
+            /** Name */
+            name: string;
+            /** Problems */
+            problems: string[];
+            /**
+             * Valid
+             * @description Whether every event applies to the site as stored now.
+             */
+            valid: boolean;
+        };
+        /**
+         * FaultCause
+         * @enum {string}
+         */
+        FaultCause: "trip" | "over_temperature" | "ground_fault" | "dc_overvoltage";
+        /** FaultStatus */
+        FaultStatus: {
+            /** Asset Id */
+            asset_id: string;
+            cause: components["schemas"]["FaultCause"];
         };
         /**
          * GridConfig
@@ -880,6 +1370,32 @@ export interface components {
              */
             x_r: number;
         };
+        /** GridFrequencyChange */
+        GridFrequencyChange: {
+            /**
+             * Hz
+             * @description Grid frequency; null restores nominal.
+             */
+            hz: number | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "grid_frequency";
+        };
+        /** GridVoltageChange */
+        GridVoltageChange: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "grid_voltage";
+            /**
+             * Vm Pu
+             * @description Source voltage (pu); null restores grid.vm_pu.
+             */
+            vm_pu: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -908,6 +1424,15 @@ export interface components {
          * @enum {string}
          */
         HistoryFormat: "json" | "csv";
+        /** HistoryPoint */
+        HistoryPoint: {
+            /** Label */
+            label: string;
+            /** Point */
+            point: string;
+            /** Unit */
+            unit: string;
+        };
         /** HistoryResponse */
         HistoryResponse: {
             /** Count */
@@ -972,6 +1497,8 @@ export interface components {
         };
         /** LoadConfig */
         LoadConfig: {
+            /** @description Breaker feeding the load (on its transformer's HV side, if it has one). */
+            breaker?: components["schemas"]["BreakerConfig"];
             /**
              * Bus
              * @description "poi" or a collector id.
@@ -996,6 +1523,17 @@ export interface components {
             alarm_flag_names: string[];
             /** Alarm Flags */
             alarm_flags: number;
+            /**
+             * Breaker State
+             * @description Its breaker: 0 OPEN, 1 CLOSED.
+             * @default 1
+             */
+            breaker_state: number;
+            /**
+             * Breaker State Name
+             * @default CLOSED
+             */
+            breaker_state_name: string;
             energy?: components["schemas"]["EnergyTotals"];
             /**
              * Energy Consumed Kwh
@@ -1178,6 +1716,8 @@ export interface components {
         };
         /** PoiConfig */
         PoiConfig: {
+            /** @description The POI breaker. Open = the whole site is de-energised (no islanding). */
+            breaker?: components["schemas"]["BreakerConfig"];
             /** @description Optional POI line/cable between the POI and the grid. */
             line?: components["schemas"]["LineConfig"] | null;
         };
@@ -1192,6 +1732,17 @@ export interface components {
             alarm_flags: number;
             /** Angle Deg */
             angle_deg: number;
+            /**
+             * Breaker State
+             * @description The POI breaker: 0 OPEN, 1 CLOSED.
+             * @default 1
+             */
+            breaker_state: number;
+            /**
+             * Breaker State Name
+             * @default CLOSED
+             */
+            breaker_state_name: string;
             energy?: components["schemas"]["EnergyTotals"];
             /**
              * Energy Export Kwh
@@ -1203,6 +1754,12 @@ export interface components {
              * @default 0
              */
             energy_import_kwh: number;
+            /**
+             * Hz
+             * @description Grid frequency (0 while de-energised).
+             * @default 0
+             */
+            hz: number;
             /** I A */
             i_a: number;
             /** Meter State */
@@ -1266,6 +1823,35 @@ export interface components {
             source: components["schemas"]["PointSource"];
             /** Unit */
             unit: string;
+        };
+        /** PointReading */
+        PointReading: {
+            /** Data Type */
+            data_type: string;
+            /** Label */
+            label: string;
+            /**
+             * Point
+             * @description Standard point name (SunSpec where one exists).
+             */
+            point: string;
+            /** @description yes / calc: simulated; no: not served (null). */
+            served: components["schemas"]["ServerSupport"];
+            /**
+             * Text
+             * @description Enum: the code's label. Bitfield: the set bits' labels.
+             */
+            text?: string | null;
+            /**
+             * Unit
+             * @description SI unit, no prefix (W, var, V, A, Hz, Wh, %, ...).
+             */
+            unit: string;
+            /**
+             * Value
+             * @description Engineering value; null when not served.
+             */
+            value: number | null;
         };
         /**
          * PointSource
@@ -1398,6 +1984,8 @@ export interface components {
         /** PvConfig */
         PvConfig: {
             availability: components["schemas"]["PvAvailabilityConfig"];
+            /** @description Breaker on the HV side of the step-up transformer. */
+            breaker?: components["schemas"]["BreakerConfig"];
             /**
              * Collector
              * @default mv1
@@ -1438,6 +2026,17 @@ export interface components {
             alarm_flag_names: string[];
             /** Alarm Flags */
             alarm_flags: number;
+            /**
+             * Breaker State
+             * @description Its breaker: 0 OPEN, 1 CLOSED.
+             * @default 1
+             */
+            breaker_state: number;
+            /**
+             * Breaker State Name
+             * @default CLOSED
+             */
+            breaker_state_name: string;
             /** Curtailment Kw */
             curtailment_kw: number;
             energy?: components["schemas"]["EnergyTotals"];
@@ -1531,7 +2130,42 @@ export interface components {
          * RunState
          * @enum {string}
          */
-        RunState: "stopped" | "running" | "paused";
+        RunState: "stopped" | "running" | "paused" | "scheduled";
+        /** ScenarioEvent */
+        ScenarioEvent: {
+            /** At */
+            at: components["schemas"]["StepTrigger"] | components["schemas"]["TimeTrigger"];
+            /** Change */
+            change: components["schemas"]["BreakerChange"] | components["schemas"]["AssetFaultChange"] | components["schemas"]["CommLossChange"] | components["schemas"]["GridVoltageChange"] | components["schemas"]["GridFrequencyChange"];
+            /** Label */
+            label?: string | null;
+        };
+        /** ScenarioStatus */
+        ScenarioStatus: {
+            /** Finished */
+            finished: boolean;
+            /** Fired */
+            fired: number;
+            /**
+             * Missed
+             * @description sim_time events already in the past at start.
+             */
+            missed: number;
+            /** Name */
+            name: string;
+            /**
+             * Next Step
+             * @description The step the next event fires before.
+             */
+            next_step: number | null;
+            /** Started Step */
+            started_step: number;
+            /**
+             * Total
+             * @description Events in the scenario.
+             */
+            total: number;
+        };
         /**
          * ServerSupport
          * @description The `powerflow_server` column: can the powerflow Modbus server fill this point?
@@ -1579,12 +2213,23 @@ export interface components {
              */
             seed: number;
             /**
+             * Speed
+             * @description Sim seconds per wall-clock second (e.g. 10 = ten times faster than real time). Each step still covers step_s of sim time. Changeable at runtime (PUT /sim/speed).
+             * @default 1
+             */
+            speed: number;
+            /**
+             * Start Step
+             * @description The step a fresh run (or reset) starts from: the first step computed is start_step + 1, at sim time start_time + (start_step + 1)·step_s.
+             * @default 0
+             */
+            start_step: number;
+            /**
              * Start Time
-             * Format: date-time
-             * @description Sim clock origin (timezone-aware ISO 8601). Sim time then advances 1:1 with wall-clock.
+             * @description Sim clock origin: a timezone-aware ISO 8601 time, or "now" (the wall clock when the run starts fresh or is reset, to the second). Sim time then advances at `speed` × wall-clock.
              * @default 2026-01-01T00:00:00Z
              */
-            start_time: string;
+            start_time: string | "now";
             /**
              * Step S
              * @description Simulation step (s).
@@ -1659,6 +2304,8 @@ export interface components {
             bess: components["schemas"]["BessMeasurement"][];
             /** Buses */
             buses: components["schemas"]["BusMeasurement"][];
+            /** @description The injected conditions at this step (true state: comm loss freezes the measurements above, not this). */
+            conditions?: components["schemas"]["ActiveConditions"] | null;
             /**
              * Converged
              * @description False: the power flow failed this step and the values are the last good ones.
@@ -1687,12 +2334,60 @@ export interface components {
             /** Transformers */
             transformers: components["schemas"]["TransformerMeasurement"][];
         };
+        /** SpeedRequest */
+        SpeedRequest: {
+            /**
+             * Speed
+             * @description Sim seconds per wall-clock second.
+             */
+            speed: number;
+        };
+        /** StartRequest */
+        StartRequest: {
+            /**
+             * At
+             * @description Start at this wall-clock time (state SCHEDULED until then); omitted or past = now.
+             */
+            at?: string | null;
+        };
+        /** StartScenarioRequest */
+        StartScenarioRequest: {
+            /** Name */
+            name: string;
+        };
+        /** StepTrigger */
+        StepTrigger: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /**
+             * Step
+             * @description Fires before the Nth step after the scenario starts.
+             */
+            step: number;
+        };
         /** StoredSite */
         StoredSite: {
             /** @description `default` sites ship with powerflow and can't be deleted (they can be edited); every site created through the API is `custom`. */
             category: components["schemas"]["SiteCategory"];
             /** Name */
             name: string;
+        };
+        /** TimeTrigger */
+        TimeTrigger: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sim_time";
+            /**
+             * Sim Time
+             * Format: date-time
+             * @description Fires before the first step at or after it.
+             */
+            sim_time: string;
         };
         /** TransformerConfig */
         TransformerConfig: {
@@ -2029,6 +2724,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteConfig"];
+                };
+            };
+        };
+    };
+    list_devices_api_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicesSnapshot"];
+                };
+            };
+            /** @description No such device or point. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No step has run yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_device_api_devices__kind___asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["DeviceKind"];
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicesSnapshot"];
+                };
+            };
+            /** @description No such device or point. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No step has run yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    device_history_api_devices__kind___asset_id__history_get: {
+        parameters: {
+            query: {
+                points: string[];
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path: {
+                kind: components["schemas"]["DeviceKind"];
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceHistory"];
+                };
+            };
+            /** @description No such device or point. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No step has run yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2482,6 +3319,168 @@ export interface operations {
             };
         };
     };
+    get_conditions_api_sim_conditions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionsReport"];
+                };
+            };
+        };
+    };
+    apply_condition_api_sim_conditions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakerChange"] | components["schemas"]["AssetFaultChange"] | components["schemas"]["CommLossChange"] | components["schemas"]["GridVoltageChange"] | components["schemas"]["GridFrequencyChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionsReport"];
+                };
+            };
+            /** @description No such asset, meter, breaker or scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Another event scenario is playing. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The change doesn't apply to this site. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    clear_conditions_api_sim_conditions_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionsReport"];
+                };
+            };
+        };
+    };
+    start_scenario_api_sim_event_scenario_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartScenarioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionsReport"];
+                };
+            };
+            /** @description No such asset, meter, breaker or scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Another event scenario is playing. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The change doesn't apply to this site. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stop_scenario_api_sim_event_scenario_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionsReport"];
+                };
+            };
+        };
+    };
     pause_api_sim_pause_post: {
         parameters: {
             query?: never;
@@ -2531,14 +3530,18 @@ export interface operations {
             };
         };
     };
-    start_api_sim_start_post: {
+    set_speed_api_sim_speed_put: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeedRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2547,6 +3550,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EngineStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_sim_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2839,6 +3884,171 @@ export interface operations {
                 };
             };
             /** @description Invalid name or content. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_event_scenarios_api_sites__site__event_scenarios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventScenarioSummary"][];
+                };
+            };
+            /** @description No such site or event scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid name, or an event doesn't fit the site. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_event_scenario_api_sites__site__event_scenarios__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventScenario"];
+                };
+            };
+            /** @description No such site or event scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid name, or an event doesn't fit the site. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_event_scenario_api_sites__site__event_scenarios__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventScenario"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventScenario"];
+                };
+            };
+            /** @description No such site or event scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid name, or an event doesn't fit the site. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_event_scenario_api_sites__site__event_scenarios__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such site or event scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid name, or an event doesn't fit the site. */
             422: {
                 headers: {
                     [name: string]: unknown;
