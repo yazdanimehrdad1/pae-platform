@@ -26,6 +26,9 @@ backlog. Remove an item when it's done; the commit that closes it records the de
 - **Deploy cutover** (deferred 2026-09-23). Point ArgoCD `repoURL`/`path` at this repo and the
   service directories, move the CD image-tag bump here, and introduce per-service release tags.
   Deployment files stay out of scope until this is picked up (root CLAUDE.md).
+  web-plusdas's nginx now proxies `/powerflow-api` to `POWERFLOW_UPSTREAM`, resolved at start: a
+  deployment without powerflow must set a resolvable upstream (or make it optional with a
+  `resolver` + variable upstream), or nginx won't start.
 
 ## Hardening
 

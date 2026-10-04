@@ -1,8 +1,9 @@
 # Same-origin API calls (no CORS)
 
-The browser only ever calls the API on **its own origin**, under `/api`. Something on that
-origin forwards `/api/*` to backend-ot server-side, so the browser never makes a cross-origin
-request and backend-ot needs no CORS configuration (it has none).
+The browser only ever calls the APIs on **its own origin**: backend-ot under `/api`, and the
+powerflow simulator (the Simulation page) under `/powerflow-api`. Something on that origin
+forwards them server-side (`/powerflow-api/x` becomes powerflow's `/api/x`), so the browser never
+makes a cross-origin request and neither backend needs CORS configuration (neither has any).
 
 | Where | Serves the SPA | Forwards `/api/*` to backend-ot |
 |---|---|---|
@@ -13,6 +14,14 @@ request and backend-ot needs no CORS configuration (it has none).
 `API_UPSTREAM` per environment: dev stack `http://backend-ot:8000` (deploy/compose/
 web-plusdas.dev.override.yaml); standalone `make up` `http://host.docker.internal:8000`
 (`WEB_PLUSDAS_API_UPSTREAM`).
+
+| Where | Forwards `/powerflow-api/*` to powerflow's `/api/*` |
+|---|---|
+| Container | nginx `proxy_pass ${POWERFLOW_UPSTREAM}/api/` — dev stack `http://powerflow:8000`, standalone `http://host.docker.internal:8020` (`WEB_PLUSDAS_POWERFLOW_UPSTREAM`) |
+| Dev server (`make run`) | Vite proxy with a path rewrite, target `WEB_PLUSDAS_DEV_POWERFLOW_TARGET` (default `http://localhost:8020`) |
+
+The SPA's base for it is `getRuntimeConfig().powerflowBaseUrl` (`APP_POWERFLOW_BASE_URL`,
+default `/powerflow-api`), used only through `powerflowClient` in `src/api/client.ts`.
 
 ## Rules
 

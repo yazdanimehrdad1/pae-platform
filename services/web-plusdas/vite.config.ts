@@ -19,6 +19,12 @@ export default defineConfig(({ mode: _mode }) => ({
         // browser as a cross-origin request. Dev only — see docs/same-origin.md.
         followRedirects: true,
       },
+      // The powerflow simulator (Simulation page): /powerflow-api/x -> powerflow's /api/x.
+      '/powerflow-api': {
+        target: process.env.WEB_PLUSDAS_DEV_POWERFLOW_TARGET ?? 'http://localhost:8020',
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/powerflow-api/, '/api'),
+      },
     },
   },
   plugins: [
@@ -30,6 +36,7 @@ export default defineConfig(({ mode: _mode }) => ({
       // Types generated from backend-ot's contract (scripts/api-types.mjs). The one import
       // path for API types; on extraction it can point at a published contracts package.
       "@contracts/backend-ot": path.resolve(__dirname, "./src/api/generated/backend-ot.ts"),
+      "@contracts/powerflow": path.resolve(__dirname, "./src/api/generated/powerflow.ts"),
     },
   },
   // Unit tests (`make test`): tests/ mirrors src/ (tests/api/sld.test.ts tests src/api/sld.ts) and

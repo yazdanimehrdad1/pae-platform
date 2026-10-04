@@ -46,7 +46,7 @@ help:
 	@echo "  format           eslint --fix (no formatter configured)"
 	@echo "  typecheck        tsc --noEmit on the app (blocking)"
 	@echo "  test             API types match the contract, then vitest (unit + component, no Docker)"
-	@echo "  api-types        regenerate src/api/generated/backend-ot.ts from backend-ot's contract"
+	@echo "  api-types        regenerate src/api/generated/{backend-ot,powerflow}.ts from their contracts"
 	@echo "  test-integration check the running container: SPA, caching, /api same-origin proxy"
 	@echo "  run              Vite dev server on http://localhost:$(RUN_PORT) (/api -> localhost:8000)"
 	@echo ""
@@ -83,7 +83,7 @@ test: $(NODE_MODULES)
 	node scripts/api-types.mjs --check
 	npm run test
 
-# Regenerate after backend-ot's contract changes (contracts/openapi/backend-ot.openapi.json).
+# Regenerate after backend-ot's or powerflow's contract changes (contracts/openapi/*.openapi.json).
 api-types: $(NODE_MODULES)
 	npm run api-types
 

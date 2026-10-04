@@ -39,8 +39,8 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
   for a test that needs a DOM; setup in `tests/setup.ts`. `tests/` is typechecked and linted but not
   shipped (`.dockerignore`). No Docker. `make test-integration` runs `scripts/check_same_origin.mjs`
   against the **running** container (SPA fallback, cache headers, `/config.js`, `/api/healthz` +
-  `/api/sites` through the web origin). It needs the dev stack up.
-- API types: `make api-types` regenerates `src/api/generated/backend-ot.ts` after backend-ot's
+  `/api/sites` through the web origin, plus `/powerflow-api/health`). It needs the dev stack up.
+- API types: `make api-types` regenerates `src/api/generated/{backend-ot,powerflow}.ts` after a
   contract changes (`make test` fails until you do). Then fix whatever `make typecheck` reports.
 - Dev server: `make run` (Vite on http://localhost:**5174**, `/api` proxied to
   `WEB_PLUSDAS_DEV_API_TARGET`, default `http://localhost:8000` = the dev stack's backend-ot).
@@ -87,14 +87,17 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
   read only through `getRuntimeConfig()` (`src/shared/config/runtime.ts`). To add a value, add it
   there, to `docker/config.js.template` + `40-app-config.sh` (the envsubst list), to
   `public/config.js` (dev default), and to `.env.example`.
-- **API calls are same-origin `/api/...` only.** Never an absolute URL, never CORS. Never put a
-  trailing slash on an API path (backend-ot 307s it).
+- **API calls are same-origin only:** backend-ot at `/api/...` (`client`) and the powerflow
+  simulator at `/powerflow-api/...` (`powerflowClient`, forwarded to powerflow's `/api`; the
+  Simulation page). Never an absolute URL, never CORS. Never put a trailing slash on an API path
+  (backend-ot 307s it).
 - A new **streaming** route needs its own nginx location with `proxy_buffering off` (like
   `/api/modbus-live-stream-raw-registers/`).
 
 ## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)
-- **Consumes** `contracts/openapi/backend-ot.openapi.json` through generated types (openapi-typescript),
-  imported only as `@contracts/backend-ot`. Wire types in `src/api/types/` are aliases of
+- **Consumes** `contracts/openapi/backend-ot.openapi.json` and `contracts/openapi/powerflow.openapi.json`
+  through generated types (openapi-typescript, `make api-types`), imported only as
+  `@contracts/backend-ot` and `@contracts/powerflow`. Wire types in `src/api/types/` are aliases of
   generated schemas (`components['schemas'][...]`), never hand-written. The exceptions are UI view
   models (`Site`, `Device`, ...) and the SSE event payloads, which the contract doesn't describe.
 - Option lists for contract enums are `Record<Enum, Label>` (e.g. `DEVICE_TYPE_LABELS`), so an

@@ -7,6 +7,7 @@ import {
   PlayCircle,
   FileText,
   Bot,
+  Cpu,
   Users,
   Settings,
   Search,
@@ -71,6 +72,13 @@ const navigationItems = [
     icon: Bot,
     path: '/task-builder',
     roles: ['engineer']
+  },
+  {
+    id: 'simulation',
+    title: 'Simulation',
+    icon: Cpu,
+    path: '/simulation',
+    roles: ['engineer', 'admin']
   },
   {
     id: 'users',

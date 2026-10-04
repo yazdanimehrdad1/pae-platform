@@ -24,7 +24,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@contracts/backend-ot": ["./src/api/generated/backend-ot.ts"]
+      "@contracts/backend-ot": ["./src/api/generated/backend-ot.ts"],
+      "@contracts/powerflow": ["./src/api/generated/powerflow.ts"]
     }
   },
   "include": ["src", "tests"]

@@ -22,6 +22,9 @@ services:
       # `make -C services/backend-ot up` + `make -C services/web-plusdas up` work side by side.
       # The monorepo dev stack overrides this to the `backend-ot` service name.
       - API_UPSTREAM=${WEB_PLUSDAS_API_UPSTREAM:-http://host.docker.internal:8000}
+      # Where nginx forwards /powerflow-api/* (the Simulation page): powerflow's published host
+      # port standalone; the dev stack overrides it to the `powerflow` service name.
+      - POWERFLOW_UPSTREAM=${WEB_PLUSDAS_POWERFLOW_UPSTREAM:-http://host.docker.internal:8020}
     extra_hosts:
       # Docker Desktop provides host.docker.internal; this makes it resolve on Linux too.
       - "host.docker.internal:host-gateway"

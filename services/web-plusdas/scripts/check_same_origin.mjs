@@ -1,5 +1,6 @@
 // Integration check for a RUNNING web-plusdas container: the SPA is served with the right
-// cache headers and /api reaches backend-ot on the same origin. Node stdlib only (fetch).
+// cache headers, /api reaches backend-ot and /powerflow-api reaches powerflow on the same origin.
+// Node stdlib only (fetch).
 //
 // Usage: node scripts/check_same_origin.mjs [--url http://localhost:5173]
 // Run by `make test-integration`. Needs the root dev stack (`make up` at the repo root) or a
@@ -57,6 +58,11 @@ async function main() {
     check(`${apiPath} reaches backend-ot through ${baseUrl}`, api.response.status === 200 && isJson,
       `status ${api.response.status}`);
   }
+
+  const powerflow = await get("/powerflow-api/health");
+  const powerflowJson = (powerflow.response.headers.get("content-type") ?? "").includes("application/json");
+  check(`/powerflow-api/health reaches powerflow through ${baseUrl}`,
+    powerflow.response.status === 200 && powerflowJson, `status ${powerflow.response.status}`);
 
   console.log(failures.length ? `RESULT: ${failures.length} check(s) failed` : "RESULT: same-origin OK");
   return failures.length ? 1 : 0;
