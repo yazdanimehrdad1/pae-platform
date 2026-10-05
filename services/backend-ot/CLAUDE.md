@@ -28,11 +28,11 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   from zero, runs `tests/integration`, tears down. Never touches the dev stack; parallel worktrees
   don't collide. `make test-all` = both.
 - Lint / format / types: `make lint` (ruff, CI-enforced) · `make lint-fix` · `make format` (black + ruff) · `make typecheck` (mypy).
-- Development normally uses the whole platform from the **repo root** (`make up` / `make seed` /
-  `make e2e`; `make up` there resets every platform container). Running this service alone is
+- Development normally uses the whole platform from the **repo root** (`make up` / `make seed-mock-modbus` /
+  `make seed-2bess-1pv` / `make e2e`; `make up` there resets every platform container). Running this service alone is
   the exception: `make down` at the root first. The targets below refuse while the dev stack runs.
 - Standalone stack (Docker, `compose.yaml`): `make up` / `make up-build` (postgres, redis, app;
-  migrations auto-run in the entrypoint) · `make down` · `make logs` · `make seed-db` ·
+  migrations auto-run in the entrypoint) · `make down` · `make logs` · `make seed-db-mock-modbus` ·
   `make apply-migration`. Reads the Modbus aggregator at `host.docker.internal:502` (a standalone
   mock-modbus). See the `run-platform` skill. Compose service names: `backend-ot`, `backend-ot-postgres`,
   `backend-ot-redis`.
@@ -51,6 +51,12 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
 - **Consumes** `contracts/modbus/mock-modbus.devices.json` (dev seed only): seed devices and points
   are built from it (`tests/seed_db/mock_modbus_seed.py`). Never hand-edit seeded devices or points.
   Change the mock and run `make -C services/mock-modbus contract`.
+- **Consumes** `contracts/powerflow/sites.json` and `contracts/modbus/powerflow.registers.json` (dev
+  seed only): `tests/seed_db/powerflow_seed.py` builds a powerflow site (site with no profile, one
+  device per point-standard device reading `powerflow:502` directly, zero-based, its served
+  registers as NATIVE points, the SLD). `make seed-db-powerflow SITE=<site>` (dev stack; root
+  `make seed-2bess-1pv`, or `make seed-powerflow-site SITE=<site>`). Strict models: `schemas/tests_models/powerflow_contract.py`.
+- Several seeds can coexist: the seeder matches devices and points within their site.
 - The seeder writes rows directly, not through the API, so **anything `create_device` (or another
   create path) does must be mirrored in `tests/seed_db/seed_db.py`**. Today that's the
   STANDARDIZED points (`generate_standardized_points`). `tests/integration/seed_db/` fails if a

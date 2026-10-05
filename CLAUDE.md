@@ -57,7 +57,7 @@ the root, and `make -C services/<svc> help` in each service.
 - **Root checks:** `make check` = lint + typecheck + test + `check-boundaries` + `contracts-check` (stage
   regenerated contracts first). `make hooks` enables the pre-commit hook once per clone.
 - **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
-  `down`, `ps`, `logs`, `seed`, `e2e`. See the `run-platform` skill. **The root takes priority:**
+  `down`, `ps`, `logs`, `seed-mock-modbus`, `seed-2bess-1pv`, `e2e`, `e2e-2bess-1pv`. See the `run-platform` skill. **The root takes priority:**
   `make up` resets, stopping every platform container (including services started on their own)
   before starting the dev stack, and `make down` stops them all (data volumes kept). `make down-all`
   is the destructive clean slate: it also deletes volumes (postgres/redis data, including

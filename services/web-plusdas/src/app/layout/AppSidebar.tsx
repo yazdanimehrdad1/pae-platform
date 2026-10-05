@@ -16,6 +16,8 @@ import {
   LogOut,
   StickyNote,
   Radio,
+  ExternalLink,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/shared/contexts/auth";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/shared/components/mode-toggle";
 
-const navigationItems = [
+interface NavigationItem {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  path: string;
+  roles: string[];
+  newTab?: boolean; // opens in a new browser tab (same app, same layout)
+}
+
+const navigationItems: NavigationItem[] = [
   {
     id: 'sites',
     title: 'Sites',
@@ -78,7 +89,8 @@ const navigationItems = [
     title: 'Simulation',
     icon: Cpu,
     path: '/simulation',
-    roles: ['engineer', 'admin']
+    roles: ['engineer', 'admin'],
+    newTab: true,
   },
   {
     id: 'users',
@@ -170,6 +182,11 @@ export function AppSidebar() {
             <NavLink
               key={item.id}
               to={item.path}
+              {...(item.newTab && {
+                target: "_blank",
+                rel: "noopener noreferrer",
+                "aria-label": `${item.title} (opens in a new tab)`,
+              })}
               className={cn(
                 "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                 "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -180,6 +197,7 @@ export function AppSidebar() {
             >
               <Icon className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
               {!isCollapsed && <span>{item.title}</span>}
+              {!isCollapsed && item.newTab && <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-60" aria-hidden="true" />}
             </NavLink>
           );
         })}

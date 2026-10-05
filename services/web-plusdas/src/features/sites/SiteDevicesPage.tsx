@@ -268,15 +268,11 @@ export default function SiteDevices() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="transformer">Transformer</SelectItem>
-                <SelectItem value="generator">Generator</SelectItem>
-                <SelectItem value="protection">Protection</SelectItem>
-                <SelectItem value="feeder">Feeder</SelectItem>
-                <SelectItem value="switch">Switch</SelectItem>
-                <SelectItem value="meter">Meter</SelectItem>
-                <SelectItem value="pv">PV</SelectItem>
-                <SelectItem value="bess">BESS</SelectItem>
-                <SelectItem value="relay">Relay</SelectItem>
+                {Object.entries(deviceTypeConfig).map(([type, config]) => (
+                  <SelectItem key={type} value={type}>
+                    {config.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

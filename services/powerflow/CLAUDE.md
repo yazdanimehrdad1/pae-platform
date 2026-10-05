@@ -32,7 +32,7 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists
 - **`make up` / `down` / `logs`:** a standalone container on `POWERFLOW_HTTP_PORT` (default 8020). `up`/`build` refuse while the root dev stack runs.
 
 ## Contracts
-- **Provides:** `contracts/openapi/powerflow.openapi.json` (consumed by web-plusdas), `contracts/powerflow/points.json` and `contracts/modbus/powerflow.registers.json` (the Modbus server's register layout), all written by `make contract`. Contract versions: `API_VERSION` in `src/powerflow/app.py`, `POINTS_CONTRACT_VERSION` and `REGISTERS_CONTRACT_VERSION` in `src/powerflow/contract.py`. `make test` fails while any is stale (`tests/test_contract.py`).
+- **Provides:** `contracts/openapi/powerflow.openapi.json` (consumed by web-plusdas), `contracts/powerflow/points.json`, `contracts/modbus/powerflow.registers.json` (the Modbus server's register layout) and `contracts/powerflow/sites.json` (the default sites' topology and Modbus devices; with the registers contract, consumed by backend-ot's dev seed `make seed-2bess-1pv`), all written by `make contract`. Contract versions: `API_VERSION` in `src/powerflow/app.py`, `POINTS_CONTRACT_VERSION`, `REGISTERS_CONTRACT_VERSION` and `SITES_CONTRACT_VERSION` in `src/powerflow/contract.py`. `make test` fails while any is stale (`tests/test_contract.py`).
 - **Consumes:** none. Consume other services only through `contracts/` and the network, never their code or files.
 
 ## Layout (dependencies point inward)

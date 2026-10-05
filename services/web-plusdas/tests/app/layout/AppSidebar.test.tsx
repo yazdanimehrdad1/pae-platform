@@ -28,6 +28,21 @@ describe('AppSidebar', () => {
     expect(titles[simulation + 1]).toBe('Notes');
   });
 
+  it('opens Simulation in a new browser tab, other items in place', () => {
+    role.current = 'engineer';
+    render(
+      <MemoryRouter>
+        <AppSidebar />
+      </MemoryRouter>,
+    );
+    const simulation = screen.getByRole('link', { name: 'Simulation (opens in a new tab)' });
+    expect(simulation.getAttribute('href')).toBe('/simulation');
+    expect(simulation.getAttribute('target')).toBe('_blank');
+    expect(simulation.getAttribute('rel')).toContain('noopener');
+    const sites = screen.getAllByRole('link').find((link) => link.textContent?.trim() === 'Sites');
+    expect(sites?.getAttribute('target')).toBeNull();
+  });
+
   it('hides Simulation from monitors', () => {
     role.current = 'monitor';
     render(

@@ -40,6 +40,7 @@ UV_RUN  := uv run --frozen
 CONTRACT_FILE := ../../contracts/openapi/powerflow.openapi.json
 POINTS_CONTRACT_FILE := ../../contracts/powerflow/points.json
 REGISTERS_CONTRACT_FILE := ../../contracts/modbus/powerflow.registers.json
+SITES_CONTRACT_FILE := ../../contracts/powerflow/sites.json
 
 help:
 	@echo "powerflow — make -C services/powerflow <target>"
@@ -91,7 +92,8 @@ test-integration:
 # Run after any route/model change; `make test` fails while the contract is stale.
 contract:
 	$(UV_RUN) python scripts/export_openapi.py --output $(CONTRACT_FILE) \
-		--points-output $(POINTS_CONTRACT_FILE) --registers-output $(REGISTERS_CONTRACT_FILE)
+		--points-output $(POINTS_CONTRACT_FILE) --registers-output $(REGISTERS_CONTRACT_FILE) \
+		--sites-output $(SITES_CONTRACT_FILE)
 
 profiles:
 	$(UV_RUN) python scripts/make_profiles.py

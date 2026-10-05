@@ -49,6 +49,8 @@ class PointRow:
     enum_detail: dict[str, str] | None = None  # value → label (enum points)
     bitfield_detail: dict[str, str] | None = None  # bit number → label (bitfield points)
     label: str = ""  # the CSV's human-readable name
+    qty: str = ""  # the physical quantity key, the same across asset types (e.g. v_ab)
+    tier: str = ""  # M mandatory, R recommended, O optional
 
     @property
     def width(self) -> int:
@@ -133,6 +135,8 @@ def _point_row(path: Path, raw: dict[str, str]) -> PointRow | None:
         enum_detail=_detail(path, raw, "enum_detail"),
         bitfield_detail=_detail(path, raw, "bitfield_detail"),
         label=raw.get("label", ""),
+        qty=raw.get("qty", ""),
+        tier=raw.get("tier", ""),
     )
 
 

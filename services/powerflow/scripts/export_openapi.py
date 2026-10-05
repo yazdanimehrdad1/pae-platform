@@ -1,11 +1,12 @@
 """Write powerflow's contracts.
 
 Usage: python scripts/export_openapi.py --output PATH [--points-output PATH]
-                                         [--registers-output PATH]
+                                         [--registers-output PATH] [--sites-output PATH]
 
 Run via `make contract`, which passes the monorepo paths
-(../../contracts/openapi/powerflow.openapi.json, ../../contracts/powerflow/points.json and
-../../contracts/modbus/powerflow.registers.json); this script doesn't assume repo layout.
+(../../contracts/openapi/powerflow.openapi.json, ../../contracts/powerflow/points.json,
+../../contracts/modbus/powerflow.registers.json and ../../contracts/powerflow/sites.json); this
+script doesn't assume repo layout.
 """
 
 import argparse
@@ -20,6 +21,7 @@ from powerflow.contract import (  # noqa: E402
     render_openapi_contract,
     render_points_contract,
     render_registers_contract,
+    render_sites_contract,
 )
 from powerflow.point_standard import load_point_standard  # noqa: E402
 from powerflow.settings import settings  # noqa: E402
@@ -39,13 +41,16 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--points-output", type=Path)
     parser.add_argument("--registers-output", type=Path)
+    parser.add_argument("--sites-output", type=Path)
     args = parser.parse_args()
     write(args.output, render_openapi_contract(create_app()))
     if args.points_output is not None:
         write(args.points_output, render_points_contract())
+    standard = load_point_standard(settings.resolved_point_standard_dir())
     if args.registers_output is not None:
-        standard = load_point_standard(settings.resolved_point_standard_dir())
         write(args.registers_output, render_registers_contract(standard, default_sites()))
+    if args.sites_output is not None:
+        write(args.sites_output, render_sites_contract(standard, default_sites()))
 
 
 if __name__ == "__main__":

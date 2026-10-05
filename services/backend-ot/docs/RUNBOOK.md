@@ -200,7 +200,7 @@ make -C services/backend-ot lint-fix           # auto-fix imports/typing/whitesp
 make -C services/backend-ot format             # black + ruff
 ```
 
-With the Modbus simulator and dev data, the whole platform: `make up`, `make seed`, `make e2e`,
+With the Modbus simulator and dev data, the whole platform: `make up`, `make seed-mock-modbus`, `make e2e`,
 `make down` (repo root; see 6.F).
 
 Host ports are remapped: app **8000**, postgres **5435**→5432, redis **6380**→6379 (override with
@@ -1032,7 +1032,8 @@ Modbus simulator (`services/mock-modbus`) and seeded with devices that match it:
 
 ```powershell
 make up        # reset: stop every platform container, build + start all services, wait until healthy
-make seed      # dev sites/devices/points, built from mock-modbus's contract
+make seed-mock-modbus  # the mock-modbus dev site, built from mock-modbus's contract
+make seed-2bess-1pv    # powerflow's 2bess_1pv site as a real site, built from powerflow's contracts
 make e2e       # backend-ot polls mock-modbus and every point reads in range
 ```
 Check health:
@@ -1043,7 +1044,7 @@ Here Postgres and Redis are throwaway containers on your laptop, compose supplie
 password (no `.env` needed), migrations run automatically inside the container, and GCP is
 not involved. Stop with `make down` (stops every platform container; data volumes are kept).
 For a clean slate, `make down-all` also deletes the volumes (all local postgres/redis data),
-images and networks; afterwards `make up` rebuilds and `make seed` reloads the dev data.
+images and networks; afterwards `make up` rebuilds and `make seed-mock-modbus` (or `make seed-2bess-1pv`) reloads the dev data.
 
 backend-ot on its own: `make down` at the root first, then `make -C services/backend-ot up` (it
 then reads Modbus from the host's port 502, e.g. a standalone `make -C services/mock-modbus up`).
