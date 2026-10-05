@@ -31,7 +31,7 @@ interface NavigationItem {
   icon: LucideIcon;
   path: string;
   roles: string[];
-  newTab?: boolean; // opens in a new browser tab (same app, same layout)
+  newTabOption?: boolean; // also offers a button that opens it in a new browser tab
 }
 
 const navigationItems: NavigationItem[] = [
@@ -90,7 +90,7 @@ const navigationItems: NavigationItem[] = [
     icon: Cpu,
     path: '/simulation',
     roles: ['engineer', 'admin'],
-    newTab: true,
+    newTabOption: true,
   },
   {
     id: 'users',
@@ -178,15 +178,10 @@ export function AppSidebar() {
           const Icon = item.icon;
           const active = isActive(item.path);
 
-          return (
+          const link = (
             <NavLink
               key={item.id}
               to={item.path}
-              {...(item.newTab && {
-                target: "_blank",
-                rel: "noopener noreferrer",
-                "aria-label": `${item.title} (opens in a new tab)`,
-              })}
               className={cn(
                 "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                 "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -197,8 +192,28 @@ export function AppSidebar() {
             >
               <Icon className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
               {!isCollapsed && <span>{item.title}</span>}
-              {!isCollapsed && item.newTab && <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-60" aria-hidden="true" />}
             </NavLink>
+          );
+          if (!item.newTabOption || isCollapsed) return link;
+          // The item opens in this tab; the icon next to it opens it in a new one.
+          return (
+            <div key={item.id} className="relative">
+              {link}
+              <a
+                href={item.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${item.title} in a new tab`}
+                title={`Open ${item.title} in a new tab`}
+                className={cn(
+                  "absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 opacity-60 hover:opacity-100",
+                  "hover:bg-sidebar-accent",
+                  active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground"
+                )}
+              >
+                <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              </a>
+            </div>
           );
         })}
       </nav>

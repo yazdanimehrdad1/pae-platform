@@ -10,7 +10,11 @@ vi.mock('@/shared/contexts/auth', () => ({
 }));
 
 function navTitles(): string[] {
-  return screen.getAllByRole('link').map((link) => link.textContent?.trim() ?? '');
+  // The pages' own links (the "open in a new tab" buttons have no text).
+  return screen
+    .getAllByRole('link')
+    .map((link) => link.textContent?.trim() ?? '')
+    .filter((title) => title !== '');
 }
 
 describe('AppSidebar', () => {
@@ -28,19 +32,21 @@ describe('AppSidebar', () => {
     expect(titles[simulation + 1]).toBe('Notes');
   });
 
-  it('opens Simulation in a new browser tab, other items in place', () => {
+  it('opens Simulation in this tab, and in a new tab only from its own button', () => {
     role.current = 'engineer';
     render(
       <MemoryRouter>
         <AppSidebar />
       </MemoryRouter>,
     );
-    const simulation = screen.getByRole('link', { name: 'Simulation (opens in a new tab)' });
+    const simulation = screen.getByRole('link', { name: 'Simulation' });
     expect(simulation.getAttribute('href')).toBe('/simulation');
-    expect(simulation.getAttribute('target')).toBe('_blank');
-    expect(simulation.getAttribute('rel')).toContain('noopener');
-    const sites = screen.getAllByRole('link').find((link) => link.textContent?.trim() === 'Sites');
-    expect(sites?.getAttribute('target')).toBeNull();
+    expect(simulation.getAttribute('target')).toBeNull();
+    const newTab = screen.getByRole('link', { name: 'Open Simulation in a new tab' });
+    expect(newTab.getAttribute('href')).toBe('/simulation');
+    expect(newTab.getAttribute('target')).toBe('_blank');
+    expect(newTab.getAttribute('rel')).toContain('noopener');
+    expect(screen.queryByRole('link', { name: 'Open Sites in a new tab' })).toBeNull();
   });
 
   it('hides Simulation from monitors', () => {
