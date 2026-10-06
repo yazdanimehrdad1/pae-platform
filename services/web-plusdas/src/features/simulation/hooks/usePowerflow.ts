@@ -117,6 +117,11 @@ export function useDevices(enabled: boolean) {
   });
 }
 
+/** The Modbus server's register layout for the active site. */
+export function useModbusRegisters(enabled = true) {
+  return useQuery({ queryKey: powerflowKeys.modbusRegisters, queryFn: powerflowApi.getModbusRegisters, enabled, retry: false });
+}
+
 /** The chosen points of one device over the in-memory history (polled while shown). */
 export function useDeviceHistory(device: DeviceReadings | undefined, points: string[]) {
   const label = device ? `${device.kind}.${device.asset_id}` : "";

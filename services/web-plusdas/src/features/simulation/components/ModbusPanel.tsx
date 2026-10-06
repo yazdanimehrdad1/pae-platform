@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
-import { powerflowApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { ModbusDevice } from "@/api/types/powerflow";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { powerflowKeys } from "../hooks/usePowerflow";
+import { useModbusRegisters } from "../hooks/usePowerflow";
 
 const SUPPORT_STYLE: Record<string, string> = {
   yes: "bg-success/20 text-success border-success",
@@ -53,7 +51,7 @@ function DeviceRegisters({ device, servedOnly }: { device: ModbusDevice; servedO
 }
 
 function AggregatorLayout() {
-  const layout = useQuery({ queryKey: powerflowKeys.modbusRegisters, queryFn: powerflowApi.getModbusRegisters, retry: false });
+  const layout = useModbusRegisters();
   const [open, setOpen] = useState<string | null>(null);
   const [servedOnly, setServedOnly] = useState(true);
 

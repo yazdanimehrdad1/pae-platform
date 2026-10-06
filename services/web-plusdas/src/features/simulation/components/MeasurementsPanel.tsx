@@ -11,13 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useDeviceHistory, useDevices, useLatestSnapshot } from "../hooks/usePowerflow";
+import { useDeviceHistory, useDevices, useLatestSnapshot, useModbusRegisters } from "../hooks/usePowerflow";
 import {
   deviceKey,
   deviceName,
   filterPoints,
   formatReading,
   isTrendable,
+  registersByPoint,
   trendRows,
 } from "../lib/measurements";
 
@@ -85,6 +86,7 @@ function RawSnapshot() {
 // history, and the native snapshot as raw JSON. For quick visualization; polled every few seconds.
 export function MeasurementsPanel({ selectedIsActive }: { selectedIsActive: boolean }) {
   const devices = useDevices(selectedIsActive);
+  const layout = useModbusRegisters(selectedIsActive);
   const [chosen, setChosen] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [showUnserved, setShowUnserved] = useState(false);
@@ -119,6 +121,7 @@ export function MeasurementsPanel({ selectedIsActive }: { selectedIsActive: bool
       return { ...current, [key]: next };
     });
   const points = device ? filterPoints(device.points, query, showUnserved) : [];
+  const registers = registersByPoint(layout.data?.devices.find((item) => deviceKey(item) === key));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[16rem_1fr] gap-4">
@@ -170,6 +173,7 @@ export function MeasurementsPanel({ selectedIsActive }: { selectedIsActive: bool
               <TableRow>
                 <TableHead className="w-10">Trend</TableHead>
                 <TableHead>Point</TableHead>
+                <TableHead>Registers</TableHead>
                 <TableHead>Label</TableHead>
                 <TableHead className="text-right">Value</TableHead>
                 <TableHead>Source</TableHead>
@@ -189,6 +193,9 @@ export function MeasurementsPanel({ selectedIsActive }: { selectedIsActive: bool
                     )}
                   </TableCell>
                   <TableCell className="font-mono text-xs">{point.point}</TableCell>
+                  <TableCell className="font-mono text-xs" data-registers>
+                    {registers.get(point.point)?.join(", ") ?? "–"}
+                  </TableCell>
                   <TableCell className="text-sm">{point.label}</TableCell>
                   <TableCell className="text-right font-mono text-sm" data-value>
                     {formatReading(point)}

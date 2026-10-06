@@ -1,4 +1,4 @@
-import type { DeviceHistory, DeviceKind, DeviceReadings, PointReading } from '@/api/types/powerflow';
+import type { DeviceHistory, DeviceKind, DeviceReadings, ModbusDevice, PointReading } from '@/api/types/powerflow';
 
 // Pure helpers for the Measurements tab: device names, value formatting and chart rows.
 
@@ -19,6 +19,19 @@ export function deviceName(device: Pick<DeviceReadings, 'kind' | 'asset_id'>): s
   return device.kind === 'site' || device.kind === 'poi_meter' || device.kind === 'met_station'
     ? kind
     : `${kind} ${device.asset_id}`;
+}
+
+// Registers (16-bit words) per Modbus data type; any other type takes one.
+const REGISTER_WIDTH: Record<string, number> = { int32: 2, uint32: 2, bitfield32: 2, uint64: 4 };
+
+/** Each point's register addresses on the Modbus server (an int32 at 1000 → [1000, 1001]). */
+export function registersByPoint(device: Pick<ModbusDevice, 'registers'> | undefined): Map<string, number[]> {
+  return new Map(
+    (device?.registers ?? []).map((register) => [
+      register.point,
+      Array.from({ length: REGISTER_WIDTH[register.data_type] ?? 1 }, (_, offset) => register.address + offset),
+    ]),
+  );
 }
 
 /** A point is chartable when it's a served number (not an enum or a bitfield). */
