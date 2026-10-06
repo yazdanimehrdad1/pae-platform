@@ -30,6 +30,19 @@ backlog. Remove an item when it's done; the commit that closes it records the de
   deployment without powerflow must set a resolvable upstream (or make it optional with a
   `resolver` + variable upstream), or nginx won't start.
 
+## Mobile (mobile-plusdas)
+
+The app is bare-bones on purpose (2026-10-06): it only lists sites. The Alarms, Reports and
+Assistant tabs say "coming soon". The backend work comes first, then the app:
+- **Alarms and push notifications.** Site alarm state in the app, and pushes on faults. backend-ot
+  has `notify_mobile` on alarm rules but sends nothing; a push channel (e.g. Expo Push) and
+  device registration are backend-ot work. A first version was built and removed on 2026-10-06.
+- **Reports** (needs a backend-ot report API) and **Assistant** (the AI agent).
+- **Auth and a public gateway before real operators use the app.** backend-ot has no auth and
+  is cluster-internal. The app must not point at an internet-reachable server until both exist.
+- **Release builds over HTTP.** `preview`/production builds block cleartext. Serve backend-ot over
+  HTTPS (comes with the gateway), or add a scoped cleartext exception for internal testing.
+
 ## Hardening
 
 - **backend-ot:** move to a `src/pae_backend_ot/` package (removing the flat top-level module

@@ -1,0 +1,5 @@
+node_modules
+dist
+.expo
+src/api/generated
+package-lock.json

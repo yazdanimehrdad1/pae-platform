@@ -33,7 +33,9 @@ production manifest.
 
 backend-ot http **8000**, postgres **5435**, redis **6380** · mock-modbus **502** · web-plusdas
 http **5173** (the UI; its Vite dev server `make -C services/web-plusdas run` uses 5174) ·
-powerflow http **8020**, postgres **5436**. Override them
+powerflow http **8020**, postgres **5436** · mobile-plusdas Metro **8081** (`make -C
+services/mobile-plusdas run`; the app isn't in the dev stack, phones reach backend-ot on
+8000 via the host's LAN IP). Override them
 only when something *outside* the platform holds a port:
 - Dev stack: in the root `.env` (copy `.env.example`), or in the shell.
 - One service alone: in the shell, e.g. `BACKEND_OT_HTTP_PORT=18000 make -C services/backend-ot up`.
@@ -74,6 +76,15 @@ isn't a platform project; otherwise override the port.
    `make -C services/backend-ot up-build`, `make -C services/backend-ot seed-db-mock-modbus`, and `make e2e`
    at the root (it reads `localhost:<BACKEND_OT_HTTP_PORT or 8000>`).
 4. Stop each with `make -C services/<svc> down`, or all at once with root `make down`.
+
+## Mobile app on a phone (mobile-plusdas, Expo Go)
+
+- `make mobile-dev` starts the dev stack only if backend-ot doesn't answer (it never resets a
+  running one). It seeds `2bess_1pv` only if missing, prints the LAN URL and phone checks, then
+  starts Metro. The user scans the QR with Expo Go; the app derives backend-ot's URL from the
+  Metro host, so there's nothing to type.
+- If the phone can't connect, it's the Windows firewall or a 'Public' Wi-Fi profile. `info`
+  prints the one-time `New-NetFirewallRule` command for ports 8000 and 8081.
 
 ## Without Docker (fast inner loop)
 

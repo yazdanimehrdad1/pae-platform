@@ -13,6 +13,8 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
                      and /powerflow-api to powerflow (the Simulation page)
   powerflow/         microgrid power flow simulator (pandapower) for EMS development: setpoints in,
                      measurements out; sites in its own Postgres (the only store), via the API
+  mobile-plusdas/    Expo / React Native phone app (iOS + Android): bare-bones: lists backend-ot's
+                     sites (alarms, push, reports, AI later); not containerized
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
@@ -57,7 +59,8 @@ the root, and `make -C services/<svc> help` in each service.
 - **Root checks:** `make check` = lint + typecheck + test + `check-boundaries` + `contracts-check` (stage
   regenerated contracts first). `make hooks` enables the pre-commit hook once per clone.
 - **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
-  `down`, `ps`, `logs`, `seed-mock-modbus`, `seed-2bess-1pv`, `e2e`, `e2e-2bess-1pv`. See the `run-platform` skill. **The root takes priority:**
+  `down`, `ps`, `logs`, `seed-mock-modbus`, `seed-2bess-1pv`, `e2e`, `e2e-2bess-1pv`, and for the
+  phone app `mobile-dev`. See the `run-platform` skill. **The root takes priority:**
   `make up` resets, stopping every platform container (including services started on their own)
   before starting the dev stack, and `make down` stops them all (data volumes kept). `make down-all`
   is the destructive clean slate: it also deletes volumes (postgres/redis data, including
@@ -73,6 +76,7 @@ the root, and `make -C services/<svc> help` in each service.
 | web-plusdas | 5173 (http; `make -C services/web-plusdas run` dev server: 5174) |
 | optimizer (reserved) | 8010 |
 | powerflow | 8020 (http), 5436 (postgres), 1502 (modbus; 502 in the container) |
+| mobile-plusdas | 8081 (Expo Metro dev server, `make -C services/mobile-plusdas run`; no container) |
 
 ## Contracts
 Rules and the contract list are in `contracts/README.md`. For a change that alters what a service

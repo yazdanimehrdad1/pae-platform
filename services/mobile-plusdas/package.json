@@ -1,0 +1,71 @@
+{
+  "name": "mobile-plusdas",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "api-types": "node scripts/api-types.mjs",
+    "api-types:check": "node scripts/api-types.mjs --check",
+    "export": "expo export --platform android --platform ios --output-dir dist"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@tanstack/react-query": "^5.104.1",
+    "expo": "~57.0.26",
+    "expo-constants": "~57.0.20",
+    "expo-dev-client": "~57.0.19",
+    "expo-linking": "~57.0.11",
+    "expo-router": "~57.0.24",
+    "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^1.52.0",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^29.5.14",
+    "@types/react": "~19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2",
+    "jest-expo": "~57.0.5",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.9",
+    "react-dom": "19.2.3",
+    "test-renderer": "^1.0.0",
+    "typescript": "~5.9.3"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@contracts/(.*)$": "<rootDir>/src/api/generated/$1",
+      "^lucide-react-native$": "<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js"
+    },
+    "setupFiles": [
+      "<rootDir>/tests/setup.ts"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|react-native-svg)"
+    ]
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "typescript"
+      ]
+    }
+  }
+}
