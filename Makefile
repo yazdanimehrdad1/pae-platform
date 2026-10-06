@@ -23,7 +23,7 @@ endif
 .DEFAULT_GOAL := help
 
 # Every service under services/. A new service is added here (the new-service skill does it).
-SERVICES := backend-ot mock-modbus web-plusdas powerflow
+SERVICES := backend-ot mock-modbus web-plusdas powerflow mobile-plusdas
 # `svc=<name>` narrows fan-out targets and dev-stack targets to one service.
 TARGET_SERVICES := $(or $(svc),$(SERVICES))
 
@@ -33,7 +33,7 @@ TARGET_SERVICES := $(or $(svc),$(SERVICES))
 DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildcard .env),--env-file $(CURDIR)/.env)
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
-.PHONY: help up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
+.PHONY: help up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -56,6 +56,10 @@ help:
 	@echo "  seed-powerflow-site SITE=<site>  the same for any powerflow default site"
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
 	@echo "  e2e-2bess-1pv      check backend-ot's readings of 2bess_1pv agree with powerflow"
+	@echo ""
+	@echo "Mobile app on a phone (Expo Go, same Wi-Fi):"
+	@echo "  mobile-dev         start the stack and seed 2bess_1pv only if needed (no reset), print the"
+	@echo "                     phone checks, then start Metro: scan its QR code, nothing to type"
 	@echo ""
 	@echo "Per service (runs in every service, or svc=<name>): $(FANOUT_TARGETS)"
 	@echo "  check              lint + typecheck + test for every service, then check-boundaries + contracts-check"
@@ -148,6 +152,19 @@ e2e:
 e2e-2bess-1pv:
 	uv run --no-project python scripts/e2e/check_backend_reads_powerflow.py --api $(E2E_API) \
 		--powerflow-api $(POWERFLOW_API) --site 2bess_1pv
+
+# Mobile app against the dev stack (scripts/mobile/dev.py, HTTP only). mobile-dev never resets a
+# running stack: it starts it only when backend-ot doesn't answer, and seeds only a missing site.
+MOBILE_DEV := uv run --no-project python scripts/mobile/dev.py --api $(E2E_API) --powerflow-api $(POWERFLOW_API)
+mobile-dev:
+	@$(MOBILE_DEV) wait --timeout 3 2>/dev/null || { \
+		echo "==> dev stack isn't running: starting it (make up)"; \
+		$(MAKE) --no-print-directory up && $(MOBILE_DEV) wait; }
+	@$(MOBILE_DEV) has-demo-site || { \
+		echo "==> powerflow's 2bess_1pv site isn't seeded: seeding it"; \
+		$(MAKE) --no-print-directory seed-2bess-1pv; }
+	@$(MOBILE_DEV) info
+	@$(MAKE) --no-print-directory -C services/mobile-plusdas run
 
 # ---------------------------------------------------------------------------
 # Fan-out: run the same target in each service that defines it (others are skipped).
