@@ -4,7 +4,7 @@ import copy
 from typing import Any
 
 import pytest
-from conftest import DEFAULT_SITE_NAMES, DEFAULTS, default_site, site_config_dict
+from conftest import DEFAULT_ACTIVE_SITE, DEFAULT_SITE_NAMES, default_site, site_config_dict
 from pydantic import ValidationError
 
 from powerflow.site_config import SiteConfig
@@ -16,17 +16,23 @@ def test_default_sites_validate(name: str) -> None:
 
 
 def test_default_active_site_exists() -> None:
-    assert DEFAULTS.active_site in DEFAULT_SITE_NAMES
+    assert DEFAULT_ACTIVE_SITE in DEFAULT_SITE_NAMES
 
 
 def test_reference_site_matches_the_spec() -> None:
-    config = default_site("reference_2bess_1pv")
+    config = default_site("2bess_1pv")
     assert config.grid.vn_kv == 12.47 and config.grid.sc_mva == 100 and config.grid.x_r == 5
     assert [bess.inverter.p_discharge_max_kw for bess in config.bess] == [2500, 2500]
     assert [bess.battery.capacity_kwh for bess in config.bess] == [10000, 10000]
     assert all(bess.transformer.z_pct == 5.75 for bess in config.bess)
     assert all(bess.transformer.s_rated_kva == 2750 for bess in config.bess)
     assert config.pv[0].inverter.p_max_kw == 5000 and config.pv[0].transformer.s_rated_kva == 5500
+    assert all(asset.transformer.vn_lv_kv == 0.48 for asset in [*config.bess, *config.pv])
+    assert {meter.id: meter.transformer for meter in config.meters} == {
+        "m_bess1": "bess1",
+        "m_bess2": "bess2",
+        "m_pv1": "pv1",
+    }
 
 
 def test_defaults_fill_in() -> None:
@@ -82,6 +88,36 @@ def mutate(path: list[str | int], value: Any) -> dict[str, Any]:
 def test_invalid_configs_are_rejected(path: list[str | int], value: Any, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         SiteConfig.model_validate(mutate(path, value))
+
+
+@pytest.mark.parametrize(
+    ("meters", "message"),
+    [
+        ([{"id": "m1", "transformer": "nope"}], "not a BESS, PV or load with a transformer"),
+        ([{"id": "m1", "transformer": "load1"}], "not a BESS, PV or load with a transformer"),
+        (
+            [{"id": "m1", "transformer": "bess1"}, {"id": "m1", "transformer": "bess2"}],
+            "meter ids must be unique",
+        ),
+        (
+            [{"id": "m1", "transformer": "bess1"}, {"id": "m2", "transformer": "bess1"}],
+            "already has a meter",
+        ),
+        ([{"id": "m:1", "transformer": "bess1"}], "pattern"),
+    ],
+)
+def test_invalid_meters_are_rejected(meters: list[dict[str, str]], message: str) -> None:
+    raw = site_config_dict(n_bess=2)
+    raw["meters"] = meters
+    with pytest.raises(ValidationError, match=message):
+        SiteConfig.model_validate(raw)
+
+
+def test_a_load_transformer_can_be_metered() -> None:
+    raw = site_config_dict()
+    raw["loads"][0]["transformer"] = raw["bess"][0]["transformer"]
+    raw["meters"] = [{"id": "m_load1", "transformer": "load1"}]
+    assert SiteConfig.model_validate(raw).meters[0].transformer == "load1"
 
 
 @pytest.mark.parametrize("scenario", ["../typical", "Typical", "a/b", ""])

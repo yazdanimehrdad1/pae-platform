@@ -51,7 +51,8 @@ own, then starts everything fresh.
 
 ```bash
 make up      # reset: stop all platform containers, build + start every service, wait until healthy
-make seed    # load backend-ot's dev sites/devices/points (built from mock-modbus's contract)
+make seed-mock-modbus  # load the mock-modbus dev site (built from mock-modbus's contract)
+make seed-2bess-1pv    # load powerflow's 2bess_1pv site as a real site (and run it in powerflow)
 make e2e     # check backend-ot polls mock-modbus and every value is in range
 make down    # stop every platform container (data volumes are kept)
 make down-all  # DESTRUCTIVE: also delete volumes (postgres/redis data), images and networks
@@ -63,7 +64,7 @@ Run `make down` at the repo root first: `up`/`up-build`/`build` refuse while the
 
 ```bash
 make -C services/backend-ot up          # postgres + redis + app; migrations run on start
-make -C services/backend-ot seed-db     # dev data
+make -C services/backend-ot seed-db-mock-modbus  # dev data
 make -C services/backend-ot health      # GET /api/healthz
 make -C services/backend-ot logs        # follow the app's logs
 make -C services/backend-ot down
@@ -166,6 +167,6 @@ removed and still need to be re-implemented:
 ## Testing with a Modbus Simulator
 
 The monorepo ships one: `services/mock-modbus` (DEV-ONLY), which serves three simulated devices.
-Run it together with backend-ot from the repo root (`make up && make seed && make e2e`, above), or,
+Run it together with backend-ot from the repo root (`make up && make seed-mock-modbus && make e2e`, above), or,
 after a root `make down`, standalone with a standalone backend-ot (`make -C services/mock-modbus up`).
 

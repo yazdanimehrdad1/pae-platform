@@ -1,7 +1,7 @@
-"""The active site config: /config, /config/schema. Stored sites are edited under /sites."""
+"""The active site config: /config. Stored sites are edited under /sites; the JSON Schema is at
+/schemas/site-config."""
 
 from fastapi import APIRouter, Depends
-from pydantic import JsonValue
 
 from powerflow.interfaces.base import AdapterContext
 from powerflow.interfaces.http.dependencies import get_context
@@ -18,12 +18,3 @@ router = APIRouter(tags=["config"])
 )
 async def get_config(context: AdapterContext = Depends(get_context)) -> SiteConfig:
     return context.engine.config
-
-
-@router.get(
-    "/config/schema",
-    response_model=dict[str, JsonValue],
-    summary="JSON Schema of a site config",
-)
-async def config_schema() -> dict[str, JsonValue]:
-    return SiteConfig.model_json_schema()

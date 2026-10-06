@@ -1,5 +1,5 @@
-"""Shared fixtures: the shipped defaults and profiles in site_config/ (read-only), a writable
-copy of it, and a builder for synthetic site configs."""
+"""Shared fixtures: the default sites (as the data migration inserts them), the shipped profile
+CSVs (read-only), a writable copy of them, and a builder for synthetic site configs."""
 
 import shutil
 from pathlib import Path
@@ -7,25 +7,27 @@ from typing import Any
 
 import pytest
 
-from powerflow.points.modbus_map import ModbusMap
+from powerflow.point_standard import PointStandard, load_point_standard
+from powerflow.settings import SERVICE_ROOT as POWERFLOW_ROOT
+from powerflow.settings import settings
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ProfileStore
-from powerflow.storage.defaults import read_defaults
+from powerflow.storage.seed_data import default_active_site, default_sites
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
-SITE_CONFIG_DIR = SERVICE_ROOT / "site_config"
-# Read-only use only: tests that write profiles get a copy (the `site_config_copy` fixture).
-DEFAULTS = read_defaults(SITE_CONFIG_DIR)
-DEFAULT_SITE_NAMES = [site.name for site in DEFAULTS.sites]
-PROFILES = ProfileStore(SITE_CONFIG_DIR / "profiles")
+PROFILES_DIR = SERVICE_ROOT / "profiles"
+# Read-only use only: tests that write profiles get a copy (the `profiles_copy` fixture).
+PROFILES = ProfileStore(PROFILES_DIR)
+DEFAULT_SITES = default_sites()
+DEFAULT_SITE_NAMES = sorted(DEFAULT_SITES)
+# What GET /api/sites lists for a freshly migrated database.
+DEFAULT_SITE_LIST = [{"name": name, "category": "default"} for name in DEFAULT_SITE_NAMES]
+DEFAULT_ACTIVE_SITE = default_active_site()
+POINT_STANDARD: PointStandard = load_point_standard(POWERFLOW_ROOT / "docs" / "point-standard")
 
 
 def default_site(name: str) -> SiteConfig:
-    return next(site.config for site in DEFAULTS.sites if site.name == name)
-
-
-def default_site_maps(name: str) -> dict[str, ModbusMap]:
-    return next(site.maps for site in DEFAULTS.sites if site.name == name)
+    return DEFAULT_SITES[name]
 
 
 TRANSFORMER_2750: dict[str, Any] = {
@@ -84,9 +86,17 @@ def make_site_config(n_bess: int = 1, n_pv: int = 1, n_loads: int = 1) -> SiteCo
     return SiteConfig.model_validate(site_config_dict(n_bess, n_pv, n_loads))
 
 
+@pytest.fixture(autouse=True)
+def modbus_on_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Apps started in tests (the reference site enables Modbus) listen on an ephemeral
+    loopback port, never on 502."""
+    monkeypatch.setattr(settings, "modbus_host", "127.0.0.1")
+    monkeypatch.setattr(settings, "modbus_port", 0)
+
+
 @pytest.fixture
-def site_config_copy(tmp_path: Path) -> Path:
-    """A writable copy of site_config/, so tests never write the repo."""
-    copy = tmp_path / "site_config"
-    shutil.copytree(SITE_CONFIG_DIR, copy)
+def profiles_copy(tmp_path: Path) -> Path:
+    """A writable copy of profiles/, so tests never write the repo."""
+    copy = tmp_path / "profiles"
+    shutil.copytree(PROFILES_DIR, copy)
     return copy

@@ -2,4 +2,5 @@
 // Read in the app through src/shared/config/runtime.ts only.
 window.__APP_CONFIG__ = {
   apiBaseUrl: "${APP_API_BASE_URL}",
+  powerflowBaseUrl: "${APP_POWERFLOW_BASE_URL}",
 };

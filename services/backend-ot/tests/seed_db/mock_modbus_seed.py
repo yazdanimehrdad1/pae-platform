@@ -44,7 +44,7 @@ _DEVICE_TYPES: dict[str, DeviceType] = {"pv": "PV", "bess": "BESS", "ied": "IED"
 def default_contract_path() -> Path:
     """Where the seeder finds the contract.
 
-    Inside the app container `make seed-db` copies it next to this file; on the host it
+    Inside the app container `make seed-db-mock-modbus` copies it next to this file; on the host it
     is read from the monorepo's `contracts/` (services/backend-ot/tests/seed_db -> root).
     """
     here = Path(__file__).resolve()

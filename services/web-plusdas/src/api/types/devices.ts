@@ -3,11 +3,14 @@ import type { DevicePoint } from './devicePoints';
 
 type Schemas = components['schemas'];
 
+// backend-ot's device types (DeviceType below), lowercased: the view model's `type`.
+export type DeviceTypeKey = Lowercase<DeviceType>;
+
 // UI view model (what the pages render); built from DeviceRecord in src/api/devices.ts.
 export interface Device {
   id: string;
   name: string;
-  type: 'transformer' | 'generator' | 'protection' | 'feeder' | 'switch' | 'meter' | 'pv' | 'bess' | 'relay' | 'rtac' | 'inverter';
+  type: DeviceTypeKey;
   status: 'online' | 'warning' | 'offline' | 'fault';
   location: string;
   lastUpdate: string;

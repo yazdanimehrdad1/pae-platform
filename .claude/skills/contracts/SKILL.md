@@ -47,5 +47,5 @@ change the provider's code → regenerate → classify → update consumers → 
   passes: every service's lint + tests (including the drift tests and the consumers' tests),
   then `contracts-check`, which regenerates every contract, compares with the git index and
   prints `contracts/ is current`.
-- For a mock-modbus change consumed by the seed: `make up && make seed && make e2e` at the root
+- For a mock-modbus change consumed by the seed: `make up && make seed-mock-modbus && make e2e` at the root
   still reports every point agreeing with the contract (see the `run-platform` skill).

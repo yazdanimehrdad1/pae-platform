@@ -6,9 +6,8 @@ touching the simulation core.
 ## Intended scope
 - A `ProtocolAdapter` (see `interfaces/base.py`) named `dnp3`, registered in the app's
   `AdapterRegistry` and started when the site config has `interfaces.dnp3.enabled: true`.
-- An outstation (or one per asset) whose points bind, through a per-asset map file, to point
-  names from the protocol-neutral point list (`powerflow.points`). The file's format is still to
-  be defined, alongside `points/modbus_map.py`.
+- An outstation whose point layout comes from the PAE point standard, like the Modbus server
+  (`powerflow.point_standard`): a DNP3 index per standard point, values from the same resolvers.
 - **Readable points map to DNP3 types:**
   - R `float32` points → analog inputs.
   - `enum16` / `bitfield16` status points → analog or binary inputs.

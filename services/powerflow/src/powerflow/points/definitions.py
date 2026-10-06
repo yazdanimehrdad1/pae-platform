@@ -1,11 +1,12 @@
 """Protocol-neutral point lists, one per asset type.
 
 A point's full name is `<asset_type>.<asset_id>.<point>`, e.g. `bess.bess1.soc_pct`,
-`poi.meter.p_kw`, `site.sim.step_id`. HTTP field names, history `fields=` and the (future)
-Modbus/DNP3 maps all use these names.
+`poi.meter.p_kw`, `meter.m_bess1.p_kw` (a feeder meter), `site.sim.step_id`. HTTP field names,
+history `fields=` and PointRegistry use these names (the Modbus server's own names come from the
+PAE point standard, which maps onto these).
 
 `scale_hint` is the suggested resolution when a point is packed into an integer register
-(engineering value = raw × scale); a protocol map may override it.
+(engineering value = raw × scale).
 """
 
 from enum import IntEnum, IntFlag, StrEnum
@@ -17,6 +18,7 @@ from powerflow.models.pv import PvFlag, PvQMode, PvStatus
 from powerflow.models.status import (
     BessAlarm,
     BessOperatingState,
+    BreakerState,
     LoadAlarm,
     LoadSupplyState,
     MeterAlarm,
@@ -28,6 +30,8 @@ from powerflow.models.status import (
 
 POI_ASSET_ID = "meter"
 SITE_ASSET_ID = "sim"
+# The engine state as the `site.sim.state` point encodes it (RunState values).
+RUN_STATE_CODES: dict[str, int] = {"stopped": 0, "running": 1, "paused": 2, "scheduled": 3}
 
 
 class AssetType(StrEnum):
@@ -36,6 +40,7 @@ class AssetType(StrEnum):
     LOAD = "load"
     POI = "poi"
     SITE = "site"
+    METER = "meter"  # feeder meters (`SiteConfig.meters`), named by meter id
 
 
 class Access(StrEnum):
@@ -132,7 +137,8 @@ def _alarms(description: str, flags: type[IntFlag], source: PointSource) -> Poin
 
 
 VOLTAGE_ALARM_NOTE = "voltage outside 0.95-1.05 pu"
-RESERVED_NOTE = "Bits marked reserved in the model aren't set by the simulator yet."
+RESERVED_NOTE = "Fault-cause and COMM_LOSS bits come from injected conditions."
+ENERGY_NOTE = "Integrated every converged step since the simulation started (reset/activate)."
 
 
 BESS_POINTS: tuple[PointDef, ...] = (
@@ -202,6 +208,9 @@ BESS_POINTS: tuple[PointDef, ...] = (
         BessAlarm,
         PointSource.MEASUREMENT,
     ),
+    _measurement("energy_discharged_kwh", f"AC energy discharged. {ENERGY_NOTE}", "kWh"),
+    _measurement("energy_charged_kwh", f"AC energy charged. {ENERGY_NOTE}", "kWh"),
+    _state("breaker_state", "Its breaker (HV side of the step-up); open = OFFLINE.", BreakerState),
     _nameplate("p_rated_discharge_kw", "Max discharge P.", "kW"),
     _nameplate("p_rated_charge_kw", "Max charge P (magnitude).", "kW"),
     _nameplate("s_rated_kva", "Inverter apparent power rating.", "kVA"),
@@ -295,6 +304,11 @@ PV_POINTS: tuple[PointDef, ...] = (
         PvAlarm,
         PointSource.MEASUREMENT,
     ),
+    _measurement("energy_produced_kwh", f"AC energy produced. {ENERGY_NOTE}", "kWh"),
+    _measurement(
+        "energy_produced_today_kwh", "AC energy produced since the sim day began (UTC).", "kWh"
+    ),
+    _state("breaker_state", "Its breaker (HV side of the step-up); open = OFFLINE.", BreakerState),
     _nameplate("dc_kwp", "DC capacity.", "kWp"),
     _nameplate("p_max_kw", "Inverter max AC active power.", "kW"),
     _nameplate("s_rated_kva", "Inverter apparent power rating.", "kVA"),
@@ -307,7 +321,13 @@ LOAD_POINTS: tuple[PointDef, ...] = (
     _measurement("pf", "Power factor, signed with Q (+ lagging).", "", 0.001),
     _measurement("v_pu", "Voltage at the load's bus.", "pu", 0.001),
     _state("supply_state", "Whether the load's bus is energized.", LoadSupplyState),
-    _alarms(f"Alarms: {VOLTAGE_ALARM_NOTE}.", LoadAlarm, PointSource.MEASUREMENT),
+    _alarms(
+        f"Alarms: {VOLTAGE_ALARM_NOTE}. COMM_LOSS comes from injected conditions.",
+        LoadAlarm,
+        PointSource.MEASUREMENT,
+    ),
+    _measurement("energy_consumed_kwh", f"Energy consumed. {ENERGY_NOTE}", "kWh"),
+    _state("breaker_state", "Its breaker; open = de-energised.", BreakerState),
 )
 
 POI_POINTS: tuple[PointDef, ...] = (
@@ -322,13 +342,40 @@ POI_POINTS: tuple[PointDef, ...] = (
     _measurement("p_loss_total_kw", "Site losses: transformers + collector feeders.", "kW"),
     _measurement("q_loss_total_kvar", "Site reactive losses.", "kvar"),
     _state(
-        "meter_state", "STALE when the power flow didn't converge (last good values).", MeterState
+        "meter_state",
+        "STALE: the power flow didn't converge or comm loss (last good values).",
+        MeterState,
     ),
     _alarms(
         f"Alarms: {VOLTAGE_ALARM_NOTE}, exporting / importing (|P| > 1 kW), |pf| < 0.9.",
         MeterAlarm,
         PointSource.MEASUREMENT,
     ),
+    _measurement("energy_export_kwh", f"Energy exported to the utility. {ENERGY_NOTE}", "kWh"),
+    _measurement("energy_import_kwh", f"Energy imported from the utility. {ENERGY_NOTE}", "kWh"),
+    _state(
+        "breaker_state", "The POI breaker; open = the whole site is de-energised.", BreakerState
+    ),
+    _measurement(
+        "hz", "Grid frequency (nominal or an injected excursion; 0 while de-energised).", "Hz", 0.01
+    ),
+)
+
+METER_POINTS: tuple[PointDef, ...] = (
+    _measurement("p_kw", "Active power on the transformer's HV side. + toward the MV bus.", "kW"),
+    _measurement("q_kvar", "Reactive power. + toward the MV bus.", "kvar"),
+    _measurement("s_kva", "Apparent power.", "kVA"),
+    _measurement("pf", "Power factor, signed with Q.", "", 0.001),
+    _measurement("v_kv", "MV bus voltage, line-to-line.", "kV", 0.001),
+    _measurement("v_pu", "MV bus voltage.", "pu", 0.001),
+    _measurement("i_a", "Current on the transformer's HV side.", "A", 0.1),
+    _state(
+        "meter_state",
+        "STALE: the power flow didn't converge or comm loss (last good values).",
+        MeterState,
+    ),
+    _measurement("energy_export_kwh", f"Energy toward the MV bus. {ENERGY_NOTE}", "kWh"),
+    _measurement("energy_import_kwh", f"Energy from the MV bus. {ENERGY_NOTE}", "kWh"),
 )
 
 SITE_POINTS: tuple[PointDef, ...] = (
@@ -363,7 +410,7 @@ SITE_POINTS: tuple[PointDef, ...] = (
         data_type=DataType.ENUM16,
         access=Access.READ,
         source=PointSource.SIMULATION,
-        enum_values={0: "stopped", 1: "running", 2: "paused"},
+        enum_values={code: name for name, code in RUN_STATE_CODES.items()},
     ),
     PointDef(
         name="overrun_count",
@@ -386,6 +433,7 @@ POINT_LISTS: dict[AssetType, tuple[PointDef, ...]] = {
     AssetType.LOAD: LOAD_POINTS,
     AssetType.POI: POI_POINTS,
     AssetType.SITE: SITE_POINTS,
+    AssetType.METER: METER_POINTS,
 }
 
 

@@ -3,4 +3,5 @@
 // through src/shared/config/runtime.ts only.
 window.__APP_CONFIG__ = {
   apiBaseUrl: "/api",
+  powerflowBaseUrl: "/powerflow-api",
 };

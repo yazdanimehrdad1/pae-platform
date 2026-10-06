@@ -1,8 +1,8 @@
 """HTTP API through FastAPI's TestClient (with the lifespan, so the real engine runs).
 
 Every app gets an in-memory configuration repository (the Postgres one is covered by
-tests/integration) seeded with the shipped defaults plus a test site made active, and its own copy
-of site_config/ for profile CSVs, so nothing writes the repo."""
+tests/integration) holding the default sites, as a freshly migrated database does, plus a test
+site made active, and its own copy of profiles/, so nothing writes the repo."""
 
 import asyncio
 from collections.abc import Iterator
@@ -10,23 +10,26 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import DEFAULTS, site_config_dict
+from conftest import DEFAULT_ACTIVE_SITE, DEFAULT_SITE_LIST, site_config_dict
 from fastapi.testclient import TestClient
 
 from powerflow.app import create_app
-from powerflow.core.site_library import seed_defaults
+from powerflow.settings import settings
 from powerflow.site_config import SiteConfig
 from powerflow.storage import InMemoryConfigRepository
 
 TEST_SITE = "test_site"
 
 
+def site_names(client: TestClient) -> list[str]:
+    return [site["name"] for site in client.get("/api/sites").json()["sites"]]
+
+
 def repository_with_test_site(raw: dict[str, Any]) -> InMemoryConfigRepository:
-    """The defaults, plus raw stored as test_site and made the active site."""
-    repository = InMemoryConfigRepository()
+    """The default sites, plus raw stored as test_site and made the active site."""
+    repository = InMemoryConfigRepository.with_default_sites()
 
     async def fill() -> None:
-        await seed_defaults(repository, DEFAULTS)
         await repository.put_site(TEST_SITE, SiteConfig.model_validate(raw))
         await repository.set_active_site(TEST_SITE)
 
@@ -40,8 +43,8 @@ def repository() -> InMemoryConfigRepository:
 
 
 @pytest.fixture
-def client(site_config_copy: Path, repository: InMemoryConfigRepository) -> Iterator[TestClient]:
-    with TestClient(create_app(site_config_copy, repository)) as test_client:
+def client(profiles_copy: Path, repository: InMemoryConfigRepository) -> Iterator[TestClient]:
+    with TestClient(create_app(profiles_copy, repository)) as test_client:
         yield test_client
 
 
@@ -53,7 +56,12 @@ def step(client: TestClient, count: int = 1) -> dict[str, Any]:
 
 class TestHealthAndStatus:
     def test_health_and_version(self, client: TestClient) -> None:
-        assert client.get("/api/health").json() == {"ok": True, "state": "stopped"}
+        assert client.get("/api/health").json() == {
+            "ok": True,
+            "state": "stopped",
+            "interfaces": ["http"],
+            "interface_errors": {},
+        }
         version = client.get("/api/version").json()
         assert version["service"] == "powerflow" and version["pandapower_version"]
 
@@ -72,6 +80,16 @@ class TestSimulationControl:
     def test_step_count_validated(self, client: TestClient) -> None:
         assert client.post("/api/sim/step", params={"count": 0}).status_code == 422
 
+    def test_scheduled_start_and_speed(self, client: TestClient) -> None:
+        client.post("/api/sim/stop")
+        status = client.post("/api/sim/start", json={"at": "2099-01-01T00:00:00Z"}).json()
+        assert status["state"] == "scheduled"
+        assert status["scheduled_start"] == "2099-01-01T00:00:00Z"
+        assert client.post("/api/sim/stop").json()["state"] == "stopped"
+        assert client.put("/api/sim/speed", json={"speed": 10}).json()["speed"] == 10
+        assert client.put("/api/sim/speed", json={"speed": 0}).status_code == 422
+        assert client.put("/api/sim/speed", json={"speed": 101}).status_code == 422
+
     def test_state_conflicts(self, client: TestClient) -> None:
         assert client.post("/api/sim/pause").status_code == 409
         assert client.get("/api/measurements/latest").status_code == 409
@@ -86,11 +104,11 @@ class TestSimulationControl:
         status = client.post("/api/sim/reset").json()
         assert status["step_id"] == 0 and status["history_count"] == 0
 
-    def test_step_needs_test_mode(self, site_config_copy: Path) -> None:
+    def test_step_needs_test_mode(self, profiles_copy: Path) -> None:
         raw = site_config_dict()
         raw["simulation"]["test_mode"] = False
         repository = repository_with_test_site(raw)
-        with TestClient(create_app(site_config_copy, repository)) as test_client:
+        with TestClient(create_app(profiles_copy, repository)) as test_client:
             response = test_client.post("/api/sim/step")
             assert response.status_code == 409 and "test_mode" in response.json()["detail"]
 
@@ -171,7 +189,7 @@ class TestAssetsAndPoints:
     def test_points(self, client: TestClient) -> None:
         points = client.get("/api/points").json()
         assert "bess.bess2.soc_pct" in points["names"]
-        assert {"bess", "pv", "load", "poi", "site"} == set(points["point_lists"])
+        assert {"bess", "pv", "load", "poi", "site", "meter"} == set(points["point_lists"])
         step(client)
         value = client.get("/api/points/bess.bess1.soc_pct").json()
         assert value == {"name": "bess.bess1.soc_pct", "value": 50, "unit": "%"}
@@ -254,16 +272,16 @@ class TestMeasurements:
 class TestConfig:
     def test_get_config_and_schema(self, client: TestClient) -> None:
         assert client.get("/api/config").json()["grid"]["vn_kv"] == 12.47
-        schema = client.get("/api/config/schema").json()
-        assert schema["title"] == "SiteConfig" and "bess" in schema["properties"]
+        assert client.get("/api/config/schema").status_code == 404  # /schemas/site-config
 
 
 class TestSites:
     def test_list_and_get(self, client: TestClient) -> None:
         body = client.get("/api/sites").json()
         assert body["active"] == TEST_SITE
-        assert {"reference_2bess_1pv", TEST_SITE} <= set(body["sites"])
-        assert len(client.get("/api/sites/reference_2bess_1pv").json()["bess"]) == 2
+        categories = {site["name"]: site["category"] for site in body["sites"]}
+        assert categories["2bess_1pv"] == "default" and categories[TEST_SITE] == "custom"
+        assert len(client.get("/api/sites/2bess_1pv").json()["bess"]) == 2
         assert client.get("/api/sites/nope").status_code == 404
 
     def test_save_then_activate(self, client: TestClient) -> None:
@@ -289,13 +307,26 @@ class TestSites:
         client.post("/api/sim/start")
         response = client.put(f"/api/sites/{TEST_SITE}", json=site_config_dict())
         assert response.status_code == 409
-        assert client.post("/api/sites/reference_2bess_1pv/activate").status_code == 409
+        assert client.post("/api/sites/2bess_1pv/activate").status_code == 409
         client.post("/api/sim/stop")
 
     def test_cant_delete_the_active_site(self, client: TestClient) -> None:
         assert client.delete(f"/api/sites/{TEST_SITE}").status_code == 409
-        assert client.delete("/api/sites/small_1bess_1pv").status_code == 204
-        assert "small_1bess_1pv" not in client.get("/api/sites").json()["sites"]
+        assert client.put("/api/sites/spare", json=site_config_dict()).status_code == 200
+        assert client.delete("/api/sites/spare").status_code == 204
+        assert "spare" not in site_names(client)
+
+    def test_default_sites_cant_be_deleted_but_can_be_edited(self, client: TestClient) -> None:
+        response = client.delete("/api/sites/1bess_1pv")
+        assert response.status_code == 409 and "default site" in response.json()["detail"]
+        site = client.get("/api/sites/1bess_1pv").json()
+        site["simulation"]["seed"] = 7
+        assert client.put("/api/sites/1bess_1pv", json=site).status_code == 200
+        assert client.get("/api/sites/1bess_1pv").json()["simulation"]["seed"] == 7
+        listed = {
+            entry["name"]: entry["category"] for entry in client.get("/api/sites").json()["sites"]
+        }
+        assert listed["1bess_1pv"] == "default"  # saving keeps the category
 
     def test_invalid_sites_are_rejected(self, client: TestClient) -> None:
         raw = site_config_dict()
@@ -307,96 +338,42 @@ class TestSites:
         response = client.put("/api/sites/broken", json=raw)
         assert response.status_code == 422 and "no_such_day" in response.json()["detail"]
         assert client.put("/api/sites/Bad Name", json=site_config_dict()).status_code == 422
-        assert "broken" not in client.get("/api/sites").json()["sites"]
+        assert "broken" not in site_names(client)
 
-    def test_edits_survive_a_restart(self, site_config_copy: Path) -> None:
+    def test_edits_survive_a_restart(self, profiles_copy: Path) -> None:
         repository = repository_with_test_site(site_config_dict())  # outlives both apps
-        with TestClient(create_app(site_config_copy, repository)) as first:
+        with TestClient(create_app(profiles_copy, repository)) as first:
             first.put("/api/sites/kept", json=site_config_dict(n_bess=3))
             first.post("/api/sites/kept/activate")
-            modbus_map = first.get(f"{REFERENCE_MAPS}/bess.bess1").json()
-            first.put(f"{REFERENCE_MAPS}/bess.bess1", json={**modbus_map, "unit_id": 42})
-        with TestClient(create_app(site_config_copy, repository)) as second:
+        with TestClient(create_app(profiles_copy, repository)) as second:
             assert second.get("/api/sites").json()["active"] == "kept"
             assert len(second.get("/api/config").json()["bess"]) == 3
-            assert second.get(f"{REFERENCE_MAPS}/bess.bess1").json()["unit_id"] == 42
 
-    def test_deleting_a_site_deletes_its_maps(
-        self, client: TestClient, repository: InMemoryConfigRepository
-    ) -> None:
-        assert client.delete("/api/sites/small_1bess_1pv").status_code == 204
-        assert client.get("/api/sites/small_1bess_1pv/modbus-maps").status_code == 404
-        # Recreating the site doesn't bring the old maps back.
-        client.put("/api/sites/small_1bess_1pv", json=site_config_dict())
-        assert client.get("/api/sites/small_1bess_1pv/modbus-maps").json() == []
-
-    def test_fresh_database_gets_the_defaults(self, site_config_copy: Path) -> None:
-        with TestClient(create_app(site_config_copy, InMemoryConfigRepository())) as fresh:
+    def test_a_migrated_database_starts_on_its_default_site(self, profiles_copy: Path) -> None:
+        repository = InMemoryConfigRepository.with_default_sites()
+        with TestClient(create_app(profiles_copy, repository)) as fresh:
             sites = fresh.get("/api/sites").json()
-            assert sites["active"] == DEFAULTS.active_site
-            assert sites["sites"] == sorted(site.name for site in DEFAULTS.sites)
-            assert len(fresh.get(f"{REFERENCE_MAPS}").json()) == 6
+            assert sites["active"] == sites["stored_active"] == DEFAULT_ACTIVE_SITE
+            assert sites["sites"] == DEFAULT_SITE_LIST
+            reference = fresh.get("/api/sites/2bess_1pv").json()
+            assert [meter["id"] for meter in reference["meters"]] == ["m_bess1", "m_bess2", "m_pv1"]
 
-
-REFERENCE_MAPS = "/api/sites/reference_2bess_1pv/modbus-maps"
-
-
-class TestModbusMaps:
-    def test_every_asset_of_every_site_has_a_map(self, client: TestClient) -> None:
-        for site in ("reference_2bess_1pv", "small_1bess_1pv", "three_bess_two_pv"):
-            config = client.get(f"/api/sites/{site}").json()
-            expected = {
-                *(f"bess.{item['id']}" for item in config["bess"]),
-                *(f"pv.{item['id']}" for item in config["pv"]),
-                *(f"load.{item['id']}" for item in config["loads"]),
-                "poi.meter",
-                "site.sim",
-            }
-            maps = client.get(f"/api/sites/{site}/modbus-maps").json()
-            assert {item["asset"] for item in maps} == expected
-            assert not any(item["orphaned"] for item in maps)
-            unit_ids = [item["unit_id"] for item in maps]
-            assert len(unit_ids) == len(set(unit_ids))
-
-    def test_get(self, client: TestClient) -> None:
-        pv_map = client.get(f"{REFERENCE_MAPS}/pv.pv1").json()
-        assert (pv_map["asset"], pv_map["unit_id"]) == ("pv.pv1", 3)  # after bess1, bess2
-        assert {entry["register_type"] for entry in pv_map["points"]} == {"holding", "input"}
-        assert client.get(f"{REFERENCE_MAPS}/bess.nope").status_code == 404
-        assert client.get("/api/sites/nope/modbus-maps").status_code == 404
-
-    def test_put_and_delete(self, client: TestClient) -> None:
-        pv_map = client.get(f"{REFERENCE_MAPS}/pv.pv1").json()
-        edited = {**pv_map, "unit_id": 50, "port": 1502}
-        assert client.put(f"{REFERENCE_MAPS}/pv.pv1", json=edited).status_code == 200
-        assert client.get(f"{REFERENCE_MAPS}/pv.pv1").json()["port"] == 1502
-        assert client.delete(f"{REFERENCE_MAPS}/pv.pv1").status_code == 204
-        assets = {item["asset"] for item in client.get(REFERENCE_MAPS).json()}
-        assert "pv.pv1" not in assets
-        assert client.put(f"{REFERENCE_MAPS}/pv.pv1", json=edited).status_code == 200  # recreate
-
-    def test_rejections(self, client: TestClient) -> None:
-        bess_map = client.get(f"{REFERENCE_MAPS}/bess.bess1").json()
-        clash = {**bess_map, "unit_id": 2}  # unit 2 is bess.bess2
-        response = client.put(f"{REFERENCE_MAPS}/bess.bess1", json=clash)
-        assert response.status_code == 422 and "already" in response.json()["detail"]
-        mismatch = client.put(f"{REFERENCE_MAPS}/bess.bess2", json=bess_map)
-        assert mismatch.status_code == 422
-        no_such_asset = {**bess_map, "asset": "bess.bess9", "unit_id": 9}
-        response = client.put(f"{REFERENCE_MAPS}/bess.bess9", json=no_such_asset)
-        assert response.status_code == 422 and "no asset" in response.json()["detail"]
-        bad_point = {"point": "nope", "register_type": "input", "address": 0, "data_type": "uint16"}
-        response = client.put(
-            f"{REFERENCE_MAPS}/bess.bess1", json={**bess_map, "points": [bad_point]}
-        )
-        assert response.status_code == 422 and "point list" in response.json()["detail"]
-
-    def test_map_orphaned_when_the_site_drops_the_asset(self, client: TestClient) -> None:
-        site = client.get("/api/sites/reference_2bess_1pv").json()
-        site["bess"] = site["bess"][:1]  # drop bess2
-        assert client.put("/api/sites/reference_2bess_1pv", json=site).status_code == 200
-        orphaned = {item["asset"]: item["orphaned"] for item in client.get(REFERENCE_MAPS).json()}
-        assert orphaned["bess.bess2"] is True and orphaned["bess.bess1"] is False
+    def test_active_site_override_runs_once_and_protects_both(
+        self, profiles_copy: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Custom sites only: default sites can't be deleted anyway.
+        repository = repository_with_test_site(site_config_dict())  # stored active: test_site
+        for spare in ("override", "spare"):
+            asyncio.run(repository.put_site(spare, SiteConfig.model_validate(site_config_dict())))
+        monkeypatch.setattr(settings, "active_site", "override")
+        with TestClient(create_app(profiles_copy, repository)) as overridden:
+            sites = overridden.get("/api/sites").json()
+            assert sites["active"] == "override"
+            assert sites["stored_active"] == TEST_SITE  # the database keeps its choice
+            for protected in ("override", TEST_SITE):
+                response = overridden.delete(f"/api/sites/{protected}")
+                assert response.status_code == 409 and "active site" in response.json()["detail"]
+            assert overridden.delete("/api/sites/spare").status_code == 204
 
 
 class TestProfiles:
@@ -448,54 +425,14 @@ class TestProfiles:
         assert client.delete("/api/profiles/load/flat_500").status_code == 404
 
     def test_delete_refused_while_a_site_uses_it(self, client: TestClient) -> None:
-        response = client.delete("/api/profiles/load/high_demand")  # reference_2bess_1pv
-        assert response.status_code == 409 and "reference_2bess_1pv" in response.json()["detail"]
+        response = client.delete("/api/profiles/load/high_demand")  # 2bess_1pv
+        assert response.status_code == 409 and "2bess_1pv" in response.json()["detail"]
         assert "high_demand" in client.get("/api/profiles").json()["load"]
 
 
 class TestSchemas:
     def test_list_and_get(self, client: TestClient) -> None:
-        assert client.get("/api/schemas").json() == ["modbus-map", "site-config"]
+        assert client.get("/api/schemas").json() == ["site-config"]
         schema = client.get("/api/schemas/site-config").json()
-        assert schema == client.get("/api/config/schema").json()
-        assert client.get("/api/schemas/modbus-map").json()["title"] == "ModbusMap"
-        assert client.get("/api/schemas/nope").status_code == 404
-
-
-class TestDefaults:
-    def test_info(self, client: TestClient) -> None:
-        info = client.get("/api/defaults").json()
-        assert info["active_site"] == "reference_2bess_1pv"
-        assert "pv.pv1" in info["sites"]["reference_2bess_1pv"]
-
-    def test_restore_keeps_edits_without_overwrite(self, client: TestClient) -> None:
-        site = client.get("/api/sites/small_1bess_1pv").json()
-        site["site"]["name"] = "edited"
-        client.put("/api/sites/small_1bess_1pv", json=site)
-        client.delete(f"{REFERENCE_MAPS}/pv.pv1")
-        result = client.post("/api/defaults/restore").json()
-        assert "small_1bess_1pv" in result["sites_skipped"]
-        assert result["maps_written"] == ["reference_2bess_1pv/pv.pv1"]  # only the missing one
-        assert client.get("/api/sites/small_1bess_1pv").json()["site"]["name"] == "edited"
-
-    def test_restore_with_overwrite_replaces_edits(self, client: TestClient) -> None:
-        site = client.get("/api/sites/small_1bess_1pv").json()
-        site["site"]["name"] = "edited"
-        client.put("/api/sites/small_1bess_1pv", json=site)
-        result = client.post("/api/defaults/restore", params={"overwrite": "true"}).json()
-        assert "small_1bess_1pv" in result["sites_written"]
-        assert result["active_site_reloaded"] is False  # the active site is test_site
-        assert client.get("/api/sites/small_1bess_1pv").json()["site"]["name"] != "edited"
-
-    def test_restore_with_overwrite_needs_a_stopped_simulation(self, client: TestClient) -> None:
-        client.post("/api/sim/start")
-        response = client.post("/api/defaults/restore", params={"overwrite": "true"})
-        assert response.status_code == 409
-        client.post("/api/sim/stop")
-
-    def test_restore_brings_back_a_deleted_default_site(self, client: TestClient) -> None:
-        client.delete("/api/sites/three_bess_two_pv")
-        result = client.post("/api/defaults/restore").json()
-        assert "three_bess_two_pv" in result["sites_written"]
-        maps = client.get("/api/sites/three_bess_two_pv/modbus-maps").json()
-        assert len(maps) == 8
+        assert schema["title"] == "SiteConfig" and "bess" in schema["properties"]
+        assert client.get("/api/schemas/modbus-map").status_code == 404

@@ -8,7 +8,8 @@ declares for that register.
 
 Usage (stdlib only; any Python 3.11+):
     uv run --no-project python scripts/e2e/check_backend_reads_mock.py [--api URL] [--timeout S]
-Run `make seed` (dev stack) or `make -C services/backend-ot seed-db` (standalone) first.
+Run `make seed-mock-modbus` (dev stack) or `make -C services/backend-ot seed-db-mock-modbus`
+(standalone) first.
 """
 
 from __future__ import annotations

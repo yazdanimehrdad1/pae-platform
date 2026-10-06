@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from powerflow.errors import (
+    ConditionError,
     InvalidNameError,
     InvalidStateError,
     NotFoundError,
@@ -21,15 +22,19 @@ from powerflow.errors import (
     UnknownAssetError,
     UnknownPointError,
 )
-from powerflow.interfaces.base import AdapterContext, ProtocolAdapter
+from powerflow.interfaces.base import AdapterContext, AdapterRegistry, ProtocolAdapter
 from powerflow.interfaces.http import (
     routes_assets,
+    routes_conditions,
     routes_config,
+    routes_devices,
+    routes_event_scenarios,
     routes_library,
     routes_measurements,
+    routes_modbus,
     routes_sim,
 )
-from powerflow.interfaces.http.dependencies import get_context
+from powerflow.interfaces.http.dependencies import get_adapters, get_context
 from powerflow.interfaces.http.schemas import HealthResponse, VersionResponse
 
 SERVICE_NAME = "powerflow"
@@ -42,6 +47,7 @@ STATUS_BY_ERROR: list[tuple[type[PowerflowError], int]] = [
     (SetpointError, 422),
     (ProfileError, 422),
     (SiteConfigError, 422),
+    (ConditionError, 422),
     (PointAccessError, 422),
 ]
 
@@ -60,8 +66,16 @@ def build_router(api_version: str) -> APIRouter:
     router = APIRouter()
 
     @router.get("/health", response_model=HealthResponse, tags=["health"], summary="Liveness")
-    async def health(context: AdapterContext = Depends(get_context)) -> HealthResponse:
-        return HealthResponse(ok=True, state=context.engine.run_state)
+    async def health(
+        context: AdapterContext = Depends(get_context),
+        adapters: AdapterRegistry = Depends(get_adapters),
+    ) -> HealthResponse:
+        return HealthResponse(
+            ok=True,
+            state=context.engine.run_state,
+            interfaces=adapters.running,
+            interface_errors=adapters.failed,
+        )
 
     @router.get("/version", response_model=VersionResponse, tags=["health"], summary="Versions")
     async def get_version() -> VersionResponse:
@@ -73,10 +87,14 @@ def build_router(api_version: str) -> APIRouter:
         )
 
     router.include_router(routes_sim.router)
+    router.include_router(routes_conditions.router)
     router.include_router(routes_config.router)
     router.include_router(routes_library.router)
+    router.include_router(routes_event_scenarios.router)
     router.include_router(routes_assets.router)
     router.include_router(routes_measurements.router)
+    router.include_router(routes_devices.router)
+    router.include_router(routes_modbus.router)
     return router
 
 

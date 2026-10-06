@@ -33,7 +33,8 @@ class PvStatus(IntEnum):
     OFF = 0  # nothing available (night)
     PRODUCING = 1
     CURTAILED = 2
-    OFFLINE = 3  # reserved for event injection
+    OFFLINE = 3  # disconnected: its breaker is open, or the site is de-energised
+    FAULT = 4  # tripped (an injected fault)
 
 
 class PvFlag(IntFlag):

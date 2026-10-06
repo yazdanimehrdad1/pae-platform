@@ -71,6 +71,6 @@ Commit the regenerated file with the device change; `make test` fails while it's
 backend-ot's dev seed (`services/backend-ot/tests/seed_db/mock_modbus_seed.py`) builds one
 device per mock device and one point per register **from the contract**, so there is
 nothing to hand-edit there. Re-seed a running stack with
-`make -C services/backend-ot seed-db`. If a new register kind can't be mapped (e.g. a
+`make seed-mock-modbus` (root) or `make -C services/backend-ot seed-db-mock-modbus`. If a new register kind can't be mapped (e.g. a
 new data type), extend `point_data_type` there and its tests in
 `services/backend-ot/tests/unit/seed/`, following backend-ot's CLAUDE.md.

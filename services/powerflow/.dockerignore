@@ -22,9 +22,11 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Docs
+# Docs (but the point-standard CSVs: the Modbus server's register layout comes from them)
 *.md
 docs/
+!docs/point-standard/
+docs/point-standard/*.md
 
 # Docker / compose (not needed inside the build context)
 Dockerfile

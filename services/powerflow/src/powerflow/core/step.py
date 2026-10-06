@@ -1,30 +1,40 @@
-"""One simulation step, as a pure function of (runtime, state, setpoints, step index).
+"""One simulation step, as a pure function of (runtime, state, setpoints, conditions, step).
 
 No clock reads and no shared state: the engine passes everything in, which is what makes a run
-deterministic for the same config, profiles, seed and setpoint sequence.
+deterministic for the same config, profiles, seed, setpoint and condition sequence.
 
-1. Sim time = start_time + step_index·step_s; read the PV availability and load profiles.
-2. Apply the setpoints to the asset models (limits).
-3. Set the network injections and solve.
-4. Advance the SOCs with the actual power.
-5. Return the new state and the snapshot.
+1. Sim time = origin + step_index·step_s (origin = start_time, or the wall clock the engine read
+   for "now"); read the PV availability and load profiles.
+2. Apply the setpoints to the asset models (limits). Injected conditions override them: a faulted
+   inverter delivers nothing (FAULT), an asset cut off by an open breaker is OFFLINE, a load cut
+   off is de-energised.
+3. Set the network injections, breakers and source voltage, and solve.
+4. Advance the SOCs and the energy counters with the actual power.
+5. Return the new state and the snapshot. Comm loss then freezes what a device publishes (its
+   previous published values, plus the COMM_LOSS bit / STALE); the state keeps the true values.
 
 If the power flow fails, the state isn't advanced and the snapshot repeats the last good values
 with `converged = false`.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import IntFlag
+from typing import TypeVar
 
 import numpy as np
 
+from powerflow.conditions import CommTarget, Conditions, FaultCause, initial_conditions, summary
+from powerflow.core.energy import attach as attach_energy
+from powerflow.core.energy import integrate as integrate_energy
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.snapshot import (
     BessMeasurement,
     BusMeasurement,
+    EnergyTotals,
     LoadMeasurement,
+    MeterMeasurement,
     PoiMeasurement,
     PvMeasurement,
     Snapshot,
@@ -35,8 +45,16 @@ from powerflow.models import bess as bess_model
 from powerflow.models import pv as pv_model
 from powerflow.models import status
 from powerflow.models.common import apparent_power, power_factor
+from powerflow.models.grid import grid_frequency_hz
 from powerflow.models.load import LoadOutput, load_output
-from powerflow.network.solver import BusResult, Injection, NetworkResult
+from powerflow.network.energization import Energization, energize
+from powerflow.network.solver import (
+    BusResult,
+    GridState,
+    Injection,
+    NetworkResult,
+    TransformerResult,
+)
 from powerflow.network.topology import (
     bess_aux_injection,
     bess_injection,
@@ -45,11 +63,13 @@ from powerflow.network.topology import (
     pv_injection,
     transformer_name,
 )
-from powerflow.site_config import POI_BUS_ID, PvAvailabilitySource
+from powerflow.site_config import POI_BUS_ID, PvAvailabilitySource, SimulationConfig
 
 logger = logging.getLogger(__name__)
 NO_VOLTAGE = BusResult(vn_kv=0.0, vm_pu=0.0, va_degree=0.0)
+NO_FLOW = TransformerResult(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 IRRADIANCE = PvAvailabilitySource.IRRADIANCE
+AssetMeasurement = TypeVar("AssetMeasurement", BessMeasurement, PvMeasurement, LoadMeasurement)
 
 
 @dataclass(frozen=True)
@@ -62,7 +82,12 @@ class Setpoints:
 class SimulationState:
     step_index: int
     bess: dict[str, bess_model.BessState]
+    origin: datetime  # sim time of step 0
     last_good: Snapshot | None = None
+    # Energy counters per device (core/energy.py), keyed like the point prefixes ("bess.bess1").
+    energy: dict[str, EnergyTotals] = field(default_factory=dict)
+    # What was last published (differs from last_good while something is comm-lost).
+    published: Snapshot | None = None
 
 
 @dataclass(frozen=True)
@@ -79,13 +104,24 @@ class AssetOutputs:
     loads: dict[str, LoadOutput] = field(default_factory=dict)
 
 
-def initial_state(runtime: SiteRuntime) -> SimulationState:
+def resolve_origin(simulation: SimulationConfig, now: datetime | None) -> datetime:
+    """The sim time of step 0: start_time, or `now` (to the second) for start_time "now"."""
+    if simulation.start_time != "now":
+        return simulation.start_time
+    if now is None:
+        raise ValueError('start_time "now" needs the wall-clock time')
+    return now.replace(microsecond=0)
+
+
+def initial_state(runtime: SiteRuntime, now: datetime | None = None) -> SimulationState:
+    """Step start_step at the initial SOCs. `now` is the wall clock (only read for "now")."""
     return SimulationState(
-        step_index=0,
+        step_index=runtime.config.simulation.start_step,
         bess={
             asset_id: bess_model.BessState(soc_pct=asset.config.battery.soc_initial_pct)
             for asset_id, asset in runtime.bess.items()
         },
+        origin=resolve_origin(runtime.config.simulation, now),
     )
 
 
@@ -100,31 +136,43 @@ def default_setpoints(runtime: SiteRuntime) -> Setpoints:
     )
 
 
-def sim_time_at(runtime: SiteRuntime, step_index: int) -> datetime:
-    simulation = runtime.config.simulation
-    return simulation.start_time + timedelta(seconds=step_index * simulation.step_s)
+def sim_time_at(origin: datetime, step_s: float, step_index: int) -> datetime:
+    return origin + timedelta(seconds=step_index * step_s)
 
 
 def simulate_step(
-    runtime: SiteRuntime, state: SimulationState, setpoints: Setpoints, step_index: int
+    runtime: SiteRuntime,
+    state: SimulationState,
+    setpoints: Setpoints,
+    step_index: int,
+    conditions: Conditions | None = None,
 ) -> StepOutcome:
     """Advance from state.step_index to step_index (> state.step_index; a gap = skipped ticks,
-    integrated as one longer step)."""
+    integrated as one longer step). conditions=None = the site config's (breakers as configured,
+    nothing injected)."""
     if step_index <= state.step_index:
         raise ValueError(f"step_index {step_index} must be > {state.step_index}")
+    if conditions is None:
+        conditions = initial_conditions(runtime.config)
     simulation = runtime.config.simulation
     dt_s = (step_index - state.step_index) * simulation.step_s
-    sim_time = sim_time_at(runtime, step_index)
+    sim_time = sim_time_at(state.origin, simulation.step_s, step_index)
     t_s = sim_time.timestamp()
 
-    outputs = _dispatch_assets(runtime, state, setpoints, step_index, t_s, dt_s)
+    energization = energize(runtime.topology, conditions.open_breakers)
+    outputs = _dispatch_assets(
+        runtime, state, setpoints, conditions, energization, step_index, t_s, dt_s
+    )
+    grid = GridState(open_breakers=conditions.open_breakers, slack_vm_pu=conditions.grid_vm_pu)
     try:
-        network = runtime.solver.solve(_injections(outputs))
+        network = runtime.solver.solve(_injections(outputs), grid)
     except NonConvergenceError as error:
         logger.warning("step %d: power flow did not converge: %s", step_index, error)
-        snapshot = _repeat_last_good(runtime, state, step_index, sim_time)
-        new_state = SimulationState(step_index, state.bess, state.last_good)
-        return StepOutcome(new_state, snapshot, str(error))
+        snapshot = _repeat_last_good(runtime, state, conditions, step_index, sim_time)
+        published = publish_view(snapshot, state.published, conditions)
+        # Nothing is integrated: SOC and the energy counters hold their last good values.
+        new_state = replace(state, step_index=step_index, published=published)
+        return StepOutcome(new_state, published, str(error))
 
     new_bess = {
         asset_id: bess_model.integrate(
@@ -132,36 +180,71 @@ def simulate_step(
         )
         for asset_id, output in outputs.bess.items()
     }
-    snapshot = build_snapshot(runtime, new_bess, outputs, network, step_index, sim_time, dt_s)
-    return StepOutcome(SimulationState(step_index, new_bess, snapshot), snapshot)
+    snapshot = build_snapshot(
+        runtime, new_bess, outputs, network, step_index, sim_time, dt_s, conditions, energization
+    )
+    energy = integrate_energy(state.energy, snapshot, dt_s)
+    snapshot = attach_energy(snapshot, energy)
+    published = publish_view(snapshot, state.published, conditions)
+    new_state = SimulationState(step_index, new_bess, state.origin, snapshot, energy, published)
+    return StepOutcome(new_state, published)
 
 
 def _dispatch_assets(
     runtime: SiteRuntime,
     state: SimulationState,
     setpoints: Setpoints,
+    conditions: Conditions,
+    energization: Energization,
     step_index: int,
     t_s: float,
     dt_s: float,
 ) -> AssetOutputs:
+    """The asset models' outputs. Precedence: an injected fault, then de-energised (breaker open
+    or site dead), then the setpoint."""
     outputs = AssetOutputs()
     for asset_id, asset in runtime.bess.items():
+        live = energization.injection_live(bess_injection(asset_id))
+        if asset_id in conditions.faults or not live:
+            # A tripped inverter delivers nothing; its auxiliaries keep drawing while energised.
+            status_now = (
+                bess_model.BessStatus.FAULT
+                if asset_id in conditions.faults
+                else bess_model.BessStatus.OFFLINE
+            )
+            aux_kw = asset.params.aux_load_kw if live else 0.0
+            outputs.bess[asset_id] = bess_model.BessOutput(
+                0.0, 0.0, 0.0, 0.0, bess_model.BessFlag.NONE, status_now, aux_kw
+            )
+            continue
         outputs.bess[asset_id] = bess_model.dispatch(
             asset.params, state.bess[asset_id], setpoints.bess[asset_id], dt_s
         )
     for asset_id, asset in runtime.pv.items():
         column = "ghi_wm2" if asset.params.source is IRRADIANCE else "p_kw"
         available = pv_model.availability(asset.params, asset.profile.value_at(column, t_s))
-        outputs.pv[asset_id] = pv_model.dispatch(asset.params, setpoints.pv[asset_id], available)
+        output = pv_model.dispatch(asset.params, setpoints.pv[asset_id], available)
+        if asset_id in conditions.faults:
+            output = _pv_stopped(output, pv_model.PvStatus.FAULT)
+        elif not energization.injection_live(pv_injection(asset_id)):
+            output = _pv_stopped(output, pv_model.PvStatus.OFFLINE)
+        outputs.pv[asset_id] = output
     # One generator per step, keyed on (seed, step): the same step always draws the same noise,
-    # even when earlier steps were skipped.
+    # even when earlier steps were skipped. A de-energised load still takes its draw, so the
+    # other loads' noise doesn't change when a breaker opens.
     rng = np.random.default_rng((runtime.config.simulation.seed, step_index))
     for asset_id, asset in runtime.loads.items():
         values = asset.profile.values_at(t_s)
-        outputs.loads[asset_id] = load_output(
-            values["p_kw"], values["q_kvar"], asset.config.noise, rng
-        )
+        output = load_output(values["p_kw"], values["q_kvar"], asset.config.noise, rng)
+        if not energization.injection_live(load_injection(asset_id)):
+            output = LoadOutput(0.0, 0.0)
+        outputs.loads[asset_id] = output
     return outputs
+
+
+def _pv_stopped(output: pv_model.PvOutput, stopped: pv_model.PvStatus) -> pv_model.PvOutput:
+    """Nothing delivered; the availability (what the array could make) is still reported."""
+    return replace(output, p_kw=0.0, q_kvar=0.0, flags=pv_model.PvFlag.NONE, status=stopped)
 
 
 def _injections(outputs: AssetOutputs) -> dict[str, Injection]:
@@ -189,8 +272,21 @@ def build_snapshot(
     step_index: int,
     sim_time: datetime,
     dt_s: float,
+    conditions: Conditions | None = None,
+    energization: Energization | None = None,
 ) -> Snapshot:
-    """Assemble the snapshot. network=None (never converged yet) reports zero voltages."""
+    """Assemble the snapshot (the true values; comm loss is applied after, by publish_view).
+    network=None (never converged yet) reports zero voltages."""
+    if conditions is None:
+        conditions = initial_conditions(runtime.config)
+    if energization is None:
+        energization = energize(runtime.topology, conditions.open_breakers)
+
+    def breaker_of(breaker: str) -> status.BreakerState:
+        return status.breaker_state(breaker not in conditions.open_breakers)
+
+    def fault_cause(asset_id: str) -> FaultCause | None:
+        return conditions.faults.get(asset_id)
 
     def bus(name: str) -> BusResult:
         return network.buses[name] if network is not None else NO_VOLTAGE
@@ -216,6 +312,8 @@ def build_snapshot(
             terminal.vm_pu,
             transformer_loading(asset_id),
         )
+        if fault_cause(asset_id) is FaultCause.OVER_TEMPERATURE:
+            bess_alarms |= status.BessAlarm.OVER_TEMPERATURE
         bess.append(
             BessMeasurement(
                 id=asset_id,
@@ -240,6 +338,8 @@ def build_snapshot(
                 operating_state_name=operating_state.name,
                 alarm_flags=int(bess_alarms),
                 alarm_flag_names=_flag_names(bess_alarms),
+                breaker_state=int(breaker_of(asset_id)),
+                breaker_state_name=breaker_of(asset_id).name,
             )
         )
 
@@ -248,6 +348,11 @@ def build_snapshot(
         terminal = bus(lv_bus(asset_id))
         inverter_state = status.pv_inverter_state(output)
         pv_alarms = status.pv_alarms(terminal.vm_pu, transformer_loading(asset_id))
+        cause = fault_cause(asset_id)
+        if cause is FaultCause.GROUND_FAULT:
+            pv_alarms |= status.PvAlarm.GROUND_FAULT
+        elif cause is FaultCause.DC_OVERVOLTAGE:
+            pv_alarms |= status.PvAlarm.DC_OVERVOLTAGE
         pv.append(
             PvMeasurement(
                 id=asset_id,
@@ -269,6 +374,8 @@ def build_snapshot(
                 inverter_state_name=inverter_state.name,
                 alarm_flags=int(pv_alarms),
                 alarm_flag_names=_flag_names(pv_alarms),
+                breaker_state=int(breaker_of(asset_id)),
+                breaker_state_name=breaker_of(asset_id).name,
             )
         )
 
@@ -279,7 +386,9 @@ def build_snapshot(
             for spec in runtime.topology.injections
             if spec.name == load_injection(asset_id)
         )
-        load_v_pu = bus(injection_bus).vm_pu
+        # Its own breaker (a load without a transformer) cuts it off from a live bus.
+        live = energization.injection_live(load_injection(asset_id))
+        load_v_pu = bus(injection_bus).vm_pu if live else 0.0
         supply_state = status.load_supply_state(load_v_pu)
         load_alarms = status.load_alarms(load_v_pu)
         loads.append(
@@ -294,6 +403,32 @@ def build_snapshot(
                 supply_state_name=supply_state.name,
                 alarm_flags=int(load_alarms),
                 alarm_flag_names=_flag_names(load_alarms),
+                breaker_state=int(breaker_of(asset_id)),
+                breaker_state_name=breaker_of(asset_id).name,
+            )
+        )
+
+    meters: list[MeterMeasurement] = []
+    for meter_config in runtime.config.meters:
+        name = transformer_name(meter_config.transformer)
+        hv_bus = bus(
+            next(spec.hv_bus for spec in runtime.topology.transformers if spec.name == name)
+        )
+        flow = network.transformers[name] if network is not None else NO_FLOW
+        feeder_state = status.meter_state(converged=network is not None)
+        meters.append(
+            MeterMeasurement(
+                id=meter_config.id,
+                transformer=meter_config.transformer,
+                p_kw=flow.p_hv_kw,
+                q_kvar=flow.q_hv_kvar,
+                s_kva=apparent_power(flow.p_hv_kw, flow.q_hv_kvar),
+                pf=power_factor(flow.p_hv_kw, flow.q_hv_kvar),
+                v_kv=hv_bus.v_kv,
+                v_pu=hv_bus.vm_pu,
+                i_a=flow.i_hv_a,
+                meter_state=int(feeder_state),
+                meter_state_name=feeder_state.name,
             )
         )
 
@@ -318,6 +453,14 @@ def build_snapshot(
         meter_state_name=meter.name,
         alarm_flags=int(meter_alarms),
         alarm_flag_names=_flag_names(meter_alarms),
+        hz=grid_frequency_hz(
+            sim_time,
+            runtime.config.simulation.seed,
+            conditions.grid_hz,
+            energized=network is not None and energization.bus_live(POI_BUS_ID),
+        ),
+        breaker_state=int(breaker_of(POI_BUS_ID)),
+        breaker_state_name=breaker_of(POI_BUS_ID).name,
     )
     buses = [
         BusMeasurement(
@@ -354,19 +497,32 @@ def build_snapshot(
         bess=bess,
         pv=pv,
         loads=loads,
+        meters=meters,
+        conditions=summary(conditions, runtime.config),
     )
 
 
 def _repeat_last_good(
-    runtime: SiteRuntime, state: SimulationState, step_index: int, sim_time: datetime
+    runtime: SiteRuntime,
+    state: SimulationState,
+    conditions: Conditions,
+    step_index: int,
+    sim_time: datetime,
 ) -> Snapshot:
     if state.last_good is not None:
         stale = status.MeterState.STALE
-        poi = state.last_good.poi.model_copy(
-            update={"meter_state": int(stale), "meter_state_name": stale.name}
-        )
+        stale_fields = {"meter_state": int(stale), "meter_state_name": stale.name}
+        poi = state.last_good.poi.model_copy(update=stale_fields)
+        meters = [meter.model_copy(update=stale_fields) for meter in state.last_good.meters]
         return state.last_good.model_copy(
-            update={"step_id": step_index, "sim_time": sim_time, "converged": False, "poi": poi}
+            update={
+                "step_id": step_index,
+                "sim_time": sim_time,
+                "converged": False,
+                "poi": poi,
+                "meters": meters,
+                "conditions": summary(conditions, runtime.config),
+            }
         )
     # Never converged: report the idle asset state with no network values.
     idle = AssetOutputs(
@@ -391,4 +547,51 @@ def _repeat_last_good(
         loads={asset_id: LoadOutput(0.0, 0.0) for asset_id in runtime.loads},
     )
     step_s = runtime.config.simulation.step_s
-    return build_snapshot(runtime, state.bess, idle, None, step_index, sim_time, step_s)
+    return build_snapshot(runtime, state.bess, idle, None, step_index, sim_time, step_s, conditions)
+
+
+def publish_view(snapshot: Snapshot, previous: Snapshot | None, conditions: Conditions) -> Snapshot:
+    """What the devices report: a comm-lost device repeats what it last published (its live
+    values if nothing was published yet) with its COMM_LOSS bit set; a comm-lost meter reads
+    STALE. Everything else, and `conditions` (the true state), is the snapshot's."""
+    if not conditions.comm_loss:
+        return snapshot
+    stale = status.MeterState.STALE
+    stale_fields = {"meter_state": int(stale), "meter_state_name": stale.name}
+
+    def frozen(
+        live: AssetMeasurement, earlier: list[AssetMeasurement], comm_bit: IntFlag
+    ) -> AssetMeasurement:
+        if not conditions.comm_lost(CommTarget.ASSET, live.id):
+            return live
+        held = next((item for item in earlier if item.id == live.id), live)
+        flags = type(comm_bit)(held.alarm_flags) | comm_bit
+        return held.model_copy(
+            update={"alarm_flags": int(flags), "alarm_flag_names": _flag_names(flags)}
+        )
+
+    earlier = previous if previous is not None else snapshot
+    meters = [
+        next((item for item in earlier.meters if item.id == meter.id), meter).model_copy(
+            update=stale_fields
+        )
+        if conditions.comm_lost(CommTarget.METER, meter.id)
+        else meter
+        for meter in snapshot.meters
+    ]
+    poi = snapshot.poi
+    if conditions.comm_lost(CommTarget.POI_METER):
+        poi = earlier.poi.model_copy(update=stale_fields)
+    return snapshot.model_copy(
+        update={
+            "bess": [
+                frozen(item, earlier.bess, status.BessAlarm.COMM_LOSS) for item in snapshot.bess
+            ],
+            "pv": [frozen(item, earlier.pv, status.PvAlarm.COMM_LOSS) for item in snapshot.pv],
+            "loads": [
+                frozen(item, earlier.loads, status.LoadAlarm.COMM_LOSS) for item in snapshot.loads
+            ],
+            "meters": meters,
+            "poi": poi,
+        }
+    )

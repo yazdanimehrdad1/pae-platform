@@ -7,6 +7,7 @@ import {
   PlayCircle,
   FileText,
   Bot,
+  Cpu,
   Users,
   Settings,
   Search,
@@ -15,6 +16,8 @@ import {
   LogOut,
   StickyNote,
   Radio,
+  ExternalLink,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/shared/contexts/auth";
 import { cn } from "@/lib/utils";
@@ -22,7 +25,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/shared/components/mode-toggle";
 
-const navigationItems = [
+interface NavigationItem {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  path: string;
+  roles: string[];
+  newTabOption?: boolean; // also offers a button that opens it in a new browser tab
+}
+
+const navigationItems: NavigationItem[] = [
   {
     id: 'sites',
     title: 'Sites',
@@ -71,6 +83,14 @@ const navigationItems = [
     icon: Bot,
     path: '/task-builder',
     roles: ['engineer']
+  },
+  {
+    id: 'simulation',
+    title: 'Simulation',
+    icon: Cpu,
+    path: '/simulation',
+    roles: ['engineer', 'admin'],
+    newTabOption: true,
   },
   {
     id: 'users',
@@ -158,7 +178,7 @@ export function AppSidebar() {
           const Icon = item.icon;
           const active = isActive(item.path);
 
-          return (
+          const link = (
             <NavLink
               key={item.id}
               to={item.path}
@@ -173,6 +193,27 @@ export function AppSidebar() {
               <Icon className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
               {!isCollapsed && <span>{item.title}</span>}
             </NavLink>
+          );
+          if (!item.newTabOption || isCollapsed) return link;
+          // The item opens in this tab; the icon next to it opens it in a new one.
+          return (
+            <div key={item.id} className="relative">
+              {link}
+              <a
+                href={item.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${item.title} in a new tab`}
+                title={`Open ${item.title} in a new tab`}
+                className={cn(
+                  "absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 opacity-60 hover:opacity-100",
+                  "hover:bg-sidebar-accent",
+                  active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground"
+                )}
+              >
+                <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              </a>
+            </div>
           );
         })}
       </nav>

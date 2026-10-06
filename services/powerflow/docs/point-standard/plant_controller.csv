@@ -1,0 +1,43 @@
+point,label,qty,tier,kind,access,unit,data_type,scale,sign,enum_ref,enum_detail,bitfield_detail,source,source_ref,description,mock_modbus,powerflow,powerflow_server
+SiteW,Site Active Power,p_site,M,measurement,R,W,int16,1000,ref,,,,PAE,PAE,Active power at the POI as the PPC sees it; + export,device_3.poi_active_power_total (kW),poi.p_kw (kW),yes
+SiteVar,Site Reactive Power,q_site,M,measurement,R,var,int16,1000,ref,,,,PAE,PAE,Reactive power at the POI; + export,device_3.poi_reactive_power_total (kvar),poi.q_kvar (kvar),yes
+SiteVA,Site Apparent Power,s_site,R,measurement,R,VA,int16,1000,,,,,PAE,PAE,Apparent power at the POI,device_3.poi_apparent_power_total (kVA),poi.s_kva (kVA),yes
+SitePF,Site Power Factor,pf_site,M,measurement,R,,int16,0.001,pf,,,,PAE,PAE,Power factor at the POI,device_3.poi_power_factor,poi.pf,yes
+SiteHz,Site Frequency,freq_site,M,measurement,R,Hz,uint16,0.01,,,,,PAE,PAE,Frequency at the POI,device_3.poi_frequency,,calc
+SiteV,Site Voltage,v_site,M,measurement,R,V,uint16,1,,,,,PAE,PAE,Average line-to-line voltage at the POI,device_3.poi_voltage_avg_ll,poi.v_kv (kV),yes
+SiteVPu,Site Voltage pu,v_site_pu,O,measurement,R,pu,uint16,0.001,,,,,PAE,PAE,POI voltage in per unit,,poi.v_pu,yes
+WLoss,Site Losses,p_loss,O,measurement,R,W,int16,1000,,,,,PAE,PAE,Transformer and collector losses (generation minus POI),,poi.p_loss_total_kw (kW),yes
+PvW,PV Fleet Active Power,p_pv,R,measurement,R,W,int16,1000,gen,,,,PAE,PAE,Sum of PV inverter W,device_3.total_ac_active_power (kW),,calc
+PvVar,PV Fleet Reactive Power,q_pv,O,measurement,R,var,int16,1000,gen,,,,PAE,PAE,Sum of PV inverter Var,device_3.total_ac_reactive_power (kvar),,calc
+PvDCW,PV Fleet DC Power,p_pv_dc,O,measurement,R,W,int16,1000,,,,,PAE,PAE,Sum of PV inverter DCW,device_3.total_dc_input_power (kW),,no
+PvWAvail,PV Fleet Available Power,p_pv_avail,R,measurement,R,W,uint16,1000,,,,,PAE,PAE,Sum of PV inverter WAvail,,,calc
+PvWhDay,PV Fleet Daily Energy,e_pv_day,O,counter,R,Wh,uint16,1000,,,,,PAE,PAE,PV energy since local midnight,device_3.total_daily_energy (kWh),,calc
+PvTotWh,PV Fleet Lifetime Energy,e_pv,O,counter,R,Wh,uint32,1000,,,,,PAE,PAE,PV lifetime energy,device_3.total_lifetime_energy (MWh),,calc
+PvEff,PV Fleet Efficiency,eff_pv,O,measurement,R,%,uint16,0.01,,,,,PAE,PAE,Average inverter efficiency (PvW / PvDCW),device_3.avg_inverter_efficiency,,no
+BessW,BESS Fleet Active Power,p_bess,R,measurement,R,W,int16,1000,gen,,,,PAE,PAE,Sum of BESS W; + discharging,,,calc
+BessVar,BESS Fleet Reactive Power,q_bess,O,measurement,R,var,int16,1000,gen,,,,PAE,PAE,Sum of BESS Var,,,calc
+BessSoC,BESS Fleet SoC,soc_fleet,R,measurement,R,%,uint16,0.1,,,,,PAE,PAE,Energy-weighted average SoC of connected BESS,,,calc
+BessWAvailDisCha,BESS Fleet Available Discharge,p_bess_avail_dis,R,measurement,R,W,uint16,1000,,,,,PAE,PAE,Sum of BESS WAvailDisCha,,,calc
+BessWAvailCha,BESS Fleet Available Charge,p_bess_avail_cha,R,measurement,R,W,uint16,1000,,,,,PAE,PAE,Sum of BESS WAvailCha,,,calc
+BessWHAvailDisCha,BESS Fleet Available Energy,e_bess_avail_dis,O,measurement,R,Wh,uint16,1000,,,,,PAE,PAE,Sum of BESS WHAvailDisCha,,,calc
+NInvAvail,Inverters Available,n_inv_avail,R,status,R,,uint16,1,,,,,PAE,PAE,Inverters able to run,device_3.available_inverter_count,,calc
+NInvRun,Inverters Running,n_inv_run,R,status,R,,uint16,1,,,,,PAE,PAE,Inverters producing,device_3.running_inverter_count,,calc
+NInvStby,Inverters Standby,n_inv_stby,O,status,R,,uint16,1,,,,,PAE,PAE,Inverters in standby/sleeping,device_3.standby_inverter_count,,calc
+NInvFlt,Inverters Faulted,n_inv_flt,R,status,R,,uint16,1,,,,,PAE,PAE,Inverters in fault,device_3.faulted_inverter_count,,calc
+NInvDrt,Inverters Derated,n_inv_drt,O,status,R,,uint16,1,,,,,PAE,PAE,Inverters throttled/derated,device_3.derated_inverter_count,,calc
+PMode,Active Power Mode,p_mode,M,status,RW,,enum16,1,,pae.PMode,"{""0"":""OFF"",""1"":""W_SET"",""2"":""EXPORT_LIMIT"",""3"":""SCHEDULE"",""4"":""FREQ_RESPONSE""}",,PAE,PAE,Active power control mode,,,no
+QMode,Reactive Power Mode,q_mode,M,status,RW,,enum16,1,,pae.QMode,"{""0"":""OFF"",""1"":""VAR_SET"",""2"":""PF_SET"",""3"":""VOLT_VAR"",""4"":""V_SET""}",,PAE,PAE,Reactive power control mode,,,no
+GridMode,Grid Mode,grid_mode,R,status,R,,enum16,1,,pae.GridMode,"{""0"":""GRID_TIED"",""1"":""ISLANDED"",""2"":""TRANSITIONING"",""3"":""BLACKOUT""}",,PAE,PAE,Grid-tied / islanded,device_2.grid_interaction_mode (partial),,calc
+LocRemCtl,Control Mode,loc_rem,R,status,R,,enum16,1,,802.LocRemCtl,"{""0"":""REMOTE"",""1"":""LOCAL""}",,PAE,PAE,Remote setpoints accepted only in REMOTE,,,no
+RemEna,Remote Control Enable,rem_ena,R,setpoint,RW,,enum16,1,,704.Ena,"{""0"":""DISABLED"",""1"":""ENABLED""}",,PAE,PAE,Master enable for EMS/SCADA setpoints,,,no
+WSet,Site Active Power Setpoint,p_set_site,M,setpoint,RW,W,int16,1000,ref,,,,PAE,PAE,Active power target at the POI (PMode W_SET); + export,,,no
+VarSet,Site Reactive Power Setpoint,q_set_site,M,setpoint,RW,var,int16,1000,ref,,,,PAE,PAE,Reactive power target at the POI (QMode VAR_SET),,,no
+PFSet,Site PF Setpoint,pf_set_site,R,setpoint,RW,,int16,0.001,pf,,,,PAE,PAE,Signed PF target at the POI (QMode PF_SET),,,no
+VSet,Site Voltage Setpoint,v_set_site,O,setpoint,RW,V,uint16,1,,,,,PAE,PAE,POI voltage target (QMode V_SET),,,no
+ExpLimW,Export Limit,p_exp_lim,R,setpoint,RW,W,uint16,1000,,,,,PAE,PAE,Max export at the POI,,,no
+ImpLimW,Import Limit,p_imp_lim,O,setpoint,RW,W,uint16,1000,,,,,PAE,PAE,Max import at the POI (magnitude),,,no
+WRmpRte,Ramp Rate,ramp_rate,R,setpoint,RW,%/min,uint16,0.1,,,,,PAE,PAE,Max active power ramp as % of site rating per minute,,,no
+HzWEna,Frequency Response Enable,fw_ena,O,setpoint,RW,,enum16,1,,704.Ena,"{""0"":""DISABLED"",""1"":""ENABLED""}",,PAE,PAE (cf. SunSpec 711),Enables frequency-watt droop,,,no
+HzWDb,Frequency Deadband,fw_db,O,setpoint,RW,Hz,uint16,0.01,,,,,PAE,PAE (cf. SunSpec 711),Frequency response deadband,,,no
+HzWDroop,Frequency Droop,fw_droop,O,setpoint,RW,%,uint16,0.1,,,,,PAE,PAE (cf. SunSpec 711),Frequency response droop,,,no
+Alrm,Plant Controller Alarms,ppc_alarm,M,alarm,R,,bitfield16,1,,pae.PpcAlrm,,"{""0"":""DEVICE_COMM_LOSS"",""1"":""SCADA_COMM_LOSS"",""2"":""POI_METER_FAIL"",""3"":""SETPOINT_REJECTED"",""4"":""EXPORT_LIMIT_ACTIVE"",""5"":""CTRL_DISABLED""}",PAE,PAE,PPC alarm word,device_3.alarm_summary_flags (unlabelled),,calc

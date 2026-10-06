@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Save, Undo2 } from "lucide-react";
+import { ListTree, Save, Undo2 } from "lucide-react";
 import { cellKey, type GridColumn, type GridRow } from "@/shared/components/spreadsheet/grid";
 import { SpreadsheetGrid } from "@/shared/components/spreadsheet/SpreadsheetGrid";
 import type {
   DevicePoint, DevicePointClass, DevicePointCreateRequest, DevicePointDataType, DevicePointSeverity,
   DevicePointUpdateRequest,
 } from "@/api/types/devicePoints";
+import { PointLabelsDialog } from "./PointLabelsDialog";
+import { formatLabels, labelFields, labelKind, parseLabels } from "./lib/pointLabels";
 
 type ColumnKey =
   | "name" | "category" | "poll_kind" | "address" | "size" | "data_type"
-  | "unit" | "scale_factor" | "byte_order" | "word_order" | "class" | "severity";
+  | "unit" | "scale_factor" | "byte_order" | "word_order" | "class" | "severity" | "labels";
 
 // VIRTUAL points are created with their own dialog (features/devices/virtual), not as grid rows.
 const CATEGORY = ["NATIVE", "STANDARDIZED"];
@@ -44,6 +46,8 @@ const COLUMNS: GridColumn<ColumnKey>[] = [
   { key: "word_order", label: "Word Order", kind: "enum", options: WORD_ORDER, minWidth: "min-w-[110px]" },
   { key: "class", label: "Class", kind: "enum", options: POINT_CLASS, optional: true, minWidth: "min-w-[100px]" },
   { key: "severity", label: "Severity", kind: "enum", options: SEVERITY, optional: true, minWidth: "min-w-[100px]" },
+  // enum16/32: code=label; bitfield16/32: bit=label ("0=OFF; 3=RUNNING"). The button opens a table editor.
+  { key: "labels", label: "Enum / Bit Labels", kind: "text", minWidth: "min-w-[260px]" },
 ];
 
 type RowValues = Record<ColumnKey, string>;
@@ -52,7 +56,7 @@ type PointRow = GridRow<ColumnKey>;
 const EMPTY_VALUES: RowValues = {
   name: "", category: "NATIVE", poll_kind: "holding", address: "", size: "1",
   data_type: "int16", unit: "", scale_factor: "1", byte_order: "big",
-  word_order: "msw_first", class: "", severity: "",
+  word_order: "msw_first", class: "", severity: "", labels: "",
 };
 
 const pointRowKey = (id: number) => `point-${id}`;
@@ -71,6 +75,7 @@ function pointToValues(point: DevicePoint): RowValues {
     word_order: point.word_order || "msw_first",
     class: point.class ?? "",
     severity: point.severity ?? "",
+    labels: formatLabels(labelKind(point.data_type ?? "") === "bitfield" ? point.bitfield_detail : point.enum_detail),
   };
 }
 
@@ -99,6 +104,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
   const [rows, setRows] = useState<PointRow[]>(baseline);
   const [errorCells, setErrorCells] = useState<Set<string>>(new Set());
   const [resetToken, setResetToken] = useState(0);
+  const [labelsFor, setLabelsFor] = useState<string | null>(null); // row key whose labels dialog is open
   const lastSignature = useRef(signature);
   useEffect(() => {
     if (lastSignature.current !== signature) {
@@ -163,6 +169,8 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
       if (!WORD_ORDER.includes(values.word_order)) addError("word_order");
       if (values.class !== "" && !(POINT_CLASS as string[]).includes(values.class)) addError("class");
       if (values.severity !== "" && !(SEVERITY as string[]).includes(values.severity)) addError("severity");
+      const labels = parseLabels(values.labels, values.data_type);
+      if (labels.error !== null) addError("labels");
       if (rowHasError) return;
 
       const payload: DevicePointUpdateRequest = {
@@ -177,6 +185,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
         scale_factor: values.scale_factor.trim() !== "" ? Number(values.scale_factor) : null,
         class: values.class !== "" ? (values.class as DevicePointClass) : null,
         severity: values.severity !== "" ? (values.severity as DevicePointSeverity) : null,
+        ...labelFields(labels.labels, values.data_type),
       };
 
       const point = pointByKey.get(row.key);
@@ -199,9 +208,28 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
     await onSave(changes);
   };
 
+  const labelsRow = labelsFor !== null ? rows.find(row => row.key === labelsFor) : undefined;
+  const setLabels = (rowKey: string, value: string) =>
+    setRows(previous => previous.map(row => (row.key === rowKey ? { ...row, values: { ...row.values, labels: value } } : row)));
+
   return (
     <div className="space-y-3">
       <SpreadsheetGrid
+        cellAction={(row, _rowIndex, column) =>
+          column.key === "labels" && !disabled && labelKind(row.values.data_type) !== null ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              title="Edit labels"
+              aria-label={`Edit labels of ${row.values.name || "new point"}`}
+              onClick={() => setLabelsFor(row.key)}
+            >
+              <ListTree className="w-3.5 h-3.5" />
+            </Button>
+          ) : null
+        }
         columns={COLUMNS}
         rows={rows}
         onRowsChange={setRows}
@@ -231,8 +259,18 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
 
       {errorCells.size > 0 && (
         <p className="text-xs text-destructive">
-          {errorCells.size} invalid cell{errorCells.size > 1 ? "s" : ""} highlighted. Fix them before saving (Name &amp; Data Type required, Size ≥ 1, Address 0–65535).
+          {errorCells.size} invalid cell{errorCells.size > 1 ? "s" : ""} highlighted. Fix them before saving (Name &amp; Data Type required, Size ≥ 1, Address 0–65535; labels as code=label pairs, only on enum and bitfield types).
         </p>
+      )}
+
+      {labelsRow && (
+        <PointLabelsDialog
+          pointName={labelsRow.values.name}
+          dataType={labelsRow.values.data_type}
+          text={labelsRow.values.labels}
+          onApply={(value) => setLabels(labelsRow.key, value)}
+          onClose={() => setLabelsFor(null)}
+        />
       )}
     </div>
   );

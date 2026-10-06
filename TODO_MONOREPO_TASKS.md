@@ -26,6 +26,9 @@ backlog. Remove an item when it's done; the commit that closes it records the de
 - **Deploy cutover** (deferred 2026-09-23). Point ArgoCD `repoURL`/`path` at this repo and the
   service directories, move the CD image-tag bump here, and introduce per-service release tags.
   Deployment files stay out of scope until this is picked up (root CLAUDE.md).
+  web-plusdas's nginx now proxies `/powerflow-api` to `POWERFLOW_UPSTREAM`, resolved at start: a
+  deployment without powerflow must set a resolvable upstream (or make it optional with a
+  `resolver` + variable upstream), or nginx won't start.
 
 ## Hardening
 
@@ -33,6 +36,20 @@ backlog. Remove an item when it's done; the commit that closes it records the de
   names), make mypy blocking or switch to pyright, and move black → `ruff format`.
 - **mock-modbus:** add a type checker (`make typecheck` is a placeholder today).
 - **web-plusdas:** run nginx as non-root (e.g. `nginxinc/nginx-unprivileged` listening on 8080).
+
+## Point standard alignment
+
+`services/powerflow/docs/point-standard/` (draft) defines standard Modbus point names, units,
+signs and enums per asset class. powerflow's Modbus server serves it (the `powerflow_server`
+column says which points); its HTTP point lists don't follow it yet. Align one service at a time,
+provider first, with its contract regenerated (the gap table is in that folder's README.md):
+- **powerflow:** make Modbus writable (setpoints over the protocol, through `PointRegistry.write`).
+  Breakers, faults, comm loss and grid V/Hz events are injectable (Scenarios tab); frequency is
+  still nominal plus a wander, not a dynamic model.
+- **mock-modbus:** sign BESS power and current, add meter/relay/genset/met devices, and declare
+  data_type and access in the contract.
+- **backend-ot:** replace the placeholder STANDARDIZED templates with the tier-M points (lookup by
+  `qty`), and map SLD roles to `qty`.
 
 ## Next service
 

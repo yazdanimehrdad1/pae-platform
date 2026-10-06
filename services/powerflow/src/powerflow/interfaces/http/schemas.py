@@ -12,8 +12,9 @@ from powerflow.core.snapshot import (
     PoiMeasurement,
     PvMeasurement,
 )
+from powerflow.point_standard import DeviceKind, ServerSupport
 from powerflow.points import PointDef
-from powerflow.site_config import BessConfig, LoadConfig, PvConfig
+from powerflow.site_config import BessConfig, LoadConfig, MeterConfig, PvConfig
 
 # The shape FastAPI's `responses=` takes (extra OpenAPI responses per status code).
 OpenApiResponses = dict[int | str, dict[str, object]]
@@ -22,6 +23,10 @@ OpenApiResponses = dict[int | str, dict[str, object]]
 class HealthResponse(BaseModel):
     ok: bool
     state: RunState
+    interfaces: list[str] = Field(description="Protocol interfaces running now (http, modbus).")
+    interface_errors: dict[str, str] = Field(
+        description="Interfaces the active site enables that failed to start, with the reason."
+    )
 
 
 class VersionResponse(BaseModel):
@@ -41,6 +46,7 @@ class AssetsResponse(BaseModel):
     bess: list[BessConfig]
     pv: list[PvConfig]
     loads: list[LoadConfig]
+    meters: list[MeterConfig]
 
 
 class BessAssetResponse(BaseModel):
@@ -88,3 +94,30 @@ class HistoryResponse(BaseModel):
     rows: list[dict[str, HistoryValue]] = Field(
         description="One row per snapshot: sim_time, step_id and the requested fields."
     )
+
+
+class ModbusRegister(BaseModel):
+    address: int = Field(description="Zero-based register address (holding and input alike).")
+    point: str = Field(description="Point name from the PAE point standard.")
+    data_type: str
+    scale: float = Field(description="Engineering value = raw × scale.")
+    unit: str
+    powerflow_server: ServerSupport
+
+
+class ModbusDevice(BaseModel):
+    kind: DeviceKind
+    asset_id: str
+    base: int
+    registers: list[ModbusRegister]
+
+
+class ModbusRegistersResponse(BaseModel):
+    """The Modbus server's register layout for the active site."""
+
+    enabled: bool = Field(description="Whether the active site enables interfaces.modbus.")
+    running: bool = Field(description="Whether the Modbus server is actually serving now.")
+    error: str | None = Field(description="Why it failed to start, if it did.")
+    port: int = Field(description="The port the server listens on (inside the container).")
+    unit_id: int
+    devices: list[ModbusDevice]

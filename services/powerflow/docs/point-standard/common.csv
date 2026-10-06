@@ -1,0 +1,19 @@
+point,label,qty,tier,kind,access,unit,data_type,scale,sign,enum_ref,enum_detail,bitfield_detail,source,source_ref,description,mock_modbus,powerflow,powerflow_server
+Mn,Manufacturer,mfr,R,nameplate,R,,string32,,,,,,SunSpec,SunSpec 1 Mn,Manufacturer name; every device,,,no
+Md,Model,model,R,nameplate,R,,string32,,,,,,SunSpec,SunSpec 1 Md,Device model; every device,,,no
+Opt,Options,options,O,nameplate,R,,string16,,,,,,SunSpec,SunSpec 1 Opt,Options/variant; every device,,,no
+Vr,Version,fw_version,R,nameplate,R,,string16,,,,,,SunSpec,SunSpec 1 Vr,Firmware version; every device,,,no
+SN,Serial Number,serial,R,nameplate,R,,string32,,,,,,SunSpec,SunSpec 1 SN,Serial number; every device,,,no
+DA,Device Address,unit_id,O,nameplate,RW,,uint16,1,,,,,SunSpec,SunSpec 1 DA,Modbus unit id the device answers to,,,no
+Hb,Device Heartbeat,heartbeat,R,status,R,,uint16,1,,,,,SunSpec,SunSpec 802 Hb,Counter the device increments every cycle; a frozen value means the device application is hung even if Modbus answers,,,calc
+CtrlHb,Controller Heartbeat,ctrl_heartbeat,R,setpoint,RW,,uint16,1,,,,,SunSpec,SunSpec 802 CtrlHb,Counter the EMS/PPC writes every cycle; a controllable device falls back to its reversion values when it stops changing,,,no
+ACType,AC Wiring Type,ac_type,R,nameplate,R,,enum16,1,,701.ACType,"{""0"":""SINGLE_PHASE"",""1"":""SPLIT_PHASE"",""2"":""THREE_PHASE""}",,SunSpec,SunSpec 701 ACType,AC wiring of the device; DER and meters,,,calc
+WMaxRtg,Max Active Power Rating,p_rated,M,nameplate,R,W,uint16,1000,,,,,SunSpec,SunSpec 702 WMaxRtg,Nameplate max active power at unity PF; every DER (BESS/PV/genset),,bess.p_rated_discharge_kw / pv.p_max_kw (kW),yes
+VAMaxRtg,Max Apparent Power Rating,s_rated,M,nameplate,R,VA,uint16,1000,,,,,SunSpec,SunSpec 702 VAMaxRtg,Nameplate apparent power; every DER,,bess.s_rated_kva / pv.s_rated_kva (kVA),yes
+VarMaxInjRtg,Max Injected var Rating,q_rated_inj,R,nameplate,R,var,uint16,1000,,,,,SunSpec,SunSpec 702 VarMaxInjRtg,Nameplate max reactive power injected (over-excited),,,no
+VarMaxAbsRtg,Max Absorbed var Rating,q_rated_abs,R,nameplate,R,var,uint16,1000,,,,,SunSpec,SunSpec 702 VarMaxAbsRtg,Nameplate max reactive power absorbed (under-excited; magnitude),,,no
+VNomRtg,Nominal AC Voltage Rating,v_nom,R,nameplate,R,V,uint16,0.1,,,,,SunSpec,SunSpec 702 VNomRtg,Nominal line-to-line AC voltage at the device terminals,,,calc
+VMaxRtg,Max AC Voltage Rating,v_max,O,nameplate,R,V,uint16,0.1,,,,,SunSpec,SunSpec 702 VMaxRtg,Max continuous AC voltage,,,no
+VMinRtg,Min AC Voltage Rating,v_min,O,nameplate,R,V,uint16,0.1,,,,,SunSpec,SunSpec 702 VMinRtg,Min continuous AC voltage,,,no
+AMaxRtg,Max AC Current Rating,i_rated,R,nameplate,R,A,uint16,1,,,,,SunSpec,SunSpec 702 AMaxRtg,Nameplate max AC current,,,calc
+BrkPos,Connection Breaker Position,brk_pos,O,status,R,,enum16,1,,pae.Dbpos,"{""0"":""INTERMEDIATE"",""1"":""OPEN"",""2"":""CLOSED"",""3"":""BAD_STATE""}",,IEC61850,IEC 61850 XCBR.Pos,"Position of the device's connection breaker (site and POI meter: the POI breaker; feeder meter: its asset's). Last common row so no existing offset moves",,bess/pv/load.breaker_state; poi.meter.breaker_state,calc

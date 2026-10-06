@@ -4,7 +4,8 @@
 #   - service and volume names are prefixed `powerflow-` (unique once every service's compose
 #     file is included into one project);
 #   - no container_name and no external networks;
-#   - host ports are overridable: POWERFLOW_HTTP_PORT / POWERFLOW_POSTGRES_PORT;
+#   - host ports are overridable: POWERFLOW_HTTP_PORT / POWERFLOW_POSTGRES_PORT /
+#     POWERFLOW_MODBUS_PORT (1502 on the host: mock-modbus owns 502 in the dev stack);
 #   - container-network values (hostnames, internal ports) are set in `environment:`, which
 #     overrides anything the optional .env supplies for host-side runs.
 name: powerflow
@@ -33,18 +34,26 @@ services:
     build: .
     ports:
       - "${POWERFLOW_HTTP_PORT:-8020}:8000"
+      # Modbus TCP (when the active site enables interfaces.modbus).
+      - "${POWERFLOW_MODBUS_PORT:-1502}:502"
     # Service settings; optional. See .env.example.
     env_file:
       - path: .env
         required: false
     environment:
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
       - DATABASE_URL=postgresql+asyncpg://powerflow:${POWERFLOW_POSTGRES_PASSWORD:-powerflow}@powerflow-postgres:5432/powerflow
-    # Profile scenario CSVs (not in the database yet). Docker seeds the volume from the image's
-    # site_config/profiles on first use; `make down-all` deletes it (back to the shipped CSVs).
+      # Container values for settings a host-oriented .env could also set (it's loaded above):
+      # the Modbus server always listens on 502 inside (published as POWERFLOW_MODBUS_PORT),
+      # the CSV folders are the image's, and ACTIVE_SITE is never inherited.
+      - MODBUS_HOST=0.0.0.0
+      - MODBUS_PORT=502
+      - PROFILES_DIR=profiles
+      - POINT_STANDARD_DIR=docs/point-standard
+      - ACTIVE_SITE=
+    # Profile scenario CSVs. Docker seeds the volume from the image's profiles/ on first use;
+    # `make down-all` deletes it (back to the shipped CSVs).
     volumes:
-      - powerflow-profiles:/app/site_config/profiles
+      - powerflow-profiles:/app/profiles
     depends_on:
       powerflow-postgres:
         condition: service_healthy

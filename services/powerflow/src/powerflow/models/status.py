@@ -1,8 +1,8 @@
 """Device-style status words: a 16-bit state enum and a 16-bit alarm bitfield per asset type,
 derived each step from the simulated values. Pure Python.
 
-Bits marked "reserved" are never set by the simulator yet. They're placeholders for fault/event
-injection (asset trips, comm loss), so maps and EMS logic can already bind to them.
+Fault, cause and comm-loss bits come from injected conditions (powerflow.conditions: manual
+toggles and event scenarios), not from the physics.
 """
 
 from enum import IntEnum, IntFlag
@@ -34,8 +34,8 @@ class BessAlarm(IntFlag):
     UNDERVOLTAGE = 1 << 2
     OVERVOLTAGE = 1 << 3
     TRANSFORMER_OVERLOAD = 1 << 4
-    OVER_TEMPERATURE = 1 << 5  # reserved
-    COMM_LOSS = 1 << 6  # reserved
+    OVER_TEMPERATURE = 1 << 5  # an injected over_temperature fault
+    COMM_LOSS = 1 << 6  # injected comm loss: the published values are frozen
 
 
 class PvInverterState(IntEnum):
@@ -51,8 +51,9 @@ class PvAlarm(IntFlag):
     UNDERVOLTAGE = 1 << 0
     OVERVOLTAGE = 1 << 1
     TRANSFORMER_OVERLOAD = 1 << 2
-    GROUND_FAULT = 1 << 3  # reserved
-    DC_OVERVOLTAGE = 1 << 4  # reserved
+    GROUND_FAULT = 1 << 3  # an injected ground_fault fault
+    DC_OVERVOLTAGE = 1 << 4  # an injected dc_overvoltage fault
+    COMM_LOSS = 1 << 5  # injected comm loss: the published values are frozen
 
 
 class LoadSupplyState(IntEnum):
@@ -64,11 +65,18 @@ class LoadAlarm(IntFlag):
     NONE = 0
     UNDERVOLTAGE = 1 << 0
     OVERVOLTAGE = 1 << 1
+    # bit 2 is pae.LoadAlrm OVERLOAD (not simulated)
+    COMM_LOSS = 1 << 3  # injected comm loss: the published values are frozen
 
 
 class MeterState(IntEnum):
     OK = 0
-    STALE = 1  # the power flow didn't converge; values are the last good ones
+    STALE = 1  # the power flow didn't converge, or comm loss: values are the last good ones
+
+
+class BreakerState(IntEnum):
+    OPEN = 0
+    CLOSED = 1
 
 
 class MeterAlarm(IntFlag):
@@ -128,6 +136,8 @@ def bess_alarms(
 
 def pv_inverter_state(output: PvOutput) -> PvInverterState:
     match output.status:
+        case PvStatus.FAULT:
+            return PvInverterState.FAULT
         case PvStatus.OFFLINE:
             return PvInverterState.OFF
         case PvStatus.OFF:
@@ -153,8 +163,12 @@ def load_alarms(v_pu: float) -> LoadAlarm:
     return LoadAlarm(_voltage_bits(v_pu, LoadAlarm.UNDERVOLTAGE, LoadAlarm.OVERVOLTAGE))
 
 
-def meter_state(converged: bool) -> MeterState:
-    return MeterState.OK if converged else MeterState.STALE
+def meter_state(converged: bool, comm_lost: bool = False) -> MeterState:
+    return MeterState.OK if converged and not comm_lost else MeterState.STALE
+
+
+def breaker_state(closed: bool) -> BreakerState:
+    return BreakerState.CLOSED if closed else BreakerState.OPEN
 
 
 def meter_alarms(p_kw: float, v_pu: float, pf: float, s_kva: float) -> MeterAlarm:

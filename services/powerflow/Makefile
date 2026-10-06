@@ -23,10 +23,10 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration contract \
-	profiles modbus-maps postman build rebuild up down down-all restart logs ps clean run
+	profiles postman build rebuild up down down-all restart logs ps clean run
 
 # Standalone stack (powerflow + its Postgres). Host ports: POWERFLOW_HTTP_PORT (8020),
-# POWERFLOW_POSTGRES_PORT (5436).
+# POWERFLOW_POSTGRES_PORT (5436), POWERFLOW_MODBUS_PORT (1502).
 COMPOSE := docker compose -f compose.yaml
 
 # Integration-test stack: one isolated compose project per worktree, so parallel worktrees never
@@ -39,6 +39,8 @@ UV_RUN  := uv run --frozen
 # and the protocol-neutral point lists. `make test` fails while they are stale.
 CONTRACT_FILE := ../../contracts/openapi/powerflow.openapi.json
 POINTS_CONTRACT_FILE := ../../contracts/powerflow/points.json
+REGISTERS_CONTRACT_FILE := ../../contracts/modbus/powerflow.registers.json
+SITES_CONTRACT_FILE := ../../contracts/powerflow/sites.json
 
 help:
 	@echo "powerflow — make -C services/powerflow <target>"
@@ -51,9 +53,8 @@ help:
 	@echo "  test             unit tests (pytest, no Docker, in-memory config store)"
 	@echo "  test-integration integration tests on a throwaway Postgres (Docker)"
 	@echo "  run              run the API on the host (port 8020; needs Postgres on 5436)"
-	@echo "  contract         regenerate $(CONTRACT_FILE) and $(POINTS_CONTRACT_FILE)"
-	@echo "  profiles         regenerate the profile scenarios in site_config/profiles/"
-	@echo "  modbus-maps      regenerate the default Modbus map files (the DB is untouched)"
+	@echo "  contract         regenerate the OpenAPI, points and Modbus registers contracts"
+	@echo "  profiles         regenerate the profile scenarios in profiles/"
 	@echo "  postman          regenerate postman/powerflow.postman_collection.json"
 	@echo ""
 	@echo "Containers (docker compose):"
@@ -91,13 +92,12 @@ test-integration:
 # Run after any route/model change; `make test` fails while the contract is stale.
 contract:
 	$(UV_RUN) python scripts/export_openapi.py --output $(CONTRACT_FILE) \
-		--points-output $(POINTS_CONTRACT_FILE)
+		--points-output $(POINTS_CONTRACT_FILE) --registers-output $(REGISTERS_CONTRACT_FILE) \
+		--sites-output $(SITES_CONTRACT_FILE)
 
 profiles:
 	$(UV_RUN) python scripts/make_profiles.py
 
-modbus-maps:
-	$(UV_RUN) python scripts/make_modbus_maps.py
 
 # Run after any route change; `make test` fails while the collection is stale.
 postman:

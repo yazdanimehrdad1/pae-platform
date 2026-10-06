@@ -1,4 +1,5 @@
-"""ConfigRepository: where sites, their Modbus maps and the active site are stored.
+"""ConfigRepository: where sites and the active site are stored. The database is the only store:
+a fresh one gets the default sites from a data migration (migrations/0003_default_sites.sql).
 
 Production uses PostgresConfigRepository (storage/postgres.py). InMemoryConfigRepository has the
 same behaviour without a database, for unit tests; tests/integration runs the same contract
@@ -7,19 +8,33 @@ stores what it's given.
 """
 
 from abc import ABC, abstractmethod
+from enum import StrEnum
 
+from pydantic import BaseModel, Field
+
+from powerflow.conditions.scenario import EventScenario
 from powerflow.errors import NotFoundError
-from powerflow.points.modbus_map import ModbusMap
 from powerflow.site_config import SiteConfig
+from powerflow.storage.seed_data import default_active_site, default_sites
+
+
+class SiteCategory(StrEnum):
+    DEFAULT = "default"  # ships with powerflow (a data migration); can't be deleted
+    CUSTOM = "custom"  # created through the API
+
+
+class StoredSite(BaseModel):
+    name: str
+    category: SiteCategory = Field(
+        description="`default` sites ship with powerflow and can't be deleted (they can be "
+        "edited); every site created through the API is `custom`."
+    )
 
 
 class ConfigRepository(ABC):
     @abstractmethod
-    async def is_empty(self) -> bool:
-        """True when no site is stored (a fresh database, ready for the defaults)."""
-
-    @abstractmethod
-    async def list_sites(self) -> list[str]: ...
+    async def list_sites(self) -> list[StoredSite]:
+        """Sorted by name."""
 
     @abstractmethod
     async def get_site(self, name: str) -> SiteConfig:
@@ -27,11 +42,11 @@ class ConfigRepository(ABC):
 
     @abstractmethod
     async def put_site(self, name: str, config: SiteConfig) -> None:
-        """Create or replace."""
+        """Create (category custom) or replace (the category is kept)."""
 
     @abstractmethod
     async def delete_site(self, name: str) -> None:
-        """Delete a site and its Modbus maps. Raises NotFoundError."""
+        """Raises NotFoundError. Deleting the active site clears the active-site choice."""
 
     @abstractmethod
     async def get_active_site(self) -> str | None: ...
@@ -41,19 +56,19 @@ class ConfigRepository(ABC):
         """Raises NotFoundError if the site doesn't exist."""
 
     @abstractmethod
-    async def list_maps(self, site: str) -> list[str]:
-        """Asset names with a map. Raises NotFoundError if the site doesn't exist."""
+    async def list_event_scenarios(self, site: str) -> list[str]:
+        """Sorted names. Raises NotFoundError if the site doesn't exist."""
 
     @abstractmethod
-    async def get_map(self, site: str, asset: str) -> ModbusMap:
+    async def get_event_scenario(self, site: str, name: str) -> EventScenario:
         """Raises NotFoundError."""
 
     @abstractmethod
-    async def put_map(self, site: str, asset: str, modbus_map: ModbusMap) -> None:
+    async def put_event_scenario(self, site: str, name: str, scenario: EventScenario) -> None:
         """Create or replace. Raises NotFoundError if the site doesn't exist."""
 
     @abstractmethod
-    async def delete_map(self, site: str, asset: str) -> None:
+    async def delete_event_scenario(self, site: str, name: str) -> None:
         """Raises NotFoundError."""
 
     @abstractmethod
@@ -64,14 +79,23 @@ class ConfigRepository(ABC):
 class InMemoryConfigRepository(ConfigRepository):
     def __init__(self) -> None:
         self._sites: dict[str, SiteConfig] = {}
-        self._maps: dict[str, dict[str, ModbusMap]] = {}
+        self._categories: dict[str, SiteCategory] = {}
         self._active: str | None = None
+        self._event_scenarios: dict[tuple[str, str], EventScenario] = {}
 
-    async def is_empty(self) -> bool:
-        return not self._sites
+    @classmethod
+    def with_default_sites(cls) -> "InMemoryConfigRepository":
+        """Holding what a freshly migrated Postgres holds: the default sites and active site."""
+        repository = cls()
+        repository._sites = default_sites()
+        repository._categories = dict.fromkeys(repository._sites, SiteCategory.DEFAULT)
+        repository._active = default_active_site()
+        return repository
 
-    async def list_sites(self) -> list[str]:
-        return sorted(self._sites)
+    async def list_sites(self) -> list[StoredSite]:
+        return [
+            StoredSite(name=name, category=self._categories[name]) for name in sorted(self._sites)
+        ]
 
     async def get_site(self, name: str) -> SiteConfig:
         self._require_site(name)
@@ -79,12 +103,14 @@ class InMemoryConfigRepository(ConfigRepository):
 
     async def put_site(self, name: str, config: SiteConfig) -> None:
         self._sites[name] = config
-        self._maps.setdefault(name, {})
+        self._categories.setdefault(name, SiteCategory.CUSTOM)
 
     async def delete_site(self, name: str) -> None:
         self._require_site(name)
         del self._sites[name]
-        self._maps.pop(name, None)
+        del self._categories[name]
+        for key in [key for key in self._event_scenarios if key[0] == name]:
+            del self._event_scenarios[key]
         if self._active == name:
             self._active = None
 
@@ -95,23 +121,23 @@ class InMemoryConfigRepository(ConfigRepository):
         self._require_site(name)
         self._active = name
 
-    async def list_maps(self, site: str) -> list[str]:
+    async def list_event_scenarios(self, site: str) -> list[str]:
         self._require_site(site)
-        return sorted(self._maps[site])
+        return sorted(name for site_name, name in self._event_scenarios if site_name == site)
 
-    async def get_map(self, site: str, asset: str) -> ModbusMap:
+    async def get_event_scenario(self, site: str, name: str) -> EventScenario:
+        if (site, name) not in self._event_scenarios:
+            raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
+        return self._event_scenarios[(site, name)]
+
+    async def put_event_scenario(self, site: str, name: str, scenario: EventScenario) -> None:
         self._require_site(site)
-        if asset not in self._maps[site]:
-            raise NotFoundError(f"no Modbus map {asset!r} in site {site!r}")
-        return self._maps[site][asset]
+        self._event_scenarios[(site, name)] = scenario
 
-    async def put_map(self, site: str, asset: str, modbus_map: ModbusMap) -> None:
-        self._require_site(site)
-        self._maps[site][asset] = modbus_map
-
-    async def delete_map(self, site: str, asset: str) -> None:
-        await self.get_map(site, asset)
-        del self._maps[site][asset]
+    async def delete_event_scenario(self, site: str, name: str) -> None:
+        if (site, name) not in self._event_scenarios:
+            raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
+        del self._event_scenarios[(site, name)]
 
     async def close(self) -> None:
         """Nothing to release."""

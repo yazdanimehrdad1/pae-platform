@@ -31,7 +31,7 @@ SETPOINT_DESCRIPTION = (
 @router.get("/assets", response_model=AssetsResponse, summary="All assets, static parameters")
 async def list_assets(context: AdapterContext = Depends(get_context)) -> AssetsResponse:
     config = context.engine.config
-    return AssetsResponse(bess=config.bess, pv=config.pv, loads=config.loads)
+    return AssetsResponse(bess=config.bess, pv=config.pv, loads=config.loads, meters=config.meters)
 
 
 @router.get("/assets/bess/{asset_id}", response_model=BessAssetResponse, responses=NOT_FOUND)

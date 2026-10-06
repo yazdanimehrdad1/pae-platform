@@ -1,7 +1,8 @@
 """PowerFlowSolver on pandapower (Newton-Raphson). The only module that imports pandapower.
 
-The net is built once from the Topology; each solve only rewrites the sgen/load P and Q.
-BESS and PV are `sgen` (generator convention, so a charging BESS is a negative sgen).
+The net is built once from the Topology; each solve rewrites the sgen/load P and Q, the
+breakers (elements in or out of service) and the source voltage. BESS and PV are `sgen`
+(generator convention, so a charging BESS is a negative sgen).
 """
 
 import logging
@@ -13,15 +14,18 @@ from pandapower.auxiliary import pandapowerNet
 from pandapower.powerflow import LoadflowNotConverged
 
 from powerflow.errors import NonConvergenceError
+from powerflow.network.energization import Energization, energize, out_of_service
 from powerflow.network.solver import (
+    NORMAL_GRID,
     BusResult,
+    GridState,
     Injection,
     NetworkResult,
     PoiResult,
     PowerFlowSolver,
     TransformerResult,
 )
-from powerflow.network.topology import InjectionKind, PoiBranchKind, Topology
+from powerflow.network.topology import BreakerElement, InjectionKind, PoiBranchKind, Topology
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,7 @@ class PandapowerSolver(PowerFlowSolver):
         self._line_index: dict[str, int] = {}
         self._impedance_index: dict[str, int] = {}
         self._has_result = False
+        self._last_grid: GridState | None = None
         self._build()
 
     def _build(self) -> None:
@@ -122,8 +127,12 @@ class PandapowerSolver(PowerFlowSolver):
                     pp.create_load(net, bus, p_mw=0.0, q_mvar=0.0, name=injection.name)
                 )
 
-    def solve(self, injections: dict[str, Injection]) -> NetworkResult:
+    def solve(
+        self, injections: dict[str, Injection], grid: GridState = NORMAL_GRID
+    ) -> NetworkResult:
         net = self._net
+        self._apply_grid(grid)
+        energization = energize(self._topology, grid.open_breakers)
         for name, index in self._sgen_index.items():
             injection = injections.get(name, Injection(0.0, 0.0))
             net.sgen.at[index, "p_mw"] = injection.p_kw / KW_PER_MW
@@ -139,36 +148,59 @@ class PandapowerSolver(PowerFlowSolver):
                 pp.runpp(
                     net,
                     algorithm="nr",
-                    init="results" if self._has_result else "auto",
+                    # Warm-start only when the switching and source are as last solved.
+                    init="results" if self._has_result and grid == self._last_grid else "auto",
                     numba=False,
                 )
         except LoadflowNotConverged as error:
             self._has_result = False  # don't warm-start from a diverged state
             raise NonConvergenceError(str(error) or "power flow did not converge") from error
         self._has_result = True
-        return self._results()
+        self._last_grid = grid
+        return self._results(energization)
 
-    def _results(self) -> NetworkResult:
+    def _apply_grid(self, grid: GridState) -> None:
+        """Breakers → in_service flags; the source voltage → ext_grid."""
         net = self._net
-        buses = {
-            bus.name: BusResult(
-                vn_kv=bus.vn_kv,
-                vm_pu=float(net.res_bus.at[self._bus_index[bus.name], "vm_pu"]),
-                va_degree=float(net.res_bus.at[self._bus_index[bus.name], "va_degree"]),
-            )
-            for bus in self._topology.buses
+        dead = out_of_service(self._topology, grid.open_breakers)
+        tables = {
+            BreakerElement.TRANSFORMER: ("trafo", self._trafo_index),
+            BreakerElement.IMPEDANCE: ("impedance", self._impedance_index),
+            BreakerElement.LINE: ("line", self._line_index),
+            BreakerElement.INJECTION: ("load", self._load_index),
         }
+        for breaker in self._topology.breakers:
+            table, index = tables[breaker.element_kind]
+            in_service = breaker.element not in dead[breaker.element_kind]
+            net[table].at[index[breaker.element], "in_service"] = in_service
+        vm_pu = grid.slack_vm_pu if grid.slack_vm_pu is not None else self._topology.slack.vm_pu
+        net.ext_grid.at[0, "vm_pu"] = vm_pu
+
+    def _results(self, energization: Energization) -> NetworkResult:
+        net = self._net
+        buses: dict[str, BusResult] = {}
+        for bus in self._topology.buses:
+            index = self._bus_index[bus.name]
+            if not energization.bus_live(bus.name):
+                buses[bus.name] = BusResult(vn_kv=bus.vn_kv, vm_pu=0.0, va_degree=0.0)
+                continue
+            vm_pu = float(net.res_bus.at[index, "vm_pu"])
+            if not math.isfinite(vm_pu):
+                raise NonConvergenceError(f"power flow returned a non-finite voltage at {bus.name}")
+            va_degree = float(net.res_bus.at[index, "va_degree"])
+            buses[bus.name] = BusResult(vn_kv=bus.vn_kv, vm_pu=vm_pu, va_degree=va_degree)
         transformers: dict[str, TransformerResult] = {}
         for name, index in self._trafo_index.items():
             row = net.res_trafo.loc[index]
             transformers[name] = TransformerResult(
-                p_hv_kw=-float(row["p_hv_mw"]) * KW_PER_MW,
-                q_hv_kvar=-float(row["q_hv_mvar"]) * KW_PER_MW,
-                p_lv_kw=float(row["p_lv_mw"]) * KW_PER_MW,
-                q_lv_kvar=float(row["q_lv_mvar"]) * KW_PER_MW,
-                p_loss_kw=float(row["pl_mw"]) * KW_PER_MW,
-                q_loss_kvar=float(row["ql_mvar"]) * KW_PER_MW,
-                loading_pct=float(row["loading_percent"]),
+                p_hv_kw=-_finite(row["p_hv_mw"]) * KW_PER_MW,
+                q_hv_kvar=-_finite(row["q_hv_mvar"]) * KW_PER_MW,
+                i_hv_a=_finite(row["i_hv_ka"]) * KW_PER_MW,  # kA → A, same factor
+                p_lv_kw=_finite(row["p_lv_mw"]) * KW_PER_MW,
+                q_lv_kvar=_finite(row["q_lv_mvar"]) * KW_PER_MW,
+                p_loss_kw=_finite(row["pl_mw"]) * KW_PER_MW,
+                q_loss_kvar=_finite(row["ql_mvar"]) * KW_PER_MW,
+                loading_pct=_finite(row["loading_percent"]),
             )
 
         topology = self._topology
@@ -177,20 +209,17 @@ class PandapowerSolver(PowerFlowSolver):
         else:
             row = net.res_impedance.loc[self._impedance_index[topology.poi_branch]]
         poi = PoiResult(
-            p_kw=float(row["p_from_mw"]) * KW_PER_MW,
-            q_kvar=float(row["q_from_mvar"]) * KW_PER_MW,
-            i_a=float(row["i_from_ka"]) * KW_PER_MW,
+            p_kw=_finite(row["p_from_mw"]) * KW_PER_MW,
+            q_kvar=_finite(row["q_from_mvar"]) * KW_PER_MW,
+            i_a=_finite(row["i_from_ka"]) * KW_PER_MW,
         )
 
         p_loss_kw = sum(result.p_loss_kw for result in transformers.values())
         q_loss_kvar = sum(result.q_loss_kvar for result in transformers.values())
         for name in topology.site_lines:
             line = net.res_line.loc[self._line_index[name]]
-            p_loss_kw += float(line["pl_mw"]) * KW_PER_MW
-            q_loss_kvar += float(line["ql_mvar"]) * KW_PER_MW
-
-        if not all(math.isfinite(bus.vm_pu) for bus in buses.values()):
-            raise NonConvergenceError("power flow returned non-finite voltages")
+            p_loss_kw += _finite(line["pl_mw"]) * KW_PER_MW
+            q_loss_kvar += _finite(line["ql_mvar"]) * KW_PER_MW
         return NetworkResult(
             buses=buses,
             transformers=transformers,
@@ -198,3 +227,9 @@ class PandapowerSolver(PowerFlowSolver):
             site_p_loss_kw=p_loss_kw,
             site_q_loss_kvar=q_loss_kvar,
         )
+
+
+def _finite(value: float) -> float:
+    """A result value, with NaN (out-of-service or de-energised elements) as 0."""
+    number = float(value)
+    return number if math.isfinite(number) else 0.0

@@ -1,10 +1,12 @@
 """Profiles: CSV parsing, interpolation, looping, the stored scenarios. Load model: seeded noise."""
 
+import importlib.util
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import pytest
-from conftest import PROFILES
+from conftest import PROFILES, PROFILES_DIR, SERVICE_ROOT
 
 from powerflow.errors import ProfileError
 from powerflow.models.load import load_output
@@ -142,3 +144,24 @@ class TestLoadNoise:
         samples = [load_output(1000, 300, noise, rng).p_kw for _ in range(5000)]
         assert np.std(samples) == pytest.approx(20, rel=0.1)
         assert np.mean(samples) == pytest.approx(1000, rel=0.005)
+
+
+def test_shipped_profiles_match_the_generator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """profiles/*.csv are exactly what `make profiles` writes (regenerate after editing it)."""
+    spec = importlib.util.spec_from_file_location(
+        "make_profiles", SERVICE_ROOT / "scripts" / "make_profiles.py"
+    )
+    assert spec is not None and spec.loader is not None
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    monkeypatch.setattr(generator, "PROFILES_DIR", tmp_path)
+    generator.main()
+    generated = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*.csv"))
+    shipped = sorted(path.relative_to(PROFILES_DIR) for path in PROFILES_DIR.rglob("*.csv"))
+    assert generated == shipped
+    for relative in generated:
+        assert (tmp_path / relative).read_bytes() == (PROFILES_DIR / relative).read_bytes(), (
+            f"stale: run `make profiles` ({relative})"
+        )

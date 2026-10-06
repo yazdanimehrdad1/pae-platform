@@ -1,5 +1,6 @@
 # Rendered at container start by the nginx image's envsubst step (only set variables are
-# substituted): ${API_UPSTREAM} is the backend-ot base URL, e.g. http://backend-ot:8000.
+# substituted): ${API_UPSTREAM} is the backend-ot base URL, e.g. http://backend-ot:8000, and
+# ${POWERFLOW_UPSTREAM} the powerflow simulator's, e.g. http://powerflow:8000.
 server {
     listen 80;
     root /usr/share/nginx/html;
@@ -8,6 +9,17 @@ server {
     # (no URI part on proxy_pass, so the /api prefix is kept). No CORS needed.
     location /api/ {
         proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # The powerflow simulator's API, same origin too: /powerflow-api/x is forwarded as /api/x
+    # (proxy_pass has a URI part, so the matched prefix is replaced). Used by the Simulation page.
+    location /powerflow-api/ {
+        proxy_pass ${POWERFLOW_UPSTREAM}/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

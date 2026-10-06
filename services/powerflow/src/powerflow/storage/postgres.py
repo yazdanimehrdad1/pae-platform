@@ -1,19 +1,21 @@
-"""PostgresConfigRepository: sites, Modbus maps and the active site in Postgres (SQLAlchemy 2
-Core, asyncpg). Configs are JSONB, validated by the Pydantic models on the way in and out.
+"""PostgresConfigRepository: sites and the active site in Postgres (SQLAlchemy 2 Core, asyncpg).
+Configs are JSONB, validated by the Pydantic model on the way in and out, and stored in full
+(every field explicit), so a later change to a code default never changes a stored site.
 
 Migrations are the SQL files in storage/migrations/, applied in name order at startup and
 recorded in schema_migrations (guarded by an advisory lock, so concurrent starts are safe).
+0003_default_sites.sql inserts the default sites: the database is the only store for sites.
 """
 
 import asyncio
 import logging
+import re
 from pathlib import Path
 from typing import TypeVar
 
 from sqlalchemy import (
     Column,
     DateTime,
-    ForeignKey,
     MetaData,
     Table,
     Text,
@@ -26,17 +28,16 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from powerflow.conditions.scenario import EventScenario
 from powerflow.errors import NotFoundError, SiteConfigError
-from powerflow.points.modbus_map import ModbusMap
 from powerflow.site_config import SiteConfig
-from powerflow.storage.repository import ConfigRepository
+from powerflow.storage.repository import ConfigRepository, SiteCategory, StoredSite
 
 logger = logging.getLogger(__name__)
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 MIGRATION_LOCK_KEY = 0x70F0_F10E  # any constant shared by every powerflow instance
 ACTIVE_SITE_KEY = "active_site"
-ModelType = TypeVar("ModelType", SiteConfig, ModbusMap)
 
 metadata = MetaData()
 sites_table = Table(
@@ -44,14 +45,15 @@ sites_table = Table(
     metadata,
     Column("name", Text, primary_key=True),
     Column("config", JSONB, nullable=False),
+    Column("category", Text, nullable=False, server_default=SiteCategory.CUSTOM.value),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
-maps_table = Table(
-    "modbus_maps",
+event_scenarios_table = Table(
+    "event_scenarios",
     metadata,
-    Column("site", Text, ForeignKey("sites.name", ondelete="CASCADE"), primary_key=True),
-    Column("asset", Text, primary_key=True),
-    Column("map", JSONB, nullable=False),
+    Column("site", Text, primary_key=True),
+    Column("name", Text, primary_key=True),
+    Column("scenario", JSONB, nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 state_table = Table(
@@ -108,25 +110,41 @@ async def migrate(engine: AsyncEngine) -> list[str]:
     return applied_now
 
 
+DOLLAR_QUOTE = re.compile(r"\$[A-Za-z_]*\$")
+
+
 def _statements(sql: str) -> list[str]:
-    """Split a migration into statements (no semicolons inside statements in our SQL)."""
-    lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
-    return [statement.strip() for statement in "\n".join(lines).split(";") if statement.strip()]
+    """Split a migration into statements on `;`, except inside dollar-quoted text ($tag$...$tag$,
+    which holds the default sites' JSON). Whole-line `--` comments are dropped."""
+    body = "\n".join(line for line in sql.splitlines() if not line.strip().startswith("--"))
+    statements: list[str] = []
+    start = index = 0
+    while index < len(body):
+        quote = DOLLAR_QUOTE.match(body, index)
+        if quote:
+            closing = body.find(quote.group(), quote.end())
+            index = len(body) if closing == -1 else closing + len(quote.group())
+            continue
+        if body[index] == ";":
+            statements.append(body[start:index])
+            start = index + 1
+        index += 1
+    statements.append(body[start:])
+    return [statement.strip() for statement in statements if statement.strip()]
 
 
 class PostgresConfigRepository(ConfigRepository):
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
 
-    async def is_empty(self) -> bool:
+    async def list_sites(self) -> list[StoredSite]:
         async with self._engine.connect() as connection:
-            count = await connection.scalar(select(func.count()).select_from(sites_table))
-        return not count
-
-    async def list_sites(self) -> list[str]:
-        async with self._engine.connect() as connection:
-            result = await connection.execute(select(sites_table.c.name).order_by("name"))
-            return [row.name for row in result]
+            result = await connection.execute(
+                select(sites_table.c.name, sites_table.c.category).order_by("name")
+            )
+            return [
+                StoredSite(name=row.name, category=SiteCategory(row.category)) for row in result
+            ]
 
     async def get_site(self, name: str) -> SiteConfig:
         async with self._engine.connect() as connection:
@@ -138,7 +156,7 @@ class PostgresConfigRepository(ConfigRepository):
         return _validate(SiteConfig, config, f"site {name!r}")
 
     async def put_site(self, name: str, config: SiteConfig) -> None:
-        document = config.model_dump(mode="json", exclude_unset=True)
+        document = config.model_dump(mode="json")
         statement = insert(sites_table).values(name=name, config=document)
         statement = statement.on_conflict_do_update(
             index_elements=[sites_table.c.name],
@@ -178,47 +196,47 @@ class PostgresConfigRepository(ConfigRepository):
             )
             await connection.execute(statement)
 
-    async def list_maps(self, site: str) -> list[str]:
+    async def list_event_scenarios(self, site: str) -> list[str]:
         async with self._engine.connect() as connection:
             await _require_site(connection, site)
             result = await connection.execute(
-                select(maps_table.c.asset).where(maps_table.c.site == site).order_by("asset")
+                select(event_scenarios_table.c.name)
+                .where(event_scenarios_table.c.site == site)
+                .order_by("name")
             )
-            return [row.asset for row in result]
+            return [row.name for row in result]
 
-    async def get_map(self, site: str, asset: str) -> ModbusMap:
+    async def get_event_scenario(self, site: str, name: str) -> EventScenario:
         async with self._engine.connect() as connection:
-            await _require_site(connection, site)
             document = await connection.scalar(
-                select(maps_table.c.map).where(
-                    maps_table.c.site == site, maps_table.c.asset == asset
+                select(event_scenarios_table.c.scenario).where(
+                    event_scenarios_table.c.site == site, event_scenarios_table.c.name == name
                 )
             )
         if document is None:
-            raise NotFoundError(f"no Modbus map {asset!r} in site {site!r}")
-        return _validate(ModbusMap, document, f"Modbus map {site}/{asset}")
+            raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
+        return _validate(EventScenario, document, f"event scenario {site}/{name}")
 
-    async def put_map(self, site: str, asset: str, modbus_map: ModbusMap) -> None:
-        document = modbus_map.model_dump(mode="json", exclude_unset=True)
-        statement = insert(maps_table).values(site=site, asset=asset, map=document)
+    async def put_event_scenario(self, site: str, name: str, scenario: EventScenario) -> None:
+        document = scenario.model_dump(mode="json")
+        statement = insert(event_scenarios_table).values(site=site, name=name, scenario=document)
         statement = statement.on_conflict_do_update(
-            index_elements=[maps_table.c.site, maps_table.c.asset],
-            set_={"map": statement.excluded.map, "updated_at": func.now()},
+            index_elements=[event_scenarios_table.c.site, event_scenarios_table.c.name],
+            set_={"scenario": statement.excluded.scenario, "updated_at": func.now()},
         )
         async with self._engine.begin() as connection:
             await _require_site(connection, site)
             await connection.execute(statement)
 
-    async def delete_map(self, site: str, asset: str) -> None:
+    async def delete_event_scenario(self, site: str, name: str) -> None:
         async with self._engine.begin() as connection:
-            await _require_site(connection, site)
             result = await connection.execute(
-                delete(maps_table)
-                .where(maps_table.c.site == site, maps_table.c.asset == asset)
-                .returning(maps_table.c.asset)
+                delete(event_scenarios_table)
+                .where(event_scenarios_table.c.site == site, event_scenarios_table.c.name == name)
+                .returning(event_scenarios_table.c.name)
             )
             if result.first() is None:
-                raise NotFoundError(f"no Modbus map {asset!r} in site {site!r}")
+                raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
 
     async def close(self) -> None:
         await self._engine.dispose()
@@ -230,7 +248,10 @@ async def _require_site(connection: AsyncConnection, name: str) -> None:
         raise NotFoundError(f"no site {name!r}")
 
 
-def _validate(model: type[ModelType], document: object, label: str) -> ModelType:
+StoredModel = TypeVar("StoredModel", SiteConfig, EventScenario)
+
+
+def _validate(model: type[StoredModel], document: object, label: str) -> StoredModel:
     try:
         return model.model_validate(document)
     except ValueError as error:

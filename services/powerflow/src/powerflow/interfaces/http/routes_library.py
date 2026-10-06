@@ -1,31 +1,23 @@
-"""Configuration: /sites (+ their /modbus-maps), /profiles, /schemas, /defaults.
+"""Configuration: /sites, /profiles, /schemas.
 
-Sites, their Modbus maps and the active site are stored in Postgres. Profile scenarios are CSV
-files for now. The JSON Schemas come from code. The shipped site_config/ files are only defaults,
-seeded into an empty database. Every write is validated before it's stored.
+Sites and the active site are stored in Postgres, the only store for them (a fresh database gets
+the default sites from a data migration). Profile scenarios are CSV files. The JSON Schema comes
+from code. Every write is validated before it's stored.
 """
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import JsonValue
 
-from powerflow.core.site_library import (
-    DefaultsInfo,
-    DefaultsRestoreResult,
-    ModbusMapSummary,
-    ProfileSaveResult,
-    ProfileScenarios,
-    SiteList,
-)
-from powerflow.interfaces.base import AdapterContext, AdapterRegistry
-from powerflow.interfaces.http.dependencies import get_adapters, get_context
+from powerflow.core.site_library import ProfileSaveResult, ProfileScenarios, SiteList
+from powerflow.interfaces.base import AdapterContext
+from powerflow.interfaces.http.dependencies import get_context
 from powerflow.interfaces.http.schemas import ErrorResponse, OpenApiResponses
-from powerflow.points.modbus_map import ModbusMap
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ProfileFolder
 
 router = APIRouter()
 ERRORS: OpenApiResponses = {
-    404: {"model": ErrorResponse, "description": "No such site, map or scenario."},
+    404: {"model": ErrorResponse, "description": "No such site or scenario."},
     409: {"model": ErrorResponse, "description": "Not allowed now (running, or in use)."},
     422: {"model": ErrorResponse, "description": "Invalid name or content."},
 }
@@ -63,7 +55,8 @@ async def get_site(name: str, context: AdapterContext = Depends(get_context)) ->
     tags=["sites"],
     summary="Create or replace a stored site",
     description="Validated (schema, references, profile scenarios exist) before it's written. "
-    "Saving the active site reloads it, so the simulation must be stopped (409 otherwise).",
+    "Saving the active site reloads it and restarts its protocol interfaces, so the simulation "
+    "must be stopped (409 otherwise).",
 )
 async def put_site(
     name: str, config: SiteConfig, context: AdapterContext = Depends(get_context)
@@ -85,81 +78,12 @@ async def delete_site(name: str, context: AdapterContext = Depends(get_context))
     responses=ERRORS,
     tags=["sites"],
     summary="Load a stored site (only while stopped)",
-    description="Rebuilds the network, resets the simulation and records the site as the one "
-    "to load at startup. The engine stays stopped: POST /api/sim/start.",
+    description="Rebuilds the network, resets the simulation, restarts the protocol interfaces "
+    "the site enables (e.g. Modbus) and records the site as the one to load at startup. The "
+    "engine stays stopped: POST /api/sim/start.",
 )
-async def activate_site(
-    name: str,
-    context: AdapterContext = Depends(get_context),
-    adapters: AdapterRegistry = Depends(get_adapters),
-) -> SiteConfig:
-    config = await context.library.activate(name)
-    await adapters.stop_all()
-    await adapters.start_enabled(config.interfaces, context)
-    return config
-
-
-# -- Modbus maps (per site) ---------------------------------------------------------------
-
-
-@router.get(
-    "/sites/{site}/modbus-maps",
-    response_model=list[ModbusMapSummary],
-    responses=ERRORS,
-    tags=["modbus maps"],
-    summary="A site's per-asset Modbus maps",
-)
-async def list_maps(
-    site: str, context: AdapterContext = Depends(get_context)
-) -> list[ModbusMapSummary]:
-    return await context.library.list_maps(site)
-
-
-@router.get(
-    "/sites/{site}/modbus-maps/{asset}",
-    response_model=ModbusMap,
-    responses=ERRORS,
-    tags=["modbus maps"],
-    summary="One asset's map (asset = <asset_type>.<asset_id>, e.g. pv.pv1, poi.meter)",
-)
-async def get_map(
-    site: str, asset: str, context: AdapterContext = Depends(get_context)
-) -> ModbusMap:
-    return await context.library.get_map(site, asset)
-
-
-@router.put(
-    "/sites/{site}/modbus-maps/{asset}",
-    response_model=ModbusMap,
-    responses=ERRORS,
-    tags=["modbus maps"],
-    summary="Create or replace an asset's map",
-    description="Rejected (422) if the site has no such asset, the body's `asset` differs from "
-    "the path, registers overlap, a point isn't in the asset type's point list, a writable "
-    "point isn't on a holding register/coil (or vice versa), or the unit_id+port is already "
-    "used by another map of the site.",
-)
-async def put_map(
-    site: str,
-    asset: str,
-    modbus_map: ModbusMap,
-    context: AdapterContext = Depends(get_context),
-) -> ModbusMap:
-    return await context.library.save_map(site, asset, modbus_map)
-
-
-@router.delete(
-    "/sites/{site}/modbus-maps/{asset}",
-    status_code=204,
-    responses=ERRORS,
-    tags=["modbus maps"],
-    summary="Delete an asset's map",
-)
-async def delete_map(
-    site: str, asset: str, context: AdapterContext = Depends(get_context)
-) -> Response:
-    await context.library.delete_map(site, asset)
-    return Response(status_code=204)
+async def activate_site(name: str, context: AdapterContext = Depends(get_context)) -> SiteConfig:
+    return await context.library.activate(name)
 
 
 # -- profiles ----------------------------------------------------------------------------
@@ -235,40 +159,9 @@ async def list_schemas(context: AdapterContext = Depends(get_context)) -> list[s
     response_model=dict[str, JsonValue],
     responses=ERRORS,
     tags=["schemas"],
-    summary="One JSON Schema, e.g. site-config or modbus-map",
+    summary="One JSON Schema (site-config)",
 )
 async def get_schema(
     name: str, context: AdapterContext = Depends(get_context)
 ) -> dict[str, JsonValue]:
     return context.library.get_schema(name)
-
-
-# -- defaults (site_config/, a read-only seed) ---------------------------------------------
-
-
-@router.get(
-    "/defaults",
-    response_model=DefaultsInfo,
-    tags=["defaults"],
-    summary="The shipped default sites and Modbus maps",
-    description="Seeded into an empty database at startup. Restore them with "
-    "POST /api/defaults/restore.",
-)
-async def get_defaults(context: AdapterContext = Depends(get_context)) -> DefaultsInfo:
-    return context.library.defaults_info()
-
-
-@router.post(
-    "/defaults/restore",
-    response_model=DefaultsRestoreResult,
-    responses=ERRORS,
-    tags=["defaults"],
-    summary="Import the default sites and maps into the database",
-    description="Without overwrite, sites and maps already stored are kept (reported as "
-    "skipped). With overwrite=true they're replaced; the simulation must be stopped (409), "
-    "and the active site is reloaded if it was replaced. The active-site choice is unchanged.",
-)
-async def restore_defaults(
-    overwrite: bool = False, context: AdapterContext = Depends(get_context)
-) -> DefaultsRestoreResult:
-    return await context.library.restore_defaults(overwrite)

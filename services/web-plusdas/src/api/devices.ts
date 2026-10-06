@@ -1,4 +1,5 @@
 import type {
+  DeviceTypeKey,
   Device,
   DeviceRecord,
   DeviceCreateRequest,
@@ -43,7 +44,7 @@ function toDevice(device: DeviceRecord): Device {
   return {
     id: String(device.device_id),
     name: device.name,
-    type: device.type.toLowerCase() as Device['type'],
+    type: device.type.toLowerCase() as DeviceTypeKey,
     status: 'online',
     location: device.host,
     lastUpdate: device.updated_at,

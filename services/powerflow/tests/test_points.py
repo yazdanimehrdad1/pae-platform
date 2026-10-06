@@ -1,19 +1,17 @@
 """Point lists, point registry, setpoint service, adapter registry, Modbus map format."""
 
 import asyncio
-from typing import Any
 
 import pytest
 from conftest import (
-    DEFAULT_SITE_NAMES,
+    POINT_STANDARD,
     PROFILES,
-    SITE_CONFIG_DIR,
     default_site,
-    default_site_maps,
 )
 from pydantic import ValidationError
 
 from powerflow.core.engine import Engine
+from powerflow.core.event_scenario_library import EventScenarioLibrary
 from powerflow.core.point_registry import PointRegistry
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest, SetpointService
@@ -27,21 +25,13 @@ from powerflow.errors import (
 )
 from powerflow.interfaces.base import AdapterContext, AdapterRegistry, ProtocolAdapter
 from powerflow.network.pandapower_solver import PandapowerSolver
-from powerflow.points import POINT_LISTS, AssetType, PointSource
-from powerflow.points.modbus_map import (
-    ModbusMap,
-    check_map_against_points,
-    default_map,
-)
-from powerflow.points.modbus_map import (
-    default_site_maps as generate_site_maps,
-)
+from powerflow.points import POINT_LISTS, PointSource
 from powerflow.site_config import SiteConfig
 from powerflow.storage import InMemoryConfigRepository
 
 
 def make_services(
-    site_name: str = "three_bess_two_pv",
+    site_name: str = "3bess_2pv",
 ) -> tuple[Engine, SetpointService, PointRegistry]:
     config = default_site(site_name)
     config = config.model_copy(
@@ -56,10 +46,16 @@ def make_services(
 def make_context(
     engine: Engine, service: SetpointService, registry: PointRegistry
 ) -> AdapterContext:
-    library = SiteLibrary(
-        InMemoryConfigRepository(), PROFILES, engine, SITE_CONFIG_DIR, "three_bess_two_pv"
+    repository = InMemoryConfigRepository()
+    library = SiteLibrary(repository, PROFILES, engine, "3bess_2pv")
+    return AdapterContext(
+        engine=engine,
+        points=registry,
+        setpoints=service,
+        library=library,
+        point_standard=POINT_STANDARD,
+        scenarios=EventScenarioLibrary(repository, engine, library),
     )
-    return AdapterContext(engine=engine, points=registry, setpoints=service, library=library)
 
 
 class TestPointLists:
@@ -85,6 +81,16 @@ class TestPointLists:
             registry.read_from_snapshot(snapshot, name)
         with pytest.raises(PointAccessError):
             registry.read_from_snapshot(snapshot, "bess.bess1.p_setpoint_kw")
+
+    def test_feeder_meter_points_resolve(self) -> None:
+        engine, _, registry = make_services("2bess_1pv")
+        asyncio.run(engine.step(1))
+        meter_names = [name for name in registry.names() if name.startswith("meter.")]
+        assert {name.split(".")[1] for name in meter_names} == {"m_bess1", "m_bess2", "m_pv1"}
+        snapshot = engine.store.history()[0]
+        for name in meter_names:
+            assert registry.read(name) == registry.read_from_snapshot(snapshot, name)
+        assert registry.read("meter.m_pv1.v_kv") == pytest.approx(12.47, rel=0.05)
 
     def test_measurement_before_first_step(self) -> None:
         _, _, registry = make_services()
@@ -188,63 +194,6 @@ class TestSetpointsViaRegistryMatchService:
         assert registry.read("bess.bess1.mode_cmd") == 1
 
 
-class TestModbusMap:
-    @pytest.mark.parametrize("asset_type", list(AssetType))
-    def test_default_map_covers_every_point(self, asset_type: AssetType) -> None:
-        modbus_map = default_map(asset_type, "x1", unit_id=7)
-        assert check_map_against_points(modbus_map) == []
-        mapped = {entry.point for entry in modbus_map.points}
-        assert mapped == {point.name for point in POINT_LISTS[asset_type]}
-
-    @pytest.mark.parametrize("site", DEFAULT_SITE_NAMES)
-    def test_default_maps_match_the_generator(self, site: str) -> None:
-        expected = {item.asset: item for item in generate_site_maps(default_site(site))}
-        assert default_site_maps(site) == expected, f"regenerate with `make modbus-maps` ({site})"
-
-    def test_default_map_is_valid_and_binds_to_points(self) -> None:
-        modbus_map = default_site_maps("reference_2bess_1pv")["bess.bess1"]
-        assert check_map_against_points(modbus_map) == []
-        assert modbus_map.asset_id == "bess1" and modbus_map.unit_id == 1
-
-    def test_overlapping_registers_are_rejected(self) -> None:
-        points: list[dict[str, Any]] = [
-            {"point": "p_kw", "register_type": "input", "address": 0, "data_type": "int32"},
-            {"point": "q_kvar", "register_type": "input", "address": 1, "data_type": "int32"},
-        ]
-        with pytest.raises(ValidationError, match="overlaps"):
-            ModbusMap.model_validate({"asset": "bess.bess1", "unit_id": 1, "points": points})
-
-    def test_binding_problems_are_reported(self) -> None:
-        modbus_map = ModbusMap.model_validate(
-            {
-                "asset": "bess.bess1",
-                "unit_id": 1,
-                "points": [
-                    {
-                        "point": "p_setpoint_kw",
-                        "register_type": "input",
-                        "address": 0,
-                        "data_type": "int32",
-                    },
-                    {
-                        "point": "soc_pct",
-                        "register_type": "holding",
-                        "address": 0,
-                        "data_type": "uint16",
-                    },
-                    {
-                        "point": "nope",
-                        "register_type": "input",
-                        "address": 5,
-                        "data_type": "uint16",
-                    },
-                ],
-            }
-        )
-        problems = check_map_against_points(modbus_map)
-        assert len(problems) == 3
-
-
 class RecordingAdapter(ProtocolAdapter):
     name = "modbus"
 
@@ -261,12 +210,10 @@ class RecordingAdapter(ProtocolAdapter):
 class TestAdapterRegistry:
     def test_enabled_but_unimplemented_is_skipped(self) -> None:
         engine, service, registry = make_services()
-        config = SiteConfig.model_validate({"interfaces": {"modbus": {"enabled": True}}})
+        config = SiteConfig.model_validate({"interfaces": {"dnp3": {"enabled": True}}})
         adapters = AdapterRegistry()
-        asyncio.run(
-            adapters.start_enabled(config.interfaces, make_context(engine, service, registry))
-        )
-        assert adapters.running == []
+        asyncio.run(adapters.reconcile(config.interfaces, make_context(engine, service, registry)))
+        assert adapters.running == [] and adapters.failed == {}
 
     def test_enabled_adapter_starts_and_stops(self) -> None:
         engine, service, registry = make_services()
@@ -275,12 +222,28 @@ class TestAdapterRegistry:
         adapters.register("modbus", lambda context: RecordingAdapter(events))
         context = make_context(engine, service, registry)
         disabled = SiteConfig.model_validate({})
-        asyncio.run(adapters.start_enabled(disabled.interfaces, context))
+        asyncio.run(adapters.reconcile(disabled.interfaces, context))
         assert events == []
         enabled = SiteConfig.model_validate({"interfaces": {"modbus": {"enabled": True}}})
-        asyncio.run(adapters.start_enabled(enabled.interfaces, context))
-        asyncio.run(adapters.stop_all())
-        assert events == ["start", "stop"]
+        asyncio.run(adapters.reconcile(enabled.interfaces, context))
+        assert adapters.running == ["modbus"]
+        asyncio.run(adapters.reconcile(enabled.interfaces, context))  # restarted
+        asyncio.run(adapters.reconcile(disabled.interfaces, context))  # stopped
+        assert events == ["start", "stop", "start", "stop"] and adapters.running == []
+
+    def test_a_failed_start_is_reported_not_raised(self) -> None:
+        engine, service, registry = make_services()
+
+        class PortTaken(RecordingAdapter):
+            async def start(self) -> None:
+                raise OSError("address already in use")
+
+        adapters = AdapterRegistry()
+        adapters.register("modbus", lambda context: PortTaken([]))
+        enabled = SiteConfig.model_validate({"interfaces": {"modbus": {"enabled": True}}})
+        asyncio.run(adapters.reconcile(enabled.interfaces, make_context(engine, service, registry)))
+        assert adapters.running == []
+        assert "address already in use" in adapters.failed["modbus"]
 
     def test_http_cant_be_disabled(self) -> None:
         with pytest.raises(ValidationError):

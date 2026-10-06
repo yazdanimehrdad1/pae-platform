@@ -1,0 +1,53 @@
+point,label,qty,tier,kind,access,unit,data_type,scale,sign,enum_ref,enum_detail,bitfield_detail,source,source_ref,description,mock_modbus,powerflow,powerflow_server
+W,Active Power,p_total,M,measurement,R,W,int16,1000,gen,,,,SunSpec,SunSpec 701 W,AC active power output,device_1.active_power; device_3.invNN_ac_active_power (kW),pv.p_kw (kW),yes
+Var,Reactive Power,q_total,M,measurement,R,var,int16,1000,gen,,,,SunSpec,SunSpec 701 Var,AC reactive power; + injecting,device_3.invNN_ac_reactive_power (kvar),pv.q_kvar (kvar),yes
+VA,Apparent Power,s_total,M,measurement,R,VA,int16,1000,,,,,SunSpec,SunSpec 701 VA,AC apparent power,device_1.apparent_power,pv.s_kva (kVA),yes
+PF,Power Factor,pf,M,measurement,R,,int16,0.001,pf,,,,SunSpec,SunSpec 701 PF,Total power factor; sign follows Var,device_1.power_factor (unsigned),pv.pf,yes
+Hz,Frequency,freq,M,measurement,R,Hz,uint16,0.01,,,,,SunSpec,SunSpec 701 Hz,AC frequency,device_1.grid_frequency,,calc
+A,Total AC Current,i_total,R,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 701 A,AC current,device_1.ac_output_current,,calc
+AL1,Current L1,i_a,R,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 701 AL1,Phase A current,device_1.ac_current_l1; device_3.invNN_grid_current_a,,calc
+AL2,Current L2,i_b,R,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 701 AL2,Phase B current,device_1.ac_current_l2,,calc
+AL3,Current L3,i_c,R,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 701 AL3,Phase C current,device_1.ac_current_l3,,calc
+LLV,Voltage LL,v_ll_avg,M,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 LLV,Average line-to-line voltage,,pv.v_lv_kv (kV),yes
+VL1L2,Voltage L1-L2,v_ab,R,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 VL1L2,Line-to-line voltage AB,device_3.invNN_grid_voltage_ab,,calc
+VL2L3,Voltage L2-L3,v_bc,R,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 VL2L3,Line-to-line voltage BC,,,calc
+VL3L1,Voltage L3-L1,v_ca,R,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 VL3L1,Line-to-line voltage CA,,,calc
+LNV,Voltage LN,v_ln_avg,O,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 LNV,Average line-to-neutral voltage (4-wire only),,,calc
+VL1,Voltage L1-N,v_an,O,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 VL1,Line-to-neutral voltage A,device_1.ac_voltage_l1_n,,calc
+VL2,Voltage L2-N,v_bn,O,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 VL2,Line-to-neutral voltage B,device_1.ac_voltage_l2_n,,calc
+VL3,Voltage L3-N,v_cn,O,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 701 VL3,Line-to-neutral voltage C,device_1.ac_voltage_l3_n,,calc
+TotWhInj,Lifetime Energy,e_inj,M,counter,R,Wh,uint32,1000,,,,,SunSpec,SunSpec 701 TotWhInj,Lifetime AC energy produced,device_1.lifetime_energy (kWh),,calc
+TotWhAbs,Lifetime Energy Absorbed,e_abs,O,counter,R,Wh,uint32,1000,,,,,SunSpec,SunSpec 701 TotWhAbs,Lifetime AC energy absorbed (night tare),,,calc
+WhInjDay,Daily Energy,e_inj_day,R,counter,R,Wh,uint16,1000,,,,,PAE,PAE,AC energy produced since local midnight,device_1.daily_energy_generated,,calc
+DCW,DC Power,p_dc,M,measurement,R,W,int16,1000,,,,,SunSpec,SunSpec 714 DCW,Total DC input power,device_3.invNN_pv_input_power (kW),,no
+DCV,DC Voltage,v_dc,R,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 714 port DCV,DC input voltage (single MPPT) or DC bus voltage,device_1.pv_array_voltage,,no
+DCA,DC Current,i_dc,R,measurement,R,A,int16,1,,,,,SunSpec,SunSpec 714 DCA,Total DC input current,device_1.pv_string_current,,no
+DCV_<n>,MPPT n DC Voltage,v_dc_port,O,measurement,R,V,uint16,0.1,,,,,SunSpec,SunSpec 714 port DCV,Per-MPPT/port DC voltage; repeat n=1..N,,,no
+DCA_<n>,MPPT n DC Current,i_dc_port,O,measurement,R,A,int16,0.1,,,,,SunSpec,SunSpec 714 port DCA,Per-MPPT/port or per-string DC current; repeat n=1..N,,,no
+DCW_<n>,MPPT n DC Power,p_dc_port,O,measurement,R,W,int16,1000,,,,,SunSpec,SunSpec 714 port DCW,Per-MPPT/port DC power; repeat n=1..N,,,no
+DCWRtg,DC Nameplate,p_dc_rated,R,nameplate,R,W,uint16,1000,,,,,PAE,PAE,Installed DC capacity (Wp) behind this inverter,,pv.dc_kwp (kWp),yes
+St,Operating State,der_on,R,status,R,,enum16,1,,701.St,"{""0"":""OFF"",""1"":""ON""}",,SunSpec,SunSpec 701 St,DER on/off,device_1.system_state (partial),,calc
+InvSt,Inverter State,inv_state,M,status,R,,enum16,1,,701.InvSt,"{""0"":""OFF"",""1"":""SLEEPING"",""2"":""STARTING"",""3"":""RUNNING"",""4"":""THROTTLED"",""5"":""SHUTTING_DOWN"",""6"":""FAULT"",""7"":""STANDBY""}",,SunSpec,SunSpec 701 InvSt,Inverter state,device_1.inverter_state; device_3.invNN_mode (different codes),pv.inverter_state (different codes),calc
+ConnSt,Grid Connection State,conn_state,M,status,R,,enum16,1,,701.ConnSt,"{""0"":""DISCONNECTED"",""1"":""CONNECTED""}",,SunSpec,SunSpec 701 ConnSt,AC contactor/grid connection,device_1.grid_connection_state (different codes),,calc
+Alrm,Inverter Alarms,inv_alarm,M,alarm,R,,bitfield32,1,,701.Alrm,,"{""0"":""GROUND_FAULT"",""1"":""DC_OVER_VOLT"",""2"":""AC_DISCONNECT"",""3"":""DC_DISCONNECT"",""4"":""GRID_DISCONNECT"",""5"":""CABINET_OPEN"",""6"":""MANUAL_SHUTDOWN"",""7"":""OVER_TEMP"",""8"":""OVER_FREQUENCY"",""9"":""UNDER_FREQUENCY"",""10"":""AC_OVER_VOLT"",""11"":""AC_UNDER_VOLT"",""12"":""BLOWN_STRING_FUSE"",""13"":""UNDER_TEMP"",""14"":""MEMORY_LOSS"",""15"":""HW_TEST_FAILURE"",""16"":""MANUFACTURER_ALRM""}",SunSpec,SunSpec 701 Alrm,Inverter alarm word,device_1.grid_fault_flags / inverter_fault_flags,pv.alarm_flags (partial),calc
+FltCode,Active Fault Code,fault_code,R,alarm,R,,uint16,1,,,,,PAE,PAE,Vendor fault code; 0 = no fault; decode from vendor manual,device_1.active_fault_code; device_3.invNN_fault_code,,no
+DERMode,DER Mode,der_mode,O,status,R,,bitfield16,1,,701.DERMode,,"{""0"":""GRID_FOLLOWING"",""1"":""GRID_FORMING"",""2"":""PV_CLIPPED""}",SunSpec,SunSpec 701 DERMode,PV_CLIPPED flags clipping,,pv.limit_flags bit2 CLIPPED,calc
+ThrotPct,Throttle Percent,throttle_pct,R,status,R,%,uint16,0.1,,,,,SunSpec,SunSpec 701 ThrotPct,Current output limitation as % of WMaxRtg,,,calc
+ThrotSrc,Throttle Source,throttle_src,R,status,R,,bitfield16,1,,701.ThrotSrc,,"{""0"":""MAX_W"",""1"":""FIXED_W"",""2"":""FIXED_VAR"",""3"":""FIXED_PF"",""4"":""VOLT_VAR"",""5"":""FREQ_WATT"",""6"":""DYN_REACT_CURR"",""7"":""LVRT"",""8"":""HVRT"",""9"":""WATT_VAR"",""10"":""VOLT_WATT"",""11"":""SCHEDULED"",""12"":""LFRT"",""13"":""HFRT"",""14"":""DERATED""}",SunSpec,SunSpec 701 ThrotSrc,What is limiting output right now,,pv.limit_flags (partial),calc
+WAvail,Available Active Power,p_avail,R,measurement,R,W,uint16,1000,,,,,PAE,PAE,Power the inverter could produce without curtailment,,pv.p_available_kw (kW),yes
+WCurt,Curtailed Power,p_curt,O,measurement,R,W,uint16,1000,,,,,PAE,PAE,WAvail minus W,,pv.curtailment_kw (kW),yes
+TmpCab,Cabinet Temperature,t_cab,R,measurement,R,degC,int16,0.1,,,,,SunSpec,SunSpec 701 TmpCab,Internal/cabinet temperature,device_1.inverter_temperature; device_3.invNN_internal_temp,,no
+TmpSnk,Heat Sink Temperature,t_sink,O,measurement,R,degC,int16,0.1,,,,,SunSpec,SunSpec 701 TmpSnk,Heat sink temperature,,,no
+TmpTrns,Transformer Temperature,t_trns,O,measurement,R,degC,int16,0.1,,,,,SunSpec,SunSpec 701 TmpTrns,Internal transformer temperature,,,no
+IsoR,Insulation Resistance,r_iso,O,measurement,R,kOhm,uint16,1,,,,,PAE,PAE,DC insulation resistance to ground,device_1.insulation_status (enum),,no
+WMaxLimPctEna,Curtailment Enable,p_lim_ena,M,setpoint,RW,,enum16,1,,704.Ena,"{""0"":""DISABLED"",""1"":""ENABLED""}",,SunSpec,SunSpec 704 WMaxLimPctEna,Enables WMaxLimPct,device_1.feature_enable_flags bit3 pwr_limit,,calc
+WMaxLimPct,Curtailment Limit %,p_lim_pct,M,setpoint,RW,%,uint16,0.1,,,,,SunSpec,SunSpec 704 WMaxLimPct,Caps output at % of WMaxRtg,,pv.p_limit_pct,yes
+WMaxLim,Curtailment Limit W,p_lim,O,setpoint,RW,W,uint16,1000,,,,,PAE,PAE,Caps output in W (for devices that take W instead of %),,pv.p_limit_kw (kW),yes
+VarSetEna,Reactive Power Setpoint Enable,q_set_ena,R,setpoint,RW,,enum16,1,,704.Ena,"{""0"":""DISABLED"",""1"":""ENABLED""}",,SunSpec,SunSpec 704 VarSetEna,Enables VarSet (disables PFWInjEna),,pv.q_mode=Q,calc
+VarSetMod,Reactive Power Setpoint Mode,q_set_mod,O,setpoint,RW,,enum16,1,,704.VarSetMod,"{""0"":""W_MAX_PCT"",""1"":""VAR_MAX_PCT"",""2"":""VAR_AVAIL_PCT"",""3"":""VA_MAX_PCT"",""4"":""VARS""}",,SunSpec,SunSpec 704 VarSetMod,VarSet units/reference,,,calc
+VarSet,Reactive Power Setpoint,q_set,R,setpoint,RW,var,int16,1000,gen,,,,SunSpec,SunSpec 704 VarSet,Reactive power command; + inject,,pv.q_setpoint_kvar (kvar),yes
+PFWInjEna,PF Setpoint Enable,pf_set_ena,R,setpoint,RW,,enum16,1,,704.Ena,"{""0"":""DISABLED"",""1"":""ENABLED""}",,SunSpec,SunSpec 704 PFWInjEna,Enables fixed power factor,,pv.q_mode=PF,calc
+PFWInj,PF Setpoint,pf_set,R,setpoint,RW,,uint16,0.001,,,,,SunSpec,SunSpec 704 PFWInj.PF,Fixed power factor magnitude while injecting W,,pv.pf_setpoint (abs value),calc
+PFWInjExt,PF Setpoint Excitation,pf_set_ext,R,setpoint,RW,,enum16,1,,704.PFExt,"{""0"":""OVER_EXCITED"",""1"":""UNDER_EXCITED""}",,SunSpec,SunSpec 704 PFWInj.Ext,Over- or under-excited,,pv.pf_setpoint (sign),calc
+SetInvState,Inverter State Command,cmd_inv_state,R,setpoint,RW,,enum16,1,,802.SetInvState,"{""1"":""INVERTER_STOPPED"",""2"":""INVERTER_STANDBY"",""3"":""INVERTER_STARTED""}",,SunSpec,SunSpec 802 SetInvState (reused),Start / standby / stop the inverter,device_1.feature_enable_flags bit4 remote_stop,,no
+AlmRst,Alarm Reset,cmd_alarm_reset,O,setpoint,W,,enum16,1,,pae.Cmd,"{""0"":""NONE"",""1"":""EXECUTE""}",,PAE,PAE,Write 1 to reset latched alarms,,,no

@@ -57,6 +57,9 @@ export interface SpreadsheetGridProps<K extends string> {
   resetToken?: number | string;
   /** Extra buttons, right of "Add Row". */
   toolbar?: ReactNode;
+  /** A small control shown at the right of a cell (not while it's being edited), e.g. a button
+   *  that opens a richer editor for it. Return null for cells without one. */
+  cellAction?: (row: GridRow<K>, rowIndex: number, column: GridColumn<K>) => ReactNode;
   hint?: string;
   emptyMessage?: string;
   noMatchMessage?: string;
@@ -66,6 +69,7 @@ export function SpreadsheetGrid<K extends string>({
   columns, rows, onRowsChange, newRowValues, readOnly = false, disabled = false,
   isCellEditable, errorCells, isRowDirty, isRowNew, onDeleteRow, onDiscardAll, resetToken,
   toolbar, hint, emptyMessage = "No rows yet.", noMatchMessage = "No rows match the filters.",
+  cellAction,
 }: SpreadsheetGridProps<K>) {
   const canEdit = useCallback(
     (row: GridRow<K>, column: GridColumn<K>) => !readOnly && (isCellEditable ? isCellEditable(row, column) : true),
@@ -559,6 +563,7 @@ export function SpreadsheetGrid<K extends string>({
                       const hasError = errorCells?.has(cellKey(rowIndex, column.key)) ?? false;
                       const cellValue = row.values[column.key] ?? "";
                       const emptyLabel = column.emptyLabel ?? "—";
+                      const action = !isEditing && cellAction ? cellAction(row, rowIndex, column) : null;
                       return (
                         <td
                           key={column.key}
@@ -604,9 +609,19 @@ export function SpreadsheetGrid<K extends string>({
                               />
                             )
                           ) : (
-                            <span className="block truncate">
+                            <span className={cn("block truncate", action && "pr-6")} title={cellValue || undefined}>
                               {cellValue === "" && (column.optional || readOnly) ? emptyLabel : cellValue}
                             </span>
+                          )}
+                          {action && (
+                            // Its own control: clicks don't start a selection or an edit.
+                            <div
+                              className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10"
+                              onMouseDown={(event) => event.stopPropagation()}
+                              onDoubleClick={(event) => event.stopPropagation()}
+                            >
+                              {action}
+                            </div>
                           )}
                           {isFillCorner && (
                             <div

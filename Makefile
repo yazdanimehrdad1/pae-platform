@@ -33,7 +33,7 @@ TARGET_SERVICES := $(or $(svc),$(SERVICES))
 DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildcard .env),--env-file $(CURDIR)/.env)
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
-.PHONY: help up down down-all stop-all restart logs ps seed e2e check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
+.PHONY: help up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -48,8 +48,14 @@ help:
 	@echo "                     (postgres/redis data, incl. powerflow's sites/maps/profile edits),"
 	@echo "                     images (built and pulled) and networks"
 	@echo "  restart / ps / logs [svc=...]"
-	@echo "  seed               load backend-ot's dev data (built from mock-modbus's contract)"
+	@echo "  seed-mock-modbus   seed backend-ot with the mock-modbus site (Alpha Solar Farm), built"
+	@echo "                     from mock-modbus's contract"
+	@echo "  seed-2bess-1pv     seed backend-ot with powerflow's 2bess_1pv site as a real site (site,"
+	@echo "                     devices, register maps, SLD from powerflow's contracts), then make it"
+	@echo "                     powerflow's active site and start it"
+	@echo "  seed-powerflow-site SITE=<site>  the same for any powerflow default site"
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
+	@echo "  e2e-2bess-1pv      check backend-ot's readings of 2bess_1pv agree with powerflow"
 	@echo ""
 	@echo "Per service (runs in every service, or svc=<name>): $(FANOUT_TARGETS)"
 	@echo "  check              lint + typecheck + test for every service, then check-boundaries + contracts-check"
@@ -77,7 +83,7 @@ down: stop-all
 
 # DESTRUCTIVE clean slate: every platform stack (dev stack + each service's standalone stack,
 # through that service's own `down-all`) loses its containers, data volumes, images and
-# network. The next `make up` re-pulls/rebuilds images and starts with empty databases (seed
+# network. The next `make up` re-pulls/rebuilds images and starts with empty databases (seed-*
 # again). Not touched: other Docker projects, the *-test-* stacks and the external
 # backend-ot-uv-cache / powerflow-uv-cache volumes.
 down-all:
@@ -109,14 +115,39 @@ ps:
 logs:
 	$(DEV_COMPOSE) logs -f $(svc)
 
-# backend-ot's own seed target, pointed at the dev stack instead of its standalone stack.
+# backend-ot's own seed targets, pointed at the dev stack instead of its standalone stack.
 seed:
-	$(MAKE) -C services/backend-ot seed-db COMPOSE="$(DEV_COMPOSE)"
+	@echo "make seed was renamed: make seed-mock-modbus (the mock-modbus site) or"
+	@echo "make seed-2bess-1pv (powerflow's 2bess_1pv site)"; exit 2
+
+seed-mock-modbus:
+	$(MAKE) -C services/backend-ot seed-db-mock-modbus COMPOSE="$(DEV_COMPOSE)"
+
+# Seed one of powerflow's default sites into backend-ot, then make it powerflow's active site
+# and run it, so backend-ot polls the layout it was seeded with. Each site gets its own target.
+POWERFLOW_API := http://localhost:$(or $(POWERFLOW_HTTP_PORT),8020)/api
+seed-powerflow-site:
+	@test -n "$(SITE)" || { echo "usage: make seed-powerflow-site SITE=<powerflow site>"; exit 2; }
+	@curl -fsS -o /dev/null $(POWERFLOW_API)/health || { \
+		echo "powerflow isn't reachable at $(POWERFLOW_API): run make up first"; exit 1; }
+	$(MAKE) -C services/backend-ot seed-db-powerflow SITE=$(SITE) COMPOSE="$(DEV_COMPOSE)"
+	curl -fsS -o /dev/null -X POST $(POWERFLOW_API)/sim/stop
+	curl -fsS -o /dev/null -X POST $(POWERFLOW_API)/sites/$(SITE)/activate
+	curl -fsS -o /dev/null -X POST $(POWERFLOW_API)/sim/start
+	@echo "powerflow is running $(SITE); backend-ot polls it at powerflow:502"
+
+seed-2bess-1pv:
+	$(MAKE) seed-powerflow-site SITE=2bess_1pv
 
 # E2E against the running dev stack: backend-ot polls mock-modbus and agrees with the contract.
 E2E_API := http://localhost:$(or $(BACKEND_OT_HTTP_PORT),8000)/api
 e2e:
 	uv run --no-project python scripts/e2e/check_backend_reads_mock.py --api $(E2E_API)
+
+# E2E: backend-ot's readings of a seeded powerflow site agree with powerflow's HTTP device view.
+e2e-2bess-1pv:
+	uv run --no-project python scripts/e2e/check_backend_reads_powerflow.py --api $(E2E_API) \
+		--powerflow-api $(POWERFLOW_API) --site 2bess_1pv
 
 # ---------------------------------------------------------------------------
 # Fan-out: run the same target in each service that defines it (others are skipped).

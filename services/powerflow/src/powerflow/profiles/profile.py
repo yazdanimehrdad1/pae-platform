@@ -10,7 +10,6 @@ more numeric columns. Which value columns are required depends on the profile ki
 import io
 import math
 from dataclasses import dataclass
-from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 
@@ -146,7 +145,3 @@ def load_profile_file(path: Path, kind: ProfileKind, loop: bool, scale: float) -
         return parse_profile_csv(text, kind, loop, scale)
     except ProfileError as error:
         raise ProfileError(f"{path}: {error}") from error
-
-
-def epoch_seconds(moment: datetime) -> float:
-    return moment.timestamp()

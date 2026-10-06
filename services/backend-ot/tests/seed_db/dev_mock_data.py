@@ -45,7 +45,7 @@ from schemas.api_models import (
     VirtualPointCreateRequest,
 )
 from schemas.api_models.alarms import AlarmDefinitionCreateRequest, CommsStaleAlarm, ThresholdAlarm
-from schemas.tests_models import SeedAlarm, SeedDevice, SeedVirtualPoint
+from schemas.tests_models import SeedAlarm, SeedData, SeedDevice, SeedVirtualPoint
 
 # ---------------------------------------------------------------------------
 # Sites
@@ -236,3 +236,15 @@ def user_alarms(point_id: Callable[[str, str], int], device_id: Callable[[str], 
             ),
         ),
     ]
+
+
+def mock_modbus_seed_data() -> SeedData:
+    """The mock-modbus site as one seed bundle."""
+    return SeedData(
+        sites=SITES,
+        devices=DEVICES,
+        device_points=DEVICE_POINTS,
+        virtual_points=virtual_points,
+        user_alarms=user_alarms,
+        site_slds=site_slds,
+    )

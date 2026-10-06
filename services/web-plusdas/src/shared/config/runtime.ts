@@ -7,10 +7,13 @@
 export interface RuntimeConfig {
   /** Base for every API call. Keep it same-origin (`/api`): see docs/same-origin.md. */
   apiBaseUrl: string;
+  /** Base for the powerflow simulator's API (nginx forwards it to powerflow's /api). Same-origin. */
+  powerflowBaseUrl: string;
 }
 
 const DEFAULTS: RuntimeConfig = {
   apiBaseUrl: '/api',
+  powerflowBaseUrl: '/powerflow-api',
 };
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -18,5 +21,6 @@ export function getRuntimeConfig(): RuntimeConfig {
   return {
     // An empty value (unset env var at container start) falls back to the default.
     apiBaseUrl: injected?.apiBaseUrl || DEFAULTS.apiBaseUrl,
+    powerflowBaseUrl: injected?.powerflowBaseUrl || DEFAULTS.powerflowBaseUrl,
   };
 }

@@ -55,3 +55,16 @@ class InvalidNameError(PowerflowError):
 
 class InUseError(InvalidStateError):
     """The item can't change now because it's in use (e.g. deleting the active site)."""
+
+
+class ProtectedSiteError(InvalidStateError):
+    """A default site (it ships with powerflow) can't be deleted."""
+
+
+class ConditionError(PowerflowError):
+    """An injected condition (or event scenario) doesn't apply to the site, e.g. a fault cause
+    the asset type can't have."""
+
+
+class PointStandardError(PowerflowError):
+    """The point-standard CSVs are invalid, or a site doesn't fit the Modbus register layout."""

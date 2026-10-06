@@ -2,7 +2,9 @@
 pacing and overruns (with an injected clock, so no test waits on wall time)."""
 
 import asyncio
+import math
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -14,7 +16,13 @@ from powerflow.core.snapshot import Snapshot
 from powerflow.errors import InvalidStateError, NonConvergenceError, NotInTestModeError
 from powerflow.models.bess import BessMode, BessSetpoint
 from powerflow.network.pandapower_solver import PandapowerSolver
-from powerflow.network.solver import Injection, NetworkResult, PowerFlowSolver
+from powerflow.network.solver import (
+    NORMAL_GRID,
+    GridState,
+    Injection,
+    NetworkResult,
+    PowerFlowSolver,
+)
 from powerflow.network.topology import Topology
 from powerflow.site_config import SiteConfig
 
@@ -117,11 +125,13 @@ class FlakySolver(PowerFlowSolver):
         self._fail_on = fail_on
         self.calls = 0
 
-    def solve(self, injections: dict[str, Injection]) -> NetworkResult:
+    def solve(
+        self, injections: dict[str, Injection], grid: GridState = NORMAL_GRID
+    ) -> NetworkResult:
         self.calls += 1
         if self.calls in self._fail_on:
             raise NonConvergenceError("forced")
-        return self._inner.solve(injections)
+        return self._inner.solve(injections, grid)
 
 
 class TestNonConvergence:
@@ -154,6 +164,57 @@ class TestNonConvergence:
         assert not snapshot.converged and snapshot.poi.v_pu == 0
 
 
+def metered_site() -> dict[str, Any]:
+    raw = site_config_dict(n_bess=1, n_pv=1)
+    raw["meters"] = [
+        {"id": "m_bess1", "transformer": "bess1"},
+        {"id": "m_pv1", "transformer": "pv1"},
+    ]
+    return raw
+
+
+class TestFeederMeters:
+    def test_meter_reads_the_transformer_hv_side(self) -> None:
+        engine = make_engine(metered_site())
+        discharge(engine, 1000, 200)
+        snapshot = run(engine.step(1))
+        meters = {meter.id: meter for meter in snapshot.meters}
+        transformers = {item.name: item for item in snapshot.transformers}
+        bess = snapshot.bess[0]
+
+        # + toward the MV bus, after the transformer losses (and the aux load on the LV bus).
+        tx = transformers["tx:bess1"]
+        assert meters["m_bess1"].p_kw == pytest.approx(bess.p_kw - bess.aux_p_kw - tx.p_loss_kw)
+        assert meters["m_bess1"].q_kvar == pytest.approx(tx.q_hv_kvar)
+        assert meters["m_pv1"].p_kw == pytest.approx(
+            snapshot.pv[0].p_kw - transformers["tx:pv1"].p_loss_kw
+        )
+        collector = next(bus for bus in snapshot.buses if bus.name == "col:mv1")
+        assert meters["m_bess1"].v_kv == pytest.approx(collector.v_kv)
+        # I = S / (√3·V) on the HV side.
+        assert meters["m_bess1"].i_a == pytest.approx(
+            meters["m_bess1"].s_kva / (math.sqrt(3) * collector.v_kv), rel=1e-3
+        )
+        assert meters["m_bess1"].meter_state_name == "OK"
+
+    def test_feeder_meters_add_up_to_the_poi(self) -> None:
+        """With every generator metered and the load on the POI bus: POI = Σ meters − load."""
+        engine = make_engine(metered_site())
+        discharge(engine, -800)
+        snapshot = run(engine.step(1))
+        metered = sum(meter.p_kw for meter in snapshot.meters)
+        assert snapshot.poi.p_kw == pytest.approx(metered - snapshot.loads[0].p_kw, abs=0.01)
+
+    def test_feeder_meters_go_stale_on_non_convergence(self) -> None:
+        engine = make_engine(
+            metered_site(), solver_factory=lambda topology: FlakySolver(topology, {2})
+        )
+        good = run(engine.step(1))
+        failed = run(engine.step(1))
+        assert [meter.meter_state_name for meter in failed.meters] == ["STALE", "STALE"]
+        assert [meter.p_kw for meter in failed.meters] == [meter.p_kw for meter in good.meters]
+
+
 class FakeClock:
     """Monotonic time that only moves when the engine sleeps (or a solver 'computes')."""
 
@@ -177,10 +238,12 @@ class SlowSolver(PowerFlowSolver):
         self._slow_calls = slow_calls
         self.calls = 0
 
-    def solve(self, injections: dict[str, Injection]) -> NetworkResult:
+    def solve(
+        self, injections: dict[str, Injection], grid: GridState = NORMAL_GRID
+    ) -> NetworkResult:
         self.calls += 1
         self._clock.now += self._slow_calls.get(self.calls, 0.0)
-        return self._inner.solve(injections)
+        return self._inner.solve(injections, grid)
 
 
 async def run_until(engine: Engine, step_id: int) -> None:
@@ -257,5 +320,120 @@ class TestRealTimeLoop:
             assert history[history.index(paused_at) + 1] == paused_at + 1
             await engine.reset()
             assert engine.status().step_id == 0 and engine.store.latest is None
+
+        run(scenario())
+
+
+class WallClock:
+    """A settable wall clock (UTC)."""
+
+    def __init__(self, now: datetime) -> None:
+        self.now = now
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+WALL = datetime(2026, 6, 21, 12, 34, 56, 789000, tzinfo=UTC)
+
+
+def clock_site(**simulation: Any) -> dict[str, Any]:
+    raw = site_config_dict()
+    raw["simulation"].update(simulation)
+    return raw
+
+
+class TestClock:
+    def test_speed_runs_faster_than_real_time(self) -> None:
+        clock = FakeClock()
+        engine = make_engine(clock_site(speed=10), clock=clock, sleep=clock.sleep)
+        start = clock.now
+        run(run_until(engine, 20))
+        steps = len(engine.store)
+        assert steps / 10 <= clock.now - start <= steps / 10 + 0.1  # 0.1 s per 1 s step
+        assert engine.status().speed == 10
+
+    def test_set_speed_re_anchors_and_reset_restores_it(self) -> None:
+        clock = FakeClock()
+        engine = make_engine(clock=clock, sleep=clock.sleep)
+
+        async def scenario() -> None:
+            await run_until(engine, 3)
+            await engine.set_speed(20)
+            start, first = clock.now, engine.status().step_id
+            await run_until(engine, first + 20)
+            assert clock.now - start <= (engine.status().step_id - first) / 20 + 0.1
+            await engine.reset()
+
+        run(scenario())
+        assert engine.status().speed == 1
+        with pytest.raises(ValueError):
+            run(engine.set_speed(0))
+
+    def test_now_is_read_at_reset_and_fresh_start_not_on_resume(self) -> None:
+        wall = WallClock(WALL)
+        clock = FakeClock()
+        engine = make_engine(
+            clock_site(start_time="now"), clock=clock, sleep=clock.sleep, wall_clock=wall
+        )
+        assert engine.status().start_time.isoformat() == "2026-06-21T12:34:56+00:00"
+        wall.now = WALL + timedelta(hours=1)
+        run(run_until(engine, 2))  # a fresh start reads the wall clock again
+        assert engine.status().start_time.isoformat() == "2026-06-21T13:34:56+00:00"
+        first = engine.store.history()[0].sim_time
+        assert first.isoformat() == "2026-06-21T13:34:57+00:00"
+        wall.now = WALL + timedelta(hours=2)
+        run(run_until(engine, 4))  # resuming keeps the origin
+        assert engine.status().start_time.isoformat() == "2026-06-21T13:34:56+00:00"
+        run(engine.reset())
+        assert engine.status().start_time.isoformat() == "2026-06-21T14:34:56+00:00"
+
+    def test_start_step(self) -> None:
+        engine = make_engine(clock_site(start_step=3600))
+        assert engine.status().step_id == 3600
+        snapshot = run(engine.step(1))
+        assert snapshot.step_id == 3601
+        assert snapshot.sim_time.isoformat() == "2026-06-21T13:00:01+00:00"
+
+    def test_scheduled_start(self) -> None:
+        wall = WallClock(WALL)
+        clock = FakeClock()
+        engine = make_engine(clock=clock, sleep=clock.sleep, wall_clock=wall)
+
+        async def scenario() -> None:
+            start = clock.now
+            await engine.start(at=WALL + timedelta(seconds=90))
+            assert engine.status().state in (RunState.SCHEDULED, RunState.RUNNING)
+            for _ in range(10_000):
+                if engine.store.latest is not None:
+                    break
+                await asyncio.sleep(0.001)
+            await engine.stop()
+            assert clock.now - start >= 90  # it waited for its time
+            assert engine.status().scheduled_start is None
+
+        run(scenario())
+
+    def test_a_schedule_can_be_cancelled_and_blocks_stepping(self) -> None:
+        engine = make_engine(wall_clock=WallClock(WALL))  # real sleep: it would wait an hour
+
+        async def scenario() -> None:
+            await engine.start(at=WALL + timedelta(hours=1))
+            status = engine.status()
+            assert status.state is RunState.SCHEDULED and status.scheduled_start is not None
+            with pytest.raises(InvalidStateError):
+                await engine.step(1)
+            await engine.stop()
+            assert engine.status().state is RunState.STOPPED and not engine.store.history()
+
+        run(scenario())
+
+    def test_a_past_start_time_starts_now(self) -> None:
+        engine = make_engine(wall_clock=WallClock(WALL))
+
+        async def scenario() -> None:
+            await engine.start(at=WALL - timedelta(seconds=5))
+            assert engine.status().state is RunState.RUNNING
+            await engine.stop()
 
         run(scenario())

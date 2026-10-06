@@ -24,7 +24,7 @@ every future service gets the fix.
 - **Makefile targets, same names everywhere:** `install`, `lint`, `format`, `typecheck`, `test`
   (fast, no Docker where possible); `test-integration` (if the service has one), `build`, `up`,
   `down`, `logs`, `run` (on the host), `contract` (services that publish to `contracts/`);
-  service-specific extras (e.g. `migrate`, `seed-db`, `api-types`). The same shell header, the
+  service-specific extras (e.g. `migrate`, `seed-db-mock-modbus`, `api-types`). The same shell header, the
   `require-no-dev-stack` guard on `build`/`up`, and a `help` target.
 - **`compose.yaml`:** `name: <svc>`, no `container_name`, no external networks; host ports as
   `${<SVC>_<THING>_PORT:-default}`; `env_file: [{path: .env, required: false}]`;

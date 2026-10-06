@@ -1,4 +1,5 @@
-"""Storage: the repository contract (in memory), the profile CSV store, the defaults reader."""
+"""Storage: the repository contract (in memory), the profile CSV store, the default sites
+(read from the data migration), and the migration statement splitter."""
 
 import asyncio
 from collections.abc import Callable, Coroutine
@@ -8,14 +9,16 @@ import pytest
 from conftest import DEFAULT_SITE_NAMES
 from repository_contract import CONTRACT_CHECKS
 
-from powerflow.errors import InvalidNameError, NotFoundError, SiteConfigError
+from powerflow.errors import InvalidNameError, NotFoundError
 from powerflow.storage import (
     ConfigRepository,
     InMemoryConfigRepository,
     ProfileFolder,
     ProfileStore,
+    SiteCategory,
 )
-from powerflow.storage.defaults import read_defaults
+from powerflow.storage.postgres import MIGRATIONS_DIR, _statements
+from powerflow.storage.seed_data import default_active_site, default_sites
 
 
 @pytest.mark.parametrize("check", CONTRACT_CHECKS, ids=lambda check: check.__name__)
@@ -27,8 +30,8 @@ def test_in_memory_repository_contract(
 
 class TestProfileStore:
     @pytest.fixture
-    def store(self, site_config_copy: Path) -> ProfileStore:
-        return ProfileStore(site_config_copy / "profiles")
+    def store(self, profiles_copy: Path) -> ProfileStore:
+        return ProfileStore(profiles_copy)
 
     def test_lists_and_reads(self, store: ProfileStore) -> None:
         assert "typical" in store.list_profiles(ProfileFolder.LOAD)
@@ -56,20 +59,28 @@ class TestProfileStore:
             store.profile_path(ProfileFolder.LOAD, "Typical")
 
 
-class TestDefaults:
-    def test_reads_every_site_with_its_maps(self, site_config_copy: Path) -> None:
-        defaults = read_defaults(site_config_copy)
-        assert [site.name for site in defaults.sites] == DEFAULT_SITE_NAMES
-        assert defaults.active_site == "reference_2bess_1pv"
-        reference = next(site for site in defaults.sites if site.name == "reference_2bess_1pv")
-        assert "pv.pv1" in reference.maps and "poi.meter" in reference.maps
+class TestDefaultSites:
+    def test_the_migration_seeds_valid_sites_and_an_active_one(self) -> None:
+        sites = default_sites()
+        assert sorted(sites) == DEFAULT_SITE_NAMES
+        assert default_active_site() in sites
+        reference = sites["2bess_1pv"]
+        assert [meter.id for meter in reference.meters] == ["m_bess1", "m_bess2", "m_pv1"]
+        assert reference.interfaces.modbus.enabled
 
-    def test_bad_default_is_reported(self, site_config_copy: Path) -> None:
-        (site_config_copy / "sites" / "broken.json").write_text('{"grid": {"vn_kv": -1}}')
-        with pytest.raises(SiteConfigError, match="broken"):
-            read_defaults(site_config_copy)
+    def test_in_memory_repository_starts_like_a_migrated_database(self) -> None:
+        repository = InMemoryConfigRepository.with_default_sites()
+        sites = asyncio.run(repository.list_sites())
+        assert [site.name for site in sites] == DEFAULT_SITE_NAMES
+        assert {site.category for site in sites} == {SiteCategory.DEFAULT}
+        assert asyncio.run(repository.get_active_site()) == default_active_site()
 
-    def test_active_must_exist(self, site_config_copy: Path) -> None:
-        (site_config_copy / "active.json").write_text('{"site": "missing"}')
-        with pytest.raises(SiteConfigError, match="missing"):
-            read_defaults(site_config_copy)
+
+class TestMigrationStatements:
+    def test_semicolons_inside_dollar_quotes_stay_in_their_statement(self) -> None:
+        sql = "-- a comment; ignored\nINSERT INTO t VALUES ($x$a;b$x$);\nSELECT 1;"
+        assert _statements(sql) == ["INSERT INTO t VALUES ($x$a;b$x$)", "SELECT 1"]
+
+    def test_the_default_sites_migration_is_one_statement_per_insert(self) -> None:
+        statements = _statements((MIGRATIONS_DIR / "0003_default_sites.sql").read_text("utf-8"))
+        assert len(statements) == len(DEFAULT_SITE_NAMES) + 1  # the sites + the active site

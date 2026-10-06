@@ -1,14 +1,19 @@
-"""Seed the database with development mock data.
+"""Seed the database with development data: the mock-modbus site, or one of powerflow's
+simulated sites.
 
-Idempotent — safe to run multiple times. Skips rows that already exist.
+Idempotent — safe to run multiple times. Skips rows that already exist (devices and points are
+matched within their site, so several seeded sites can coexist).
 
 Run via:
-    make seed-db                    # copies files into running container then executes
-    python tests/seed_db/seed_db.py # run locally (requires DB to be reachable)
+    make seed-db-mock-modbus                     # copies files into the running container, runs
+    make seed-db-powerflow SITE=2bess_1pv        # (dev stack: root `make seed-2bess-1pv`)
+    python tests/seed_db/seed_db.py mock-modbus  # run locally (requires DB to be reachable)
+    python tests/seed_db/seed_db.py powerflow 2bess_1pv
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -37,28 +42,45 @@ from schemas.db_models.orm_models import (  # noqa: E402
     Site,
     SiteSldRecord,
 )
+from schemas.tests_models import SeedData  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dev_mock_data import (  # noqa: E402
     DEVICE_POINTS,
     DEVICES,
     SITES,
+    mock_modbus_seed_data,
     site_slds,
     user_alarms,
     virtual_points,
 )
+from powerflow_seed import powerflow_seed_data  # noqa: E402
+
+__all__ = [
+    "DEVICES",
+    "DEVICE_POINTS",
+    "SITES",
+    "mock_modbus_seed_data",
+    "powerflow_seed_data",
+    "seed",
+    "site_slds",
+    "user_alarms",
+    "virtual_points",
+]
 
 logger = get_logger(__name__)
 
 
-async def seed() -> None:
+async def seed(data: SeedData | None = None) -> None:
+    """Seed one bundle (default: the mock-modbus site)."""
+    data = data if data is not None else mock_modbus_seed_data()
     async with get_session() as session:
 
         # ------------------------------------------------------------------ #
         # 1. Sites                                                            #
         # ------------------------------------------------------------------ #
         site_by_name: dict[str, Site] = {}
-        for site_request in SITES:
+        for site_request in data.sites:
             result = await session.execute(
                 select(Site).where(Site.name == site_request.name)
             )
@@ -77,11 +99,13 @@ async def seed() -> None:
         # 2. Devices                                                          #
         # ------------------------------------------------------------------ #
         device_by_name: dict[str, Device] = {}
-        for seed_device in DEVICES:
+        for seed_device in data.devices:
             site = site_by_name[seed_device.site_name]
 
             result = await session.execute(
-                select(Device).where(Device.name == seed_device.device.name)
+                select(Device).where(
+                    Device.site_id == site.id, Device.name == seed_device.device.name
+                )
             )
             device = result.scalar_one_or_none()
             if device is None:
@@ -125,7 +149,7 @@ async def seed() -> None:
             await session.flush()
 
             # NATIVE
-            for point in DEVICE_POINTS.get(device_name, []):
+            for point in data.device_points.get(device_name, []):
                 if await point_exists(device, point.name):
                     logger.info("Device point already exists '%s.%s'", device_name, point.name)
                     continue
@@ -159,7 +183,7 @@ async def seed() -> None:
         for device_name, device in device_by_name.items():
             result = await session.execute(select(DevicePoint).where(DevicePoint.device_id == device.device_id))
             point_ids.update({(device_name, point.name): point.id for point in result.scalars().all()})
-        for seed_point in virtual_points(lambda device_name, point_name: point_ids[(device_name, point_name)]):
+        for seed_point in data.virtual_points(lambda device_name, point_name: point_ids[(device_name, point_name)]):
             device = device_by_name[seed_point.device_name]
             if await point_exists(device, seed_point.point.name):
                 logger.info("Device point already exists '%s.%s'", device.name, seed_point.point.name)
@@ -205,7 +229,7 @@ async def seed() -> None:
         # 6. User alarms, built with the create path's own builder            #
         # ------------------------------------------------------------------ #
         device_ids = {name: device.device_id for name, device in device_by_name.items()}
-        for seed_alarm in user_alarms(
+        for seed_alarm in data.user_alarms(
             lambda device_name, point_name: point_ids[(device_name, point_name)],
             lambda device_name: device_ids[device_name],
         ):
@@ -227,7 +251,7 @@ async def seed() -> None:
         # 7. Single line diagrams: only where the site has none, so edits     #
         #    saved through the API survive a re-seed                          #
         # ------------------------------------------------------------------ #
-        for site_name, sld in site_slds(
+        for site_name, sld in data.site_slds(
             lambda device_name, point_name: point_ids[(device_name, point_name)],
             lambda device_name: device_ids[device_name],
         ).items():
@@ -247,5 +271,16 @@ async def seed() -> None:
     logger.info("Seeding complete.")
 
 
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Seed backend-ot's database with dev data.")
+    sources = parser.add_subparsers(dest="source")
+    sources.add_parser("mock-modbus", help="the mock-modbus site (Alpha Solar Farm), the default")
+    powerflow = sources.add_parser("powerflow", help="one of powerflow's simulated default sites")
+    powerflow.add_argument("site", help="powerflow site, e.g. 2bess_1pv")
+    args = parser.parse_args()
+    data = powerflow_seed_data(args.site) if args.source == "powerflow" else mock_modbus_seed_data()
+    asyncio.run(seed(data))
+
+
 if __name__ == "__main__":
-    asyncio.run(seed())
+    main()

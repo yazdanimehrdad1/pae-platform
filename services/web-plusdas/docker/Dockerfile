@@ -4,8 +4,9 @@
 # Build context: services/web-plusdas (never the monorepo root).
 #
 # One image for every environment: nothing environment-specific is baked into the bundle.
-# At container start nginx renders docker/nginx/default.conf.template (API_UPSTREAM) and
-# 40-app-config.sh writes /config.js (APP_API_BASE_URL). See .env.example.
+# At container start nginx renders docker/nginx/default.conf.template (API_UPSTREAM,
+# POWERFLOW_UPSTREAM) and 40-app-config.sh writes /config.js (APP_API_BASE_URL,
+# APP_POWERFLOW_BASE_URL). See .env.example.
 
 # ---- build: node + npm ci from package-lock.json -------------------------------------------
 FROM node:24-alpine AS builder
@@ -24,9 +25,12 @@ COPY docker/config.js.template /etc/nginx/app/config.js.template
 COPY --chmod=755 docker/40-app-config.sh /docker-entrypoint.d/40-app-config.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Standalone default; compose overrides it (dev stack: http://backend-ot:8000).
+# Standalone defaults; compose overrides them (dev stack: http://backend-ot:8000 and
+# http://powerflow:8000).
 ENV API_UPSTREAM=http://host.docker.internal:8000 \
-    APP_API_BASE_URL=/api
+    POWERFLOW_UPSTREAM=http://host.docker.internal:8020 \
+    APP_API_BASE_URL=/api \
+    APP_POWERFLOW_BASE_URL=/powerflow-api
 
 EXPOSE 80
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
