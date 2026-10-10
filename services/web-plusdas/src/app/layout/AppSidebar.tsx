@@ -8,6 +8,7 @@ import {
   FileText,
   Bot,
   Cpu,
+  Gauge,
   Users,
   Settings,
   Search,
@@ -91,6 +92,13 @@ const navigationItems: NavigationItem[] = [
     path: '/simulation',
     roles: ['engineer', 'admin'],
     newTabOption: true,
+  },
+  {
+    id: 'optimization',
+    title: 'Optimization',
+    icon: Gauge,
+    path: '/optimization',
+    roles: ['engineer', 'admin']
   },
   {
     id: 'users',

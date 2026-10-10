@@ -18,7 +18,7 @@ function navTitles(): string[] {
 }
 
 describe('AppSidebar', () => {
-  it('lists Simulation between AI Tasks and Notes for engineers', () => {
+  it('lists Simulation between AI Tasks and Optimization for engineers', () => {
     role.current = 'engineer';
     render(
       <MemoryRouter>
@@ -29,7 +29,7 @@ describe('AppSidebar', () => {
     const simulation = titles.indexOf('Simulation');
     expect(simulation).toBeGreaterThan(-1);
     expect(titles[simulation - 1]).toBe('AI Tasks');
-    expect(titles[simulation + 1]).toBe('Notes');
+    expect(titles[simulation + 1]).toBe('Optimization');
   });
 
   it('opens Simulation in this tab, and in a new tab only from its own button', () => {
@@ -47,6 +47,30 @@ describe('AppSidebar', () => {
     expect(newTab.getAttribute('target')).toBe('_blank');
     expect(newTab.getAttribute('rel')).toContain('noopener');
     expect(screen.queryByRole('link', { name: 'Open Sites in a new tab' })).toBeNull();
+  });
+
+  it('lists Optimization between Simulation and Notes, linking to its page', () => {
+    role.current = 'engineer';
+    render(
+      <MemoryRouter>
+        <AppSidebar />
+      </MemoryRouter>,
+    );
+    const titles = navTitles();
+    const optimization = titles.indexOf('Optimization');
+    expect(titles[optimization - 1]).toBe('Simulation');
+    expect(titles[optimization + 1]).toBe('Notes');
+    expect(screen.getByRole('link', { name: 'Optimization' }).getAttribute('href')).toBe('/optimization');
+  });
+
+  it('hides Optimization from monitors', () => {
+    role.current = 'monitor';
+    render(
+      <MemoryRouter>
+        <AppSidebar />
+      </MemoryRouter>,
+    );
+    expect(navTitles()).not.toContain('Optimization');
   });
 
   it('hides Simulation from monitors', () => {

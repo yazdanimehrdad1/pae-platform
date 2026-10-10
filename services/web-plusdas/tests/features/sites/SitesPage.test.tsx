@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { sitesApi } from '@/api';
 import type { Site, SiteHealth } from '@/api/types/sites';
 import Sites from '@/features/sites/SitesPage';
+import { SITE_STATS_REFRESH_MS } from '@/features/sites/hooks/useSiteHealth';
 
 const SITES = [
   { id: '1001', name: 'Alpha Solar Farm', location: 'San Diego, CA', type: 'facility', status: 'online', deviceCount: 2,
@@ -126,5 +127,42 @@ describe('Sites page', () => {
 
     expect(await screen.findByText('devices page for Alpha Solar Farm')).toBeTruthy();
     expect(screen.queryByText('trip')).toBeNull();
+  });
+});
+
+describe('Sites page refresh', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it('refetches the sites list and each site health every 4 minutes, and shows the new counts', async () => {
+    renderPage();
+    expect(await severityCounts()).toEqual(['3', '6', '7']);
+    expect(sitesApi.getAll).toHaveBeenCalledTimes(1);
+    expect(sitesApi.getHealth).toHaveBeenCalledTimes(1);
+
+    vi.spyOn(sitesApi, 'getHealth').mockResolvedValue({ ...HEALTH, high_count: 0, medium_count: 1, low_count: 2 });
+    await advance(SITE_STATS_REFRESH_MS);
+
+    await waitFor(() => expect(sitesApi.getAll).toHaveBeenCalledTimes(2));
+    expect(sitesApi.getHealth).toHaveBeenCalledTimes(1); // the new spy: one refetch
+    expect(sitesApi.getHealth).toHaveBeenCalledWith('1001');
+    await waitFor(async () => expect(await severityCounts()).toEqual(['0', '1', '2']));
+  });
+
+  it('does not refetch before 4 minutes', async () => {
+    renderPage();
+    await severityCounts();
+
+    await advance(SITE_STATS_REFRESH_MS - 1000);
+
+    expect(sitesApi.getAll).toHaveBeenCalledTimes(1);
+    expect(sitesApi.getHealth).toHaveBeenCalledTimes(1);
   });
 });

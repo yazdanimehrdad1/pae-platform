@@ -15,6 +15,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { SiteHealthCounts } from "./components/SiteHealthCounts";
 import { SiteHealthPanel } from "./components/SiteHealthPanel";
+import { SITE_STATS_REFRESH_MS } from "./hooks/useSiteHealth";
 
 function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) => void }) {
   const navigate = useNavigate();
@@ -89,15 +90,15 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
 
             <div className="flex items-center space-x-6">
               <SiteHealthCounts siteId={site.id} />
-              <div className="text-center min-w-[80px]">
-                <div className="text-sm font-medium">{site.operator}</div>
+              <div className="text-center w-[120px] shrink-0">
+                <div className="text-sm font-medium truncate" title={site.operator}>{site.operator}</div>
                 <div className="data-label text-xs">Operator</div>
               </div>
-              <div className="text-center min-w-[90px]">
-                <div className="text-xs">{site.lastUpdate}</div>
+              <div className="text-center w-[180px] shrink-0">
+                <div className="text-xs truncate" title={site.lastUpdate}>{site.lastUpdate}</div>
                 <div className="data-label text-xs">Updated</div>
               </div>
-              <Badge className={`btn-status ${getStatusColor(site.status)} min-w-[80px]`}>
+              <Badge className={`btn-status ${getStatusColor(site.status)} w-[90px] shrink-0 justify-center`}>
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {site.status}
               </Badge>
@@ -134,6 +135,7 @@ export default function Sites() {
   const { data: sites = [], isLoading, isError } = useQuery<Site[]>({
     queryKey: ['sites'],
     queryFn: sitesApi.getAll,
+    refetchInterval: SITE_STATS_REFRESH_MS,
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
