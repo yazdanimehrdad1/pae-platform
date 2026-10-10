@@ -15,10 +15,11 @@ from typing import Literal, get_type_hints
 from pydantic import BaseModel
 
 from schemas.site_profiles import AlarmCheck, DeviceHealth, FunctionKind, TimeWindowParams
+from site_profiles.declarations.alarm import SiteAlarm
+from site_profiles.declarations.endpoint import SiteEndpoint
+from site_profiles.declarations.health import DeviceHealthCheck
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
-from site_profiles.site_alarm import SiteAlarm
-from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
-from site_profiles.site_health import DeviceHealthCheck
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
 ALL_SITE_PROFILES: tuple[SiteProfile, ...] = (ALPHA_SOLAR_PROFILE,)

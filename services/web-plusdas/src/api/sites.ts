@@ -1,4 +1,6 @@
-import type { Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse } from './types/sites';
+import type {
+  Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse, SiteHealth, PointSeverity,
+} from './types/sites';
 import { client, request } from './client';
 
 // backend-ot has no site type or status yet (see docs/backend-gaps.md), so the UI defaults them.
@@ -11,7 +13,6 @@ function toSite(site: SiteRecord): Site {
     status: 'online',
     deviceCount: site.device_count,
     lastUpdate: site.last_update,
-    capacity: site.capacity,
     operator: site.operator,
     description: site.description ?? '',
   };
@@ -41,4 +42,16 @@ export const sitesApi = {
   },
 
   restore: (siteId: number): Promise<SiteRecord> => client.post(`/sites/${siteId}/restore`, {}),
+
+  // The site's ALARM-class points that are set, per device. No filter = all severities / all devices.
+  getHealth: (
+    siteId: string,
+    filters: { severity?: PointSeverity[]; deviceIds?: number[] } = {},
+  ): Promise<SiteHealth> => {
+    const params = new URLSearchParams();
+    filters.severity?.forEach((severity) => params.append('severity', severity));
+    filters.deviceIds?.forEach((deviceId) => params.append('device_ids', String(deviceId)));
+    const query = params.toString();
+    return client.get<SiteHealth>(`/sites/${siteId}/health${query ? `?${query}` : ''}`);
+  },
 };

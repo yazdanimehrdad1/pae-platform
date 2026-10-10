@@ -8,7 +8,7 @@ alarm of the site. Replace it (and its declaration in profile.py) with the site'
 
 from helpers.reads.device_points_readings import get_latest_readings_by_point_ids
 from schemas.site_profiles import AlarmCheck, AlarmContext
-from site_profiles.individual_sites.alpha_solar.functions import INVERTER_ONLINE_STATES
+from site_profiles.individual_sites.alpha_solar.alpha_solar_functions import INVERTER_ONLINE_STATES
 
 INVERTER_STATE_POINT = "inverter_state"
 

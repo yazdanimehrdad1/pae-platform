@@ -879,23 +879,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/site-functions/site/{site_id}/common-energy-summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Energy (kWh) per device and in total, integrated from each device's active_power */
-        get: operations["site_function_common_energy_summary_api_site_functions_site__site_id__common_energy_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/site-functions/site/{site_id}/device/{device_id}/device-inverter-availability": {
         parameters: {
             query?: never;
@@ -922,6 +905,23 @@ export interface paths {
         };
         /** Plant inverter availability (%): pooled over the plant controller's inv01..04_mode */
         get: operations["site_function_device_plant_inverter_availability_api_site_functions_site__site_id__device__device_id__device_plant_inverter_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-energy-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Energy (kWh) per device and in total, integrated from each device's active_power */
+        get: operations["site_function_site_energy_summary_api_site_functions_site__site_id__site_energy_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1001,6 +1001,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the ALARM-class points that are set, per device
+         * @description Per device: the ALARM points whose latest reading is non-zero (bitfield points list the
+         *     bits that are set), counts per severity, and the points that have never reported (unknown).
+         *     A device id that isn't a device of the site is 404.
+         */
+        get: operations["get_site_health_endpoint_api_sites__site_id__health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{site_id}/restore": {
         parameters: {
             query?: never;
@@ -1071,6 +1093,45 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActivePointAlarm
+         * @description An ALARM-class point whose latest reading is set.
+         */
+        ActivePointAlarm: {
+            /**
+             * Active Bits
+             * @description Bitfield points: the named bits that are 1, in bit order
+             */
+            active_bits?: string[];
+            /** Device Point Id */
+            device_point_id: number;
+            /**
+             * Device Point Name
+             * @description The point's name, for display
+             */
+            device_point_name: string;
+            /**
+             * Enum Label
+             * @description Enum points: the label of the current value
+             */
+            enum_label?: string | null;
+            /**
+             * Severity
+             * @description The point's severity; null if the point declares none
+             */
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /**
+             * Timestamp
+             * Format: date-time
+             * @description When the latest reading was stored
+             */
+            timestamp: string;
+            /**
+             * Value
+             * @description The latest derived value (non-zero)
+             */
+            value: number;
+        };
         /**
          * AlarmDefinitionCreateRequest
          * @description A new USER alarm. (PROFILE alarms come from code, never from this route.)
@@ -1390,6 +1451,44 @@ export interface components {
              * @description Longitude
              */
             lng: number;
+        };
+        /**
+         * DeviceAlarmStatus
+         * @description One device's set ALARM points.
+         */
+        DeviceAlarmStatus: {
+            /** Active Alarms */
+            active_alarms?: components["schemas"]["ActivePointAlarm"][];
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /**
+             * High Count
+             * @default 0
+             */
+            high_count: number;
+            /**
+             * Highest Severity
+             * @description The highest severity that is set; null if none is
+             */
+            highest_severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /**
+             * Low Count
+             * @default 0
+             */
+            low_count: number;
+            /**
+             * Medium Count
+             * @default 0
+             */
+            medium_count: number;
+            /**
+             * Unknown Count
+             * @description ALARM points that have never reported a reading
+             * @default 0
+             */
+            unknown_count: number;
         };
         /**
          * DeviceCreateRequest
@@ -2526,6 +2625,57 @@ export interface components {
             profile: string | null;
             /** Site Id */
             site_id: number;
+        };
+        /**
+         * SiteHealthResponse
+         * @description The site's set ALARM points, per device, rolled up to the site.
+         */
+        SiteHealthResponse: {
+            /**
+             * Device Ids Filter
+             * @description The devices evaluated; null means all of the site's
+             */
+            device_ids_filter?: number[] | null;
+            /** Devices */
+            devices?: components["schemas"]["DeviceAlarmStatus"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * High Count
+             * @default 0
+             */
+            high_count: number;
+            /**
+             * Highest Severity
+             * @description The highest severity that is set; null if none is
+             */
+            highest_severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
+            /**
+             * Low Count
+             * @default 0
+             */
+            low_count: number;
+            /**
+             * Medium Count
+             * @default 0
+             */
+            medium_count: number;
+            /**
+             * Severity Filter
+             * @description The severities evaluated; null means all (including points without a severity)
+             */
+            severity_filter?: ("HIGH" | "MEDIUM" | "LOW")[] | null;
+            /** Site Id */
+            site_id: number;
+            /**
+             * Unknown Count
+             * @description ALARM points that have never reported a reading
+             * @default 0
+             */
+            unknown_count: number;
         };
         /**
          * SiteResponse
@@ -4731,46 +4881,6 @@ export interface operations {
             };
         };
     };
-    site_function_common_energy_summary_api_site_functions_site__site_id__common_energy_summary_get: {
-        parameters: {
-            query?: {
-                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
-                start_time?: string | null;
-                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
-                end_time?: string | null;
-                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
-                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
-                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
-                tz?: string | null;
-            };
-            header?: never;
-            path: {
-                site_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EnergySummaryResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     site_function_device_inverter_availability_api_site_functions_site__site_id__device__device_id__device_inverter_availability_get: {
         parameters: {
             query?: {
@@ -4840,6 +4950,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InverterAvailabilityResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_energy_summary_api_site_functions_site__site_id__site_energy_summary_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnergySummaryResult"];
                 };
             };
             /** @description Validation Error */
@@ -5081,6 +5231,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_health_endpoint_api_sites__site_id__health_get: {
+        parameters: {
+            query?: {
+                /** @description Only evaluate ALARM points of these severities (repeatable); omit for all */
+                severity?: ("HIGH" | "MEDIUM" | "LOW")[] | null;
+                /** @description Only evaluate these devices of the site (repeatable); omit for all */
+                device_ids?: number[] | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteHealthResponse"];
                 };
             };
             /** @description Validation Error */

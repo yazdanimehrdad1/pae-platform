@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # Polling Job Configuration
     poll_interval_seconds: int = Field(default=10, alias="POLL_INTERVAL_SECONDS")
 
+    # Alarm Evaluation Job Configuration
+    alarm_evaluation_interval_seconds: int = Field(default=22, ge=1, alias="ALARM_EVALUATION_INTERVAL_SECONDS")
+
     # Pod identification (for Kubernetes)
     pod_name: str = Field(default="", alias="POD_NAME")  # Falls back to HOSTNAME if not set
 

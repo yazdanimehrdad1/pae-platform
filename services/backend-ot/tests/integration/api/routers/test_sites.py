@@ -3,8 +3,9 @@ Integration tests for /api/sites.
 
 Guards site CRUD against a real database: name uniqueness, the soft-delete / restore
 lifecycle (which cascades to devices and points), the guard rails on hard delete, and the
-site's single line diagram (stored per site, saved with optimistic locking), and the rule
-that a profile belongs to at most one site.
+site's single line diagram (stored per site, saved with optimistic locking), the rule
+that a profile belongs to at most one site, and site health (which ALARM points are set, filtered
+by severity and device).
 """
 
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from integration.factories import (
 from schemas.api_models import (
     SiteComprehensiveResponse,
     SiteDeleteResponse,
+    SiteHealthResponse,
     SiteResponse,
     SiteSld,
     SiteSldResponse,
@@ -547,3 +549,115 @@ class TestSldValues:
         assert (no_sld.status_code, no_site.status_code) == (404, 404)
         assert SldNotFoundResponse.model_validate(no_sld.json()).detail.error == "SiteSldNotFoundError"
         assert SldNotFoundResponse.model_validate(no_site.json()).detail.error == "NotFoundError"
+
+
+async def alarm_site(client, db):
+    """A site with two devices: meter-1 has a HIGH alarm that is set, a LOW alarm at 0 and a
+    MEDIUM bitfield alarm that has never reported; meter-2 has a LOW alarm that is set. A
+    non-alarm point that is non-zero is ignored."""
+    site = await create_site(client)
+    first = await create_device(client, site.site_id, name="meter-1")
+    second = await create_device(client, site.site_id, name="meter-2", host="10.0.0.11")
+    high, low, medium, analog = await upsert_points(
+        client,
+        site.site_id,
+        first.device_id,
+        [
+            point_request(name="trip", address=10, size=1, data_type="uint16", unit=None, point_class="ALARM", severity="HIGH"),
+            point_request(name="door_open", address=11, size=1, data_type="uint16", unit=None, point_class="ALARM", severity="LOW"),
+            point_request(
+                name="bms_alarms", address=12, size=2, data_type="bitfield32", unit=None,
+                point_class="ALARM", severity="MEDIUM", bitfield_detail={"0": "OVER_TEMP", "1": "OVER_VOLT"},
+            ),
+            point_request(name="active_power", address=100, point_class="ANALOG"),
+        ],
+    )
+    (second_low,) = await upsert_points(
+        client,
+        site.site_id,
+        second.device_id,
+        [point_request(name="fan_fault", address=10, size=1, data_type="uint16", unit=None, point_class="ALARM", severity="LOW")],
+    )
+    await insert_reading(db, high, READ_AT, 1, 1.0)
+    await insert_reading(db, low, READ_AT, 0, 0.0)
+    await insert_reading(db, analog, READ_AT, 500, 500.0)
+    await insert_reading(db, second_low, READ_AT, 1, 1.0)
+    return site, first, second, (high, low, medium)
+
+
+async def get_health(client, site_id: int, **params) -> SiteHealthResponse:
+    response = await client.get(f"/api/sites/{site_id}/health", params=params)
+    assert response.status_code == 200, response.text
+    return SiteHealthResponse.model_validate(response.json())
+
+
+class TestSiteHealth:
+    async def test_reports_set_alarm_points_per_device(self, client, db):
+        site, first, second, (high, _, _) = await alarm_site(client, db)
+        health = await get_health(client, site.site_id)
+
+        assert (health.site_id, health.severity_filter, health.device_ids_filter) == (site.site_id, None, None)
+        assert (health.highest_severity, health.high_count, health.medium_count, health.low_count) == ("HIGH", 1, 0, 1)
+        assert health.unknown_count == 1  # the bitfield that never reported
+        device_one, device_two = health.devices
+        assert device_one.device_id == first.device_id
+        assert [alarm.device_point_id for alarm in device_one.active_alarms] == [high.id]
+        assert (device_one.active_alarms[0].device_point_name, device_one.active_alarms[0].severity) == ("trip", "HIGH")
+        assert (device_two.device_id, device_two.highest_severity, device_two.low_count) == (second.device_id, "LOW", 1)
+
+    async def test_bitfield_alarm_lists_its_set_bits(self, client, db):
+        site, _, _, (_, _, medium) = await alarm_site(client, db)
+        await insert_reading(db, medium, READ_AT, 2, 2.0)
+        device_one = (await get_health(client, site.site_id)).devices[0]
+        bitfield = next(alarm for alarm in device_one.active_alarms if alarm.device_point_id == medium.id)
+        assert (bitfield.severity, bitfield.active_bits) == ("MEDIUM", ["OVER_VOLT"])
+        assert device_one.unknown_count == 0
+
+    async def test_device_without_set_alarms_is_clean(self, client, db):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id)
+        (trip,) = await upsert_points(
+            client, site.site_id, device.device_id,
+            [point_request(name="trip", address=10, size=1, data_type="uint16", unit=None, point_class="ALARM", severity="HIGH")],
+        )
+        await insert_reading(db, trip, READ_AT, 0, 0.0)
+        (status,) = (await get_health(client, site.site_id)).devices
+        assert (status.active_alarms, status.highest_severity, status.unknown_count) == ([], None, 0)
+
+    async def test_severity_filter_evaluates_only_those_severities(self, client, db):
+        site, _, _, _ = await alarm_site(client, db)
+        health = await get_health(client, site.site_id, severity="low")  # any casing
+        assert health.severity_filter == ["LOW"]
+        assert (health.highest_severity, health.high_count, health.low_count, health.unknown_count) == ("LOW", 0, 1, 0)
+        assert health.devices[0].active_alarms == []
+
+    async def test_several_severities_can_be_given(self, client, db):
+        site, _, _, _ = await alarm_site(client, db)
+        health = await get_health(client, site.site_id, severity=["LOW", "HIGH"])
+        assert health.severity_filter == ["HIGH", "LOW"]
+        assert (health.high_count, health.low_count, health.unknown_count) == (1, 1, 0)
+
+    async def test_device_ids_filter_evaluates_only_those_devices(self, client, db):
+        site, _, second, _ = await alarm_site(client, db)
+        health = await get_health(client, site.site_id, device_ids=second.device_id)
+        assert health.device_ids_filter == [second.device_id]
+        assert [device.device_id for device in health.devices] == [second.device_id]
+        assert (health.highest_severity, health.high_count, health.low_count) == ("LOW", 0, 1)
+
+    async def test_device_of_another_site_is_404(self, client, db):
+        site, _, _, _ = await alarm_site(client, db)
+        other_site = await create_site(client, name="Other Site")
+        foreign = await create_device(client, other_site.site_id, name="meter-x")
+        response = await client.get(f"/api/sites/{site.site_id}/health", params={"device_ids": foreign.device_id})
+        assert response.status_code == 404
+        assert ApiErrorResponse.model_validate(response.json()).detail.error == "NotFoundError"
+
+    async def test_unknown_severity_is_422(self, client):
+        site = await create_site(client)
+        response = await client.get(f"/api/sites/{site.site_id}/health", params={"severity": "CRITICAL"})
+        assert response.status_code == 422
+
+    async def test_unknown_site_is_404(self, client):
+        response = await client.get("/api/sites/999999/health")
+        assert response.status_code == 404
+        assert ApiErrorResponse.model_validate(response.json()).detail.error == "NotFoundError"

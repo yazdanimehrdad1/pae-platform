@@ -3,18 +3,22 @@ Alpha Solar Farm's own controllers: site-wide (site_*) and per-device (device_*)
 Only the ones declared in profile.py get an endpoint.
 """
 
-from schemas.site_profiles import SiteContext, TimeWindowParams
+from schemas.site_profiles import EnergySummaryResult, SiteContext, TimeWindowParams
 from schemas.site_profiles.individual_sites.alpha_solar import (
     InverterAvailabilityResult,
     PoiPowerResult,
 )
-from site_profiles.common.calculations import average, power_to_kw_factor
-from site_profiles.common.historian import get_point_series
-from site_profiles.individual_sites.alpha_solar.calculations import (
+from site_profiles.common.bess.bess_functions import spf_common_energy_kwh_by_device
+from site_profiles.common.shared_helper_functions import (
+    spf_common_get_point_timeseries,
+    spf_common_mean_sample_value,
+    spf_common_power_unit_to_kw_factor,
+)
+from site_profiles.individual_sites.alpha_solar.alpha_solar_helper_functions import (
     availability_pct,
     count_online_samples,
+    get_poi_active_power,
 )
-from site_profiles.individual_sites.alpha_solar.historian import get_poi_active_power
 from utils.exceptions import InternalError, NotFoundError, SiteProfileConfigError
 
 INVERTER_STATE_POINTS = ("inverter_state",)
@@ -23,17 +27,25 @@ INVERTER_ONLINE_STATES = frozenset({3, 4})  # mppt, derating
 PLANT_INVERTER_MODE_POINTS = ("inv01_mode", "inv02_mode", "inv03_mode", "inv04_mode")
 PLANT_INVERTER_ONLINE_MODES = frozenset({1, 2})  # derate, running
 
+ENERGY_POWER_POINT = "active_power"  # the power point integrated for site-energy-summary
+
+
+async def site_energy_summary(ctx: SiteContext, params: TimeWindowParams) -> EnergySummaryResult:
+    """Energy (kWh) per device and in total, from every device's active_power point."""
+    power_points = ctx.points_named(ENERGY_POWER_POINT)
+    return await spf_common_energy_kwh_by_device(ctx, power_points, params.resolve_window())
+
 
 async def site_poi_power(ctx: SiteContext, params: TimeWindowParams) -> PoiPowerResult:
     """SAMPLE (site, time-based result): POI active power series with peak and average."""
     window = params.resolve_window()
     series = await get_poi_active_power(ctx, window)
     try:
-        factor = power_to_kw_factor(series.unit)
+        factor = spf_common_power_unit_to_kw_factor(series.unit)
     except ValueError as err:
         raise SiteProfileConfigError(f"Point '{series.name}': {err}") from err
     values_kw = [sample.value * factor for sample in series.timeseries if sample.value is not None]
-    mean = average(series.timeseries)
+    mean = spf_common_mean_sample_value(series.timeseries)
     return PoiPowerResult(
         site_id=ctx.site.site_id,
         start_time=window.display(window.start_time),
@@ -88,7 +100,7 @@ async def _state_availability(
             f"Device '{device.name}' (id {device.device_id}) has no state point(s) {missing}"
         )
 
-    series_by_point = await get_point_series(ctx, points, window)
+    series_by_point = await spf_common_get_point_timeseries(ctx, points, window)
     samples = [sample for series in series_by_point.values() for sample in series.timeseries]
     online = count_online_samples(samples, online_states)
     return InverterAvailabilityResult(

@@ -7,14 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Building2, Search, MapPin, Filter, Settings,
-  AlertTriangle, CheckCircle, Clock, Network
+  AlertTriangle, CheckCircle, ChevronRight, Clock, List, Network
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { SiteHealthCounts } from "./components/SiteHealthCounts";
+import { SiteHealthPanel } from "./components/SiteHealthPanel";
 
 function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) => void }) {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   const getStatusColor = (status: Site['status']) => {
     switch (status) {
@@ -39,52 +43,89 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
     navigate(`/sld?siteId=${encodeURIComponent(site.id)}`);
   };
 
-  return (
-    <Card className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => onSelect(site)}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="w-10 h-10 bg-gradient-secondary rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg truncate">{site.name}</h3>
-              <p className="text-sm text-muted-foreground flex items-center">
-                <MapPin className="w-3 h-3 mr-1" />
-                {site.location}
-              </p>
-            </div>
-          </div>
+  const handleViewDevices = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect(site);
+  };
 
-          <div className="flex items-center space-x-6">
-            <div className="text-center">
-              <div className="data-metric text-sm">{site.capacity}</div>
-              <div className="data-label text-xs">Capacity</div>
+  // The bar toggles the health panel; it is a div (not a button) because it holds buttons.
+  const handleToggleKey = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen((isOpen) => !isOpen);
+    }
+  };
+
+  return (
+    <Card>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CardContent className="p-0">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={open}
+            aria-label={`${open ? "Collapse" : "Expand"} ${site.name}`}
+            onClick={() => setOpen((isOpen) => !isOpen)}
+            onKeyDown={handleToggleKey}
+            className="flex items-center justify-between p-4 cursor-pointer rounded-lg hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex items-center space-x-4 flex-1">
+              <ChevronRight
+                aria-hidden
+                className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+              />
+              <div className="w-10 h-10 bg-gradient-secondary rounded-lg flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-lg truncate">{site.name}</h3>
+                <p className="text-sm text-muted-foreground flex items-center">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {site.location}
+                </p>
+              </div>
             </div>
-            <div className="text-center min-w-[80px]">
-              <div className="text-sm font-medium">{site.operator}</div>
-              <div className="data-label text-xs">Operator</div>
+
+            <div className="flex items-center space-x-6">
+              <SiteHealthCounts siteId={site.id} />
+              <div className="text-center min-w-[80px]">
+                <div className="text-sm font-medium">{site.operator}</div>
+                <div className="data-label text-xs">Operator</div>
+              </div>
+              <div className="text-center min-w-[90px]">
+                <div className="text-xs">{site.lastUpdate}</div>
+                <div className="data-label text-xs">Updated</div>
+              </div>
+              <Badge className={`btn-status ${getStatusColor(site.status)} min-w-[80px]`}>
+                <StatusIcon className="w-3 h-3 mr-1" />
+                {site.status}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewDevices}
+                className="gap-2"
+              >
+                <List className="w-4 h-4" />
+                Devices
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewSLD}
+                className="gap-2"
+              >
+                <Network className="w-4 h-4" />
+                View SLD
+              </Button>
             </div>
-            <div className="text-center min-w-[90px]">
-              <div className="text-xs">{site.lastUpdate}</div>
-              <div className="data-label text-xs">Updated</div>
-            </div>
-            <Badge className={`btn-status ${getStatusColor(site.status)} min-w-[80px]`}>
-              <StatusIcon className="w-3 h-3 mr-1" />
-              {site.status}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleViewSLD}
-              className="gap-2"
-            >
-              <Network className="w-4 h-4" />
-              View SLD
-            </Button>
           </div>
-        </div>
-      </CardContent>
+          <CollapsibleContent className="border-t border-border px-4 py-3">
+            <SiteHealthPanel siteId={site.id} />
+          </CollapsibleContent>
+        </CardContent>
+      </Collapsible>
     </Card>
   );
 }
@@ -115,12 +156,6 @@ export default function Sites() {
     navigate('/site-devices', { state: { selectedSite: site } });
   };
 
-  const statusCounts = {
-    online: sites.filter(s => s.status === 'online').length,
-    warning: sites.filter(s => s.status === 'warning').length,
-    offline: sites.filter(s => s.status === 'offline').length
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -148,7 +183,7 @@ export default function Sites() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Sites</h1>
             <p className="text-muted-foreground mt-1">
-              Select a site to access historian data and monitoring tools
+              Expand a site to see its active alarms
             </p>
           </div>
           <div className="flex space-x-2">
@@ -156,47 +191,6 @@ export default function Sites() {
               <Settings className="w-4 h-4 mr-2" />
               Manage
             </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-b border-border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-card rounded-lg p-4 border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="data-label">Total Sites</p>
-                <p className="data-metric">{sites.length}</p>
-              </div>
-              <Building2 className="w-8 h-8 text-primary" />
-            </div>
-          </div>
-          <div className="bg-card rounded-lg p-4 border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="data-label">Online</p>
-                <p className="data-metric text-success">{statusCounts.online}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-success" />
-            </div>
-          </div>
-          <div className="bg-card rounded-lg p-4 border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="data-label">Warnings</p>
-                <p className="data-metric text-warning">{statusCounts.warning}</p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-warning" />
-            </div>
-          </div>
-          <div className="bg-card rounded-lg p-4 border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="data-label">Offline</p>
-                <p className="data-metric text-destructive">{statusCounts.offline}</p>
-              </div>
-              <Clock className="w-8 h-8 text-destructive" />
-            </div>
           </div>
         </div>
       </div>

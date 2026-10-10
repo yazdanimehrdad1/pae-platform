@@ -1,5 +1,5 @@
 """
-Unit tests for profile alarms: site_profiles.site_alarm.SiteAlarm and the startup checks in
+Unit tests for profile alarms: site_profiles.declarations.alarm.SiteAlarm and the startup checks in
 site_profiles.profile_registry.validate_site_alarms.
 
 Guards that a profile alarm's check is async, lives in site_profiles/common/ or its own profile's
@@ -15,9 +15,9 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from schemas.site_profiles import AlarmCheck, AlarmContext
+from site_profiles.declarations.alarm import SiteAlarm
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.profile_registry import SITE_PROFILES_BY_KEY, validate_site_alarms
-from site_profiles.site_alarm import SiteAlarm
-from site_profiles.site_endpoint import SiteProfile
 from utils.exceptions import SiteProfileConfigError
 
 

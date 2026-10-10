@@ -57,6 +57,12 @@ from schemas.api_models.single_line_diagram import (
     SldValue,
     SldValuesResponse,
 )
+from schemas.api_models.site_health import (
+    ActivePointAlarm,
+    AlarmCounts,
+    DeviceAlarmStatus,
+    SiteHealthResponse,
+)
 from schemas.api_models.types import (
     SUPPORTED_DATA_TYPES,
     SUPPORTED_DEVICE_TYPES,
@@ -149,4 +155,8 @@ __all__ = [
     "SldValuesResponse",
     "SiteSldResponse",
     "SiteSldUpsertRequest",
+    "ActivePointAlarm",
+    "AlarmCounts",
+    "DeviceAlarmStatus",
+    "SiteHealthResponse",
 ]

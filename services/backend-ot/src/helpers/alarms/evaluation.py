@@ -44,8 +44,8 @@ from schemas.db_models.orm_models import (
     DevicePointsReading,
 )
 from schemas.site_profiles import AlarmContext
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.profile_registry import SITE_PROFILES_BY_KEY
-from site_profiles.site_endpoint import SiteProfile
 
 logger = get_logger(__name__)
 

@@ -1,5 +1,5 @@
 """
-Unit tests for site_profiles.individual_sites.alpha_solar.calculations.
+Unit tests for site_profiles.individual_sites.alpha_solar.alpha_solar_helper_functions (the calculations).
 
 Guards the availability sample: only listed state codes count as online, null samples
 count as not online, and no samples means "unknown" (None), not 0 %.
@@ -8,7 +8,7 @@ count as not online, and no samples means "unknown" (None), not 0 %.
 from datetime import UTC, datetime, timedelta
 
 from schemas.api_models import TimeseriesPoint
-from site_profiles.individual_sites.alpha_solar.calculations import (
+from site_profiles.individual_sites.alpha_solar.alpha_solar_helper_functions import (
     availability_pct,
     count_online_samples,
 )

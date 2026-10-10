@@ -199,12 +199,13 @@ def _register_modbus_polling_job() -> None:
 
 def _register_alarm_evaluation_job() -> None:
     """
-    Register the alarm evaluation job: every site's enabled alarms, from stored readings, at the
-    poll interval. It runs separately from polling and reads only the database.
+    Register the alarm evaluation job: every site's enabled alarms, from stored readings, every
+    ALARM_EVALUATION_INTERVAL_SECONDS (its own interval, not the poll interval). It runs separately
+    from polling and reads only the database.
     """
     add_job(
         job_func=cron_job_evaluate_alarms_all_sites,
-        trigger=IntervalTrigger(seconds=settings.poll_interval_seconds),
+        trigger=IntervalTrigger(seconds=settings.alarm_evaluation_interval_seconds),
         job_id="alarm_evaluation",
         name="Alarm Evaluation"
     )

@@ -11,7 +11,6 @@ export interface Site {
   status: 'online' | 'warning' | 'offline';
   deviceCount: number;
   lastUpdate: string;
-  capacity: string;
   operator: string;
   description: string;
 }
@@ -23,3 +22,7 @@ export type SiteRecord = Schemas['SiteResponse'];
 export type SiteCreateRequest = Schemas['SiteCreateRequest'];
 export type SiteUpdateRequest = Schemas['SiteUpdateRequest'];
 export type SiteDeleteResponse = Schemas['SiteDeleteResponse'];
+export type SiteHealth = Schemas['SiteHealthResponse'];
+export type DeviceAlarmStatus = Schemas['DeviceAlarmStatus'];
+export type ActivePointAlarm = Schemas['ActivePointAlarm'];
+export type PointSeverity = NonNullable<ActivePointAlarm['severity']>;

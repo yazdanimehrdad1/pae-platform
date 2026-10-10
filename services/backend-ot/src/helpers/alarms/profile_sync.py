@@ -18,8 +18,8 @@ from helpers.alarms.definitions import enabled_alarm_count
 from logger import get_logger
 from schemas.api_models.alarms import MAX_ENABLED_ALARMS
 from schemas.db_models.orm_models import AlarmDefinition, Site
+from site_profiles.declarations.alarm import SiteAlarm
 from site_profiles.profile_registry import SITE_PROFILES_BY_KEY
-from site_profiles.site_alarm import SiteAlarm
 
 logger = get_logger(__name__)
 

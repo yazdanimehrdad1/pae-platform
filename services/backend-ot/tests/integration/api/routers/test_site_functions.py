@@ -80,7 +80,7 @@ class TestDiscovery:
         listing = SiteEndpointsResponse.model_validate(response.json())
         assert listing.profile == "alpha_solar"
         assert {(endpoint.name, endpoint.kind, endpoint.method) for endpoint in listing.endpoints} == {
-            ("common-energy-summary", "common", "GET"),
+            ("site-energy-summary", "site", "GET"),
             ("site-poi-power", "site", "GET"),
             ("device-inverter-availability", "device", "GET"),
             ("device-plant-inverter-availability", "device", "GET"),
@@ -99,7 +99,7 @@ class TestDiscovery:
         assert response.status_code == 404
 
 
-class TestCommonEnergySummary:
+class TestSiteEnergySummary:
     async def test_integrates_each_devices_power_point(self, client, db):
         site = await create_site(client, profile="alpha_solar")
         inverter = await create_device(client, site.site_id, name="device_1")
@@ -114,7 +114,7 @@ class TestCommonEnergySummary:
         await insert_series(db, watts, [1000.0, 1000.0, 1000.0], timedelta(minutes=30))
         await insert_series(db, kilowatts, [2.0, 2.0], timedelta(hours=1))
 
-        response = await client.get(url(site.site_id, "common-energy-summary"), params=WINDOW)
+        response = await client.get(url(site.site_id, "site-energy-summary"), params=WINDOW)
         assert response.status_code == 200, response.text
         result = EnergySummaryResult.model_validate(response.json())
         by_device = {device.device_name: device for device in result.devices}
@@ -138,7 +138,7 @@ class TestCommonEnergySummary:
         # 500 W doubled = 1000 W for 1 h = 1 kWh, although nothing is stored for the virtual point.
         await insert_series(db, meter_watts, [500.0, 500.0, 500.0], timedelta(minutes=30))
 
-        response = await client.get(url(site.site_id, "common-energy-summary"), params=WINDOW)
+        response = await client.get(url(site.site_id, "site-energy-summary"), params=WINDOW)
         assert response.status_code == 200, response.text
         result = EnergySummaryResult.model_validate(response.json())
         (plant_energy,) = [device for device in result.devices if device.device_name == "plant"]
@@ -153,7 +153,7 @@ class TestCommonEnergySummary:
         )
         await insert_series(db, watts, [1000.0, 1000.0, 1000.0], timedelta(hours=1))
         params = {**WINDOW, "end_time": (BASE_TIME + timedelta(hours=1)).isoformat()}
-        response = await client.get(url(site.site_id, "common-energy-summary"), params=params)
+        response = await client.get(url(site.site_id, "site-energy-summary"), params=params)
         result = EnergySummaryResult.model_validate(response.json())
         assert result.devices[0].sample_count == 2
         assert result.energy_kwh == pytest.approx(1.0)
@@ -161,14 +161,14 @@ class TestCommonEnergySummary:
     async def test_devices_without_the_power_point_are_left_out(self, client):
         site = await create_site(client, profile="alpha_solar")
         await create_device(client, site.site_id, name="device_2")
-        response = await client.get(url(site.site_id, "common-energy-summary"), params=WINDOW)
+        response = await client.get(url(site.site_id, "site-energy-summary"), params=WINDOW)
         result = EnergySummaryResult.model_validate(response.json())
         assert result.devices == []
         assert result.energy_kwh == pytest.approx(0.0)
 
     async def test_site_without_profile_is_404(self, client):
         site = await create_site(client)
-        detail = await assert_not_found(client, url(site.site_id, "common-energy-summary"))
+        detail = await assert_not_found(client, url(site.site_id, "site-energy-summary"))
         assert "has no profile" in detail.message
 
     async def test_profile_site_serves_it(self, client, db):
@@ -178,22 +178,22 @@ class TestCommonEnergySummary:
             client, site.site_id, device.device_id, [point_request(name="active_power", unit="W")]
         )
         await insert_series(db, watts, [1000.0, 1000.0, 1000.0], timedelta(minutes=30))
-        response = await client.get(url(site.site_id, "common-energy-summary"), params=WINDOW)
+        response = await client.get(url(site.site_id, "site-energy-summary"), params=WINDOW)
         assert response.status_code == 200, response.text
         assert EnergySummaryResult.model_validate(response.json()).energy_kwh == pytest.approx(1.0)
 
     async def test_unknown_site_is_404(self, client):
-        await assert_not_found(client, url(9999, "common-energy-summary"))
+        await assert_not_found(client, url(9999, "site-energy-summary"))
 
     async def test_conflicting_window_params_are_422(self, client):
         site = await create_site(client, profile="alpha_solar")
         params = {**WINDOW, "time_range": "1D"}
-        response = await client.get(url(site.site_id, "common-energy-summary"), params=params)
+        response = await client.get(url(site.site_id, "site-energy-summary"), params=params)
         assert response.status_code == 422
 
     async def test_missing_window_is_422(self, client):
         site = await create_site(client, profile="alpha_solar")
-        response = await client.get(url(site.site_id, "common-energy-summary"))
+        response = await client.get(url(site.site_id, "site-energy-summary"))
         assert response.status_code == 422
 
 

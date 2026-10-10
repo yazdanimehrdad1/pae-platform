@@ -1,9 +1,11 @@
 """Site management endpoints."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BeforeValidator
 
+from api.controllers.site_health import get_site_health
 from api.controllers.sites import (
     create_site,
     delete_site,
@@ -19,9 +21,11 @@ from api.controllers.sites import (
 from api.controllers.sld_values import get_sld_values
 from logger import get_logger
 from schemas.api_models import (
+    Severity,
     SiteComprehensiveResponse,
     SiteCreateRequest,
     SiteDeleteResponse,
+    SiteHealthResponse,
     SiteResponse,
     SiteSldResponse,
     SiteSldUpsertRequest,
@@ -236,6 +240,40 @@ async def get_site_sld_values_endpoint(site_id: int) -> SldValuesResponse:
     the device health the site profile declares. Poll it to keep the info boxes live."""
     try:
         return await get_sld_values(site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+def _uppercase(value: object) -> object:
+    """Accept any casing for a severity in the query string."""
+    return value.upper() if isinstance(value, str) else value
+
+
+@router.get(
+    "/{site_id}/health",
+    response_model=SiteHealthResponse,
+    summary="Get the ALARM-class points that are set, per device",
+)
+async def get_site_health_endpoint(
+    site_id: int,
+    severity: list[Annotated[Severity, BeforeValidator(_uppercase)]] | None = Query(
+        None, description="Only evaluate ALARM points of these severities (repeatable); omit for all"
+    ),
+    device_ids: list[int] | None = Query(
+        None, description="Only evaluate these devices of the site (repeatable); omit for all"
+    ),
+) -> SiteHealthResponse:
+    """Per device: the ALARM points whose latest reading is non-zero (bitfield points list the
+    bits that are set), counts per severity, and the points that have never reported (unknown).
+    A device id that isn't a device of the site is 404."""
+    try:
+        return await get_site_health(site_id, severities=severity, device_ids=device_ids)
     except AppError as e:
         detail = {"error": type(e).__name__, "message": e.message}
         if e.payload:

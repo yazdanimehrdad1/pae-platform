@@ -17,6 +17,8 @@ import pytest
 from pydantic import BaseModel
 
 from schemas.site_profiles import FunctionKind, SiteContext, TimeWindowParams
+from site_profiles.declarations.endpoint import SiteEndpoint
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.profile_registry import (
     SITE_ENDPOINT_ROUTES,
     SITE_PROFILES_BY_KEY,
@@ -24,10 +26,9 @@ from site_profiles.profile_registry import (
     get_site_profile,
     validate_profile_key,
 )
-from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
-COMMON_MODULE = "site_profiles.common.functions"
+COMMON_MODULE = "site_profiles.common.bess.bess_functions"
 SITE_MODULE = "site_profiles.individual_sites.one.functions"  # profile "one"
 SITE_TWO_MODULE = "site_profiles.individual_sites.two.functions"  # profile "two"
 
@@ -91,9 +92,9 @@ class TestRegisteredProfiles:
 
     def test_one_route_per_declared_endpoint(self):
         assert sorted((route.kind, route.name) for route in SITE_ENDPOINT_ROUTES) == [
-            ("common", "common-energy-summary"),
             ("device", "device-inverter-availability"),
             ("device", "device-plant-inverter-availability"),
+            ("site", "site-energy-summary"),
             ("site", "site-poi-power"),
         ]
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SiteRecord } from '@/api/types/sites';
+import type { SiteHealth, SiteRecord } from '@/api/types/sites';
 import { sitesApi } from '@/api/sites';
 
 const alpha: SiteRecord = {
@@ -37,7 +37,6 @@ describe('sitesApi.getAll', () => {
       status: 'online',
       deviceCount: 3,
       lastUpdate: '2026-09-25T00:00:00Z',
-      capacity: '5 MW',
       operator: 'Alpha Ops',
       description: '',
     });
@@ -49,5 +48,37 @@ describe('sitesApi.getAll', () => {
     const [site] = await sitesApi.getAll();
 
     expect(site.location).toBe('');
+  });
+});
+
+describe('sitesApi.getHealth', () => {
+  const health: SiteHealth = {
+    site_id: 1001,
+    generated_at: '2026-10-09T12:00:00Z',
+    highest_severity: 'HIGH',
+    high_count: 1,
+    medium_count: 0,
+    low_count: 0,
+    unknown_count: 0,
+    devices: [],
+  };
+
+  it('fetches the site health without a query when unfiltered', async () => {
+    stubSites(health);
+
+    const result = await sitesApi.getHealth('1001');
+
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe('/api/sites/1001/health');
+    expect(result).toEqual(health);
+  });
+
+  it('repeats the severity and device_ids params', async () => {
+    stubSites(health);
+
+    await sitesApi.getHealth('1001', { severity: ['HIGH', 'LOW'], deviceIds: [3, 7] });
+
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe('/api/sites/1001/health?severity=HIGH&severity=LOW&device_ids=3&device_ids=7');
   });
 });

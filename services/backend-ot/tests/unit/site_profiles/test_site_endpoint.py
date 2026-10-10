@@ -1,5 +1,5 @@
 """
-Unit tests for site_profiles.site_endpoint.
+Unit tests for site_profiles.declarations.endpoint.
 
 Guards the standard endpoint declaration: a controller must be async, and a profile
 serves exactly the endpoints it declares, looked up by their full prefixed name.
@@ -9,14 +9,14 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from schemas.site_profiles import EnergySummaryResult, SiteContext, TimeWindowParams
-from site_profiles.common.functions import common_energy_summary
-from site_profiles.individual_sites.alpha_solar.functions import (
+from site_profiles.declarations.endpoint import SiteEndpoint
+from site_profiles.individual_sites.alpha_solar.alpha_solar_functions import (
     device_inverter_availability,
     device_plant_inverter_availability,
+    site_energy_summary,
     site_poi_power,
 )
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
-from site_profiles.site_endpoint import SiteEndpoint
 
 
 def sync_controller(ctx: SiteContext, params: TimeWindowParams) -> BaseModel:
@@ -38,9 +38,9 @@ class TestSiteEndpoint:
     def test_params_model_defaults_to_time_window(self):
         endpoint = SiteEndpoint(
             method="GET",
-            kind="common",
-            name="common-energy-summary",
-            controller=common_energy_summary,
+            kind="site",
+            name="site-energy-summary",
+            controller=site_energy_summary,
             response_model=EnergySummaryResult,
             summary="energy",
         )
@@ -50,9 +50,9 @@ class TestSiteEndpoint:
         with pytest.raises(ValidationError):
             SiteEndpoint(
                 method="POST",  # type: ignore[arg-type]
-                kind="common",
-                name="common-energy-summary",
-                controller=common_energy_summary,
+                kind="site",
+                name="site-energy-summary",
+                controller=site_energy_summary,
                 response_model=EnergySummaryResult,
                 summary="energy",
             )
@@ -61,7 +61,7 @@ class TestSiteEndpoint:
 class TestFindEndpoint:
     def test_finds_each_declared_endpoint_by_name(self):
         controllers = {
-            "common-energy-summary": common_energy_summary,
+            "site-energy-summary": site_energy_summary,
             "site-poi-power": site_poi_power,
             "device-inverter-availability": device_inverter_availability,
             "device-plant-inverter-availability": device_plant_inverter_availability,
