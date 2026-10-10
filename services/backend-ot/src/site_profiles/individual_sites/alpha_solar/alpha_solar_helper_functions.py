@@ -4,7 +4,11 @@ The calculations are pure (no DB, no network, no clock); get_poi_active_power re
 historian through spf_common_get_point_timeseries.
 """
 
-from schemas.api_models import PointTimeseries, TimeseriesPoint
+from datetime import datetime
+
+from helpers.sites.site_health import is_alarm_set
+from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
+from schemas.internal_models import PointReading
 from schemas.site_profiles import SiteContext, TimeWindow
 from site_profiles.common.shared_helper_functions import spf_common_get_point_timeseries
 from utils.exceptions import NotFoundError
@@ -15,6 +19,20 @@ POI_ACTIVE_POWER_POINT = "poi_active_power_total"
 def count_online_samples(states: list[TimeseriesPoint], online_states: frozenset[int]) -> int:
     """SAMPLE: how many state samples hold a code that counts as available."""
     return sum(1 for s in states if s.value is not None and int(s.value) in online_states)
+
+
+def set_alarm_points(
+    points: list[DevicePointResponse], readings: list[PointReading], oldest: datetime
+) -> list[DevicePointResponse]:
+    """The points whose latest reading is set (reported and non-zero, like the Sites page health)
+    and no older than `oldest`. A stale value doesn't count: losing comms is not a fault. Readings
+    are matched to points by id; a point without a reading isn't set."""
+    fresh_set_ids = {
+        reading.device_point_id
+        for reading in readings
+        if is_alarm_set(reading) and reading.timestamp is not None and reading.timestamp >= oldest
+    }
+    return [point for point in points if point.id in fresh_set_ids]
 
 
 def availability_pct(online_samples: int, total_samples: int) -> float | None:

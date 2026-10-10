@@ -104,11 +104,11 @@ A site profile, for example Alpha Solar, can declare alarms in code:
 
 ```python
 SiteAlarm(
-    key="placeholder_profile_alarm_1",   # stable id, never change it
-    name="placeholder_profile_alarm_1",
+    key="high_severity_alarm_point_active",   # stable id, never change it
+    name="high_severity_alarm_point_active",
     severity="fault",
-    message="inverter_state is not mppt or derating",
-    evaluate=placeholder_profile_alarm_1,  # async def (ctx: AlarmContext) -> AlarmCheck
+    message="A HIGH-severity alarm point is set on a device (some device reports a fault)",
+    evaluate=high_severity_alarm_point_active,  # async def (ctx: AlarmContext) -> AlarmCheck
 )
 ```
 
@@ -138,8 +138,9 @@ What a user can change on a profile alarm: only `enabled`, `notify_mobile` and `
 Users can't delete a profile alarm, only disable it.
 
 Code: `src/helpers/alarms/profile_sync.py`, `src/site_profiles/declarations/alarm.py`,
-example check in `src/site_profiles/individual_sites/alpha_solar/alpha_solar_alarms.py`
-(a placeholder, not a real alarm yet).
+Alpha Solar's check in `src/site_profiles/individual_sites/alpha_solar/alpha_solar_alarms.py`:
+active while any HIGH ALARM-class point on any device reads non-zero (fresh readings only). Its
+value is how many are set, and its device is theirs when they are all on one device.
 
 ---
 
@@ -290,17 +291,18 @@ There is a second, unrelated feature that also uses the word "alarm".
   computed on each request; nothing is stored; no delay, no history
 ```
 
-It does **not** create rows in `alarm_events`. To get history for one of those points, create a
-`threshold` alarm on it, for example a bit test.
+By itself it does **not** create rows in `alarm_events`. To get history, use an alarm on top of
+it: a `threshold` alarm on one point (for example a bit test), or a profile alarm like Alpha
+Solar's `high_severity_alarm_point_active`, which raises while any HIGH point is set.
 
 ---
 
 ## 9. Not built yet
 
 - **Notifications are not sent.** On a raise, the job only logs `would notify: mobile, email`.
-- **Profile alarms are placeholders.** Alpha Solar's only profile alarm is an example.
-- **The two alarm features are separate.** ALARM-class points and alarm rules share no code or
-  storage.
+- **Only one site has profile alarms.** Alpha Solar has one: `high_severity_alarm_point_active`.
+- **The two alarm features share little.** Only Alpha Solar's profile alarm reads ALARM-class
+  points, reusing the health code's `alarm_points` / `is_alarm_set`.
 
 ---
 

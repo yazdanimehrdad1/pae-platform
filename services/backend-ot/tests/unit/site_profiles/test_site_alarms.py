@@ -79,6 +79,6 @@ class TestValidateSiteAlarms:
 
     def test_registered_profiles_pass_and_alpha_solar_declares_an_alarm(self):
         validate_site_alarms(tuple(SITE_PROFILES_BY_KEY.values()))
-        assert [declared.key for declared in SITE_PROFILES_BY_KEY["alpha_solar"].alarms] == ["placeholder_profile_alarm_1"]
-        assert SITE_PROFILES_BY_KEY["alpha_solar"].find_alarm("placeholder_profile_alarm_1") is not None
+        assert [declared.key for declared in SITE_PROFILES_BY_KEY["alpha_solar"].alarms] == ["high_severity_alarm_point_active"]
+        assert SITE_PROFILES_BY_KEY["alpha_solar"].find_alarm("high_severity_alarm_point_active") is not None
         assert SITE_PROFILES_BY_KEY["alpha_solar"].find_alarm("gone") is None

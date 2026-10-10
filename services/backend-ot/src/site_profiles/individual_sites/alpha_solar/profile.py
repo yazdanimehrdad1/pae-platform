@@ -17,7 +17,7 @@ from site_profiles.declarations.endpoint import SiteEndpoint
 from site_profiles.declarations.health import DeviceHealthCheck
 from site_profiles.declarations.profile import SiteProfile
 from site_profiles.individual_sites.alpha_solar.alpha_solar_alarms import (
-    placeholder_profile_alarm_1,
+    high_severity_alarm_point_active,
 )
 from site_profiles.individual_sites.alpha_solar.alpha_solar_functions import (
     device_inverter_availability,
@@ -64,13 +64,12 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
         ),
     ),
     alarms=(
-        # PLACEHOLDER: an example of a profile alarm, not a real alarm of the site.
         SiteAlarm(
-            key="placeholder_profile_alarm_1",
-            name="placeholder_profile_alarm_1",
+            key="high_severity_alarm_point_active",
+            name="high_severity_alarm_point_active",
             severity="fault",
-            message="PLACEHOLDER profile alarm 1: inverter_state is not mppt or derating",
-            evaluate=placeholder_profile_alarm_1,
+            message="A HIGH-severity alarm point is set on a device (some device reports a fault)",
+            evaluate=high_severity_alarm_point_active,
         ),
     ),
     # Health shown in the SLD info boxes: a site-specific check (BESS). PV has none for now.

@@ -4,11 +4,11 @@ The standard shape of an alarm a site profile declares in code (a PROFILE alarm)
 A profile lists its alarms next to its endpoints:
 
     SiteAlarm(
-        key="placeholder_profile_alarm_1",    # stable id; the alarm row is found by it
-        name="placeholder_profile_alarm_1",   # identifier shown in the UI (like a rule name)
+        key="high_severity_alarm_point_active",   # stable id; the alarm row is found by it
+        name="high_severity_alarm_point_active",  # identifier shown in the UI (like a rule name)
         severity="fault",
-        message="PLACEHOLDER profile alarm 1: inverter_state is not mppt or derating",
-        evaluate=placeholder_profile_alarm_1, # async (AlarmContext) -> AlarmCheck
+        message="A HIGH-severity alarm point is set on a device (some device reports a fault)",
+        evaluate=high_severity_alarm_point_active, # async (AlarmContext) -> AlarmCheck
     )
 
 Each site whose profile declares it gets one alarm_definitions row (source PROFILE). Its logic,

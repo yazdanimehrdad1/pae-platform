@@ -184,8 +184,8 @@ class TestProfileAlarms:
     async def test_a_site_gets_its_profiles_alarms_and_they_follow_profile_changes(self, client):
         site_id, *_ = await site_with_points(client, profile="alpha_solar")
         (profile_alarm,) = await list_alarms(client, site_id)
-        assert (profile_alarm.source, profile_alarm.kind, profile_alarm.profile_alarm_key) == ("PROFILE", "profile", "placeholder_profile_alarm_1")
-        assert (profile_alarm.name, profile_alarm.severity, profile_alarm.rule) == ("placeholder_profile_alarm_1", "fault", None)
+        assert (profile_alarm.source, profile_alarm.kind, profile_alarm.profile_alarm_key) == ("PROFILE", "profile", "high_severity_alarm_point_active")
+        assert (profile_alarm.name, profile_alarm.severity, profile_alarm.rule) == ("high_severity_alarm_point_active", "fault", None)
 
         # An explicit null removes the site's profile.
         no_profile = await client.put(f"/api/sites/{site_id}", json=SiteUpdateRequest(profile=None).model_dump(mode="json", exclude_unset=True))
@@ -213,7 +213,7 @@ class TestProfileAlarms:
 
     async def test_a_user_alarm_cant_take_a_profile_alarms_name(self, client):
         site_id, _, (power, *_) = await site_with_points(client, profile="alpha_solar")
-        response = await client.post(alarms_url(site_id), json=threshold_alarm("PLACEHOLDER_PROFILE_ALARM_1", power.id).model_dump(mode="json"))
+        response = await client.post(alarms_url(site_id), json=threshold_alarm("HIGH_SEVERITY_ALARM_POINT_ACTIVE", power.id).model_dump(mode="json"))
         assert response.status_code == 409
 
 
