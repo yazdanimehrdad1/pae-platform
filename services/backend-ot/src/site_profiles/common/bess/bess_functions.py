@@ -4,8 +4,7 @@ or health checks, passing the points it found in its SiteContext. Historian read
 spf_common_get_point_timeseries in common/shared_helper_functions.py.
 """
 
-from datetime import datetime
-
+from helpers.common.series_alignment import default_max_gap
 from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
 from schemas.site_profiles import (
     DeviceEnergy,
@@ -16,7 +15,6 @@ from schemas.site_profiles import (
     RoundTripEfficiencyResult,
     RoundTripEfficiencySettings,
     RoundTripPowerSource,
-    SeriesInterval,
     SiteContext,
     TimeWindow,
 )
@@ -26,15 +24,14 @@ from site_profiles.common.bess.bess_helper_functions import (
     spf_common_round_trip_efficiency_result,
 )
 from site_profiles.common.shared_helper_functions import (
+    spf_common_combine_series,
     spf_common_counter_energy_kwh,
-    spf_common_energy_kwh_per_interval,
+    spf_common_cumulative_energy_kwh,
     spf_common_get_point_timeseries,
     spf_common_integrate_power_to_energy_kwh,
-    spf_common_interval_starts,
-    spf_common_pick_interval,
     spf_common_split_power_by_sign_kwh,
 )
-from utils.exceptions import SiteProfileConfigError, ValidationError
+from utils.exceptions import SiteProfileConfigError
 
 
 def _spf_common_power_point_device_names(
@@ -93,67 +90,6 @@ async def spf_common_energy_kwh_by_device(
     )
 
 
-async def spf_common_energy_kwh_series_by_device(
-    ctx: SiteContext,
-    power_points: list[DevicePointResponse],
-    window: TimeWindow,
-    interval: SeriesInterval | None = None,
-) -> EnergySeriesResult:
-    """
-    Energy per interval of `window`, per device and for the site, from the given power points
-    (one per device, as for spf_common_energy_kwh_by_device). `interval` None picks one from the
-    window. Too many intervals for the window is a ValidationError (400).
-    """
-    device_names = _spf_common_power_point_device_names(ctx, power_points)
-    chosen = interval or spf_common_pick_interval(window)
-    try:
-        starts = spf_common_interval_starts(window, chosen)
-    except ValueError as err:
-        raise ValidationError(str(err)) from err
-    series_by_point = await spf_common_get_point_timeseries(ctx, power_points, window)
-
-    site_kwh = [0.0] * len(starts)
-    device_series: list[PointTimeseries] = []
-    for point in power_points:
-        try:
-            kwh = spf_common_energy_kwh_per_interval(
-                series_by_point[point.id].timeseries, point.unit, starts
-            )
-        except ValueError as err:
-            raise SiteProfileConfigError(
-                f"Point '{point.name}' (id {point.id}) can't be integrated: {err}"
-            ) from err
-        site_kwh = [total + value for total, value in zip(site_kwh, kwh, strict=True)]
-        name = f"{device_names[point.device_id]} energy"
-        device_series.append(_spf_common_energy_series(point.id, name, starts, kwh, window))
-    return EnergySeriesResult(
-        site_id=ctx.site.site_id,
-        start_time=window.display(window.start_time),
-        end_time=window.display(window.end_time),
-        interval=chosen,
-        energy_kwh=sum(site_kwh),
-        series=[
-            _spf_common_energy_series(0, "site energy", starts, site_kwh, window),
-            *device_series,
-        ],
-    )
-
-
-def _spf_common_energy_series(
-    series_id: int, name: str, starts: list[datetime], kwh: list[float], window: TimeWindow
-) -> PointTimeseries:
-    return PointTimeseries(
-        id=series_id,
-        name=name,
-        data_type="float32",
-        unit="kWh",
-        point_class="ANALOG",
-        count=len(starts),
-        timeseries=[
-            TimeseriesPoint(time=window.display(start), value=value)
-            for start, value in zip(starts, kwh, strict=True)
-        ],
-    )
 
 
 async def spf_common_bess_round_trip_efficiency(
@@ -316,3 +252,54 @@ async def spf_common_power_imbalance_timeseries(
 # 8- Average energy for loads
 # 9- Maximum energy for loads
 # 10- Minimum energy for loads
+
+
+async def spf_common_energy_kwh_series_by_device(
+    ctx: SiteContext,
+    power_points: list[DevicePointResponse],
+    window: TimeWindow,
+) -> EnergySeriesResult:
+    """
+    Cumulative energy over `window`, per device and for the site, from the given power points
+    (one per device, as for spf_common_energy_kwh_by_device), at the points' own sample times.
+    The site total is the devices' cumulative energy summed per poll cycle
+    (spf_common_combine_series); while a device has no recent sample the total has a gap.
+    """
+    device_names = _spf_common_power_point_device_names(ctx, power_points)
+    series_by_point = await spf_common_get_point_timeseries(ctx, power_points, window)
+
+    device_series: list[PointTimeseries] = []
+    for point in power_points:
+        try:
+            cumulative = spf_common_cumulative_energy_kwh(series_by_point[point.id].timeseries, point.unit)
+        except ValueError as err:
+            raise SiteProfileConfigError(
+                f"Point '{point.name}' (id {point.id}) can't be integrated: {err}"
+            ) from err
+        device_series.append(
+            _spf_common_energy_series(point.id, f"{device_names[point.device_id]} energy", cumulative)
+        )
+    site_total = spf_common_combine_series(
+        [series.timeseries for series in device_series], sum, default_max_gap()
+    )
+    return EnergySeriesResult(
+        site_id=ctx.site.site_id,
+        start_time=window.display(window.start_time),
+        end_time=window.display(window.end_time),
+        energy_kwh=sum(series.timeseries[-1].value or 0.0 for series in device_series if series.timeseries),
+        series=[_spf_common_energy_series(0, "site energy", site_total), *device_series],
+    )
+
+
+def _spf_common_energy_series(
+    series_id: int, name: str, samples: list[TimeseriesPoint]
+) -> PointTimeseries:
+    return PointTimeseries(
+        id=series_id,
+        name=name,
+        data_type="float32",
+        unit="kWh",
+        point_class="ANALOG",
+        count=len(samples),
+        timeseries=samples,
+    )

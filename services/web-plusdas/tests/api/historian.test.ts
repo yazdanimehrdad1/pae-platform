@@ -18,3 +18,13 @@ describe('historianApi.getRecentReadings', () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe('/api/device-point-readings/timeseries/site/1001/device/2?limit=10');
   });
 });
+
+describe('historianApi.getDevicePointReadings', () => {
+  it('asks for the most readings per point the endpoint allows, so a long window keeps its start', async () => {
+    const fetchMock = stubFetch({ meta: {}, readings: {} });
+    await historianApi.getDevicePointReadings({ siteId: '1002', deviceId: '3', pointIds: ['5', '6'], timeRange: '1D' });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      '/api/device-point-readings/timeseries/site/1002/device/3?point_ids=5%2C6&limit=10000&time_range=1D',
+    );
+  });
+});

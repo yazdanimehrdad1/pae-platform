@@ -4,27 +4,23 @@ Unit tests for site_profiles.common.shared_helper_functions (the pure ones).
 Guards the shared math: power units convert to kW and energy units to kWh (unknown units are
 an error, not a silent 1:1), energy is the trapezoidal integral over time regardless of sample
 order, power splits by sign at its zero crossings, counters are summed over their increases
-through wraps and resets, and null samples are skipped rather than counted as zero. Series
-intervals are picked from the window, aligned (daily ones to local midnight, across DST),
-capped in number, and per-interval energy adds up to the whole-window integral.
+through wraps and resets, and null samples are skipped rather than counted as zero. Series keep
+their samples' own times: cumulative energy has one value per power sample and ends at the
+whole-window integral, and combined series give one sample per poll cycle across devices.
 """
 
 from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
 
 import pytest
 
 from schemas.api_models import TimeseriesPoint
-from schemas.site_profiles import TimeWindow
 from site_profiles.common.shared_helper_functions import (
-    MAX_SERIES_INTERVALS,
     _spf_common_energy_unit_to_kwh_factor,
+    spf_common_combine_series,
     spf_common_counter_energy_kwh,
-    spf_common_energy_kwh_per_interval,
+    spf_common_cumulative_energy_kwh,
     spf_common_integrate_power_to_energy_kwh,
-    spf_common_interval_starts,
     spf_common_mean_sample_value,
-    spf_common_pick_interval,
     spf_common_power_unit_to_kw_factor,
     spf_common_split_power_by_sign_kwh,
 )
@@ -145,84 +141,55 @@ class TestCounterEnergy:
             _spf_common_energy_unit_to_kwh_factor("kW")
 
 
-def window(length: timedelta, start: datetime = START, tz: str | None = None) -> TimeWindow:
-    return TimeWindow(
-        start_time=start, end_time=start + length, display_tz=ZoneInfo(tz) if tz else None
-    )
+class TestCumulativeEnergyKwh:
+    def test_running_total_at_each_samples_own_time(self):
+        cumulative = spf_common_cumulative_energy_kwh(samples([2.0, 2.0, 4.0]), "kW")
+        assert [sample.time for sample in cumulative] == [START + timedelta(minutes=30) * index for index in range(3)]
+        # 2 kW for 30 min = 1 kWh; the 2 -> 4 kW ramp for 30 min = 1.5 kWh
+        assert [sample.value for sample in cumulative] == pytest.approx([0.0, 1.0, 2.5])
 
-
-class TestPickInterval:
-    @pytest.mark.parametrize(
-        ("length", "interval"),
-        [
-            (timedelta(hours=1), "5m"),
-            (timedelta(hours=6), "15m"),
-            (timedelta(hours=12), "30m"),
-            (timedelta(days=1), "1h"),
-            (timedelta(days=3), "1h"),
-            (timedelta(weeks=1), "6h"),
-            (timedelta(days=30), "1d"),
-        ],
-    )
-    def test_each_window_length_gets_its_interval(self, length, interval):
-        assert spf_common_pick_interval(window(length)) == interval
-
-
-class TestIntervalStarts:
-    def test_sub_daily_starts_are_aligned_and_cover_the_window(self):
-        unaligned = window(timedelta(hours=1), start=START + timedelta(minutes=7))
-        starts = spf_common_interval_starts(unaligned, "15m")
-        assert starts[0] == START  # 12:07 floors to 12:00
-        assert starts[-1] == START + timedelta(minutes=60)  # 13:00 < end 13:07
-        assert len(starts) == 5
-
-    def test_window_ending_on_a_start_does_not_open_an_empty_interval(self):
-        assert len(spf_common_interval_starts(window(timedelta(hours=1)), "15m")) == 4
-
-    def test_daily_starts_are_local_midnights_across_dst(self):
-        # US DST ends 2026-11-01: that local day is 25 h long
-        start = datetime(2026, 10, 31, 12, tzinfo=UTC)
-        starts = spf_common_interval_starts(
-            window(timedelta(days=3), start=start, tz="America/Los_Angeles"), "1d"
-        )
-        local = [value.astimezone(ZoneInfo("America/Los_Angeles")) for value in starts]
-        assert [(value.day, value.hour) for value in local] == [(31, 0), (1, 0), (2, 0), (3, 0)]
-        assert starts[2] - starts[1] == timedelta(hours=25)
-
-    def test_daily_starts_without_a_zone_are_utc_midnights(self):
-        starts = spf_common_interval_starts(window(timedelta(days=2)), "1d")
-        assert starts == [datetime(2026, 1, 15, tzinfo=UTC), datetime(2026, 1, 16, tzinfo=UTC), datetime(2026, 1, 17, tzinfo=UTC)]
-
-    def test_too_many_intervals_is_an_error(self):
-        with pytest.raises(ValueError, match=str(MAX_SERIES_INTERVALS)):
-            spf_common_interval_starts(window(timedelta(days=90)), "5m")
-
-
-class TestEnergyKwhPerInterval:
-    HOURLY = [START + timedelta(hours=index) for index in range(3)]
-
-    def test_constant_power_fills_each_interval(self):
-        kwh = spf_common_energy_kwh_per_interval(samples([2.0] * 7), "kW", self.HOURLY)
-        assert kwh == pytest.approx([2.0, 2.0, 2.0])
-
-    def test_trapezoid_across_a_start_is_split_at_the_interpolated_power(self):
-        # 0 kW at 12:30 -> 4 kW at 13:30: 0.5 kWh before 13:00 (0 -> 2 kW), 1.5 kWh after
-        ramp = [TimeseriesPoint(time=START + timedelta(minutes=30), value=0.0),
-                TimeseriesPoint(time=START + timedelta(minutes=90), value=4.0)]
-        assert spf_common_energy_kwh_per_interval(ramp, "kW", self.HOURLY) == pytest.approx([0.5, 1.5, 0.0])
-
-    def test_intervals_add_up_to_the_whole_window_integral(self):
+    def test_last_value_is_the_whole_window_integral(self):
         values = [0.0, 1500.0, -800.0, None, 3000.0, 2500.0, 100.0]
-        per_interval = spf_common_energy_kwh_per_interval(samples(values), "W", self.HOURLY)
-        assert sum(per_interval) == pytest.approx(
-            spf_common_integrate_power_to_energy_kwh(samples(values), "W")
-        )
+        cumulative = spf_common_cumulative_energy_kwh(samples(values), "W")
+        assert cumulative[-1].value == pytest.approx(spf_common_integrate_power_to_energy_kwh(samples(values), "W"))
 
-    def test_power_before_the_first_start_is_not_counted(self):
-        early = samples([5.0, 5.0], timedelta(hours=1))
-        later_starts = [START + timedelta(hours=1)]
-        assert spf_common_energy_kwh_per_interval(early, "kW", later_starts) == [0.0]
+    def test_null_samples_are_skipped_and_order_does_not_matter(self):
+        shuffled = list(reversed(samples([1.0, None, 1.0])))
+        cumulative = spf_common_cumulative_energy_kwh(shuffled, "kW")
+        assert [sample.value for sample in cumulative] == pytest.approx([0.0, 1.0])
+
+    def test_no_samples_is_an_empty_series(self):
+        assert spf_common_cumulative_energy_kwh([], "kW") == []
 
     def test_non_power_unit_is_an_error(self):
         with pytest.raises(ValueError, match="Unsupported power unit"):
-            spf_common_energy_kwh_per_interval(samples([1.0, 1.0]), "kWh", self.HOURLY)
+            spf_common_cumulative_energy_kwh(samples([1.0, 1.0]), "kWh")
+
+
+def offset(seconds: float, value: float | None) -> TimeseriesPoint:
+    return TimeseriesPoint(time=START + timedelta(seconds=seconds), value=value)
+
+
+class TestCombineSeries:
+    GAP = timedelta(seconds=30)
+
+    def test_one_sample_per_poll_cycle_at_the_devices_own_times(self):
+        # device 2 is polled 0.3 s after device 1 in each 10 s cycle
+        first = [offset(0, 1.0), offset(10, 2.0)]
+        second = [offset(0.3, 10.0), offset(10.3, 20.0)]
+        combined = spf_common_combine_series([first, second], sum, self.GAP)
+        assert [((sample.time - START).total_seconds(), sample.value) for sample in combined] == [(0.3, 11.0), (10.3, 22.0)]
+
+    def test_a_series_with_nothing_recent_leaves_a_gap(self):
+        first = [offset(0, 1.0), offset(60, 2.0)]
+        second = [offset(0, 10.0)]
+        combined = spf_common_combine_series([first, second], sum, self.GAP)
+        assert [(sample.time - START).total_seconds() for sample in combined] == [0.0]
+
+    def test_null_samples_are_skipped(self):
+        combined = spf_common_combine_series([[offset(0, 1.0), offset(10, None)]], sum, self.GAP)
+        assert [sample.value for sample in combined] == [1.0]
+
+    def test_an_empty_series_gives_nothing(self):
+        assert spf_common_combine_series([[offset(0, 1.0)], []], sum, self.GAP) == []
+        assert spf_common_combine_series([], sum, self.GAP) == []

@@ -7,7 +7,7 @@ alpha_solar_functions.py, alpha_solar_health.py or alpha_solar_alarms.py (or com
 for a shared one), then declare it below.
 """
 
-from schemas.site_profiles import EnergySeriesResult, EnergySummaryResult, IntervalWindowParams
+from schemas.site_profiles import EnergySeriesResult, EnergySummaryResult
 from schemas.site_profiles.individual_sites.alpha_solar import (
     InverterAvailabilityResult,
     PoiPowerResult,
@@ -44,9 +44,8 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
             kind="site",
             name="site-energy-series",
             controller=site_energy_series,
-            params_model=IntervalWindowParams,
             response_model=EnergySeriesResult,
-            summary="Energy (kWh) per interval, site total then each device, from each device's active_power",
+            summary="Cumulative energy (kWh) at each sample, site total then each device, from each device's active_power",
             output="series",
         ),
         SiteEndpoint(

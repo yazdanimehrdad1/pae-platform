@@ -6,7 +6,6 @@ Only the ones declared in profile.py get an endpoint.
 from schemas.site_profiles import (
     EnergySeriesResult,
     EnergySummaryResult,
-    IntervalWindowParams,
     SiteContext,
     TimeWindowParams,
 )
@@ -45,12 +44,10 @@ async def site_energy_summary(ctx: SiteContext, params: TimeWindowParams) -> Ene
     return await spf_common_energy_kwh_by_device(ctx, power_points, params.resolve_window())
 
 
-async def site_energy_series(ctx: SiteContext, params: IntervalWindowParams) -> EnergySeriesResult:
-    """Energy (kWh) per interval: the site total, then each device's, from active_power."""
+async def site_energy_series(ctx: SiteContext, params: TimeWindowParams) -> EnergySeriesResult:
+    """Cumulative energy (kWh): the site total, then each device's, from active_power."""
     power_points = ctx.points_named(ENERGY_POWER_POINT)
-    return await spf_common_energy_kwh_series_by_device(
-        ctx, power_points, params.resolve_window(), params.interval
-    )
+    return await spf_common_energy_kwh_series_by_device(ctx, power_points, params.resolve_window())
 
 
 async def site_poi_power(ctx: SiteContext, params: TimeWindowParams) -> PoiPowerResult:

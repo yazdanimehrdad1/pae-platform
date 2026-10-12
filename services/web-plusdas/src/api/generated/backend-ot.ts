@@ -920,7 +920,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Energy (kWh) per interval, site total then each device, from each device's active_power */
+        /** Cumulative energy (kWh) at each sample, site total then each device, from each device's active_power */
         get: operations["site_function_site_energy_series_api_site_functions_site__site_id__site_energy_series_get"];
         put?: never;
         post?: never;
@@ -2100,18 +2100,12 @@ export interface components {
             end_time: string;
             /**
              * Energy Kwh
-             * @description Total over the window and every device
+             * @description Sum of each device's total over the window, as site-energy-summary gives it
              */
             energy_kwh: number;
             /**
-             * Interval
-             * @description The interval used (requested, or picked from the window)
-             * @enum {string}
-             */
-            interval: "5m" | "15m" | "30m" | "1h" | "6h" | "1d";
-            /**
              * Series
-             * @description kWh per interval, stamped with each interval's start (the first and last are clipped to the window). The site total first (id 0), then one series per device, whose id is the power point it was integrated from.
+             * @description Cumulative kWh since the window start, at the power points' own sample times. The site total first (id 0), one sample per poll cycle across devices; then one series per device, whose id is the power point it was integrated from.
              */
             series: components["schemas"]["PointTimeseries"][];
             /** Site Id */
@@ -5034,8 +5028,6 @@ export interface operations {
                 time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
                 /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
                 tz?: string | null;
-                /** @description Interval length. Omit to pick it from the window: up to 1H 5m, 6H 15m, 12H 30m, 3D 1h, 1W 6h, longer 1d. Daily intervals start at midnight in tz (UTC without tz). */
-                interval?: ("5m" | "15m" | "30m" | "1h" | "6h" | "1d") | null;
             };
             header?: never;
             path: {

@@ -213,7 +213,7 @@ class TestSiteEnergySummary:
 
 
 class TestSiteEnergySeries:
-    async def test_kwh_per_interval_site_total_first_then_each_device(self, client, db):
+    async def test_cumulative_kwh_at_each_samples_time_site_total_first(self, client, db):
         site = await create_site(client, profile="alpha_solar")
         inverter = await create_device(client, site.site_id, name="device_1")
         plant = await create_device(client, site.site_id, name="device_3", host="10.0.0.11")
@@ -223,43 +223,53 @@ class TestSiteEnergySeries:
         (kilowatts,) = await upsert_points(
             client, site.site_id, plant.device_id, [point_request(name="active_power", unit="kW")]
         )
-        # 1000 W and 2 kW, flat for the 2 h window: 1 and 2 kWh in each hour
-        await insert_series(db, watts, [1000.0] * 5, timedelta(minutes=30))
-        await insert_series(db, kilowatts, [2.0] * 3, timedelta(hours=1))
+        # 1000 W and 2 kW, flat, sampled every 30 min, the plant 0.5 s after the inverter
+        for index in range(4):
+            time = BASE_TIME + timedelta(minutes=30) * index
+            await insert_reading(db, watts, time, 1000.0, 1000.0)
+            await insert_reading(db, kilowatts, time + timedelta(milliseconds=500), 2.0, 2.0)
 
-        response = await client.get(url(site.site_id, "site-energy-series"), params={**WINDOW, "interval": "1h"})
-        assert response.status_code == 200, response.text
-        result = EnergySeriesResult.model_validate(response.json())
-        assert result.interval == "1h"
-        total, *devices = result.series
-        assert (total.id, total.name) == (0, "site energy")
-        assert [sample.value for sample in total.timeseries] == pytest.approx([3.0, 3.0])
-        by_name = {series.name: series for series in devices}
-        assert by_name["device_1 energy"].id == watts.id
-        assert [sample.value for sample in by_name["device_1 energy"].timeseries] == pytest.approx([1.0, 1.0])
-        assert [sample.value for sample in by_name["device_3 energy"].timeseries] == pytest.approx([2.0, 2.0])
-        assert [sample.time for sample in total.timeseries] == [BASE_TIME, BASE_TIME + timedelta(hours=1)]
-        assert result.energy_kwh == pytest.approx(6.0)
-
-    async def test_interval_is_picked_from_the_window_when_omitted(self, client):
-        site = await create_site(client, profile="alpha_solar")
         response = await client.get(url(site.site_id, "site-energy-series"), params=WINDOW)
         assert response.status_code == 200, response.text
         result = EnergySeriesResult.model_validate(response.json())
-        assert result.interval == "15m"
-        assert result.series[0].count == 8
+        total, *devices = result.series
+        by_name = {series.name: series for series in devices}
+        inverter_energy = by_name["device_1 energy"]
+        assert inverter_energy.id == watts.id
+        assert [sample.time for sample in inverter_energy.timeseries] == [
+            BASE_TIME + timedelta(minutes=30) * index for index in range(4)
+        ]
+        assert [sample.value for sample in inverter_energy.timeseries] == pytest.approx([0.0, 0.5, 1.0, 1.5])
+        # one site sample per poll cycle, at the cycle's last reading
+        assert (total.id, total.name) == (0, "site energy")
+        assert [sample.time for sample in total.timeseries] == [
+            BASE_TIME + timedelta(minutes=30) * index + timedelta(milliseconds=500) for index in range(4)
+        ]
+        assert [sample.value for sample in total.timeseries] == pytest.approx([0.0, 1.5, 3.0, 4.5])
+        assert result.energy_kwh == pytest.approx(4.5)
 
-    async def test_too_many_intervals_is_400(self, client):
+    async def test_last_value_matches_the_energy_summary(self, client, db):
         site = await create_site(client, profile="alpha_solar")
-        response = await client.get(url(site.site_id, "site-energy-series"), params={"time_range": "3M", "interval": "5m"})
-        assert response.status_code == 400, response.text
-        error = ApiErrorResponse.model_validate(response.json())
-        assert isinstance(error.detail, ApiErrorDetail)
-        assert error.detail.error == "ValidationError"
+        device = await create_device(client, site.site_id, name="device_1")
+        (watts,) = await upsert_points(
+            client, site.site_id, device.device_id, [point_request(name="active_power", unit="W")]
+        )
+        await insert_series(db, watts, [1000.0, 250.0, 3000.0, 1800.0], timedelta(minutes=20))
+        series = EnergySeriesResult.model_validate((await client.get(url(site.site_id, "site-energy-series"), params=WINDOW)).json())
+        summary = EnergySummaryResult.model_validate((await client.get(url(site.site_id, "site-energy-summary"), params=WINDOW)).json())
+        assert series.energy_kwh == pytest.approx(summary.energy_kwh)
+        assert series.series[0].timeseries[-1].value == pytest.approx(summary.energy_kwh)
 
-    async def test_unknown_interval_is_422(self, client):
+    async def test_no_power_points_gives_an_empty_site_total(self, client):
         site = await create_site(client, profile="alpha_solar")
-        response = await client.get(url(site.site_id, "site-energy-series"), params={**WINDOW, "interval": "2h"})
+        response = await client.get(url(site.site_id, "site-energy-series"), params=WINDOW)
+        assert response.status_code == 200, response.text
+        (total,) = EnergySeriesResult.model_validate(response.json()).series
+        assert total.timeseries == []
+
+    async def test_missing_window_is_422(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        response = await client.get(url(site.site_id, "site-energy-series"))
         assert response.status_code == 422
 
 
