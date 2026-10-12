@@ -4,7 +4,7 @@ or health checks, passing the points it found in its SiteContext. Historian read
 spf_common_get_point_timeseries in common/shared_helper_functions.py.
 """
 
-from helpers.common.series_alignment import default_max_gap
+from helpers.sampling.alignment import default_max_gap
 from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
 from schemas.site_profiles import (
     DeviceEnergy,

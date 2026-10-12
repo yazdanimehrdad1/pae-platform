@@ -5,6 +5,8 @@ power/energy integration, and combining series from several devices.
 A series a site function returns follows its points' own sample times, never a resampled grid,
 so it charts next to the raw device points: derive one sample per input sample (as
 spf_common_cumulative_energy_kwh does), and combine devices with spf_common_combine_series.
+Compute on every reading; a chart's sampling of the result (plot values over 3 days) is applied
+afterwards by the site-functions controller. See helpers/sampling/README.md.
 
 Naming: spf_common_<name> is called from outside this file (a device-type package under
 common/ or a site package); _spf_common_<name> is only called inside it. Everything except
@@ -14,8 +16,8 @@ spf_common_get_point_timeseries (the historian read) is pure: no DB, no network,
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from helpers.common.series_alignment import align_series
 from helpers.reads.device_points_readings import get_timeseries_by_point_ids
+from helpers.sampling.alignment import align_series
 from schemas.api_models import (
     DevicePointResponse,
     PointTimeseries,
@@ -96,7 +98,7 @@ def spf_common_combine_series(
     One series from several, at their own sample times: no resampling. A site function that
     combines points from several devices (a site total, a difference) uses this, so its output
     lines up with the device points it came from. Lined up the way virtual points are
-    (helpers.common.series_alignment): one poll cycle across devices gives one sample, each
+    (helpers.sampling.alignment): one poll cycle across devices gives one sample, each
     series carries its last value for at most `max_gap`, and a time where any series has no
     value that recent gives no sample (so an outage shows as a gap). Null samples are skipped.
     """

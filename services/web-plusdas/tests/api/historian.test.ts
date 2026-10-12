@@ -20,11 +20,17 @@ describe('historianApi.getRecentReadings', () => {
 });
 
 describe('historianApi.getDevicePointReadings', () => {
-  it('asks for the most readings per point the endpoint allows, so a long window keeps its start', async () => {
+  it('sends a chart request as max_points, with no limit', async () => {
     const fetchMock = stubFetch({ meta: {}, readings: {} });
-    await historianApi.getDevicePointReadings({ siteId: '1002', deviceId: '3', pointIds: ['5', '6'], timeRange: '1D' });
+    await historianApi.getDevicePointReadings({ siteId: '1002', deviceId: '3', pointIds: ['5', '6'], timeRange: '1W', maxPoints: 2000 });
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      '/api/device-point-readings/timeseries/site/1002/device/3?point_ids=5%2C6&limit=10000&time_range=1D',
+      '/api/device-point-readings/timeseries/site/1002/device/3?point_ids=5%2C6&max_points=2000&time_range=1W',
     );
+  });
+
+  it('sends no max_points when not asked', async () => {
+    const fetchMock = stubFetch({ meta: {}, readings: {} });
+    await historianApi.getDevicePointReadings({ siteId: '1002', deviceId: '3', pointIds: ['5'], startTime: 'a', endTime: 'b' });
+    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/device-point-readings/timeseries/site/1002/device/3?point_ids=5&start_time=a&end_time=b');
   });
 });

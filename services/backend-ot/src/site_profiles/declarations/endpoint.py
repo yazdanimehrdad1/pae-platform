@@ -17,8 +17,10 @@ SiteEndpoint in that site's profile.py get a URL. Every declaration has the same
 output="series" marks an endpoint whose response has a `series` field (one PointTimeseries or a
 list of them); the historian lists those next to device points. A series keeps its points' own
 sample times, never a resampled grid (see common/shared_helper_functions.py for how to derive
-and combine series), so it lines up with the raw points it is charted with. A device endpoint may also name
-the device_types it applies to (empty: every device), so a UI offers it only under those devices.
+and combine series), so it lines up with the raw points it is charted with. Series endpoints
+also accept the chart parameter max_points, applied to what they return (helpers/sampling/README.md).
+A device endpoint may also name the device_types it applies to (empty: every device), so a UI
+offers it only under those devices.
 
 URL by kind:
     common, site   GET /api/site-functions/site/{site_id}/<name>

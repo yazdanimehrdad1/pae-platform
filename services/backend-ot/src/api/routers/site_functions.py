@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from api.controllers.site_functions import list_site_endpoints, run_site_endpoint
 from logger import get_logger
-from schemas.site_profiles import SiteEndpointsResponse, TimeWindowParams
+from schemas.site_profiles import ChartParams, SiteEndpointsResponse, TimeWindowParams
 from site_profiles.profile_registry import SITE_ENDPOINT_ROUTES, SiteEndpointRoute
 from utils.exceptions import AppError
 
@@ -51,14 +51,22 @@ async def get_site_endpoints(site_id: int) -> SiteEndpointsResponse:
         _function_error(e)
 
 
+def _query_model(route: SiteEndpointRoute) -> type[TimeWindowParams]:
+    """The route's query parameters: its params_model, plus ChartParams for a series endpoint."""
+    if route.output != "series":
+        return route.params_model
+    return type(f"{route.params_model.__name__}WithChart", (route.params_model, ChartParams), {})
+
+
 def _build_endpoint(route: SiteEndpointRoute) -> Callable[..., Awaitable[BaseModel]]:
     """The FastAPI handler for one site endpoint, with a signature FastAPI reads to build its params."""
 
     async def endpoint(
         site_id: int, params: TimeWindowParams, device_id: int | None = None
     ) -> BaseModel:
+        max_points = params.max_points if isinstance(params, ChartParams) else None
         try:
-            return await run_site_endpoint(site_id, route.name, params, device_id=device_id)
+            return await run_site_endpoint(site_id, route.name, params, device_id=device_id, max_points=max_points)
         except Exception as e:
             _function_error(e)
 
@@ -73,7 +81,7 @@ def _build_endpoint(route: SiteEndpointRoute) -> Callable[..., Awaitable[BaseMod
             inspect.Parameter(
                 "params",
                 inspect.Parameter.KEYWORD_ONLY,
-                annotation=Annotated[route.params_model, Query()],
+                annotation=Annotated[_query_model(route), Query()],
             ),
         ]
     )

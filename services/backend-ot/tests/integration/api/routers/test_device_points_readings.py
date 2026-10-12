@@ -8,6 +8,7 @@ display-timezone rendering, and the query validation rules (both at the endpoint
 the global validate_time_range middleware).
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import asyncpg
@@ -18,6 +19,7 @@ from integration.factories import (
     create_site,
     create_virtual_point,
     insert_reading,
+    insert_readings,
     point_request,
     upsert_points,
 )
@@ -320,3 +322,180 @@ class TestVirtualLatest:
         )
         reading = latest.readings[str(arranged.site_power.id)]
         assert (reading.value, reading.time) == (None, None)
+
+
+# --- Chart sampling (max_points, helpers.sampling) ----------------------------------------
+
+STEP = timedelta(seconds=10)
+
+
+def window_params(length: timedelta, **extra: str | int) -> dict[str, str | int]:
+    return {"start_time": BASE_TIME.isoformat(), "end_time": (BASE_TIME + length).isoformat(), **extra}
+
+
+async def dense_point(
+    client: AsyncClient, db: asyncpg.Connection, samples: list[tuple[datetime, float | None]]
+) -> tuple[int, int, DevicePointResponse]:
+    site = await create_site(client)
+    device = await create_device(client, site.site_id)
+    (point,) = await upsert_points(
+        client, site.site_id, device.device_id, [point_request(name="active_power", unit="kW")]
+    )
+    await insert_readings(db, point, samples)
+    return site.site_id, device.device_id, point
+
+
+def every(
+    step: timedelta, count: int, value: Callable[[int], float] = lambda index: float(index % 50)
+) -> list[tuple[datetime, float | None]]:
+    return [(BASE_TIME + step * index, value(index)) for index in range(count)]
+
+
+def doubled_request(point: DevicePointResponse) -> VirtualPointCreateRequest:
+    return VirtualPointCreateRequest(
+        name="doubled",
+        definition=VirtualCalculationDefinition(
+            kind="calculation", function="sum", inputs=[point.id], scale=2.0
+        ),
+    )
+
+
+class TestChartSamplingUpToThreeDays:
+    async def test_every_reading_at_its_actual_timestamp_past_the_10000_cap(self, client, db):
+        samples = every(timedelta(seconds=14), 12_000)  # ~1.9 days, more than the limit cap
+        site_id, device_id, point = await dense_point(client, db, samples)
+
+        result = await get_timeseries(
+            client,
+            timeseries_url(site_id, device_id),
+            **window_params(timedelta(days=2), max_points=2000, limit=10),
+        )
+
+        series = result.readings[str(point.id)]
+        assert series.count == 12_000
+        assert [(sample.time, sample.value) for sample in reversed(series.timeseries)] == samples
+
+    async def test_exactly_three_days_is_still_raw(self, client, db):
+        samples = every(timedelta(seconds=30), 8_640)  # 3 days
+        site_id, device_id, point = await dense_point(client, db, samples)
+        result = await get_timeseries(
+            client, timeseries_url(site_id, device_id), **window_params(timedelta(days=3), max_points=100)
+        )
+        assert result.readings[str(point.id)].count == 8_640
+
+    async def test_an_outage_gets_a_gap_marker_without_a_value(self, client, db):
+        samples = [*every(STEP, 3), (BASE_TIME + timedelta(minutes=10), 7.0)]
+        site_id, device_id, point = await dense_point(client, db, samples)
+        result = await get_timeseries(
+            client, timeseries_url(site_id, device_id), **window_params(timedelta(hours=1), max_points=2000)
+        )
+        timeseries = result.readings[str(point.id)].timeseries
+        assert [sample.value for sample in timeseries] == [7.0, None, 2.0, 1.0, 0.0]
+
+    async def test_a_virtual_point_gets_every_computed_value(self, client, db):
+        samples = every(timedelta(seconds=14), 12_000)
+        site_id, device_id, point = await dense_point(client, db, samples)
+        doubled = await create_virtual_point(client, site_id, device_id, doubled_request(point))
+        result = await get_timeseries(
+            client,
+            timeseries_url(site_id, device_id),
+            point_ids=str(doubled.id),
+            **window_params(timedelta(days=2), max_points=2000),
+        )
+        series = result.readings[str(doubled.id)]
+        assert series.count == 12_000
+        assert [sample.value for sample in reversed(series.timeseries)] == [
+            (value or 0.0) * 2 for _, value in samples
+        ]
+
+
+class TestChartSamplingBeyondThreeDays:
+    async def test_plot_values_are_real_readings_bounded_by_max_points(self, client, db):
+        # a week at 10 s with one spike
+        samples = every(STEP, 60_480, value=lambda index: 900.0 if index == 31_337 else float(index % 50))
+        site_id, device_id, point = await dense_point(client, db, samples)
+
+        result = await get_timeseries(
+            client, timeseries_url(site_id, device_id), **window_params(timedelta(days=7), max_points=2000)
+        )
+
+        series = result.readings[str(point.id)]
+        assert 0 < series.count <= 2000
+        stored = dict(samples)
+        assert all(stored[sample.time] == sample.value for sample in series.timeseries)
+        assert max(sample.value or 0.0 for sample in series.timeseries) == 900.0  # the spike survives
+        times = [sample.time for sample in series.timeseries]
+        assert times == sorted(times, reverse=True)
+        assert (times[0], times[-1]) == (samples[-1][0], samples[0][0])  # the whole week
+
+    async def test_an_outage_keeps_both_edges_and_gets_a_marker(self, client, db):
+        before = every(STEP, 30_000)
+        resume = before[-1][0] + timedelta(hours=6)
+        after: list[tuple[datetime, float | None]] = [(resume + STEP * index, 1.0) for index in range(30_000)]
+        site_id, device_id, point = await dense_point(client, db, before + after)
+
+        result = await get_timeseries(
+            client, timeseries_url(site_id, device_id), **window_params(timedelta(days=7), max_points=2000)
+        )
+
+        timeseries = result.readings[str(point.id)].timeseries
+        (marker,) = [sample for sample in timeseries if sample.value is None]
+        assert before[-1][0] < marker.time < resume
+        assert {before[-1][0], resume} <= {sample.time for sample in timeseries}
+
+    async def test_an_enum_point_keeps_every_change(self, client, db):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id)
+        (state,) = await upsert_points(
+            client,
+            site.site_id,
+            device.device_id,
+            [point_request(name="state", address=110, size=1, data_type="enum16", enum_detail=ENUM_DETAIL)],
+        )
+        samples = every(STEP, 60_480, value=lambda index: float((index // 1_009) % 2))
+        await insert_readings(db, state, samples)
+
+        result = await get_timeseries(
+            client,
+            timeseries_url(site.site_id, device.device_id),
+            **window_params(timedelta(days=7), max_points=200),
+        )
+
+        kept = {sample.time for sample in result.readings[str(state.id)].timeseries}
+        changes = [
+            time for (_, previous), (time, value) in zip(samples, samples[1:], strict=False) if value != previous
+        ]
+        assert changes
+        assert all(time in kept for time in changes)
+
+    async def test_a_virtual_point_is_reduced_too(self, client, db):
+        samples = every(STEP, 60_480)
+        site_id, device_id, point = await dense_point(client, db, samples)
+        doubled = await create_virtual_point(client, site_id, device_id, doubled_request(point))
+        result = await get_timeseries(
+            client,
+            timeseries_url(site_id, device_id),
+            point_ids=str(doubled.id),
+            **window_params(timedelta(days=7), max_points=2000),
+        )
+        series = result.readings[str(doubled.id)]
+        assert 0 < series.count <= 2000
+        stored = dict(samples)
+        assert all((stored[sample.time] or 0.0) * 2 == sample.value for sample in series.timeseries)
+
+
+class TestChartSamplingParams:
+    async def test_without_max_points_the_limit_still_applies(self, client, db):
+        site_id, device_id, point = await dense_point(client, db, every(STEP, 50))
+        result = await get_timeseries(
+            client, timeseries_url(site_id, device_id), **window_params(timedelta(days=7), limit=10)
+        )
+        assert result.readings[str(point.id)].count == 10
+
+    async def test_max_points_out_of_bounds_is_422(self, client, db):
+        site_id, device_id, _ = await dense_point(client, db, every(STEP, 3))
+        for bad in (99, 5001):
+            response = await client.get(
+                timeseries_url(site_id, device_id), params=window_params(timedelta(days=1), max_points=bad)
+            )
+            assert response.status_code == 422

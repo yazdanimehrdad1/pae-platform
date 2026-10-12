@@ -19,6 +19,8 @@ interface FunctionSeriesBase {
   siteId: string;
   name: string;
   deviceId?: string;
+  // A chart's request, as for the readings endpoint: the returned series are sampled.
+  maxPoints?: number;
 }
 export type FunctionSeriesRequest =
   | (FunctionSeriesBase & { timeRange: TimeRange })

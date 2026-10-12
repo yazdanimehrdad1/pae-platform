@@ -3949,6 +3949,8 @@ export interface operations {
                 time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
                 /** @description Maximum readings per point, taking the most recent N (returned newest-first) */
                 limit?: number;
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
                 /** @description Translate enum/bitfield values to human-readable form */
                 translate?: boolean;
                 /** @description IANA timezone, e.g. 'America/Los_Angeles', or a US shorthand such as 'PT'/'PDT'. Interprets naive start_time/end_time and renders response timestamps in this zone. An explicit offset on a timestamp takes precedence over this. */
@@ -5020,6 +5022,8 @@ export interface operations {
     site_function_site_energy_series_api_site_functions_site__site_id__site_energy_series_get: {
         parameters: {
             query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
                 /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
                 start_time?: string | null;
                 /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
@@ -5100,6 +5104,8 @@ export interface operations {
     site_function_site_poi_power_api_site_functions_site__site_id__site_poi_power_get: {
         parameters: {
             query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
                 /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
                 start_time?: string | null;
                 /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */

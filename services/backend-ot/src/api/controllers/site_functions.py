@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 import db.devices as devices_db
 import db.sites as sites_db
+from helpers.sampling import default_max_gap, sample_series_response
 from schemas.api_models import SiteResponse
 from schemas.site_profiles import (
     SiteContext,
@@ -55,7 +56,10 @@ async def run_site_endpoint(
     endpoint_name: str,
     params: TimeWindowParams,
     device_id: int | None = None,
+    max_points: int | None = None,
 ) -> BaseModel:
+    """Run the endpoint the site's profile declares. max_points (series endpoints only) samples
+    the returned series for a chart (helpers.sampling); the function itself sees all readings."""
     site = await _get_site(site_id)
     if site.profile is None:
         raise NotFoundError(f"Endpoint '{endpoint_name}' is not available: site {site_id} has no profile")
@@ -75,4 +79,8 @@ async def run_site_endpoint(
         )
 
     ctx = SiteContext(site=site, devices=devices, device=device)
-    return await endpoint.controller(ctx, params)
+    result = await endpoint.controller(ctx, params)
+    if max_points is None or endpoint.output != "series":
+        return result
+    window = params.resolve_window()
+    return sample_series_response(result, window.start_time, window.end_time, max_points, default_max_gap())

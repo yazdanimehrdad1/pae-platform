@@ -32,7 +32,7 @@ class TimestampedValue(BaseModel):
 
 
 class AlignedValues(BaseModel):
-    """Several series' values at one aligned time (helpers.common.series_alignment): by key,
+    """Several series' values at one aligned time (helpers.sampling.alignment): by key,
     the latest value at or before `time`, or None when there is none recent enough."""
     time: datetime
     values: dict[int, float | None]

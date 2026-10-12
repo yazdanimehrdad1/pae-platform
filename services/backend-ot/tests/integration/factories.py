@@ -113,6 +113,17 @@ async def insert_reading(
     )
 
 
+async def insert_readings(
+    db: asyncpg.Connection, point: DevicePointResponse, samples: list[tuple[datetime, float | None]]
+) -> None:
+    """Many readings of one point at once (COPY), raw value = derived value; for dense windows."""
+    await db.copy_records_to_table(
+        "device_points_readings",
+        columns=["timestamp", "site_id", "device_id", "device_point_id", "raw_value", "derived_value"],
+        records=[(time, point.site_id, point.device_id, point.id, value, value) for time, value in samples],
+    )
+
+
 async def create_virtual_point(
     client: AsyncClient, site_id: int, device_id: int, request: VirtualPointCreateRequest
 ) -> DevicePointResponse:

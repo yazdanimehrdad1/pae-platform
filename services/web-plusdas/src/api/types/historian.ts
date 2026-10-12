@@ -14,6 +14,8 @@ interface DevicePointReadingsBase {
   siteId: string;
   deviceId: string;
   pointIds: string[];
+  // A chart's request: every reading up to 3 days, plot values beyond, with gap markers (no value).
+  maxPoints?: number;
 }
 export type DevicePointReadingsRequest =
   | (DevicePointReadingsBase & { timeRange: TimeRange })

@@ -18,6 +18,7 @@ from integration.factories import (
     create_site,
     create_virtual_point,
     insert_reading,
+    insert_readings,
     point_request,
     upsert_points,
 )
@@ -389,3 +390,74 @@ class TestDeviceInverterAvailability:
     async def test_unknown_device_is_404(self, client):
         site = await create_site(client, profile="alpha_solar")
         await assert_not_found(client, url(site.site_id, "device-inverter-availability", 9999))
+
+
+class TestSeriesChartSampling:
+    """max_points on a series endpoint samples what it returns (helpers.sampling); the function
+    itself still computes on every reading."""
+
+    async def poi_site(self, client, db, count: int, step: timedelta):
+        site = await create_site(client, profile="alpha_solar")
+        plant = await create_device(client, site.site_id, name="device_3")
+        (poi,) = await upsert_points(
+            client, site.site_id, plant.device_id, [point_request(name="poi_active_power_total", unit="kW")]
+        )
+        await insert_readings(db, poi, [(BASE_TIME + step * index, float(index % 40)) for index in range(count)])
+        return site, poi
+
+    async def test_up_to_three_days_one_sample_per_stored_reading(self, client, db):
+        site, _ = await self.poi_site(client, db, 12_000, timedelta(seconds=14))
+        params = {
+            "start_time": BASE_TIME.isoformat(),
+            "end_time": (BASE_TIME + timedelta(days=2)).isoformat(),
+            "max_points": 2000,
+        }
+        response = await client.get(url(site.site_id, "site-poi-power"), params=params)
+        assert response.status_code == 200, response.text
+        series = PoiPowerResult.model_validate(response.json()).series
+        assert series.count == len(series.timeseries) == 12_000
+
+    async def test_beyond_three_days_plot_values_with_the_function_on_all_readings(self, client, db):
+        site, _ = await self.poi_site(client, db, 60_480, timedelta(seconds=10))
+        params = {
+            "start_time": BASE_TIME.isoformat(),
+            "end_time": (BASE_TIME + timedelta(days=7)).isoformat(),
+        }
+        full = PoiPowerResult.model_validate((await client.get(url(site.site_id, "site-poi-power"), params=params)).json())
+        response = await client.get(url(site.site_id, "site-poi-power"), params={**params, "max_points": 2000})
+        assert response.status_code == 200, response.text
+        sampled = PoiPowerResult.model_validate(response.json())
+        assert full.series.count == 60_480
+        assert 0 < sampled.series.count <= 2000
+        assert (sampled.peak_kw, sampled.average_kw) == (full.peak_kw, full.average_kw)
+
+    async def test_energy_series_keeps_its_total_when_sampled(self, client, db):
+        site = await create_site(client, profile="alpha_solar")
+        device = await create_device(client, site.site_id, name="device_1")
+        (watts,) = await upsert_points(
+            client, site.site_id, device.device_id, [point_request(name="active_power", unit="W")]
+        )
+        await insert_readings(db, watts, [(BASE_TIME + timedelta(seconds=10) * index, 1000.0) for index in range(60_480)])
+        params = {
+            "start_time": BASE_TIME.isoformat(),
+            "end_time": (BASE_TIME + timedelta(days=7)).isoformat(),
+        }
+        summary = EnergySummaryResult.model_validate(
+            (await client.get(url(site.site_id, "site-energy-summary"), params=params)).json()
+        )
+        response = await client.get(url(site.site_id, "site-energy-series"), params={**params, "max_points": 2000})
+        assert response.status_code == 200, response.text
+        result = EnergySeriesResult.model_validate(response.json())
+        assert all(0 < series.count <= 2000 for series in result.series)
+        assert result.series[0].timeseries[-1].value == pytest.approx(summary.energy_kwh)
+
+    async def test_a_scalar_endpoint_ignores_max_points(self, client):
+        # only series endpoints declare max_points (see the contract); elsewhere it is an unknown param
+        site = await create_site(client, profile="alpha_solar")
+        response = await client.get(url(site.site_id, "site-energy-summary"), params={**WINDOW, "max_points": 99})
+        assert response.status_code == 200, response.text
+
+    async def test_max_points_out_of_bounds_is_422(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        response = await client.get(url(site.site_id, "site-poi-power"), params={**WINDOW, "max_points": 99})
+        assert response.status_code == 422

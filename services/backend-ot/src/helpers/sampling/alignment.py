@@ -5,8 +5,9 @@ match. Each series carries its last value forward, for at most `max_gap`, and al
 produced at the series' own timestamps. Timestamps within `ALIGN_TOLERANCE` of each other (one
 poll cycle across devices) collapse into one aligned sample, at the cluster's last time.
 
-Used by virtual points (helpers.virtual_points.resolve) and by site functions that combine points
-from several devices (site_profiles.common.shared_helper_functions.spf_common_combine_series).
+Part of helpers.sampling (README.md there). Used by virtual points (helpers.virtual_points.resolve)
+and by site functions that combine points from several devices
+(site_profiles.common.shared_helper_functions.spf_common_combine_series).
 """
 
 from collections.abc import Mapping

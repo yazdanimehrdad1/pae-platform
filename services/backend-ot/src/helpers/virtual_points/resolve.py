@@ -4,7 +4,7 @@ Pure: no I/O. The read helpers (`helpers.reads.device_points_readings`) load the
 readings and call these; nothing computed here is written anywhere.
 
 Inputs usually come from different devices, polled a moment apart, so their timestamps don't
-match. They are lined up by helpers.common.series_alignment: each input carries its last value
+match. They are lined up by helpers.sampling.alignment: each input carries its last value
 forward, for at most `max_gap`, output samples are produced at the inputs' timestamps, and one
 poll cycle across devices (ALIGN_TOLERANCE) collapses into one output sample.
 """
@@ -12,7 +12,7 @@ poll cycle across devices (ALIGN_TOLERANCE) collapses into one output sample.
 from collections.abc import Mapping
 from datetime import timedelta
 
-from helpers.common.series_alignment import align_series, default_max_gap
+from helpers.sampling.alignment import align_series, default_max_gap
 from helpers.virtual_points.definition import referenced_point_ids
 from helpers.virtual_points.evaluate import evaluate_virtual_point
 from schemas.api_models.virtual_points import VirtualDefinition

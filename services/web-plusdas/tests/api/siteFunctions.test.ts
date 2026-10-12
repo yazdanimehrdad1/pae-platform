@@ -24,8 +24,8 @@ describe('siteFunctionsApi.list', () => {
 describe('siteFunctionsApi.getSeries', () => {
   it('calls a site function with a preset window and wraps a single series in a list', async () => {
     const fetchMock = stubFetch({ site_id: 1001, peak_kw: 3, series: series(5) });
-    const result = await siteFunctionsApi.getSeries({ siteId: '1001', name: 'site-poi-power', timeRange: '1H' });
-    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/site-functions/site/1001/site-poi-power?time_range=1H');
+    const result = await siteFunctionsApi.getSeries({ siteId: '1001', name: 'site-poi-power', timeRange: '1H', maxPoints: 2000 });
+    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/site-functions/site/1001/site-poi-power?max_points=2000&time_range=1H');
     expect(result).toEqual([series(5)]);
   });
 

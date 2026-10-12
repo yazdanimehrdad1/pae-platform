@@ -14,6 +14,7 @@ export const siteFunctionsApi = {
   /** Runs a series function over a window; one series or a list, always returned as a list. */
   getSeries: async (req: FunctionSeriesRequest): Promise<PointTimeseries[]> => {
     const params = new URLSearchParams();
+    if (req.maxPoints !== undefined) params.set('max_points', String(req.maxPoints));
     if ('timeRange' in req) {
       params.set('time_range', req.timeRange);
     } else {

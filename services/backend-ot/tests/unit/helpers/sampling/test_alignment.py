@@ -1,4 +1,4 @@
-"""Unit tests for helpers.common.series_alignment (lining up series from several points).
+"""Unit tests for helpers.sampling.alignment (lining up series from several points).
 
 Invariant guarded: series are lined up at their own sample times, never a resampled grid. One poll
 cycle across devices (within ALIGN_TOLERANCE) is one aligned time, each series carries its last
@@ -8,7 +8,7 @@ made-up value.
 
 from datetime import UTC, datetime, timedelta
 
-from helpers.common.series_alignment import ALIGN_TOLERANCE, align_series, aligned_times
+from helpers.sampling.alignment import ALIGN_TOLERANCE, align_series, aligned_times
 from schemas.internal_models import TimestampedValue
 
 T0 = datetime(2026, 9, 28, 10, 0, 0, tzinfo=UTC)

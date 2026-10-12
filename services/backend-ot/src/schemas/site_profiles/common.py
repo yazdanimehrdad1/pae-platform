@@ -15,6 +15,7 @@ from helpers.common.date_time import (
     resolve_time_range,
     resolve_timezone,
 )
+from helpers.sampling.policy import MAX_PLOT_POINTS, MAX_POINTS_DESCRIPTION, MIN_PLOT_POINTS
 from schemas.api_models import DevicePointResponse, DeviceWithPoints, PointTimeseries, SiteResponse
 from schemas.api_models.types import DeviceType
 
@@ -95,6 +96,13 @@ class TimeWindowParams(BaseModel):
             else datetime.now(start.tzinfo)
         )
         return TimeWindow(start_time=start, end_time=end, display_tz=display_tz)
+
+
+class ChartParams(BaseModel):
+    """The chart parameter a series endpoint also accepts (helpers.sampling): with it, the
+    returned series are sampled for a chart; the function itself still sees every reading."""
+
+    max_points: int | None = Field(None, ge=MIN_PLOT_POINTS, le=MAX_PLOT_POINTS, description=MAX_POINTS_DESCRIPTION)
 
 
 # --- Per-request context -----------------------------------------------------------------

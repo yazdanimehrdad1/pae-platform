@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BackendPointReadings } from '@/api/types/historian';
-import { buildChartRows } from '@/features/historian/lib/chartRows';
+import { buildChartRows, buildLineSeries } from '@/features/historian/sampling/chartRows';
 
 const readings = (series: Record<string, Array<[string, number | null]>>) => (({
   readings: Object.fromEntries(Object.entries(series).map(([pointId, samples]) => [
@@ -88,5 +88,48 @@ describe('buildChartRows across devices', () => {
 
   it('ignores series nobody selected', () => {
     expect(buildChartRows([readings({ '7': [['2026-09-27T10:00:00Z', 1]] })], ['4'])).toEqual([]);
+  });
+});
+
+describe('buildChartRows with gap markers', () => {
+  it('leaves gap markers (no value) out of the rows', () => {
+    const rows = buildChartRows(
+      [readings({ '4': [['2026-09-27T10:00:00Z', 1], ['2026-09-27T10:05:00Z', null], ['2026-09-27T10:10:00Z', 2]] })],
+      ['4'],
+    );
+    expect(rows.map(row => row['4'])).toEqual([1, 2]);
+  });
+});
+
+describe('buildLineSeries', () => {
+  it('gives each selection every one of its samples, oldest first, keyed by its id', () => {
+    const lines = buildLineSeries(
+      [
+        readings({ '4': [['2026-09-27T10:00:20Z', 2], ['2026-09-27T10:00:00Z', 1]] }),
+        readings({ 'fn:site-energy-series': [['2026-09-27T10:00:07Z', 0.5]] }),
+      ],
+      ['4', 'fn:site-energy-series'],
+    );
+    expect(lines['4']).toEqual([
+      { timestamp: Date.parse('2026-09-27T10:00:00Z'), '4': 1 },
+      { timestamp: Date.parse('2026-09-27T10:00:20Z'), '4': 2 },
+    ]);
+    expect(lines['fn:site-energy-series']).toEqual([{ timestamp: Date.parse('2026-09-27T10:00:07Z'), 'fn:site-energy-series': 0.5 }]);
+  });
+
+  it('keeps gap markers as null so the line breaks there', () => {
+    const lines = buildLineSeries([readings({ '4': [['2026-09-27T10:00:00Z', 1], ['2026-09-27T10:05:00Z', null]] })], ['4']);
+    expect(lines['4'].map(point => point['4'])).toEqual([1, null]);
+  });
+
+  it('decodes a bit selection and keeps every sample of a dense series', () => {
+    const samples: Array<[string, number]> = Array.from({ length: 26_000 }, (_, index) => [new Date(Date.UTC(2026, 8, 27) + index * 10_000).toISOString(), index % 4]);
+    const lines = buildLineSeries([readings({ '12': samples })], ['12', '12:bit1']);
+    expect(lines['12']).toHaveLength(26_000);
+    expect(lines['12:bit1'].slice(0, 4).map(point => point['12:bit1'])).toEqual([0, 0, 1, 1]);
+  });
+
+  it('gives a selection without data an empty line', () => {
+    expect(buildLineSeries([], ['4'])).toEqual({ '4': [] });
   });
 });

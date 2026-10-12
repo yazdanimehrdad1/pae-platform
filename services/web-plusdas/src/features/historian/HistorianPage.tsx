@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useHistorianSeries } from "./hooks/useHistorianSeries";
+import type { LinePoint } from "./sampling/chartRows";
+import { latestAtOrBefore } from "./sampling/tooltip";
 import type { ChartRow, TimeWindow, Trend } from "./types";
 import type { TimeRange } from "@/api/types/historian";
 import { toast } from "@/shared/hooks/use-toast";
@@ -138,6 +140,40 @@ function formatTimestamp(ts: number, spanMs: number): string {
 const CHART_MARGIN = { top: 5, right: 40, left: 0, bottom: 5 };
 const Y_AXIS_WIDTH = 60;
 
+type StepLayout = ReturnType<typeof buildStepLayout>;
+
+// The hovered time, each analog line's latest sample at or before it (looked up in the line's own
+// samples, since lines don't share timestamps), and the step series' states.
+function TrendTooltip({ active, label, payload, lines, analogKeys, pointLabels, colorByKey, formatTime, stepLayout }: {
+  active?: boolean;
+  label?: number;
+  payload?: Array<{ dataKey?: string | number; name?: string; value?: number; color?: string }>;
+  lines: Record<string, LinePoint[]>;
+  analogKeys: string[];
+  pointLabels: Record<string, string>;
+  colorByKey: Map<string, string>;
+  formatTime: (timestamp: number) => string;
+  stepLayout: StepLayout;
+}) {
+  if (!active || typeof label !== 'number') return null;
+  const analog = analogKeys
+    .map(key => ({ key, value: latestAtOrBefore(lines[key] ?? [], key, label) }))
+    .filter(entry => entry.value !== null);
+  const steps = (payload ?? []).filter(item => !analogKeys.includes(String(item.dataKey)) && item.value != null);
+  if (analog.length === 0 && steps.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border bg-card p-2 text-sm shadow-sm">
+      <div className="mb-1 font-medium">{formatTime(label)}</div>
+      {analog.map(({ key, value }) => (
+        <div key={key} style={{ color: colorByKey.get(key) }}>{pointLabels[key] ?? key}: {value}</div>
+      ))}
+      {steps.map(item => (
+        <div key={String(item.dataKey)} style={{ color: item.color }}>{item.name}: {stepLayout?.tooltipLabel(item.dataKey, item.value) ?? item.value}</div>
+      ))}
+    </div>
+  );
+}
+
 function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
   selectedPoints: string[];
   timeWindow: TimeWindow;
@@ -148,7 +184,13 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
   // A series name was clicked: show that selection in the Trends panel.
   onRevealPoint: (selectionId: string) => void;
 }) {
-  const { data, functionSeries, isLoading, isError } = useHistorianSeries(siteId, selectedPoints, timeWindow);
+  const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
+  // The window the chart shows is fetched: zooming in refetches, so a zoom of 3 days or less gets
+  // every reading again (see sampling/README.md).
+  const viewWindow: TimeWindow = zoomRange
+    ? { startTime: new Date(zoomRange.start).toISOString(), endTime: new Date(zoomRange.end).toISOString() }
+    : timeWindow;
+  const { data, lines, functionSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow);
   const { pointsById } = usePointCatalog(siteId);
   const spanMs = 'preset' in timeWindow
     ? PRESET_MS[timeWindow.preset]
@@ -157,7 +199,6 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; timestamp: number } | null>(null);
   const [dragEnd, setDragEnd] = useState<{ x: number; timestamp: number } | null>(null);
-  const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
 
   const chartData: ChartRow[] = data;
   const pointColors = getColorsForPoints(selectedPoints);
@@ -229,8 +270,9 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
 
   return (
     <div className="space-y-2">
-      {(discreteSeries.length > 0 || zoomRange) && (
+      {(discreteSeries.length > 0 || zoomRange || isFetching) && (
         <div className="flex items-center justify-end gap-4">
+          {isFetching && <span className="text-xs text-muted-foreground">Updating...</span>}
           {discreteSeries.length > 0 && <DiscreteModeToggle mode={discreteMode} onChange={onDiscreteModeChange} />}
           {zoomRange && (
             <Button variant="outline" size="sm" onClick={() => setZoomRange(null)} className="gap-2">
@@ -261,9 +303,7 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
                 <XAxis dataKey="timestamp" type="number" scale="time" domain={domain} allowDataOverflow tick={{ fontSize: 11 }} tickFormatter={formatTime} />
                 <YAxis tick={{ fontSize: 12 }} width={Y_AXIS_WIDTH} hide={analogKeys.length === 0} />
                 <RechartsTooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                  labelFormatter={(timestamp: number) => formatTime(timestamp)}
-                  formatter={(value: number, name, item) => stepLayout?.tooltipLabel(item.dataKey, value) ?? value}
+                  content={<TrendTooltip lines={lines} analogKeys={analogKeys} pointLabels={pointLabels} colorByKey={colorByKey} formatTime={formatTime} stepLayout={stepLayout} />}
                 />
                 <Legend
                   wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
@@ -272,7 +312,9 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
                   onClick={(entry) => { const key = stepLayout?.selectionKey(entry.dataKey) ?? entry.dataKey; if (typeof key === 'string') onRevealPoint(key); }}
                 />
                 {analogKeys.map(point => (
-                  <Line key={point} type="monotone" dataKey={point} stroke={colorByKey.get(point)} strokeWidth={2} dot={false} name={pointLabels[point] ?? point} />
+                  // Each line draws its own samples (every reading up to 3 days, plot values beyond),
+                  // breaking only at its own gap markers. Linear and unanimated: up to ~26k points a line.
+                  <Line key={point} data={lines[point]} type="linear" isAnimationActive={false} dataKey={point} stroke={colorByKey.get(point)} strokeWidth={2} dot={false} name={pointLabels[point] ?? point} />
                 ))}
                 {stepLayout && renderStepSeries(stepLayout)}
               </LineChart>
