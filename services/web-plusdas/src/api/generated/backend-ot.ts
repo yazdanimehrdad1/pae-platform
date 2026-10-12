@@ -913,6 +913,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/site-functions/site/{site_id}/site-energy-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Energy (kWh) per interval, site total then each device, from each device's active_power */
+        get: operations["site_function_site_energy_series_api_site_functions_site__site_id__site_energy_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/site-functions/site/{site_id}/site-energy-summary": {
         parameters: {
             query?: never;
@@ -2074,6 +2091,37 @@ export interface components {
              */
             vendor?: string | null;
         };
+        /** EnergySeriesResult */
+        EnergySeriesResult: {
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Energy Kwh
+             * @description Total over the window and every device
+             */
+            energy_kwh: number;
+            /**
+             * Interval
+             * @description The interval used (requested, or picked from the window)
+             * @enum {string}
+             */
+            interval: "5m" | "15m" | "30m" | "1h" | "6h" | "1d";
+            /**
+             * Series
+             * @description kWh per interval, stamped with each interval's start (the first and last are clipped to the window). The site total first (id 0), then one series per device, whose id is the power point it was integrated from.
+             */
+            series: components["schemas"]["PointTimeseries"][];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+        };
         /** EnergySummaryResult */
         EnergySummaryResult: {
             /** Devices */
@@ -2593,6 +2641,11 @@ export interface components {
         /** SiteEndpointInfo */
         SiteEndpointInfo: {
             /**
+             * Device Types
+             * @description Device endpoints only: the device types it applies to; empty means every device
+             */
+            device_types?: ("BESS" | "ES" | "INVERTER" | "PV" | "GENERATOR" | "LOADBANK" | "RELAY" | "IED" | "METER" | "RTAC")[];
+            /**
              * Kind
              * @description common/site: /site/{site_id}/{name}; device: /site/{site_id}/device/{device_id}/{name}
              * @enum {string}
@@ -2608,6 +2661,13 @@ export interface components {
              * @description Function name, the last URL segment; starts with its kind
              */
             name: string;
+            /**
+             * Output
+             * @description series: the response has a `series` field (one PointTimeseries or a list), chartable next to device points
+             * @default scalar
+             * @enum {string}
+             */
+            output: "scalar" | "series";
             /** Summary */
             summary: string;
         };
@@ -4950,6 +5010,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InverterAvailabilityResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_energy_series_api_site_functions_site__site_id__site_energy_series_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+                /** @description Interval length. Omit to pick it from the window: up to 1H 5m, 6H 15m, 12H 30m, 3D 1h, 1W 6h, longer 1d. Daily intervals start at midnight in tz (UTC without tz). */
+                interval?: ("5m" | "15m" | "30m" | "1h" | "6h" | "1d") | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnergySeriesResult"];
                 };
             };
             /** @description Validation Error */

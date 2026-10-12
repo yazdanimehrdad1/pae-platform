@@ -15,9 +15,11 @@ from helpers.common.date_time import (
     resolve_time_range,
     resolve_timezone,
 )
-from schemas.api_models import DevicePointResponse, DeviceWithPoints, SiteResponse
+from schemas.api_models import DevicePointResponse, DeviceWithPoints, PointTimeseries, SiteResponse
+from schemas.api_models.types import DeviceType
 
 FunctionKind = Literal["common", "site", "device"]
+EndpointOutput = Literal["scalar", "series"]
 
 
 # --- Query window ------------------------------------------------------------------------
@@ -130,6 +132,14 @@ class SiteEndpointInfo(BaseModel):
     )
     method: Literal["GET"]
     summary: str
+    output: EndpointOutput = Field(
+        "scalar",
+        description="series: the response has a `series` field (one PointTimeseries or a list), chartable next to device points",
+    )
+    device_types: list[DeviceType] = Field(
+        default_factory=list,
+        description="Device endpoints only: the device types it applies to; empty means every device",
+    )
 
 
 class SiteEndpointsResponse(BaseModel):
@@ -155,6 +165,39 @@ class EnergySummaryResult(BaseModel):
     end_time: datetime
     energy_kwh: float = Field(..., description="Sum over devices")
     devices: list[DeviceEnergy] = Field(default_factory=list)
+
+
+# --- common: energy per interval ---------------------------------------------------------
+
+SeriesInterval = Literal["5m", "15m", "30m", "1h", "6h", "1d"]
+
+
+class IntervalWindowParams(TimeWindowParams):
+    """The query window, cut into equal intervals; one result value per interval."""
+
+    interval: SeriesInterval | None = Field(
+        None,
+        description=(
+            "Interval length. Omit to pick it from the window: up to 1H 5m, 6H 15m, 12H 30m, "
+            "3D 1h, 1W 6h, longer 1d. Daily intervals start at midnight in tz (UTC without tz)."
+        ),
+    )
+
+
+class EnergySeriesResult(BaseModel):
+    site_id: int
+    start_time: datetime
+    end_time: datetime
+    interval: SeriesInterval = Field(..., description="The interval used (requested, or picked from the window)")
+    energy_kwh: float = Field(..., description="Total over the window and every device")
+    series: list[PointTimeseries] = Field(
+        ...,
+        description=(
+            "kWh per interval, stamped with each interval's start (the first and last are clipped "
+            "to the window). The site total first (id 0), then one series per device, whose id is "
+            "the power point it was integrated from."
+        ),
+    )
 
 
 # --- common calculation: BESS power statistics ---------------------------------------------

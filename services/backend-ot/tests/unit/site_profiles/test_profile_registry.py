@@ -4,7 +4,8 @@ Unit tests for site_profiles.profile_registry.
 Guards the startup checks on declared endpoints: a name starts with its kind ('common-',
 'site-', 'device-'), common controllers live in site_profiles/common/ and site/device
 controllers in site_profiles/individual_sites/<profile key>/, a controller returns the declared response_model, names are unique
-within a profile, and a name declared by several profiles has one contract. Also guards
+within a profile, a series endpoint's response has a PointTimeseries `series` (one or a list),
+and a name declared by several profiles has one contract. Also guards
 the lookups used when a request or a site write arrives.
 
 Test controllers are defined here, so their module is this test module; each case sets
@@ -16,7 +17,8 @@ from collections.abc import Awaitable, Callable
 import pytest
 from pydantic import BaseModel
 
-from schemas.site_profiles import FunctionKind, SiteContext, TimeWindowParams
+from schemas.api_models import PointTimeseries
+from schemas.site_profiles import EndpointOutput, FunctionKind, SiteContext, TimeWindowParams
 from site_profiles.declarations.endpoint import SiteEndpoint
 from site_profiles.declarations.profile import SiteProfile
 from site_profiles.profile_registry import (
@@ -45,6 +47,21 @@ class OtherParams(TimeWindowParams):
     extra: int | None = None
 
 
+EMPTY_SERIES = PointTimeseries(id=1, name="p", data_type="float32")
+
+
+class OneSeriesResult(BaseModel):
+    series: PointTimeseries = EMPTY_SERIES
+
+
+class SeriesListResult(BaseModel):
+    series: list[PointTimeseries] = []
+
+
+class SeriesOfOtherTypeResult(BaseModel):
+    series: list[float] = []
+
+
 def make_controller(
     module: str, returns: type[BaseModel]
 ) -> Callable[[SiteContext, TimeWindowParams], Awaitable[BaseModel]]:
@@ -65,6 +82,7 @@ def make_endpoint(
     params_model: type[TimeWindowParams] = TimeWindowParams,
     module: str | None = None,
     returns: type[BaseModel] | None = None,
+    output: EndpointOutput = "scalar",
 ) -> SiteEndpoint:
     controller_module = module or (COMMON_MODULE if kind == "common" else SITE_MODULE)
     return SiteEndpoint(
@@ -75,6 +93,7 @@ def make_endpoint(
         params_model=params_model,
         response_model=response_model,
         summary="test endpoint",
+        output=output,
     )
 
 
@@ -94,6 +113,7 @@ class TestRegisteredProfiles:
         assert sorted((route.kind, route.name) for route in SITE_ENDPOINT_ROUTES) == [
             ("device", "device-inverter-availability"),
             ("device", "device-plant-inverter-availability"),
+            ("site", "site-energy-series"),
             ("site", "site-energy-summary"),
             ("site", "site-poi-power"),
         ]
@@ -160,6 +180,31 @@ class TestEndpointChecks:
             build_site_endpoint_routes((make_profile("one", endpoint),))
 
 
+class TestSeriesEndpoints:
+    @pytest.mark.parametrize("response_model", [OneSeriesResult, SeriesListResult])
+    def test_series_field_of_one_or_a_list_is_accepted(self, response_model):
+        endpoint = make_endpoint("site-trend", response_model=response_model, output="series")
+        [route] = build_site_endpoint_routes((make_profile("one", endpoint),))
+        assert route.output == "series"
+
+    @pytest.mark.parametrize("response_model", [ResultA, SeriesOfOtherTypeResult])
+    def test_series_endpoint_without_a_point_timeseries_series_is_rejected(self, response_model):
+        endpoint = make_endpoint("site-trend", response_model=response_model, output="series")
+        with pytest.raises(SiteProfileConfigError, match="series: PointTimeseries"):
+            build_site_endpoint_routes((make_profile("one", endpoint),))
+
+    def test_scalar_endpoint_may_have_any_response(self):
+        endpoint = make_endpoint("site-calc", response_model=SeriesOfOtherTypeResult)
+        [route] = build_site_endpoint_routes((make_profile("one", endpoint),))
+        assert route.output == "scalar"
+
+    def test_alpha_solar_poi_power_is_a_series(self):
+        outputs = {route.name: route.output for route in SITE_ENDPOINT_ROUTES}
+        assert outputs["site-poi-power"] == "series"
+        assert outputs["site-energy-series"] == "series"
+        assert outputs["site-energy-summary"] == "scalar"
+
+
 class TestProfilesAndContracts:
     def test_endpoint_declared_by_two_profiles_gives_one_route(self):
         shared = make_endpoint("common-energy", "common")
@@ -183,6 +228,20 @@ class TestProfilesAndContracts:
                 (
                     make_profile("one", make_endpoint("site-calc")),
                     make_profile("two", make_endpoint("site-calc", params_model=OtherParams, module=SITE_TWO_MODULE)),
+                )
+            )
+
+    def test_same_name_different_output_across_profiles_is_rejected(self):
+        with pytest.raises(SiteProfileConfigError, match="share a contract"):
+            build_site_endpoint_routes(
+                (
+                    make_profile("one", make_endpoint("site-calc", response_model=OneSeriesResult)),
+                    make_profile(
+                        "two",
+                        make_endpoint(
+                            "site-calc", response_model=OneSeriesResult, output="series", module=SITE_TWO_MODULE
+                        ),
+                    ),
                 )
             )
 

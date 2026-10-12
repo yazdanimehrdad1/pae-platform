@@ -3,12 +3,21 @@ Alpha Solar Farm's own controllers: site-wide (site_*) and per-device (device_*)
 Only the ones declared in profile.py get an endpoint.
 """
 
-from schemas.site_profiles import EnergySummaryResult, SiteContext, TimeWindowParams
+from schemas.site_profiles import (
+    EnergySeriesResult,
+    EnergySummaryResult,
+    IntervalWindowParams,
+    SiteContext,
+    TimeWindowParams,
+)
 from schemas.site_profiles.individual_sites.alpha_solar import (
     InverterAvailabilityResult,
     PoiPowerResult,
 )
-from site_profiles.common.bess.bess_functions import spf_common_energy_kwh_by_device
+from site_profiles.common.bess.bess_functions import (
+    spf_common_energy_kwh_by_device,
+    spf_common_energy_kwh_series_by_device,
+)
 from site_profiles.common.shared_helper_functions import (
     spf_common_get_point_timeseries,
     spf_common_mean_sample_value,
@@ -34,6 +43,14 @@ async def site_energy_summary(ctx: SiteContext, params: TimeWindowParams) -> Ene
     """Energy (kWh) per device and in total, from every device's active_power point."""
     power_points = ctx.points_named(ENERGY_POWER_POINT)
     return await spf_common_energy_kwh_by_device(ctx, power_points, params.resolve_window())
+
+
+async def site_energy_series(ctx: SiteContext, params: IntervalWindowParams) -> EnergySeriesResult:
+    """Energy (kWh) per interval: the site total, then each device's, from active_power."""
+    power_points = ctx.points_named(ENERGY_POWER_POINT)
+    return await spf_common_energy_kwh_series_by_device(
+        ctx, power_points, params.resolve_window(), params.interval
+    )
 
 
 async def site_poi_power(ctx: SiteContext, params: TimeWindowParams) -> PoiPowerResult:

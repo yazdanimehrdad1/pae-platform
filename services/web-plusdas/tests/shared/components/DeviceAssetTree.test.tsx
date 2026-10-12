@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { devicesApi } from '@/api/devices';
+import { siteFunctionsApi } from '@/api/siteFunctions';
+import type { SiteEndpointInfo } from '@/api/types/siteFunctions';
 import type { DevicePointsEntry } from '@/api/types/devices';
 import type { DevicePoint } from '@/api/types/devicePoints';
 import { toast } from '@/shared/hooks/use-toast';
@@ -19,7 +21,7 @@ const inverterState = point(4, 'inverter_state', 'NATIVE', { data_type: 'enum16'
 
 const entry: DevicePointsEntry = {
   deviceId: 1,
-  deviceName: 'bess-1',
+  deviceName: 'bess-1', deviceType: 'BESS',
   groups: {
     standardized: [point(1, 'BESS_ACTIVE_POWER', 'STANDARDIZED')],
     virtual: [],
@@ -28,8 +30,20 @@ const entry: DevicePointsEntry = {
   points: [point(1, 'BESS_ACTIVE_POWER', 'STANDARDIZED'), faultFlags, inverterState, point(2, 'reg_1', 'NATIVE')],
 };
 
+const fn = (name: string, kind: SiteEndpointInfo['kind'], extra: Partial<SiteEndpointInfo> = {}): SiteEndpointInfo =>
+  ({ name, kind, method: 'GET', summary: `${name} summary`, output: 'series', device_types: [], ...extra });
+
+const functions: SiteEndpointInfo[] = [
+  fn('site-poi-power', 'site'),
+  fn('site-energy-summary', 'site', { output: 'scalar' }),
+  fn('device-bess-trend', 'device', { device_types: ['BESS'] }),
+  fn('device-pv-trend', 'device', { device_types: ['PV'] }),
+  fn('device-any-trend', 'device'),
+];
+
 function renderTree(props: Partial<Parameters<typeof DeviceAssetTree>[0]> = {}) {
   vi.spyOn(devicesApi, 'getBySiteWithPoints').mockResolvedValue([entry]);
+  vi.spyOn(siteFunctionsApi, 'list').mockResolvedValue({ site_id: 1001, profile: 'alpha_solar', endpoints: functions });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   const onSelect = vi.fn();
@@ -144,5 +158,48 @@ describe('DeviceAssetTree', () => {
     expect(screen.getByText('enum')).toBeTruthy();
     expect(screen.getByText('bits')).toBeTruthy();
     expect(screen.queryByText('0 · overvoltage')).toBeNull();
+  });
+
+  describe('with includeFunctions', () => {
+    it('lists only series functions: site ones under Site functions, device ones under devices of their type', async () => {
+      renderTree({ includeFunctions: true });
+      fireEvent.click(await screen.findByText('Site functions'));
+      expect(screen.getByText('site-poi-power')).toBeTruthy();
+      expect(screen.queryByText('site-energy-summary')).toBeNull();
+
+      fireEvent.click(screen.getByText('bess-1'));
+      fireEvent.click(screen.getByText('Functions'));
+      expect(screen.getByText('device-bess-trend')).toBeTruthy();
+      expect(screen.getByText('device-any-trend')).toBeTruthy();
+      expect(screen.queryByText('device-pv-trend')).toBeNull();
+    });
+
+    it('selects a site function and a device function with their own ids and labels', async () => {
+      const { onSelect } = renderTree({ includeFunctions: true });
+      fireEvent.click(await screen.findByText('Site functions'));
+      fireEvent.click(screen.getByText('site-poi-power'));
+      expect(onSelect).toHaveBeenLastCalledWith(['fn:site-poi-power'], { 'fn:site-poi-power': 'site-poi-power' });
+
+      fireEvent.click(screen.getByText('bess-1'));
+      fireEvent.click(screen.getByText('Functions'));
+      fireEvent.click(screen.getByText('device-any-trend'));
+      expect(onSelect).toHaveBeenLastCalledWith(['fn:1:device-any-trend'], { 'fn:1:device-any-trend': 'bess-1-device-any-trend' });
+    });
+
+    it('counts a function toward the point limit', async () => {
+      const { onSelect } = renderTree({ includeFunctions: true, maxPoints: 1, selectedPoints: ['1'] });
+      fireEvent.click(await screen.findByText('Site functions'));
+      fireEvent.click(screen.getByText('site-poi-power'));
+
+      expect(onSelect).not.toHaveBeenCalled();
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Point limit reached' }));
+    });
+
+    it('shows no functions without the flag, and does not ask for them', async () => {
+      renderTree();
+      await screen.findByText('bess-1');
+      expect(screen.queryByText('Site functions')).toBeNull();
+      expect(siteFunctionsApi.list).not.toHaveBeenCalled();
+    });
   });
 });

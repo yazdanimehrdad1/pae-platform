@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DevicePoint } from '@/api/types/devicePoints';
+import type { PointTimeseries } from '@/api/types/historian';
 import type { CatalogPoint } from '@/features/historian/hooks/usePointCatalog';
 import { describeDiscreteSeries, stateLabel } from '@/features/historian/lib/discreteSeries';
 
@@ -27,5 +28,21 @@ describe('describeDiscreteSeries', () => {
   it('returns null for analog points and unknown ids', () => {
     expect(describeDiscreteSeries('3', catalog, [], display)).toBeNull();
     expect(describeDiscreteSeries('99', catalog, [], display)).toBeNull();
+  });
+});
+
+describe('describeDiscreteSeries for function series', () => {
+  const functionSeries = (dataType: string, enumMap?: Record<string, string>) => new Map([
+    ['fn:site-mode', { id: 0, name: 'mode', data_type: dataType, enum_map: enumMap, timeseries: [] } as PointTimeseries],
+  ]);
+
+  it('reads the enum states from the returned series, not the point catalog', () => {
+    const series = describeDiscreteSeries('fn:site-mode', catalog, [], display, functionSeries('enum16', { '0': 'idle', '1': 'export' }));
+    expect(series?.kind).toBe('enum');
+    expect(series?.states).toEqual([{ value: 0, label: 'idle' }, { value: 1, label: 'export' }]);
+  });
+
+  it('returns null for an analog function series', () => {
+    expect(describeDiscreteSeries('fn:site-mode', catalog, [], display, functionSeries('float32'))).toBeNull();
   });
 });

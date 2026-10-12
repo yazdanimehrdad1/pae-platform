@@ -4,15 +4,19 @@ or health checks, passing the points it found in its SiteContext. Historian read
 spf_common_get_point_timeseries in common/shared_helper_functions.py.
 """
 
-from schemas.api_models import DevicePointResponse
+from datetime import datetime
+
+from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
 from schemas.site_profiles import (
     DeviceEnergy,
+    EnergySeriesResult,
     EnergySummaryResult,
     PhaseImbalanceTimeseries,
     RoundTripCounterSource,
     RoundTripEfficiencyResult,
     RoundTripEfficiencySettings,
     RoundTripPowerSource,
+    SeriesInterval,
     SiteContext,
     TimeWindow,
 )
@@ -23,11 +27,28 @@ from site_profiles.common.bess.bess_helper_functions import (
 )
 from site_profiles.common.shared_helper_functions import (
     spf_common_counter_energy_kwh,
+    spf_common_energy_kwh_per_interval,
     spf_common_get_point_timeseries,
     spf_common_integrate_power_to_energy_kwh,
+    spf_common_interval_starts,
+    spf_common_pick_interval,
     spf_common_split_power_by_sign_kwh,
 )
-from utils.exceptions import SiteProfileConfigError
+from utils.exceptions import SiteProfileConfigError, ValidationError
+
+
+def _spf_common_power_point_device_names(
+    ctx: SiteContext, power_points: list[DevicePointResponse]
+) -> dict[int, str]:
+    """Device name by id for the site; a power point on a device outside it is a config error."""
+    device_names = {device.device_id: device.name for device in ctx.devices}
+    unknown = [point for point in power_points if point.device_id not in device_names]
+    if unknown:
+        raise SiteProfileConfigError(
+            "energy by device: points on devices outside the site: "
+            + ", ".join(f"'{point.name}' (id {point.id})" for point in unknown)
+        )
+    return device_names
 
 
 async def spf_common_energy_kwh_by_device(
@@ -40,13 +61,7 @@ async def spf_common_energy_kwh_by_device(
         found with ctx.points_named(...). Each gives one entry in `devices`; none gives 0 kWh.
     A point with a non-power unit, or on a device not in ctx.devices, is a SiteProfileConfigError.
     """
-    device_names = {device.device_id: device.name for device in ctx.devices}
-    unknown = [point for point in power_points if point.device_id not in device_names]
-    if unknown:
-        raise SiteProfileConfigError(
-            "energy by device: points on devices outside the site: "
-            + ", ".join(f"'{point.name}' (id {point.id})" for point in unknown)
-        )
+    device_names = _spf_common_power_point_device_names(ctx, power_points)
     series_by_point = await spf_common_get_point_timeseries(ctx, power_points, window)
 
     devices: list[DeviceEnergy] = []
@@ -75,6 +90,69 @@ async def spf_common_energy_kwh_by_device(
         end_time=window.display(window.end_time),
         energy_kwh=sum(device.energy_kwh for device in devices),
         devices=devices,
+    )
+
+
+async def spf_common_energy_kwh_series_by_device(
+    ctx: SiteContext,
+    power_points: list[DevicePointResponse],
+    window: TimeWindow,
+    interval: SeriesInterval | None = None,
+) -> EnergySeriesResult:
+    """
+    Energy per interval of `window`, per device and for the site, from the given power points
+    (one per device, as for spf_common_energy_kwh_by_device). `interval` None picks one from the
+    window. Too many intervals for the window is a ValidationError (400).
+    """
+    device_names = _spf_common_power_point_device_names(ctx, power_points)
+    chosen = interval or spf_common_pick_interval(window)
+    try:
+        starts = spf_common_interval_starts(window, chosen)
+    except ValueError as err:
+        raise ValidationError(str(err)) from err
+    series_by_point = await spf_common_get_point_timeseries(ctx, power_points, window)
+
+    site_kwh = [0.0] * len(starts)
+    device_series: list[PointTimeseries] = []
+    for point in power_points:
+        try:
+            kwh = spf_common_energy_kwh_per_interval(
+                series_by_point[point.id].timeseries, point.unit, starts
+            )
+        except ValueError as err:
+            raise SiteProfileConfigError(
+                f"Point '{point.name}' (id {point.id}) can't be integrated: {err}"
+            ) from err
+        site_kwh = [total + value for total, value in zip(site_kwh, kwh, strict=True)]
+        name = f"{device_names[point.device_id]} energy"
+        device_series.append(_spf_common_energy_series(point.id, name, starts, kwh, window))
+    return EnergySeriesResult(
+        site_id=ctx.site.site_id,
+        start_time=window.display(window.start_time),
+        end_time=window.display(window.end_time),
+        interval=chosen,
+        energy_kwh=sum(site_kwh),
+        series=[
+            _spf_common_energy_series(0, "site energy", starts, site_kwh, window),
+            *device_series,
+        ],
+    )
+
+
+def _spf_common_energy_series(
+    series_id: int, name: str, starts: list[datetime], kwh: list[float], window: TimeWindow
+) -> PointTimeseries:
+    return PointTimeseries(
+        id=series_id,
+        name=name,
+        data_type="float32",
+        unit="kWh",
+        point_class="ANALOG",
+        count=len(starts),
+        timeseries=[
+            TimeseriesPoint(time=window.display(start), value=value)
+            for start, value in zip(starts, kwh, strict=True)
+        ],
     )
 
 

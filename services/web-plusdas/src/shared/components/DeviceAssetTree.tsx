@@ -1,13 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { devicesApi } from "@/api/devices";
+import { siteFunctionsApi } from "@/api/siteFunctions";
 import { POINT_GROUP_ORDER, type DevicePointsEntry, type PointGroup } from "@/api/types/devices";
 import type { DevicePoint } from "@/api/types/devicePoints";
+import type { SiteEndpointInfo } from "@/api/types/siteFunctions";
 import { toast } from "@/shared/hooks/use-toast";
-import { bitSelectionId, isBitfieldPoint, isEnumPoint, parseSelectionId, sortedBits } from "@/shared/lib/discretePoints";
+import {
+  bitSelectionId, functionSelectionId, isBitfieldPoint, isEnumPoint, parseFunctionSelectionId, parseSelectionId, sortedBits,
+} from "@/shared/lib/discretePoints";
 
 const POINT_GROUP_LABELS: Record<PointGroup, string> = {
   standardized: "Standardized",
@@ -15,12 +19,35 @@ const POINT_GROUP_LABELS: Record<PointGroup, string> = {
   native: "Native",
 };
 
+const SITE_FUNCTIONS_NODE = "site-functions";
+const deviceFunctionsNode = (deviceId: number) => `${deviceId}:functions`;
+
+// The site's series functions to list in one place: under the site (deviceType null) the site and
+// common ones; under a device the device ones with no device_types or listing that device's type.
+function functionsFor(functions: SiteEndpointInfo[], deviceType: string | null): SiteEndpointInfo[] {
+  return functions.filter(endpoint => {
+    if (endpoint.output !== "series") return false;
+    if (deviceType === null) return endpoint.kind !== "device";
+    const deviceTypes: string[] = endpoint.device_types ?? [];
+    return endpoint.kind === "device" && (deviceTypes.length === 0 || deviceTypes.includes(deviceType));
+  });
+}
+
 // Display name of a selection: "device-point", or "device-point · bit label" for one bit of a bitfield.
+// A function's series is "function" (site) or "device-function" (device).
 function resolveSelectionLabels(devices: DevicePointsEntry[], selectionIds: string[]): Record<string, string> {
   const pointsById = new Map<string, { point: DevicePoint; deviceName: string }>();
   devices.forEach(device => device.points.forEach(point => pointsById.set(String(point.id), { point, deviceName: device.deviceName })));
   const resolved: Record<string, string> = {};
   selectionIds.forEach(selectionId => {
+    const fn = parseFunctionSelectionId(selectionId);
+    if (fn) {
+      const deviceName = devices.find(device => String(device.deviceId) === fn.deviceId)?.deviceName;
+      if (fn.deviceId !== undefined && !deviceName) return;
+      const label = deviceName ? `${deviceName}-${fn.name}` : fn.name;
+      resolved[selectionId] = fn.seriesIndex > 0 ? `${label} #${fn.seriesIndex}` : label;
+      return;
+    }
     const { pointId, bit } = parseSelectionId(selectionId);
     const entry = pointsById.get(pointId);
     if (!entry) return;
@@ -39,6 +66,12 @@ function TypeBadge({ label }: { label: string }) {
 // The tree nodes to expand so a selection's row is visible: device, category folder, and for a
 // bit, its bitfield point. Null when the point isn't on this site.
 function nodePathTo(devices: DevicePointsEntry[], selectionId: string): string[] | null {
+  const fn = parseFunctionSelectionId(selectionId);
+  if (fn) {
+    if (fn.deviceId === undefined) return [SITE_FUNCTIONS_NODE];
+    const device = devices.find(candidate => String(candidate.deviceId) === fn.deviceId);
+    return device ? [device.deviceName, deviceFunctionsNode(device.deviceId)] : null;
+  }
   const { pointId, bit } = parseSelectionId(selectionId);
   for (const device of devices) {
     const group = POINT_GROUP_ORDER.find(candidate => device.groups[candidate].some(point => String(point.id) === pointId));
@@ -59,7 +92,7 @@ export interface RevealRequest {
 
 const REVEAL_HIGHLIGHT_MS = 2000;
 
-export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, onResolveLabels, pointIdsToResolve, maxPoints = 5, expandBitfields = false, revealRequest }: {
+export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, onResolveLabels, pointIdsToResolve, maxPoints = 5, expandBitfields = false, includeFunctions = false, revealRequest }: {
   siteId: string | null;
   siteName: string;
   selectedPoints: string[];
@@ -69,6 +102,9 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
   maxPoints?: number;
   // List each labelled bit of a bitfield point as its own selectable row ("12:bit3").
   expandBitfields?: boolean;
+  // Also list the series functions of the site's profile: site ones in a "Site functions" folder,
+  // device ones in a "Functions" folder of each device they apply to.
+  includeFunctions?: boolean;
   revealRequest?: RevealRequest | null;
 }) {
   const [siteExpanded, setSiteExpanded] = useState(true);
@@ -81,6 +117,13 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
     queryFn: () => devicesApi.getBySiteWithPoints(siteId!),
     enabled: !!siteId,
   });
+
+  const { data: functions = [] } = useQuery({
+    queryKey: ['site-functions', siteId],
+    queryFn: async () => (await siteFunctionsApi.list(siteId!)).endpoints ?? [],
+    enabled: !!siteId && includeFunctions,
+  });
+  const siteFunctions = functionsFor(functions, null);
 
   useEffect(() => {
     if (!revealRequest || devices.length === 0) return;
@@ -109,6 +152,7 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
     if (Object.keys(resolved).length > 0) onResolveLabels?.(resolved);
     // Depends only on `devices`: hydrate labels whenever the points catalog loads/changes,
     // not on every selection change (selection is read via a ref to avoid that loop).
+    // Function labels need only the device names, so `functions` isn't a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devices]);
 
@@ -143,14 +187,16 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
   const renderSelectableRow = (selectionId: string, label: string, indent: number, options: {
     badge?: string;
     hint?: string;
+    title?: string;
     expander?: { isExpanded: boolean; onToggle: () => void; label: string };
   } = {}) => {
     const isSelected = selectedPoints.includes(selectionId);
-    const { badge, hint, expander } = options;
+    const { badge, hint, title, expander } = options;
     return (
       <div
         key={selectionId}
         data-selection-id={selectionId}
+        title={title}
         className={`flex items-center py-1 px-2 hover:bg-muted/50 rounded cursor-pointer transition-shadow ${isSelected ? 'bg-primary/5' : ''} ${revealed?.selectionId === selectionId ? 'ring-2 ring-primary' : ''}`}
         style={{ paddingLeft: `${indent}px` }}
         onClick={() => toggleSelections([selectionId])}
@@ -198,6 +244,29 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
     );
   };
 
+  // A collapsible folder row with a count; its children render only while it is open.
+  const renderFolder = (nodeId: string, label: string, count: number, indent: number, testId: string, renderChildren: () => ReactNode, showIcon = true) => {
+    const isExpanded = expandedNodes.has(nodeId);
+    return (
+      <div key={nodeId} data-testid={testId}>
+        <div
+          className="flex items-center py-1 px-2 hover:bg-muted/50 rounded cursor-pointer"
+          style={{ paddingLeft: `${indent}px` }}
+          onClick={() => toggleNode(nodeId)}
+        >
+          {isExpanded ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
+          {showIcon && (isExpanded ? <FolderOpen className="w-4 h-4 mr-2 text-muted-foreground" /> : <Folder className="w-4 h-4 mr-2 text-muted-foreground" />)}
+          <span className="text-sm">{label}</span>
+          <span className="ml-2 text-xs text-muted-foreground">({count})</span>
+        </div>
+        {isExpanded && renderChildren()}
+      </div>
+    );
+  };
+
+  const renderFunction = (endpoint: SiteEndpointInfo, indent: number, deviceId?: number) =>
+    renderSelectableRow(functionSelectionId(endpoint.name, deviceId), endpoint.name, indent, { badge: "fn", title: endpoint.summary });
+
   const renderPoint = (point: DevicePoint, indent: number) => {
     if (expandBitfields && isBitfieldPoint(point)) return renderBitfieldPoint(point, indent);
     const badge = isEnumPoint(point) ? "enum" : isBitfieldPoint(point) ? "bits" : undefined;
@@ -231,7 +300,14 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
             <span className="text-sm font-semibold">{siteName}</span>
           </div>
 
+          {siteExpanded && siteFunctions.length > 0 && renderFolder(
+            SITE_FUNCTIONS_NODE, "Site functions", siteFunctions.length, 24, "site-functions",
+            () => siteFunctions.map(endpoint => renderFunction(endpoint, 44)),
+            false,
+          )}
+
           {siteExpanded && devices.map(device => {
+            const deviceFunctions = functionsFor(functions, device.deviceType);
             const isDeviceExpanded = expandedNodes.has(device.deviceName);
             return (
               <div key={device.deviceId}>
@@ -244,27 +320,15 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
                   <span className="text-sm">{device.deviceName}</span>
                 </div>
 
-                {isDeviceExpanded && POINT_GROUP_ORDER.filter(group => device.groups[group].length > 0).map(group => {
-                  const groupNodeId = `${device.deviceId}:${group}`;
-                  const isGroupExpanded = expandedNodes.has(groupNodeId);
-                  const groupPoints = device.groups[group];
-                  return (
-                    <div key={group} data-testid={`point-group-${group}`}>
-                      <div
-                        className="flex items-center py-1 px-2 hover:bg-muted/50 rounded cursor-pointer"
-                        style={{ paddingLeft: '40px' }}
-                        onClick={() => toggleNode(groupNodeId)}
-                      >
-                        {isGroupExpanded ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
-                        {isGroupExpanded ? <FolderOpen className="w-4 h-4 mr-2 text-muted-foreground" /> : <Folder className="w-4 h-4 mr-2 text-muted-foreground" />}
-                        <span className="text-sm">{POINT_GROUP_LABELS[group]}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">({groupPoints.length})</span>
-                      </div>
+                {isDeviceExpanded && POINT_GROUP_ORDER.filter(group => device.groups[group].length > 0).map(group => renderFolder(
+                  `${device.deviceId}:${group}`, POINT_GROUP_LABELS[group], device.groups[group].length, 40, `point-group-${group}`,
+                  () => device.groups[group].map(point => renderPoint(point, 60)),
+                ))}
 
-                      {isGroupExpanded && groupPoints.map(point => renderPoint(point, 60))}
-                    </div>
-                  );
-                })}
+                {isDeviceExpanded && deviceFunctions.length > 0 && renderFolder(
+                  deviceFunctionsNode(device.deviceId), "Functions", deviceFunctions.length, 40, "point-group-functions",
+                  () => deviceFunctions.map(endpoint => renderFunction(endpoint, 60, device.deviceId)),
+                )}
               </div>
             );
           })}

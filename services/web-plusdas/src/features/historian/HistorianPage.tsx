@@ -148,7 +148,7 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
   // A series name was clicked: show that selection in the Trends panel.
   onRevealPoint: (selectionId: string) => void;
 }) {
-  const { data, isLoading, isError } = useHistorianSeries(siteId, selectedPoints, timeWindow);
+  const { data, functionSeries, isLoading, isError } = useHistorianSeries(siteId, selectedPoints, timeWindow);
   const { pointsById } = usePointCatalog(siteId);
   const spanMs = 'preset' in timeWindow
     ? PRESET_MS[timeWindow.preset]
@@ -165,7 +165,7 @@ function TrendChart({ selectedPoints, timeWindow, pointLabels, siteId, discreteM
 
   // Enum points and bitfield bits are drawn by the chosen discrete renderer; the rest are analog lines.
   const discreteSeries = selectedPoints
-    .map(key => describeDiscreteSeries(key, pointsById, chartData, { name: pointLabels[key] ?? key, color: colorByKey.get(key) }))
+    .map(key => describeDiscreteSeries(key, pointsById, chartData, { name: pointLabels[key] ?? key, color: colorByKey.get(key) }, functionSeries))
     .filter(Boolean);
   const discreteKeys = new Set(discreteSeries.map(series => series.key));
   const analogKeys = selectedPoints.filter(key => !discreteKeys.has(key));
@@ -660,6 +660,7 @@ export default function Historian() {
                   onResolveLabels={handleResolveLabels}
                   pointIdsToResolve={trends.flatMap(t => t.points)}
                   expandBitfields
+                  includeFunctions
                   revealRequest={revealRequest}
                 />
               </section>

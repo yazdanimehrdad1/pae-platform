@@ -11,7 +11,12 @@ SiteEndpoint in that site's profile.py get a URL. Every declaration has the same
         controller=site_poi_power,           # async (ctx, params) -> response_model
         response_model=PoiPowerResult,
         summary="POI active power series with peak and average (kW)",
+        output="series",                     # scalar (default) | series
     )
+
+output="series" marks an endpoint whose response has a `series` field (one PointTimeseries or a
+list of them); the historian lists those next to device points. A device endpoint may also name
+the device_types it applies to (empty: every device), so a UI offers it only under those devices.
 
 URL by kind:
     common, site   GET /api/site-functions/site/{site_id}/<name>
@@ -23,11 +28,12 @@ and their points, loaded once per request and passed to the controller.
 
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from schemas.site_profiles import FunctionKind, SiteContext, TimeWindowParams
+from schemas.api_models.types import DeviceType
+from schemas.site_profiles import EndpointOutput, FunctionKind, SiteContext, TimeWindowParams
 
 __all__ = ["SiteContext", "SiteController", "SiteEndpoint"]
 
@@ -51,6 +57,12 @@ class SiteEndpoint(BaseModel):
     )
     response_model: type[BaseModel] = Field(..., description="Response body; must be the controller's return type")
     summary: str = Field(..., min_length=1, description="One line for OpenAPI and the discovery endpoint")
+    output: EndpointOutput = Field(
+        "scalar", description="series: the response has a `series` field (PointTimeseries or a list of them)"
+    )
+    device_types: tuple[DeviceType, ...] = Field(
+        (), description="Device endpoints only: the device types it applies to; empty means every device"
+    )
 
     @field_validator("controller")
     @classmethod
@@ -58,3 +70,9 @@ class SiteEndpoint(BaseModel):
         if not inspect.iscoroutinefunction(controller):
             raise ValueError(f"controller {controller!r} must be an 'async def' function")
         return controller
+
+    @model_validator(mode="after")
+    def _device_types_only_on_device_kind(self) -> Self:
+        if self.device_types and self.kind != "device":
+            raise ValueError(f"device_types is only for device endpoints, not kind '{self.kind}'")
+        return self

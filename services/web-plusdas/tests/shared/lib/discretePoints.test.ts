@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { bitSelectionId, decodeBit, decodeEnum, isBitfieldPoint, isEnumPoint, parseSelectionId, sortedBits } from '@/shared/lib/discretePoints';
+import {
+  bitSelectionId, decodeBit, decodeEnum, functionSelectionId, isBitfieldPoint, isEnumPoint, parseFunctionSelectionId, parseSelectionId, sortedBits,
+} from '@/shared/lib/discretePoints';
 
 describe('discrete point detection', () => {
   it('needs both the type and labels', () => {
@@ -38,5 +40,24 @@ describe('decoding', () => {
   it('labels an enum value, or marks it unknown', () => {
     expect(decodeEnum(2, { '2': 'running' })).toBe('running');
     expect(decodeEnum(7, { '2': 'running' })).toBe('Unknown (7)');
+  });
+});
+
+describe('function selection ids', () => {
+  it('round-trips site and device functions, with an optional series index', () => {
+    expect(functionSelectionId('site-poi-power')).toBe('fn:site-poi-power');
+    expect(functionSelectionId('device-trend', 7)).toBe('fn:7:device-trend');
+    expect(functionSelectionId('site-poi-power', undefined, 2)).toBe('fn:site-poi-power#2');
+
+    expect(parseFunctionSelectionId('fn:site-poi-power')).toEqual({ name: 'site-poi-power', deviceId: undefined, seriesIndex: 0 });
+    expect(parseFunctionSelectionId('fn:7:device-trend#1')).toEqual({ name: 'device-trend', deviceId: '7', seriesIndex: 1 });
+  });
+
+  it('is never a point or bit selection, and point ids are not functions', () => {
+    expect(parseFunctionSelectionId('12')).toBeNull();
+    expect(parseFunctionSelectionId('12:bit3')).toBeNull();
+    expect(parseFunctionSelectionId('fn:')).toBeNull();
+    expect(parseSelectionId('12:bit3')).toEqual({ pointId: '12', bit: 3 });
+    expect(parseSelectionId('fn:7:device-trend')).toEqual({ pointId: 'fn:7:device-trend' });
   });
 });

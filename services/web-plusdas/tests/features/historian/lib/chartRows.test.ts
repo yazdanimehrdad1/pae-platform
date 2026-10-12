@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { BackendPointReadings } from '@/api/types/historian';
 import { buildChartRows } from '@/features/historian/lib/chartRows';
 
-const readings = (series: Record<string, Array<[string, number | null]>>) => ({
+const readings = (series: Record<string, Array<[string, number | null]>>) => (({
   readings: Object.fromEntries(Object.entries(series).map(([pointId, samples]) => [
     pointId,
     { timeseries: samples.map(([time, value]) => ({ time, value })) },
   ])),
-}) as unknown as BackendPointReadings;
+}) as unknown as BackendPointReadings).readings;
 
 describe('buildChartRows', () => {
   it('gives each bit selection its own 0/1 column from one fetched point', () => {
@@ -28,5 +28,18 @@ describe('buildChartRows', () => {
       ['4'],
     );
     expect(rows.map(row => row['4'])).toEqual([1, 2]);
+  });
+});
+
+describe('buildChartRows with function series', () => {
+  it('merges a function series, keyed by its selection id, with point readings on shared timestamps', () => {
+    const rows = buildChartRows(
+      [readings({ '4': [['2026-09-27T10:00:00Z', 1]] }), readings({ 'fn:site-poi-power': [['2026-09-27T10:00:00Z', 250], ['2026-09-27T10:01:00Z', 260]] })],
+      ['4', 'fn:site-poi-power'],
+    );
+    expect(rows).toEqual([
+      { timestamp: Date.parse('2026-09-27T10:00:00Z'), '4': 1, 'fn:site-poi-power': 250 },
+      { timestamp: Date.parse('2026-09-27T10:01:00Z'), 'fn:site-poi-power': 260 },
+    ]);
   });
 });

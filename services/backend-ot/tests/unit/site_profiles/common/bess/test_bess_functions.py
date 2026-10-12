@@ -23,7 +23,7 @@ from schemas.site_profiles import (
     TimeWindow,
 )
 from unit.site_fixtures import make_device, make_point, make_site
-from utils.exceptions import SiteProfileConfigError
+from utils.exceptions import SiteProfileConfigError, ValidationError
 
 START = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
 WINDOW = TimeWindow(start_time=START, end_time=START + timedelta(hours=1))
@@ -320,4 +320,60 @@ class TestEnergyKwhByDevice:
         with pytest.raises(SiteProfileConfigError, match="can't be integrated"):
             await common_functions.spf_common_energy_kwh_by_device(
                 context(), [energy_point], WINDOW
+            )
+
+
+class TestEnergyKwhSeriesByDevice:
+    async def test_site_total_first_then_each_device_per_interval(self, monkeypatch: pytest.MonkeyPatch):
+        # 30 min steps over the 1 h window: 2000 W then 4000 W, 15 min intervals
+        reads = fake_timeseries(monkeypatch, {51: [2000.0, 2000.0, 4000.0]})
+
+        result = await common_functions.spf_common_energy_kwh_series_by_device(
+            context(), [INVERTER_POWER], WINDOW, "15m"
+        )
+
+        assert reads == [[51]]
+        assert result.interval == "15m"
+        total, device = result.series
+        assert (total.id, total.name, total.unit) == (0, "site energy", "kWh")
+        assert (device.id, device.name) == (51, "device_3 energy")
+        assert [sample.time for sample in device.timeseries] == [
+            START + timedelta(minutes=15) * index for index in range(4)
+        ]
+        # flat 2 kW: 0.5 kWh per 15 min; the 2 -> 4 kW ramp: 2.5 kW then 3.5 kW mean per quarter hour
+        assert [sample.value for sample in device.timeseries] == pytest.approx([0.5, 0.5, 0.625, 0.875])
+        assert [sample.value for sample in total.timeseries] == pytest.approx([0.5, 0.5, 0.625, 0.875])
+        assert result.energy_kwh == pytest.approx(2.5)
+
+    async def test_interval_is_picked_from_the_window_when_not_given(self, monkeypatch: pytest.MonkeyPatch):
+        fake_timeseries(monkeypatch, {51: [1000.0, 1000.0]})
+        result = await common_functions.spf_common_energy_kwh_series_by_device(
+            context(), [INVERTER_POWER], WINDOW
+        )
+        assert result.interval == "5m"
+        assert result.series[0].count == 12
+
+    async def test_no_points_gives_a_zero_site_total(self, monkeypatch: pytest.MonkeyPatch):
+        fake_timeseries(monkeypatch, {})
+        result = await common_functions.spf_common_energy_kwh_series_by_device(context(), [], WINDOW, "30m")
+        (total,) = result.series
+        assert [sample.value for sample in total.timeseries] == [0.0, 0.0]
+        assert result.energy_kwh == 0.0
+
+    async def test_too_many_intervals_is_a_validation_error_before_reading(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        reads = fake_timeseries(monkeypatch, {})
+        long_window = TimeWindow(start_time=START, end_time=START + timedelta(days=90))
+        with pytest.raises(ValidationError, match="intervals"):
+            await common_functions.spf_common_energy_kwh_series_by_device(
+                context(), [INVERTER_POWER], long_window, "5m"
+            )
+        assert reads == []
+
+    async def test_point_outside_the_site_is_a_config_error(self, monkeypatch: pytest.MonkeyPatch):
+        fake_timeseries(monkeypatch, {})
+        with pytest.raises(SiteProfileConfigError, match="outside the site"):
+            await common_functions.spf_common_energy_kwh_series_by_device(
+                context(), [OTHER_SITE_POWER], WINDOW
             )

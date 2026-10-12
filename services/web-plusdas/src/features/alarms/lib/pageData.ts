@@ -61,7 +61,7 @@ function toPointsEntry(device: DeviceRecord): DevicePointsEntry {
   const groups = {
     standardized: sortedPoints(device.points.standardized), virtual: sortedPoints(device.points.virtual), native: sortedPoints(device.points.native),
   };
-  return { deviceId: device.device_id, deviceName: device.name, groups, points: [...groups.standardized, ...groups.virtual, ...groups.native] };
+  return { deviceId: device.device_id, deviceName: device.name, deviceType: device.type, groups, points: [...groups.standardized, ...groups.virtual, ...groups.native] };
 }
 
 function toPoints(device: DeviceRecord, latest: LatestPointReadings | undefined): Point[] {

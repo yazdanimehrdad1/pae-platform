@@ -7,7 +7,7 @@ alpha_solar_functions.py, alpha_solar_health.py or alpha_solar_alarms.py (or com
 for a shared one), then declare it below.
 """
 
-from schemas.site_profiles import EnergySummaryResult
+from schemas.site_profiles import EnergySeriesResult, EnergySummaryResult, IntervalWindowParams
 from schemas.site_profiles.individual_sites.alpha_solar import (
     InverterAvailabilityResult,
     PoiPowerResult,
@@ -22,6 +22,7 @@ from site_profiles.individual_sites.alpha_solar.alpha_solar_alarms import (
 from site_profiles.individual_sites.alpha_solar.alpha_solar_functions import (
     device_inverter_availability,
     device_plant_inverter_availability,
+    site_energy_series,
     site_energy_summary,
     site_poi_power,
 )
@@ -41,10 +42,21 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
         SiteEndpoint(
             method="GET",
             kind="site",
+            name="site-energy-series",
+            controller=site_energy_series,
+            params_model=IntervalWindowParams,
+            response_model=EnergySeriesResult,
+            summary="Energy (kWh) per interval, site total then each device, from each device's active_power",
+            output="series",
+        ),
+        SiteEndpoint(
+            method="GET",
+            kind="site",
             name="site-poi-power",
             controller=site_poi_power,
             response_model=PoiPowerResult,
             summary="Point-of-interconnection active power series, with peak and average (kW)",
+            output="series",
         ),
         SiteEndpoint(
             method="GET",

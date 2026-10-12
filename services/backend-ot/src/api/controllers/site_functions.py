@@ -38,7 +38,12 @@ async def list_site_endpoints(site_id: int) -> SiteEndpointsResponse:
         profile=profile.key,
         endpoints=[
             SiteEndpointInfo(
-                name=endpoint.name, kind=endpoint.kind, method=endpoint.method, summary=endpoint.summary
+                name=endpoint.name,
+                kind=endpoint.kind,
+                method=endpoint.method,
+                summary=endpoint.summary,
+                output=endpoint.output,
+                device_types=list(endpoint.device_types),
             )
             for endpoint in profile.endpoints
         ],

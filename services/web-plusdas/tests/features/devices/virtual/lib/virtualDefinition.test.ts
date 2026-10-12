@@ -80,7 +80,7 @@ describe('validateDraft', () => {
 
 describe('devicePointOptions and describeDraft', () => {
   const devices: DevicePointsEntry[] = [{
-    deviceId: 2, deviceName: 'bess', groups: { standardized: [], virtual: [], native: [] },
+    deviceId: 2, deviceName: 'bess', deviceType: 'BESS', groups: { standardized: [], virtual: [], native: [] },
     points: [
       { id: 1, name: 'battery_state', category: 'NATIVE', data_type: 'enum16', enum_detail: { '5': 'fault', '1': 'standby' } },
       { id: 2, name: 'alarm_flags', category: 'NATIVE', data_type: 'bitfield16', bitfield_detail: { '7': 'bms_err' } },

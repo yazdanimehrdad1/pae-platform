@@ -14,7 +14,7 @@ const READY = point(4, 'ready', { category: 'VIRTUAL' });
 const STD_POWER = point(5, 'STD_POWER', { category: 'STANDARDIZED' });
 
 const device: DevicePointsEntry = {
-  deviceId: 2, deviceName: 'bess-1',
+  deviceId: 2, deviceName: 'bess-1', deviceType: 'BESS',
   groups: { standardized: [STD_POWER], virtual: [READY], native: [FLAGS, MODE, POWER] },
   points: [STD_POWER, READY, FLAGS, MODE, POWER],
 };

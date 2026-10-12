@@ -30,10 +30,10 @@ const pvPoints = {
 };
 const DEVICES: Record<string, DevicePointsEntry[]> = {
   '1001': [
-    { deviceId: 11, deviceName: 'pv-1', groups: pvPoints, points: [...pvPoints.standardized, ...pvPoints.virtual, ...pvPoints.native] },
-    { deviceId: 12, deviceName: 'bess-1', groups: { standardized: [], virtual: [], native: [point(5, 'soc')] }, points: [point(5, 'soc')] },
+    { deviceId: 11, deviceName: 'pv-1', deviceType: 'PV', groups: pvPoints, points: [...pvPoints.standardized, ...pvPoints.virtual, ...pvPoints.native] },
+    { deviceId: 12, deviceName: 'bess-1', deviceType: 'BESS', groups: { standardized: [], virtual: [], native: [point(5, 'soc')] }, points: [point(5, 'soc')] },
   ],
-  '2002': [{ deviceId: 21, deviceName: 'meter-9', groups: { standardized: [], virtual: [], native: [] }, points: [] }],
+  '2002': [{ deviceId: 21, deviceName: 'meter-9', deviceType: 'METER', groups: { standardized: [], virtual: [], native: [] }, points: [] }],
 };
 
 const time = (second: number) => new Date(Date.UTC(2026, 9, 1, 12, 0, second)).toISOString();
