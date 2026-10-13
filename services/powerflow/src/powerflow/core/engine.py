@@ -27,8 +27,12 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 from powerflow.conditions import (
+    AlarmResetChange,
     ConditionChange,
+    FaultCause,
+    FaultClock,
     apply_change,
+    expire_faults,
     initial_conditions,
     summary,
     validate_change,
@@ -37,7 +41,7 @@ from powerflow.conditions.scenario import (
     ConditionsReport,
     EventScenario,
     ScenarioRun,
-    due,
+    due_across,
     scenario_status,
     schedule,
     validate_scenario,
@@ -53,7 +57,12 @@ from powerflow.core.step import (
     sim_time_at,
     simulate_step,
 )
-from powerflow.errors import ConditionError, InvalidStateError, NotInTestModeError
+from powerflow.errors import (
+    ConditionError,
+    InvalidStateError,
+    NotFoundError,
+    NotInTestModeError,
+)
 from powerflow.network.solver import SolverFactory
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ProfileFolder, ProfileStore
@@ -120,7 +129,7 @@ class Engine:
         self.store = StateStore(runtime.config.simulation.history_size)
         self.setpoints = SetpointStore(default_setpoints(runtime))
         self.conditions = ConditionStore(initial_conditions(runtime.config))
-        self._scenario: ScenarioRun | None = None
+        self._scenarios: list[ScenarioRun] = []  # in start order; they can overlap
         self._state: SimulationState = initial_state(runtime, wall_clock())
         self._speed = runtime.config.simulation.speed
         self._fresh = True  # nothing computed since construction/reset/new config
@@ -159,7 +168,7 @@ class Engine:
             last_step_duration_ms=duration * 1000 if duration is not None else None,
             history_count=len(self.store),
             history_size=self.store.history_size,
-            scenario=self._scenario.name if self._scenario is not None else None,
+            scenario=self._scenarios[-1].name if self._scenarios else None,
             speed=self._speed,
             start_time=self._state.origin,
             start_step=simulation.start_step,
@@ -167,11 +176,13 @@ class Engine:
         )
 
     def active_conditions(self) -> ConditionsReport:
-        active = summary(self.conditions.snapshot(), self._runtime.config)
-        run = self._scenario
+        active = summary(self.conditions.snapshot(), self._runtime.config, self._state.origin)
+        step_index = self._state.step_index
+        statuses = [scenario_status(run, step_index) for run in self._scenarios]
         return ConditionsReport(
             **dict(active),
-            scenario=scenario_status(run) if run is not None else None,
+            scenario=statuses[-1] if statuses else None,
+            scenarios=statuses,
         )
 
     # -- conditions ------------------------------------------------------------------------
@@ -181,29 +192,44 @@ class Engine:
         UnknownAssetError / ConditionError when it doesn't fit the active site. A playing event
         scenario keeps playing: the latest change wins."""
         validate_change(change, self._runtime.config)
-        step_index = self._state.step_index
-        self.conditions.update(lambda current: apply_change(current, change, step_index))
+        step_index, clock = self._state.step_index, self._fault_clock()
+        self.conditions.update(lambda current: apply_change(current, change, step_index, clock))
         return self.active_conditions()
+
+    def reset_alarms(self, asset_id: str) -> list[FaultCause]:
+        """Alarm reset (AlmRst = 1) on a BESS or PV: drops its latched faults and returns their
+        causes. A cause still injected stays, so the asset stays tripped."""
+        change = AlarmResetChange(asset_id=asset_id)
+        validate_change(change, self._runtime.config)
+        before = self.conditions.snapshot().faults.get(asset_id, {})
+        latched = [cause for cause, entry in sorted(before.items()) if entry.latched]
+        self.apply_condition(change)
+        return latched
 
     def clear_conditions(self) -> ConditionsReport:
         """Stop the event scenario and return to the site config's breakers, nothing injected."""
         with self._compute_lock:
-            self._scenario = None
+            self._scenarios = []
             self.conditions.replace_all(initial_conditions(self._runtime.config))
         return self.active_conditions()
 
-    async def start_scenario(self, name: str, scenario: EventScenario) -> ConditionsReport:
-        """Play an event scenario from the current step. 409 while another one is still
-        playing; ConditionError if an event doesn't fit the active site."""
+    async def start_scenario(
+        self, name: str, scenario: EventScenario, at_step: int | None = None
+    ) -> ConditionsReport:
+        """Play an event scenario from the next step, or schedule it so engine step `at_step` is
+        its step 1. Other scenarios keep playing (they overlap: the later change wins).
+        InvalidStateError (409) while this one is still scheduled or playing; ConditionError if
+        an event doesn't fit the active site or `at_step` isn't ahead."""
         problems = validate_scenario(scenario, self._runtime.config)
         if problems:
             raise ConditionError("; ".join(problems))
-        await asyncio.to_thread(self._start_scenario_sync, name, scenario)
+        await asyncio.to_thread(self._start_scenario_sync, name, scenario, at_step)
         return self.active_conditions()
 
-    async def stop_scenario(self) -> ConditionsReport:
-        """Stop the event scenario; the conditions it set stay."""
-        await asyncio.to_thread(self._stop_scenario_sync)
+    async def stop_scenario(self, name: str | None = None) -> ConditionsReport:
+        """Stop one run (NotFoundError if it isn't listed), or every run; the conditions they
+        set stay."""
+        await asyncio.to_thread(self._stop_scenario_sync, name)
         return self.active_conditions()
 
     # -- control ---------------------------------------------------------------------------
@@ -373,36 +399,51 @@ class Engine:
                 logger.exception("step %d failed", next_index)
                 await self._sleep(period_s)
 
-    def _start_scenario_sync(self, name: str, scenario: EventScenario) -> None:
+    def _start_scenario_sync(self, name: str, scenario: EventScenario, at_step: int | None) -> None:
         with self._compute_lock:
-            if self._scenario is not None and self._scenario.pending:
+            current = self._state.step_index
+            if any(run.name == name and run.pending for run in self._scenarios):
                 raise InvalidStateError(
-                    f"event scenario {self._scenario.name!r} is playing; stop it first"
+                    f"event scenario {name!r} is already scheduled or playing; stop it first"
                 )
+            if at_step is not None and at_step <= current:
+                raise ConditionError(f"at_step must be after the current step {current}")
+            started_step = current if at_step is None else at_step - 1
             step_s = self._runtime.config.simulation.step_s
-            self._scenario = schedule(
-                name, scenario, self._state.step_index, self._state.origin, step_s
-            )
+            run = schedule(name, scenario, started_step, self._state.origin, step_s)
+            # A finished run of the same scenario gives way to the new one.
+            self._scenarios = [item for item in self._scenarios if item.name != name] + [run]
 
-    def _stop_scenario_sync(self) -> None:
+    def _stop_scenario_sync(self, name: str | None) -> None:
         with self._compute_lock:
-            self._scenario = None
+            if name is None:
+                self._scenarios = []
+                return
+            if not any(run.name == name for run in self._scenarios):
+                raise NotFoundError(f"event scenario {name!r} isn't scheduled or playing")
+            self._scenarios = [run for run in self._scenarios if run.name != name]
 
     def _play_scenario(self, step_index: int) -> None:
-        """Apply the event scenario's changes due before `step_index` (under the compute lock)."""
-        if self._scenario is None:
+        """Apply every run's changes due before `step_index` (under the compute lock)."""
+        if not self._scenarios:
             return
-        changes, self._scenario = due(self._scenario, step_index)
-        published_step = self._state.step_index
+        changes, self._scenarios = due_across(self._scenarios, step_index)
+        published_step, clock = self._state.step_index, self._fault_clock()
         for change in changes:
             self.conditions.update(
-                lambda current, change=change: apply_change(current, change, published_step)
+                lambda current, change=change: apply_change(current, change, published_step, clock)
             )
+
+    def _fault_clock(self) -> FaultClock:
+        simulation = self._runtime.config.simulation
+        return FaultClock(seed=simulation.seed, step_s=simulation.step_s)
 
     def _advance_sync(self, step_index: int) -> Snapshot:
         with self._compute_lock:
             started = time.perf_counter()
             self._play_scenario(step_index)
+            # Auto-restore faults due by this step go (so the report shows them gone too).
+            self.conditions.update(lambda current: expire_faults(current, step_index))
             outcome = simulate_step(
                 self._runtime,
                 self._state,
@@ -434,7 +475,7 @@ class Engine:
             self.store.clear(runtime.config.simulation.history_size)
             self.setpoints.replace_all(default_setpoints(runtime))
             self.conditions.replace_all(initial_conditions(runtime.config))
-            self._scenario = None
+            self._scenarios = []
             self._overrun_count = 0
             self._nonconverged_count = 0
             self._last_step_duration_s = None

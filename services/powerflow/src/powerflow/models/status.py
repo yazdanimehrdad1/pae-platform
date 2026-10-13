@@ -8,10 +8,12 @@ toggles and event scenarios), not from the physics.
 from enum import IntEnum, IntFlag
 
 from powerflow.models.bess import BessOutput, BessStatus
+from powerflow.models.grid import NOMINAL_HZ
 from powerflow.models.pv import PvOutput, PvStatus
 
 VOLTAGE_LOW_PU = 0.95
 VOLTAGE_HIGH_PU = 1.05
+FREQUENCY_DEVIATION_HZ = 0.5  # over/under-frequency alarm beyond nominal ± this (no trip)
 SOC_WARNING_MARGIN_PCT = 5.0  # warn this close to the SOC limits
 TRANSFORMER_OVERLOAD_PCT = 100.0
 LOW_POWER_FACTOR = 0.9
@@ -36,6 +38,10 @@ class BessAlarm(IntFlag):
     TRANSFORMER_OVERLOAD = 1 << 4
     OVER_TEMPERATURE = 1 << 5  # an injected over_temperature fault
     COMM_LOSS = 1 << 6  # injected comm loss: the published values are frozen
+    OVER_FREQUENCY = 1 << 7
+    UNDER_FREQUENCY = 1 << 8
+    AC_DISCONNECT = 1 << 9  # its own breaker is open
+    GRID_DISCONNECT = 1 << 10  # its breaker is closed but it's de-energised (e.g. POI open)
 
 
 class PvInverterState(IntEnum):
@@ -54,6 +60,10 @@ class PvAlarm(IntFlag):
     GROUND_FAULT = 1 << 3  # an injected ground_fault fault
     DC_OVERVOLTAGE = 1 << 4  # an injected dc_overvoltage fault
     COMM_LOSS = 1 << 5  # injected comm loss: the published values are frozen
+    OVER_FREQUENCY = 1 << 6
+    UNDER_FREQUENCY = 1 << 7
+    AC_DISCONNECT = 1 << 8  # its own breaker is open
+    GRID_DISCONNECT = 1 << 9  # its breaker is closed but it's de-energised (e.g. POI open)
 
 
 class LoadSupplyState(IntEnum):
@@ -102,6 +112,26 @@ def _voltage_bits(v_pu: float, low: IntFlag, high: IntFlag) -> int:
         return int(low)
     if v_pu > VOLTAGE_HIGH_PU:
         return int(high)
+    return 0
+
+
+def frequency_bits(hz: float, over: IntFlag, under: IntFlag) -> int:
+    """Over/under-frequency beyond nominal ± FREQUENCY_DEVIATION_HZ (0 Hz = dead: no bit)."""
+    if hz <= 0:
+        return 0
+    if hz > NOMINAL_HZ + FREQUENCY_DEVIATION_HZ:
+        return int(over)
+    if hz < NOMINAL_HZ - FREQUENCY_DEVIATION_HZ:
+        return int(under)
+    return 0
+
+
+def disconnect_bits(breaker_closed: bool, live: bool, ac: IntFlag, grid: IntFlag) -> int:
+    """AC_DISCONNECT: its own breaker is open; GRID_DISCONNECT: closed, but nothing upstream."""
+    if not breaker_closed:
+        return int(ac)
+    if not live:
+        return int(grid)
     return 0
 
 

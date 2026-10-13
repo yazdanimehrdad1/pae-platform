@@ -175,6 +175,39 @@ class TestSetpoints:
         assert client.get("/api/assets/pv/nope").status_code == 404
         assert client.get("/api/assets/load/nope").status_code == 404
 
+    def test_alarm_reset_clears_a_latched_fault(self, client: TestClient) -> None:
+        for active in (True, False):
+            fault = {"type": "asset_fault", "asset_id": "pv1", "active": active}
+            assert client.post("/api/sim/conditions", json=fault).status_code == 200
+        (latched,) = client.get("/api/sim/conditions").json()["faults"]
+        assert latched["latched"] and latched["cause"] == "trip"
+        body = client.put("/api/assets/pv/pv1/setpoint", json={"alarm_reset": True}).json()
+        assert body["alarms_reset"] == ["trip"] and body["requested"] == {"alarm_reset": True}
+        assert client.get("/api/sim/conditions").json()["faults"] == []
+        plain = client.put("/api/assets/bess/bess1/setpoint", json={"p_kw": 10}).json()
+        assert plain["alarms_reset"] is None
+
+
+class TestFaultConditions:
+    def test_fault_cause_catalog(self, client: TestClient) -> None:
+        catalog = client.get("/api/sim/fault-causes").json()
+        bess_trip = next(
+            item for item in catalog if (item["asset_type"], item["cause"]) == ("bess", "trip")
+        )
+        assert bess_trip["severity"] == "fault" and bess_trip["alrm"] == ["MANUFACTURER_ALRM"]
+        assert {item["severity"] for item in catalog} == {"fault", "warning"}
+
+    def test_alarm_reset_condition_and_auto_restore(self, client: TestClient) -> None:
+        fault = {"type": "asset_fault", "asset_id": "bess1", "auto_restore": True}
+        (injected,) = client.post("/api/sim/conditions", json=fault).json()["faults"]
+        assert injected["auto_restore"] and injected["restore_sim_time"] is not None
+        reset = {"type": "alarm_reset", "asset_id": "bess1"}
+        assert client.post("/api/sim/conditions", json=reset).status_code == 200
+        assert (
+            client.post("/api/sim/conditions", json={**reset, "asset_id": "load1"}).status_code
+            == 422
+        )
+
 
 class TestAssetsAndPoints:
     def test_assets(self, client: TestClient) -> None:

@@ -49,6 +49,7 @@ class BessFlag(IntFlag):
     S_LIMIT = 2
     SOC_LIMIT = 4
     RAMP_LIMIT = 8
+    DERATED = 16  # an injected warning (e.g. over-temperature) scales the ratings down
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,16 @@ class BessOutput:
     @property
     def s_kva(self) -> float:
         return apparent_power(self.p_kw, self.q_kvar)
+
+
+def derated(params: BessParams, factor: float) -> BessParams:
+    """The inverter's P and S ratings scaled by `factor` (≤ 1)."""
+    return replace(
+        params,
+        p_discharge_max_kw=params.p_discharge_max_kw * factor,
+        p_charge_max_kw=params.p_charge_max_kw * factor,
+        s_rated_kva=params.s_rated_kva * factor,
+    )
 
 
 def clamp_static(params: BessParams, p_kw: float, q_kvar: float) -> tuple[float, float, BessFlag]:

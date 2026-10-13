@@ -20,8 +20,16 @@ const formSchema = z.object({
   city: z.string().min(1, "Required"),
   state: z.string().min(1, "Required"),
   zip_code: z.coerce.number().int(),
-  lat: z.coerce.number(),
-  lng: z.coerce.number(),
+  // Coordinates are optional (nullable in the contract): both blank means none.
+  lat: z.string(),
+  lng: z.string(),
+}).superRefine((values, ctx) => {
+  if (values.lat.trim() === "" && values.lng.trim() === "") return;
+  for (const field of ["lat", "lng"] as const) {
+    if (values[field].trim() === "" || Number.isNaN(Number(values[field]))) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "Enter a number, or leave both blank" });
+    }
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -36,8 +44,8 @@ const emptyValues: FormValues = {
   city: "",
   state: "",
   zip_code: 0,
-  lat: 0,
-  lng: 0,
+  lat: "",
+  lng: "",
 };
 
 function fromSite(site: SiteRecord): FormValues {
@@ -46,13 +54,13 @@ function fromSite(site: SiteRecord): FormValues {
     name: site.name,
     operator: site.operator,
     capacity: site.capacity,
-    description: site.description,
-    street: site.location.street,
-    city: site.location.city,
-    state: site.location.state,
-    zip_code: site.location.zip_code,
-    lat: site.coordinates.lat,
-    lng: site.coordinates.lng,
+    description: site.description ?? "",
+    street: site.location?.street ?? "",
+    city: site.location?.city ?? "",
+    state: site.location?.state ?? "",
+    zip_code: site.location?.zip_code ?? 0,
+    lat: site.coordinates ? String(site.coordinates.lat) : "",
+    lng: site.coordinates ? String(site.coordinates.lng) : "",
   };
 }
 
@@ -64,7 +72,9 @@ function toRequest(values: FormValues): SiteCreateRequest {
     capacity: values.capacity,
     description: values.description,
     location: { street: values.street, city: values.city, state: values.state, zip_code: values.zip_code },
-    coordinates: { lat: values.lat, lng: values.lng },
+    coordinates: values.lat.trim() === ""
+      ? null
+      : { lat: Number(values.lat), lng: Number(values.lng) },
   };
 }
 

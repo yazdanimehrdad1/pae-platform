@@ -16,6 +16,7 @@ export const powerflowKeys = {
   assets: ["powerflow", "assets"] as const,
   modbusRegisters: ["powerflow", "modbus-registers"] as const,
   conditions: ["powerflow", "conditions"] as const,
+  faultCauses: ["powerflow", "fault-causes"] as const,
   devices: ["powerflow", "devices"] as const,
   deviceHistory: (device: string, points: string[]) => ["powerflow", "device-history", device, ...points] as const,
   snapshot: ["powerflow", "snapshot"] as const,
@@ -81,6 +82,16 @@ export function useConditions(enabled = true) {
     queryFn: powerflowApi.getConditions,
     enabled,
     refetchInterval: STATUS_POLL_MS,
+    retry: false,
+  });
+}
+
+/** The fault cause catalog (fixed for a powerflow version, so fetched once). */
+export function useFaultCauses() {
+  return useQuery({
+    queryKey: powerflowKeys.faultCauses,
+    queryFn: powerflowApi.getFaultCauses,
+    staleTime: Infinity,
     retry: false,
   });
 }

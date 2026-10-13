@@ -31,7 +31,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from powerflow.conditions.scenario import EventScenario
 from powerflow.errors import NotFoundError, SiteConfigError
 from powerflow.site_config import SiteConfig
-from powerflow.storage.repository import ConfigRepository, SiteCategory, StoredSite
+from powerflow.storage.repository import (
+    ConfigRepository,
+    EventScenarioCategory,
+    SiteCategory,
+    StoredEventScenario,
+    StoredSite,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +60,7 @@ event_scenarios_table = Table(
     Column("site", Text, primary_key=True),
     Column("name", Text, primary_key=True),
     Column("scenario", JSONB, nullable=False),
+    Column("category", Text, nullable=False, server_default=EventScenarioCategory.CUSTOM.value),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 state_table = Table(
@@ -196,15 +203,18 @@ class PostgresConfigRepository(ConfigRepository):
             )
             await connection.execute(statement)
 
-    async def list_event_scenarios(self, site: str) -> list[str]:
+    async def list_event_scenarios(self, site: str) -> list[StoredEventScenario]:
         async with self._engine.connect() as connection:
             await _require_site(connection, site)
             result = await connection.execute(
-                select(event_scenarios_table.c.name)
+                select(event_scenarios_table.c.name, event_scenarios_table.c.category)
                 .where(event_scenarios_table.c.site == site)
                 .order_by("name")
             )
-            return [row.name for row in result]
+            return [
+                StoredEventScenario(name=row.name, category=EventScenarioCategory(row.category))
+                for row in result
+            ]
 
     async def get_event_scenario(self, site: str, name: str) -> EventScenario:
         async with self._engine.connect() as connection:
@@ -227,6 +237,25 @@ class PostgresConfigRepository(ConfigRepository):
         async with self._engine.begin() as connection:
             await _require_site(connection, site)
             await connection.execute(statement)
+
+    async def sync_builtin_event_scenario(
+        self, site: str, name: str, scenario: EventScenario
+    ) -> bool:
+        document = scenario.model_dump(mode="json")
+        statement = insert(event_scenarios_table).values(
+            site=site, name=name, scenario=document, category=EventScenarioCategory.DEFAULT.value
+        )
+        # Replace only a stored built-in, and only when it differs (a custom one is kept).
+        statement = statement.on_conflict_do_update(
+            index_elements=[event_scenarios_table.c.site, event_scenarios_table.c.name],
+            set_={"scenario": statement.excluded.scenario, "updated_at": func.now()},
+            where=(event_scenarios_table.c.category == EventScenarioCategory.DEFAULT.value)
+            & event_scenarios_table.c.scenario.is_distinct_from(statement.excluded.scenario),
+        ).returning(event_scenarios_table.c.name)
+        async with self._engine.begin() as connection:
+            await _require_site(connection, site)
+            result = await connection.execute(statement)
+            return result.first() is not None
 
     async def delete_event_scenario(self, site: str, name: str) -> None:
         async with self._engine.begin() as connection:

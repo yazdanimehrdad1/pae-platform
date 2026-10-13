@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "6f1f5c4e-8a53-4c1e-9f44-70f0f10e0001",
-    "name": "powerflow 0.2.0",
+    "name": "powerflow 0.3.0",
     "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -223,6 +223,25 @@
       "name": "conditions",
       "item": [
         {
+          "name": "The fault causes per asset type and the points they drive",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/fault-causes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "fault-causes"
+              ]
+            },
+            "description": "Faults trip the inverter and latch when cleared (until an alarm reset) unless injected with auto_restore; warnings derate it and clear at once."
+          }
+        },
+        {
           "name": "The injected conditions now",
           "request": {
             "method": "GET",
@@ -261,7 +280,7 @@
                 "conditions"
               ]
             },
-            "description": "Open/close a breaker, fault or clear an asset, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.",
+            "description": "Open/close a breaker, fault or clear an asset (a cleared fault latches until an alarm_reset, unless it was injected with auto_restore), reset an asset's alarms, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"type\": \"breaker\",\n  \"breaker\": \"bess1\",\n  \"closed\": false\n}",
@@ -290,11 +309,11 @@
                 "clear"
               ]
             },
-            "description": "Stops the event scenario and returns to the site config's breaker positions, with no faults, comm loss or grid events."
+            "description": "Stops the event scenario and returns to the site config's breaker positions, with no faults (latched ones included), comm loss or grid events."
           }
         },
         {
-          "name": "Play a stored event scenario of the active site",
+          "name": "Play or schedule a stored event scenario of the active site",
           "request": {
             "method": "POST",
             "header": [
@@ -315,7 +334,7 @@
                 "start"
               ]
             },
-            "description": "Its events fire from the current step on (step triggers count from here).",
+            "description": "Its step 1 is the next engine step, or `at_step`. Several scenarios can be scheduled or playing at once; where they change the same thing, the later change wins.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"bess1_trip\"\n}",
@@ -328,10 +347,15 @@
           }
         },
         {
-          "name": "Stop the event scenario (its conditions stay)",
+          "name": "Stop one event scenario run, or all (their conditions stay)",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/sim/event-scenario/stop",
               "host": [
@@ -343,6 +367,15 @@
                 "event-scenario",
                 "stop"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bess1_trip\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }
@@ -697,7 +730,7 @@
                 }
               ]
             },
-            "description": "Each is re-checked against the site as stored now (`valid`, `problems`)."
+            "description": "Each is re-checked against the site as stored now (`valid`, `problems`). The default sites come with built-in scenarios (category `default`)."
           }
         },
         {
@@ -763,7 +796,7 @@
                 }
               ]
             },
-            "description": "Every event's change is validated against the site's stored config.",
+            "description": "Every event's change and expected point is validated against the site's stored config. Built-in (default) scenarios are read-only (409): save a copy instead.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"description\": \"Trip BESS 1 for a minute, then sag the grid\",\n  \"events\": [\n    {\n      \"at\": {\n        \"kind\": \"step\",\n        \"step\": 10\n      },\n      \"change\": {\n        \"type\": \"asset_fault\",\n        \"asset_id\": \"bess1\"\n      },\n      \"label\": \"trip\"\n    },\n    {\n      \"at\": {\n        \"kind\": \"step\",\n        \"step\": 70\n      },\n      \"change\": {\n        \"type\": \"asset_fault\",\n        \"asset_id\": \"bess1\",\n        \"active\": false\n      }\n    },\n    {\n      \"at\": {\n        \"kind\": \"step\",\n        \"step\": 80\n      },\n      \"change\": {\n        \"type\": \"grid_voltage\",\n        \"vm_pu\": 0.9\n      }\n    }\n  ]\n}",
@@ -802,7 +835,8 @@
                   "value": "bess1_trip"
                 }
               ]
-            }
+            },
+            "description": "Built-in (default) scenarios can't be deleted (409)."
           }
         }
       ]

@@ -45,7 +45,8 @@ const SimulationPage = () => {
     () =>
       report && {
         openBreakers: new Set(report.breakers.filter((breaker) => !breaker.closed).map((breaker) => breaker.id)),
-        faulted: new Set(report.faults.map((fault) => fault.asset_id)),
+        // Tripped (active or latched faults); a warning only derates the asset.
+        faulted: new Set(report.faults.filter((fault) => fault.severity === "fault").map((fault) => fault.asset_id)),
         commLost: new Set(report.comm_loss.map((item) => (item.target === "poi_meter" ? "poi_meter" : item.id ?? ""))),
       },
     [report],

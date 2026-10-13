@@ -63,6 +63,7 @@ Same Makefile on Windows (recipes run in Git for Windows' sh). `make help` lists
 - **`step_id` is the sim tick:** a real-time overrun skips ticks, so ids can have gaps and the skipped time is integrated as one longer step.
 - **Non-convergence** keeps the last good snapshot (`converged=false`) and doesn't advance SOC.
 - **De-energised is not non-convergence:** buses cut off by an open breaker read 0 V (`network/energization.py`); a non-finite voltage on an energised bus still raises NonConvergenceError.
+- **Faults latch:** clearing a fault (`asset_fault` `active: false`) leaves the asset in FAULT with its bits set until an `alarm_reset` (or the setpoint `alarm_reset: true`), unless it was injected with `auto_restore`. The causes, their bits and derates live in one table, `conditions/fault_catalog.py`. A new cause goes there, and `test_point_standard.py` checks its bits on Modbus.
 - **"Scenario" means two things:** a profile scenario (a load/PV CSV) and an event scenario (a timeline of injected conditions). Code, tables and URLs say `event_scenario` for the second.
 - **Point-standard rows go at the end of `common.csv`** if every device needs one: a row added to an asset CSV moves the common block (`BrkPos` is the last common row; BESS uses 98 of its 100 registers).
 - **Uploaded profiles:** a scenario saved with PUT keeps each asset's configured `scale`/`loop`, and hot-reloads into active-site assets even while running.

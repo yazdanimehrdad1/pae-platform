@@ -61,6 +61,10 @@ class ProtectedSiteError(InvalidStateError):
     """A default site (it ships with powerflow) can't be deleted."""
 
 
+class ProtectedScenarioError(InvalidStateError):
+    """A built-in (default) event scenario is read-only: it can't be saved over or deleted."""
+
+
 class ConditionError(PowerflowError):
     """An injected condition (or event scenario) doesn't apply to the site, e.g. a fault cause
     the asset type can't have."""

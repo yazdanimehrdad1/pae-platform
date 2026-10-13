@@ -36,6 +36,21 @@ describe('powerflowApi', () => {
     expect(JSON.parse(init.body)).toEqual({ p_kw: 1500, mode: 'pq' });
   });
 
+  it('reads the fault cause catalog', async () => {
+    const fetchMock = stubFetch(200, []);
+    await powerflowApi.getFaultCauses();
+    expect(fetchMock.mock.calls[0][0]).toBe('/powerflow-api/sim/fault-causes');
+  });
+
+  it('resets alarms through the setpoint (AlmRst = 1)', async () => {
+    const fetchMock = stubFetch(200, { alarms_reset: ['trip'] });
+    await powerflowApi.resetAlarms('pv', 'pv 1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/powerflow-api/assets/pv/pv%201/setpoint');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ alarm_reset: true });
+  });
+
   it('passes the step count as a query parameter', async () => {
     const fetchMock = stubFetch(200, {});
     await powerflowApi.step(5);

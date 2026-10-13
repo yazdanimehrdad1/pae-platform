@@ -8,11 +8,16 @@ import pytest
 from conftest import POINT_STANDARD, PROFILES, default_site
 
 from powerflow.conditions import (
+    CATALOG,
+    AlarmResetChange,
     AssetFaultChange,
     BreakerChange,
+    CauseSpec,
     CommLossChange,
     CommTarget,
+    FaultCause,
     GridFrequencyChange,
+    Severity,
 )
 from powerflow.core.engine import Engine
 from powerflow.core.point_registry import PointRegistry
@@ -341,3 +346,88 @@ class TestInjectedConditions:
         sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
         devices = build_layout(engine.config, POINT_STANDARD)
         assert 59.48 <= value(sources, devices, "pv.pv1", "Hz") <= 59.52
+        under = POINT_STANDARD.enums.bits("701.Alrm", "UNDER_FREQUENCY")
+        assert not int(value(sources, devices, "pv.pv1", "Alrm")) & under  # within +- 0.5 Hz
+        engine.apply_condition(GridFrequencyChange(hz=59.3))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        assert int(value(sources, devices, "pv.pv1", "Alrm")) & under
+        assert int(value(sources, devices, "bess.bess1", "Alrm")) & under
+
+    def test_breakers_set_the_disconnect_bits(self) -> None:
+        engine, registry = reference_engine()
+        engine.apply_condition(BreakerChange(breaker="bess1", closed=False))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        devices = build_layout(engine.config, POINT_STANDARD)
+        enums = POINT_STANDARD.enums
+        assert int(value(sources, devices, "bess.bess1", "Alrm")) == enums.bits(
+            "701.Alrm", "AC_DISCONNECT"
+        )
+        engine.apply_condition(BreakerChange(breaker="poi", closed=False))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        assert int(value(sources, devices, "pv.pv1", "Alrm")) == enums.bits(
+            "701.Alrm", "GRID_DISCONNECT"
+        )
+
+
+def label_of(spec: CauseSpec) -> str:
+    return f"{spec.kind}.{spec.kind}1"
+
+
+class TestFaultCatalogOnModbus:
+    """Every cause in the fault catalog drives the registers it lists, and nothing else."""
+
+    def test_every_symbol_is_in_the_standard(self) -> None:
+        enums = POINT_STANDARD.enums
+        for spec in CATALOG:
+            enums.bits("701.Alrm", *spec.alrm)
+            enums.bits("802.Evt1", *spec.evt1)
+
+    @pytest.mark.parametrize("spec", CATALOG, ids=lambda spec: f"{spec.kind}-{spec.cause}")
+    def test_cause_sets_its_bits(self, spec: CauseSpec) -> None:
+        engine, registry = reference_engine()
+        engine.apply_condition(AssetFaultChange(asset_id=f"{spec.kind}1", cause=spec.cause))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        devices = build_layout(engine.config, POINT_STANDARD)
+        enums = POINT_STANDARD.enums
+        label = label_of(spec)
+        assert int(value(sources, devices, label, "Alrm")) == enums.bits("701.Alrm", *spec.alrm)
+        inverter_state = value(sources, devices, label, "InvSt")
+        tripped = spec.severity is Severity.FAULT
+        assert (inverter_state == enums.code("701.InvSt", "FAULT")) is tripped
+        if spec.kind == "bess":
+            events = int(value(sources, devices, label, "Evt1"))
+            assert events & ~enums.bits(
+                "802.Evt1", "UNDER_SOC_MIN_WARNING", "OVER_SOC_MAX_WARNING"
+            ) == (enums.bits("802.Evt1", *spec.evt1))
+            assert (value(sources, devices, label, "State") == 99) is tripped
+        else:
+            assert value(sources, devices, label, "FltCode") == spec.fault_code
+        if not tripped:
+            throttle = int(value(sources, devices, label, "ThrotSrc"))
+            assert throttle & enums.bits("701.ThrotSrc", "DERATED")
+
+    def test_over_temperature_is_an_alarm_not_a_warning(self) -> None:
+        engine, registry = reference_engine()
+        engine.apply_condition(
+            AssetFaultChange(asset_id="bess1", cause=FaultCause.OVER_TEMPERATURE)
+        )
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        devices = build_layout(engine.config, POINT_STANDARD)
+        events = int(value(sources, devices, "bess.bess1", "Evt1"))
+        assert events & POINT_STANDARD.enums.bits("802.Evt1", "OVER_TEMP_ALARM")
+        assert not events & POINT_STANDARD.enums.bits("802.Evt1", "OVER_TEMP_WARNING")
+
+    def test_latched_bits_hold_until_reset(self) -> None:
+        engine, registry = reference_engine()
+        devices = build_layout(engine.config, POINT_STANDARD)
+        engine.apply_condition(AssetFaultChange(asset_id="pv1", cause=FaultCause.GROUND_FAULT))
+        engine.apply_condition(AssetFaultChange(asset_id="pv1", active=False))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        assert value(sources, devices, "pv.pv1", "FltCode") == 101
+        assert int(value(sources, devices, "pv.pv1", "Alrm")) == POINT_STANDARD.enums.bits(
+            "701.Alrm", "GROUND_FAULT"
+        )
+        engine.apply_condition(AlarmResetChange(asset_id="pv1"))
+        sources = sources_for(engine, registry, asyncio.run(engine.step(1)))
+        assert value(sources, devices, "pv.pv1", "FltCode") == 0
+        assert value(sources, devices, "pv.pv1", "Alrm") == 0

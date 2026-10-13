@@ -83,7 +83,9 @@ def json_body(method: str, path: str) -> object | None:
     if method == "put" and path == "/api/sim/speed":
         return {"speed": 10}
     if method == "post" and path == "/api/sim/event-scenario/start":
-        return {"name": "bess1_trip"}
+        return {"name": "bess1_trip"}  # now; add "at_step": N to schedule it
+    if method == "post" and path == "/api/sim/event-scenario/stop":
+        return {"name": "bess1_trip"}  # {} stops every run
     if method == "put" and path == "/api/sites/{site}/event-scenarios/{name}":
         return {
             "description": "Trip BESS 1 for a minute, then sag the grid",

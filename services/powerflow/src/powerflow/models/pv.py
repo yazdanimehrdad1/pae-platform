@@ -8,7 +8,7 @@ Actual P = min(available, curtailment limit), then the S circle:
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import IntEnum, IntFlag
 
 from powerflow.models.common import (
@@ -42,6 +42,7 @@ class PvFlag(IntFlag):
     CURTAILED = 1
     S_LIMIT = 2
     CLIPPED = 4
+    DERATED = 8  # an injected warning (over-temperature, blown string fuse) limits it
 
 
 @dataclass(frozen=True)
@@ -121,6 +122,19 @@ def availability(params: PvParams, profile_value: float) -> PvAvailability:
     p_kw *= 1.0 - params.loss_factor
     clipped = p_kw > params.p_max_kw * (1 + RATING_TOLERANCE)
     return PvAvailability(min(p_kw, params.p_max_kw), clipped, irradiance)
+
+
+def derated(params: PvParams, factor: float) -> PvParams:
+    """The inverter's P and S ratings scaled by `factor` (≤ 1)."""
+    return replace(
+        params, p_max_kw=params.p_max_kw * factor, s_rated_kva=params.s_rated_kva * factor
+    )
+
+
+def scale_availability(available: PvAvailability, factor: float) -> PvAvailability:
+    """Part of the array lost (e.g. a blown string fuse): the available power scaled by
+    `factor` (≤ 1)."""
+    return replace(available, p_available_kw=available.p_available_kw * factor)
 
 
 def dispatch(params: PvParams, setpoint: PvSetpoint, available: PvAvailability) -> PvOutput:

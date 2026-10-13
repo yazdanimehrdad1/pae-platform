@@ -172,7 +172,8 @@
           "0": "P_LIMIT",
           "1": "S_LIMIT",
           "2": "SOC_LIMIT",
-          "3": "RAMP_LIMIT"
+          "3": "RAMP_LIMIT",
+          "4": "DERATED"
         },
         "data_type": "bitfield16",
         "description": "Limits active this step.",
@@ -237,11 +238,15 @@
         "bit_flags": {
           "0": "SOC_LOW_WARNING",
           "1": "SOC_HIGH_WARNING",
+          "10": "GRID_DISCONNECT",
           "2": "UNDERVOLTAGE",
           "3": "OVERVOLTAGE",
           "4": "TRANSFORMER_OVERLOAD",
           "5": "OVER_TEMPERATURE",
-          "6": "COMM_LOSS"
+          "6": "COMM_LOSS",
+          "7": "OVER_FREQUENCY",
+          "8": "UNDER_FREQUENCY",
+          "9": "AC_DISCONNECT"
         },
         "data_type": "bitfield16",
         "description": "Alarms: SOC within 5 % of a limit, voltage outside 0.95-1.05 pu, transformer > 100 %. Fault-cause and COMM_LOSS bits come from injected conditions.",
@@ -939,7 +944,8 @@
         "bit_flags": {
           "0": "CURTAILED",
           "1": "S_LIMIT",
-          "2": "CLIPPED"
+          "2": "CLIPPED",
+          "3": "DERATED"
         },
         "data_type": "bitfield16",
         "description": "Limits active this step.",
@@ -996,7 +1002,11 @@
           "2": "TRANSFORMER_OVERLOAD",
           "3": "GROUND_FAULT",
           "4": "DC_OVERVOLTAGE",
-          "5": "COMM_LOSS"
+          "5": "COMM_LOSS",
+          "6": "OVER_FREQUENCY",
+          "7": "UNDER_FREQUENCY",
+          "8": "AC_DISCONNECT",
+          "9": "GRID_DISCONNECT"
         },
         "data_type": "bitfield16",
         "description": "Alarms: voltage outside 0.95-1.05 pu, transformer > 100 %. Fault-cause and COMM_LOSS bits come from injected conditions.",
