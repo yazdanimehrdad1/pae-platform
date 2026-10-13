@@ -4,7 +4,6 @@ import {
   Building2,
   BellRing,
   BarChart3,
-  PlayCircle,
   FileText,
   Bot,
   Cpu,
@@ -62,13 +61,6 @@ const navigationItems: NavigationItem[] = [
     title: 'Live Data',
     icon: Radio,
     path: '/live-data',
-    roles: ['engineer', 'admin', 'monitor']
-  },
-  {
-    id: 'narrative',
-    title: 'Narrative',
-    icon: PlayCircle,
-    path: '/narrative',
     roles: ['engineer', 'admin', 'monitor']
   },
   {
