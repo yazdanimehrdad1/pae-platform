@@ -1,4 +1,5 @@
 import type { Trend } from "../types";
+import { isAxisScale } from "./axes";
 
 const STORAGE_KEY_PREFIX = "historian_trends_";
 
@@ -12,7 +13,8 @@ export function loadTrendsFromStorage(userId: string): Trend[] {
     if (!stored) return [{ id: '1', name: 'Default Trend', points: [] }];
     const trends = JSON.parse(stored) as Trend[];
     if (!Array.isArray(trends) || trends.length === 0) return [{ id: '1', name: 'Default Trend', points: [] }];
-    return trends;
+    // A scale this version doesn't know is dropped, so the trend falls back to per unit.
+    return trends.map(trend => (trend.scale === undefined || isAxisScale(trend.scale) ? trend : { ...trend, scale: undefined }));
   } catch {
     return [{ id: '1', name: 'Default Trend', points: [] }];
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,11 @@ import { usePointCatalog } from "./hooks/usePointCatalog";
 import { DEFAULT_DISCRETE_MODE, type DiscreteModeId } from "./components/discrete/discreteModes";
 import { DiscreteModeToggle } from "./components/discrete/DiscreteModeToggle";
 import { AutoRefreshToggle } from "./components/AutoRefreshToggle";
+import { AxisGroupedLegend } from "./components/AxisGroupedLegend";
+import { AxisScaleToggle } from "./components/AxisScaleToggle";
+import { assignAxes, axisWidth, DEFAULT_AXIS_SCALE, UNIT_AXIS_COLORS, valueRange, type AxisScale } from "./lib/axes";
+import { useTheme } from "@/shared/components/theme-provider";
+import { parseFunctionSelectionId, parseSelectionId } from "@/shared/lib/discretePoints";
 import { RefreshReadingsButton } from "./components/RefreshReadingsButton";
 import { StateLanes } from "./components/discrete/StateLanes";
 import { buildStepLayout, renderStepSeries, STATE_AXIS_WIDTH } from "./components/discrete/stepSeries";
@@ -138,7 +143,6 @@ function formatTimestamp(ts: number, spanMs: number, timeZone: string): string {
 }
 
 const CHART_MARGIN = { top: 5, right: 40, left: 0, bottom: 5 };
-const Y_AXIS_WIDTH = 60;
 
 type StepLayout = ReturnType<typeof buildStepLayout>;
 
@@ -174,11 +178,14 @@ function TrendTooltip({ active, label, payload, lines, analogKeys, pointLabels, 
   );
 }
 
-function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
+function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, scale, onScaleChange, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
   selectedPoints: string[];
   timeWindow: TimeWindow;
   timeZone: string;
   autoRefresh: boolean;
+  /** How the analog lines share vertical axes; saved on the trend. */
+  scale: AxisScale;
+  onScaleChange: (scale: AxisScale) => void;
   pointLabels: Record<string, string>;
   siteId: string | null;
   discreteMode: DiscreteModeId;
@@ -223,9 +230,31 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
   const displayData = stepLayout ? stepLayout.addPlotValues(zoomedRows) : zoomedRows;
   const formatTime = (timestamp: number) => formatTimestamp(timestamp, spanMs, timeZone);
 
+  // Each analog line's axis: per unit by default, so a 1-10 signal isn't flattened by a 1000-5000 one.
+  const unitOf = (key: string): string | null => {
+    if (parseFunctionSelectionId(key)) return functionSeries.get(key)?.unit ?? null;
+    return pointsById.get(parseSelectionId(key).pointId)?.point.unit ?? null;
+  };
+  const { theme } = useTheme();
+  const { axes, axisOf } = assignAxes(
+    analogKeys.map(key => ({ key, unit: unitOf(key), label: pointLabels[key] ?? key, color: colorByKey.get(key) })),
+    scale,
+    UNIT_AXIS_COLORS[theme],
+  );
+  // Each axis as wide as its numbers (and its label), so the label sits next to its ticks.
+  // Memoised: a 3-day line is ~26k samples, and dragging to zoom re-renders on every mouse move.
+  const axesSignature = axes.map(axis => `${axis.id}:${axis.keys.join(",")}:${axis.label !== ""}`).join("|");
+  const widthOf = useMemo(
+    () => new Map(axes.map(axis => [axis.id, axisWidth(valueRange(lines, axis.keys), axis.label !== "")])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lines, axesSignature],
+  );
+  const sideWidth = (side: "left" | "right") =>
+    axes.filter(axis => axis.side === side).reduce((total, axis) => total + (widthOf.get(axis.id) ?? 0), 0);
+
   // Horizontal extent of the plot area, so the lanes line up with the chart and drag maps to time.
-  const plotLeft = CHART_MARGIN.left + (analogKeys.length > 0 ? Y_AXIS_WIDTH : 0);
-  const plotRight = CHART_MARGIN.right + (stepLayout ? STATE_AXIS_WIDTH : 0);
+  const plotLeft = CHART_MARGIN.left + sideWidth("left");
+  const plotRight = CHART_MARGIN.right + sideWidth("right") + (stepLayout ? STATE_AXIS_WIDTH : 0);
 
   const getTimestampFromX = (x: number, containerWidth: number): number => {
     if (!chartData.length) return 0;
@@ -272,9 +301,10 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
 
   return (
     <div className="space-y-2">
-      {(discreteSeries.length > 0 || zoomRange || isFetching) && (
+      {(discreteSeries.length > 0 || analogKeys.length > 1 || zoomRange || isFetching) && (
         <div className="flex items-center justify-end gap-4">
           {isFetching && <span className="text-xs text-muted-foreground">Updating...</span>}
+          {analogKeys.length > 1 && <AxisScaleToggle scale={scale} onChange={onScaleChange} />}
           {discreteSeries.length > 0 && <DiscreteModeToggle mode={discreteMode} onChange={onDiscreteModeChange} />}
           {zoomRange && (
             <Button variant="outline" size="sm" onClick={() => setZoomRange(null)} className="gap-2">
@@ -303,20 +333,47 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
               <LineChart data={displayData} margin={CHART_MARGIN}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                 <XAxis dataKey="timestamp" type="number" scale="time" domain={domain} allowDataOverflow tick={{ fontSize: 11 }} tickFormatter={formatTime} />
-                <YAxis tick={{ fontSize: 12 }} width={Y_AXIS_WIDTH} hide={analogKeys.length === 0} />
+                {axes.length === 0 && <YAxis width={0} hide />}
+                {axes.map(axis => (
+                  <YAxis
+                    key={axis.id}
+                    yAxisId={axis.id}
+                    orientation={axis.side}
+                    width={widthOf.get(axis.id)}
+                    stroke={axis.color}
+                    tick={{ fontSize: 12, fill: axis.color }}
+                    label={axis.label ? {
+                      value: axis.label, angle: -90, fontSize: 11, fill: axis.color,
+                      // offset 8: the rotated label's middle, half of its strip, so the outer one isn't clipped
+                      position: axis.side === "left" ? "insideLeft" : "insideRight", offset: 8, style: { textAnchor: "middle" },
+                    } : undefined}
+                  />
+                ))}
                 <RechartsTooltip
                   content={<TrendTooltip lines={lines} analogKeys={analogKeys} pointLabels={pointLabels} colorByKey={colorByKey} formatTime={formatTime} stepLayout={stepLayout} />}
                 />
-                <Legend
-                  wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
-                  iconType="line"
-                  formatter={(value) => <span title="Show in Trends panel">{value.includes(' - ') ? value.replace(' - ', '-') : value}</span>}
-                  onClick={(entry) => { const key = stepLayout?.selectionKey(entry.dataKey) ?? entry.dataKey; if (typeof key === 'string') onRevealPoint(key); }}
-                />
+                {scale === "per-unit" ? (
+                  <Legend
+                    content={(
+                      <AxisGroupedLegend
+                        axes={axes}
+                        axisOf={axisOf}
+                        onSelect={dataKey => onRevealPoint(stepLayout?.selectionKey(dataKey) ?? dataKey)}
+                      />
+                    )}
+                  />
+                ) : (
+                  <Legend
+                    wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
+                    iconType="line"
+                    formatter={(value) => <span title="Show in Trends panel">{value.includes(' - ') ? value.replace(' - ', '-') : value}</span>}
+                    onClick={(entry) => { const key = stepLayout?.selectionKey(entry.dataKey) ?? entry.dataKey; if (typeof key === 'string') onRevealPoint(key); }}
+                  />
+                )}
                 {analogKeys.map(point => (
                   // Each line draws its own samples (every reading up to 3 days, plot values beyond),
                   // breaking only at its own gap markers. Linear and unanimated: up to ~26k points a line.
-                  <Line key={point} data={lines[point]} type="linear" isAnimationActive={false} dataKey={point} stroke={colorByKey.get(point)} strokeWidth={2} dot={false} name={pointLabels[point] ?? point} />
+                  <Line key={point} yAxisId={axisOf.get(point)} data={lines[point]} type="linear" isAnimationActive={false} dataKey={point} stroke={colorByKey.get(point)} strokeWidth={2} dot={false} name={pointLabels[point] ?? point} />
                 ))}
                 {stepLayout && renderStepSeries(stepLayout)}
               </LineChart>
@@ -400,6 +457,10 @@ export default function Historian() {
   const [timeRange, setTimeRange] = useState<TimeRange | 'custom'>('1H');
   // Off by default: the charts refresh only on Refresh, or every minute while this is on.
   const [autoRefresh, setAutoRefresh] = useState(false);
+  // A trend's axis choice is saved with the trend (localStorage, like its points).
+  const scaleOf = (trendId: string | null): AxisScale => trends.find(trend => trend.id === trendId)?.scale ?? DEFAULT_AXIS_SCALE;
+  const setTrendScale = (trendId: string | null, scale: AxisScale) =>
+    setTrends(previous => previous.map(trend => (trend.id === trendId ? { ...trend, scale } : trend)));
   // A custom range is kept as UTC instants; the inputs show and take it in the display zone.
   const [customStart, setCustomStart] = useState<string>(() => new Date(Date.now() - 3_600_000).toISOString());
   const [customEnd, setCustomEnd] = useState<string>(() => new Date().toISOString());
@@ -840,25 +901,25 @@ export default function Historian() {
                               </Select>
                             )}
                           </div>
-                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} scale={scaleOf(topTrendId)} onScaleChange={scale => setTrendScale(topTrendId, scale)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
                         <div ref={middleTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
                         <div ref={bottomTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
                         <div ref={fourthTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
                         </div>
                       )}
                     </div>
