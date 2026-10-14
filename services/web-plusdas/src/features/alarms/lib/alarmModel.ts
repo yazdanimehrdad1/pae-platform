@@ -9,7 +9,7 @@ import {
 import { conditionFromWire, groupFromWire } from "@/shared/components/conditions/conditionWire";
 import type { AlarmEvent, AlarmSnapshot, Device, DeviceStatus, Point, Rule } from "../types";
 import { compareActiveAlarms } from "./alarmSort";
-import { worstSeverity } from "./severity";
+import { worstSeverity } from "@/shared/lib/alarmSeverity";
 
 /** An alarm event with what the tables show next to it. */
 export interface AlarmView {

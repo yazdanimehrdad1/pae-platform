@@ -1,5 +1,5 @@
 import type { AlarmEvent } from "../types";
-import { SEVERITY } from "./severity";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
 
 /** Active alarm order: faults before warnings, then longest active first. */
 export function compareActiveAlarms(a: AlarmEvent, b: AlarmEvent): number {

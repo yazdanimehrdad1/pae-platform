@@ -5,6 +5,8 @@ import { getErrorMessage } from "@/api/client";
 import { MAX_ENABLED_ALARMS, type AlarmDefinitionCreateRequest, type AlarmDefinitionUpdateRequest } from "@/api/types/alarms";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimeZoneToggle } from "@/shared/components/TimeZoneToggle";
+import { useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { toast } from "@/shared/hooks/use-toast";
 import { AlarmTable } from "./components/AlarmTable";
 import { DeviceDetail } from "./components/DeviceDetail";
@@ -18,8 +20,6 @@ import { useAlarmSnapshot, useRuleMutations } from "./hooks/useAlarmsData";
 import { buildAlarmModel, watchedPointId, type AlarmModel, type AlarmView } from "./lib/alarmModel";
 import type { Rule } from "./types";
 
-// backend-ot has no site time zone yet, so times show in the browser's zone.
-const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /**
  * The point a device's trend opens on: its alarming point, else one with a rule, else the first
@@ -40,6 +40,8 @@ export default function AlarmsPage() {
     if (!siteId && sites.length > 0) setSiteId(sites[0].id);
   }, [sites, siteId]);
   const site = sites.find(candidate => candidate.id === siteId);
+  // Times in the site's zone, or the user's own if they switched to it.
+  const { timeZone, display, setDisplay, siteTimeZone } = useDisplayTimeZone(site?.timezone);
 
   return (
     <div className="h-screen overflow-y-auto">
@@ -47,7 +49,7 @@ export default function AlarmsPage() {
         <header className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="text-2xl font-semibold">System alarms</h1>
           <div className="flex items-end gap-3">
-            <p className="pb-2 text-sm text-muted-foreground">Times in {TIME_ZONE}</p>
+            <div className="pb-2"><TimeZoneToggle siteTimeZone={siteTimeZone} display={display} onDisplayChange={setDisplay} /></div>
             <div className="w-56 space-y-1">
               <Label htmlFor="alarms-site" className="text-xs text-muted-foreground">Site</Label>
               <Select value={siteId} onValueChange={setSiteId}>
@@ -58,7 +60,7 @@ export default function AlarmsPage() {
           </div>
         </header>
         {site ? (
-          <SiteAlarms key={site.id} siteId={site.id} />
+          <SiteAlarms key={site.id} siteId={site.id} timeZone={timeZone} />
         ) : (
           <p className="text-sm text-muted-foreground">{areSitesLoading ? "Loading sites..." : "No sites yet."}</p>
         )}
@@ -68,7 +70,7 @@ export default function AlarmsPage() {
 }
 
 /** One site's alarms. Keyed by site, so selections reset when the site changes. */
-function SiteAlarms({ siteId }: { siteId: string }) {
+function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) {
   const { data: snapshot, isLoading, error } = useAlarmSnapshot(siteId);
   const model = useMemo(() => (snapshot ? buildAlarmModel(snapshot) : null), [snapshot]);
   const { create, update, remove } = useRuleMutations(siteId);
@@ -182,7 +184,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         alarms={model.active}
         model={model}
         now={now}
-        timeZone={TIME_ZONE}
+        timeZone={timeZone}
         selectedEventId={selectedEventId}
         lastClearedAt={lastClearedAt}
         clearedCount={model.recentlyCleared.length}
@@ -208,7 +210,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
             rules={rules}
             log={log}
             now={now}
-            timeZone={TIME_ZONE}
+            timeZone={timeZone}
             selectedPointId={selectedPointId}
             trendRange={trendRange}
             onTrendRangeChange={setTrendRange}
@@ -223,7 +225,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         onOpenChange={setIsRulesOpen}
         rules={rules}
         model={model}
-        timeZone={TIME_ZONE}
+        timeZone={timeZone}
         onChange={onChangeRule}
         onEdit={openBuilder}
         onDelete={onDeleteRule}
@@ -237,7 +239,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         model={model}
         devices={model.sortedDevices}
         now={now}
-        timeZone={TIME_ZONE}
+        timeZone={timeZone}
         initialDeviceId={history.deviceId}
       />
     </>

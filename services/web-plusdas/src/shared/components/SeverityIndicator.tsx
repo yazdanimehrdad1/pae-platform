@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import { SEVERITY } from "../lib/severity";
-import type { Severity } from "../types";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
+import type { AlarmSeverity as Severity } from "@/api/types/alarms";
 
 /** Severity as icon + word + color, so it reads in greyscale too. */
 export function SeverityIndicator({ severity, showLabel = true, className }: {

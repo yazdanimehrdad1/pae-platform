@@ -6,3 +6,4 @@ export { modbusStreamApi } from './modbusStream';
 export { alarmsApi } from './alarms';
 export { sldApi } from './sld';
 export { powerflowApi } from './powerflow';
+export { reportsApi } from './reports';

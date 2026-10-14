@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { watchedPointId, type AlarmModel } from "../lib/alarmModel";
 import type { AlarmLogEntry, Device, DeviceStatus, Rule } from "../types";
 import { EventLog } from "./EventLog";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 import type { TrendRange } from "../lib/trendRange";
 import { TrendChart } from "./TrendChart";
 

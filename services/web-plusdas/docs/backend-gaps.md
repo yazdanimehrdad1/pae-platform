@@ -13,15 +13,15 @@ backend-ot work first (its `add-endpoint` skill, then `make contract`), then the
 | **Login / auth** (`src/mocks/auth.ts`, used by `src/shared/contexts/auth.tsx`) | Accepts any email and password and keeps the "user" in localStorage. backend-ot has no auth at all: every route is open. | A design decision first: auth at the platform reverse proxy (e.g. Keycloak/OIDC in front of both) or in backend-ot. Then a session/user endpoint (e.g. `GET /api/me`) for the UI to read. |
 | **Single-line diagram** (`features/sld/`) | Real: each site's diagram is stored in backend-ot (`GET /api/sites/{site_id}/sld`, with a revision). Meter, BESS and PV elements linked to a device show live values in an info box (`GET .../sld/values`, polled every 10 s), with device health from the site profile; missing values show NA. | An SLD editor in the UI (the API already saves with `PUT .../sld` and the revision read), including picking each element's device and points. |
 | **Notes** (`features/notes/`, `lib/notesStorage.ts`) | Stored in the browser's localStorage per user. They are lost with the browser and not shared. | Notes storage (CRUD per site/device/user), if notes should be shared or kept. |
-| **Reports, AI Task Builder, Settings (teams), Users** | Static placeholder pages (no data calls). Reports and Task Builder show fake lists from `src/mocks/reports.ts` and `src/mocks/tasks.ts`. | Product decisions, then APIs. Out of scope until those exist. |
+| **Reports** (`features/reports/`) | Real: templates and generated reports from backend-ot (`/api/reports/site/{site_id}/...`); a report is rendered from its stored snapshot, and Export PDF prints it through the browser. | Delivery (email or push of a generated report) once there is a notification channel. |
+| **AI Task Builder, Settings (teams), Users** | Static placeholder pages (no data calls). Task Builder shows a fake list from `src/mocks/tasks.ts`. | Product decisions, then APIs. Out of scope until those exist. |
 
-The pages on real data are Sites, Site Devices, Single-line diagram, Device details, Historian, Live Data, and System alarms.
+The pages on real data are Sites, Site Devices, Single-line diagram, Device details, Historian, Live Data, System alarms, and Reports.
 
 ## Fields the UI defaults because backend-ot doesn't send them
 
 - **System alarms** (`features/alarms/`, on backend-ot's `/api/alarms` routes since 2026-09-30):
   - the page polls the snapshot every 10 s because there is no push channel (SSE/WebSocket) for raises and clears;
-  - sites have no time zone, so times show in the browser's zone;
   - a device's last poll is its newest stored native reading, since backend-ot doesn't expose poll outcomes;
   - rule notifications (`notify_mobile` / `notify_email`) are stored, but backend-ot only logs them and sends nothing. Recipients are not designed yet.
 

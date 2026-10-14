@@ -13,6 +13,8 @@ const SiteDevices = lazy(() => import("@/features/sites/SiteDevicesPage"));
 const ManageDevices = lazy(() => import("@/features/sites/ManageDevicesPage"));
 const DeviceDetails = lazy(() => import("@/features/devices/DeviceDetailsPage"));
 const Reports = lazy(() => import("@/features/reports/ReportsPage"));
+const ReportView = lazy(() => import("@/features/reports/ReportViewPage"));
+const ReportBuilder = lazy(() => import("@/features/reports/ReportBuilderPage"));
 const SLD = lazy(() => import("@/features/sld/SLDPage"));
 const TaskBuilder = lazy(() => import("@/features/task-builder/TaskBuilderPage"));
 const Simulation = lazy(() => import("@/features/simulation/SimulationPage"));
@@ -47,6 +49,8 @@ export const AppRoutes = () => {
           <Route path="/site-devices/manage" element={<DashboardLayout><ManageDevices /></DashboardLayout>} />
           <Route path="/devices/:deviceId" element={<DashboardLayout><DeviceDetails /></DashboardLayout>} />
           <Route path="/reports" element={<DashboardLayout><Reports /></DashboardLayout>} />
+          <Route path="/reports/:siteId/runs/:runId" element={<DashboardLayout><ReportView /></DashboardLayout>} />
+          <Route path="/reports/:siteId/builder" element={<DashboardLayout><ReportBuilder /></DashboardLayout>} />
           <Route path="/sld" element={<DashboardLayout><SLD /></DashboardLayout>} />
           <Route path="/task-builder" element={<DashboardLayout><TaskBuilder /></DashboardLayout>} />
           <Route path="/simulation" element={<DashboardLayout><Simulation /></DashboardLayout>} />

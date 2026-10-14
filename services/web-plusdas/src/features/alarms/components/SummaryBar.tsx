@@ -1,6 +1,6 @@
 import { ListChecks, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 export function SummaryBar({ faults, warnings, normalDevices, totalDevices, ruleCount, isBuilderOpen, onOpenRules, onToggleBuilder }: {
   faults: number;

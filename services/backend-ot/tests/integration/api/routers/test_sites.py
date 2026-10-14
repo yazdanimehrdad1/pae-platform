@@ -160,6 +160,45 @@ class TestSiteProfile:
         assert response.status_code == 400
 
 
+class TestSiteTimezone:
+    async def test_create_without_timezone_is_utc(self, client):
+        # Deliberately omit timezone, as a client that doesn't know about it would.
+        payload = site_request().model_dump(mode="json", exclude={"timezone"})
+        response = await client.post("/api/sites", json=payload)
+        assert response.status_code == 201
+        assert SiteResponse.model_validate(response.json()).timezone == "UTC"
+
+    async def test_create_persists_the_canonical_name(self, client):
+        site = await create_site(client, timezone="america/los_angeles")
+        assert site.timezone == "America/Los_Angeles"
+        fetched = SiteResponse.model_validate((await client.get(f"/api/sites/{site.site_id}")).json())
+        assert fetched.timezone == "America/Los_Angeles"
+
+    async def test_create_with_unknown_timezone_is_422(self, client):
+        payload = site_request().model_dump(mode="json") | {"timezone": "Mars/Olympus_Mons"}
+        response = await client.post("/api/sites", json=payload)
+        assert response.status_code == 422
+
+    async def test_update_changes_it(self, client):
+        site = await create_site(client)
+        body = SiteUpdateRequest(timezone="Europe/Berlin").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"/api/sites/{site.site_id}", json=body)
+        assert response.status_code == 200
+        assert SiteResponse.model_validate(response.json()).timezone == "Europe/Berlin"
+
+    async def test_update_without_timezone_keeps_it(self, client):
+        site = await create_site(client, timezone="Europe/Berlin")
+        body = SiteUpdateRequest(operator="New Operator").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"/api/sites/{site.site_id}", json=body)
+        assert SiteResponse.model_validate(response.json()).timezone == "Europe/Berlin"
+
+    async def test_update_to_unknown_timezone_is_422(self, client):
+        site = await create_site(client)
+        valid = SiteUpdateRequest(operator="x").model_dump(mode="json", exclude_unset=True)
+        response = await client.put(f"/api/sites/{site.site_id}", json=valid | {"timezone": "Nowhere/City"})
+        assert response.status_code == 422
+
+
 class TestReadSites:
     async def test_list_excludes_soft_deleted_unless_asked(self, client):
         kept = await create_site(client, name="Kept")

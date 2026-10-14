@@ -1,4 +1,5 @@
 import { Component, ReactNode } from "react";
+import { isChunkLoadError, reloadForNewBuild } from "./staleBuild";
 
 interface Props {
   children: ReactNode;
@@ -21,6 +22,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
+    // A page from an older build than the server's: reload once to get the current one.
+    if (isChunkLoadError(error) && reloadForNewBuild()) return;
     console.error("ErrorBoundary caught:", error, info.componentStack);
   }
 
@@ -31,13 +34,15 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <p className="text-destructive font-semibold mb-2">Something went wrong</p>
           <p className="text-muted-foreground text-sm">
-            {this.state.error?.message ?? "An unexpected error occurred."}
+            {isChunkLoadError(this.state.error)
+              ? "This page couldn't load, probably because the app was updated. Reload the page to get the new version."
+              : (this.state.error?.message ?? "An unexpected error occurred.")}
           </p>
           <button
             className="mt-4 text-sm underline text-primary"
-            onClick={() => this.setState({ hasError: false, error: null })}
+            onClick={() => (isChunkLoadError(this.state.error) ? window.location.reload() : this.setState({ hasError: false, error: null }))}
           >
-            Try again
+            {isChunkLoadError(this.state.error) ? "Reload" : "Try again"}
           </button>
         </div>
       );

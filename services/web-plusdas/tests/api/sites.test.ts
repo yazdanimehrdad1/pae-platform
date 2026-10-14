@@ -12,6 +12,7 @@ const alpha: SiteRecord = {
   device_count: 3,
   description: null,
   profile: 'alpha_solar',
+  timezone: 'America/Los_Angeles',
   created_at: '2026-09-24T00:00:00Z',
   updated_at: '2026-09-25T00:00:00Z',
   last_update: '2026-09-25T00:00:00Z',
@@ -39,6 +40,7 @@ describe('sitesApi.getAll', () => {
       lastUpdate: '2026-09-25T00:00:00Z',
       operator: 'Alpha Ops',
       description: '',
+      timezone: 'America/Los_Angeles',
     });
   });
 

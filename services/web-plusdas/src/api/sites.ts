@@ -15,6 +15,7 @@ function toSite(site: SiteRecord): Site {
     lastUpdate: site.last_update,
     operator: site.operator,
     description: site.description ?? '',
+    timezone: site.timezone,
   };
 }
 

@@ -7,10 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { useAlarmHistory } from "../hooks/useAlarmsData";
 import { describeCondition, type AlarmModel } from "../lib/alarmModel";
-import { SEVERITY } from "../lib/severity";
-import { formatDuration, formatSiteTime } from "../lib/siteTime";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
+import { formatDuration, formatSiteTime } from "@/shared/lib/siteTime";
 import type { AlarmEvent, Device, HistoryFilter, Severity } from "../types";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 const RANGES = [
   { value: "6h", label: "Last 6 h", ms: 6 * 3_600_000 },

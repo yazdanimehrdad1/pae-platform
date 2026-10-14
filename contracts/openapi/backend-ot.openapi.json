@@ -474,6 +474,222 @@
         "title": "AlarmEventResponse",
         "type": "object"
       },
+      "AlarmEventRow": {
+        "properties": {
+          "alarm_name": {
+            "title": "Alarm Name",
+            "type": "string"
+          },
+          "cleared_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleared At"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Raise to clear, or to the window end while active",
+            "title": "Duration Seconds"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "raised_at": {
+            "format": "date-time",
+            "title": "Raised At",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "fault",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "value_at_raise": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value At Raise"
+          }
+        },
+        "required": [
+          "event_id",
+          "alarm_name",
+          "severity",
+          "raised_at",
+          "message"
+        ],
+        "title": "AlarmEventRow",
+        "type": "object"
+      },
+      "AlarmEventsTableBlock": {
+        "additionalProperties": false,
+        "description": "The alarm events that overlap the window, newest raise first.",
+        "properties": {
+          "device_ids": {
+            "description": "Only these devices; empty for all",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "title": "Device Ids",
+            "type": "array"
+          },
+          "id": {
+            "description": "Identifier within the report: lower-case letters, digits, underscore",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "alarm_events_table",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limit": {
+            "default": 200,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fault",
+                  "warning"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only this severity; null for both",
+            "title": "Severity"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "AlarmEventsTableBlock",
+        "type": "object"
+      },
+      "AlarmEventsTableResult": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the block has no data; null when it resolved",
+            "title": "Error"
+          },
+          "kind": {
+            "const": "alarm_events_table",
+            "default": "alarm_events_table",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/AlarmEventRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "total_count": {
+            "default": 0,
+            "description": "Matching events; more than len(rows) when the block's limit cut them",
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "AlarmEventsTableResult",
+        "type": "object"
+      },
       "AlarmLogEntry": {
         "description": "One line of the event log: a raise or a clear.",
         "properties": {
@@ -644,6 +860,176 @@
         "title": "CacheSetRequest",
         "type": "object"
       },
+      "CalendarWindow": {
+        "additionalProperties": false,
+        "description": "A whole day, week (Monday to Monday) or month in the site's time zone. offset -1 is the\nprevious one (yesterday, last week, last month); 0 is the current one, up to now.",
+        "properties": {
+          "kind": {
+            "const": "calendar",
+            "title": "Kind",
+            "type": "string"
+          },
+          "offset": {
+            "default": -1,
+            "description": "0: the current period so far; -1: the previous one; -2: the one before",
+            "maximum": 0.0,
+            "minimum": -36.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "period": {
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "period"
+        ],
+        "title": "CalendarWindow",
+        "type": "object"
+      },
+      "ChartBlock": {
+        "additionalProperties": false,
+        "description": "A time chart of points and series site functions over the window.",
+        "properties": {
+          "id": {
+            "description": "Identifier within the report: lower-case letters, digits, underscore",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "chart",
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_points": {
+            "default": 500,
+            "description": "Points per series kept in the stored report (sampled like the historian's charts)",
+            "maximum": 2000.0,
+            "minimum": 100.0,
+            "title": "Max Points",
+            "type": "integer"
+          },
+          "series": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "point": "#/components/schemas/PointSeries",
+                  "site_function": "#/components/schemas/SiteFunctionSeries"
+                },
+                "propertyName": "source"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PointSeries"
+                },
+                {
+                  "$ref": "#/components/schemas/SiteFunctionSeries"
+                }
+              ]
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Series",
+            "type": "array"
+          },
+          "style": {
+            "default": "line",
+            "enum": [
+              "line",
+              "step",
+              "bar"
+            ],
+            "title": "Style",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "series"
+        ],
+        "title": "ChartBlock",
+        "type": "object"
+      },
+      "ChartResult": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the block has no data; null when it resolved",
+            "title": "Error"
+          },
+          "kind": {
+            "const": "chart",
+            "default": "chart",
+            "title": "Kind",
+            "type": "string"
+          },
+          "series": {
+            "description": "Oldest sample first; site function series keep the function's own ids",
+            "items": {
+              "$ref": "#/components/schemas/PointTimeseries"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "style": {
+            "default": "line",
+            "enum": [
+              "line",
+              "step",
+              "bar"
+            ],
+            "title": "Style",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "ChartResult",
+        "type": "object"
+      },
       "CommsStaleAlarm": {
         "description": "A device with no successful poll for more than `stale_after_sec`.",
         "properties": {
@@ -741,6 +1127,27 @@
           "lng"
         ],
         "title": "Coordinates",
+        "type": "object"
+      },
+      "DailyCadence": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "daily",
+            "title": "Kind",
+            "type": "string"
+          },
+          "time": {
+            "description": "HH:MM on the site's clock (24 h)",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "time",
+          "kind"
+        ],
+        "title": "DailyCadence",
         "type": "object"
       },
       "DeviceAlarmStatus": {
@@ -2235,6 +2642,34 @@
         "title": "EnergySummaryResult",
         "type": "object"
       },
+      "FixedWindow": {
+        "additionalProperties": false,
+        "description": "Explicit bounds, with a UTC offset.",
+        "properties": {
+          "end_time": {
+            "format": "date-time",
+            "title": "End Time",
+            "type": "string"
+          },
+          "kind": {
+            "const": "fixed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "start_time",
+          "end_time"
+        ],
+        "title": "FixedWindow",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2287,6 +2722,29 @@
           "device_id"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "HourlyCadence": {
+        "additionalProperties": false,
+        "description": "Every hour, at this minute.",
+        "properties": {
+          "kind": {
+            "const": "hourly",
+            "title": "Kind",
+            "type": "string"
+          },
+          "minute": {
+            "default": 0,
+            "maximum": 59.0,
+            "minimum": 0.0,
+            "title": "Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "HourlyCadence",
         "type": "object"
       },
       "InverterAvailabilityResult": {
@@ -2362,6 +2820,161 @@
           "online_sample_count"
         ],
         "title": "InverterAvailabilityResult",
+        "type": "object"
+      },
+      "KpiBlock": {
+        "additionalProperties": false,
+        "description": "A row of headline numbers.",
+        "properties": {
+          "id": {
+            "description": "Identifier within the report: lower-case letters, digits, underscore",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "point_stat": "#/components/schemas/PointStatKpi",
+                  "site_function": "#/components/schemas/SiteFunctionKpi"
+                },
+                "propertyName": "source"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PointStatKpi"
+                },
+                {
+                  "$ref": "#/components/schemas/SiteFunctionKpi"
+                }
+              ]
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "kpi",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "items"
+        ],
+        "title": "KpiBlock",
+        "type": "object"
+      },
+      "KpiResult": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the block has no data; null when it resolved",
+            "title": "Error"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/KpiValue"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "kpi",
+            "default": "kpi",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "KpiResult",
+        "type": "object"
+      },
+      "KpiValue": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why this item has no value (e.g. the function failed)",
+            "title": "Error"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when there was nothing to compute it from",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "KpiValue",
         "type": "object"
       },
       "LatestMeta": {
@@ -2836,6 +3449,35 @@
         "title": "Location",
         "type": "object"
       },
+      "MonthlyCadence": {
+        "additionalProperties": false,
+        "description": "On this day of every month (1 to 28, so every month has it).",
+        "properties": {
+          "day_of_month": {
+            "maximum": 28.0,
+            "minimum": 1.0,
+            "title": "Day Of Month",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "monthly",
+            "title": "Kind",
+            "type": "string"
+          },
+          "time": {
+            "description": "HH:MM on the site's clock (24 h)",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "time",
+          "kind",
+          "day_of_month"
+        ],
+        "title": "MonthlyCadence",
+        "type": "object"
+      },
       "PoiPowerResult": {
         "properties": {
           "average_kw": {
@@ -2997,6 +3639,294 @@
         "title": "PointLatest",
         "type": "object"
       },
+      "PointSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "point_id": {
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "source": {
+            "const": "point",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "point_id"
+        ],
+        "title": "PointSeries",
+        "type": "object"
+      },
+      "PointStatKpi": {
+        "additionalProperties": false,
+        "description": "One statistic of one point over the window.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to '<point> <stat>'",
+            "title": "Label"
+          },
+          "point_id": {
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "source": {
+            "const": "point_stat",
+            "title": "Source",
+            "type": "string"
+          },
+          "stat": {
+            "enum": [
+              "min",
+              "max",
+              "avg",
+              "first",
+              "last",
+              "count"
+            ],
+            "title": "Stat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "point_id",
+          "stat"
+        ],
+        "title": "PointStatKpi",
+        "type": "object"
+      },
+      "PointStatsRow": {
+        "properties": {
+          "bucket_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Start of the hour/day (UTC); null for the whole window",
+            "title": "Bucket Start"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "device_name": {
+            "title": "Device Name",
+            "type": "string"
+          },
+          "point_id": {
+            "title": "Point Id",
+            "type": "integer"
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propertyNames": {
+              "enum": [
+                "min",
+                "max",
+                "avg",
+                "first",
+                "last",
+                "count"
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "point_id",
+          "point_name",
+          "device_id",
+          "device_name"
+        ],
+        "title": "PointStatsRow",
+        "type": "object"
+      },
+      "PointStatsTableBlock": {
+        "additionalProperties": false,
+        "description": "A table of statistics per point, for the whole window or per hour/day (site time).",
+        "properties": {
+          "bucket": {
+            "default": "none",
+            "enum": [
+              "none",
+              "hour",
+              "day"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier within the report: lower-case letters, digits, underscore",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "point_stats_table",
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Point Ids",
+            "type": "array"
+          },
+          "stats": {
+            "items": {
+              "enum": [
+                "min",
+                "max",
+                "avg",
+                "first",
+                "last",
+                "count"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Stats",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "point_ids"
+        ],
+        "title": "PointStatsTableBlock",
+        "type": "object"
+      },
+      "PointStatsTableResult": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "bucket": {
+            "default": "none",
+            "enum": [
+              "none",
+              "hour",
+              "day"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the block has no data; null when it resolved",
+            "title": "Error"
+          },
+          "kind": {
+            "const": "point_stats_table",
+            "default": "point_stats_table",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rows": {
+            "description": "By point (in the block's order), then bucket",
+            "items": {
+              "$ref": "#/components/schemas/PointStatsRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "stats": {
+            "items": {
+              "enum": [
+                "min",
+                "max",
+                "avg",
+                "first",
+                "last",
+                "count"
+              ],
+              "type": "string"
+            },
+            "title": "Stats",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "PointStatsTableResult",
+        "type": "object"
+      },
       "PointTimeseries": {
         "properties": {
           "bit_labels": {
@@ -3124,6 +4054,1237 @@
           "count"
         ],
         "title": "RegisterRange",
+        "type": "object"
+      },
+      "ReportCatalogResponse": {
+        "properties": {
+          "block_kinds": {
+            "items": {
+              "enum": [
+                "text",
+                "kpi",
+                "chart",
+                "point_stats_table",
+                "alarm_events_table"
+              ],
+              "type": "string"
+            },
+            "title": "Block Kinds",
+            "type": "array"
+          },
+          "max_window_days": {
+            "default": 92,
+            "title": "Max Window Days",
+            "type": "integer"
+          },
+          "point_stats": {
+            "items": {
+              "enum": [
+                "min",
+                "max",
+                "avg",
+                "first",
+                "last",
+                "count"
+              ],
+              "type": "string"
+            },
+            "title": "Point Stats",
+            "type": "array"
+          },
+          "site_functions": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSiteFunction"
+            },
+            "title": "Site Functions",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "text_variables": {
+            "$ref": "#/components/schemas/ReportTextVariables"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "timezone",
+          "block_kinds",
+          "point_stats"
+        ],
+        "title": "ReportCatalogResponse",
+        "type": "object"
+      },
+      "ReportDefinition": {
+        "additionalProperties": false,
+        "description": "A report: the window it covers and its blocks, in order.",
+        "properties": {
+          "blocks": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "alarm_events_table": "#/components/schemas/AlarmEventsTableBlock",
+                  "chart": "#/components/schemas/ChartBlock",
+                  "kpi": "#/components/schemas/KpiBlock",
+                  "point_stats_table": "#/components/schemas/PointStatsTableBlock",
+                  "text": "#/components/schemas/TextBlock"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/KpiBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ChartBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/PointStatsTableBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AlarmEventsTableBlock"
+                }
+              ]
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Blocks",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "window": {
+            "discriminator": {
+              "mapping": {
+                "calendar": "#/components/schemas/CalendarWindow",
+                "fixed": "#/components/schemas/FixedWindow",
+                "rolling": "#/components/schemas/RollingWindow"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RollingWindow"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarWindow"
+              },
+              {
+                "$ref": "#/components/schemas/FixedWindow"
+              }
+            ],
+            "title": "Window"
+          }
+        },
+        "required": [
+          "window",
+          "blocks"
+        ],
+        "title": "ReportDefinition",
+        "type": "object"
+      },
+      "ReportRunCreateRequest": {
+        "additionalProperties": false,
+        "description": "Generate a report from a template, or from a definition given inline (an ad-hoc report).\n`window` replaces the definition's window for this run only (e.g. a custom time range).",
+        "properties": {
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Generate from this definition (exactly one of template_id and definition)"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to the template's name, or 'Custom report'",
+            "title": "Name"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Generate from this template (exactly one of template_id and definition)",
+            "title": "Template Id"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calendar": "#/components/schemas/CalendarWindow",
+                    "fixed": "#/components/schemas/FixedWindow",
+                    "rolling": "#/components/schemas/RollingWindow"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RollingWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FixedWindow"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Overrides the definition's window for this run",
+            "title": "Window"
+          }
+        },
+        "title": "ReportRunCreateRequest",
+        "type": "object"
+      },
+      "ReportRunResponse": {
+        "description": "A run with what it was generated from and, once it succeeded, the report itself.",
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the run failed; null otherwise",
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The report; set once the run succeeded"
+          },
+          "schedule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The schedule that generated it; null for one requested by hand",
+            "title": "Schedule Id"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for an ad-hoc report, or when its template was deleted",
+            "title": "Template Id"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version"
+          },
+          "trigger": {
+            "enum": [
+              "manual",
+              "schedule"
+            ],
+            "title": "Trigger",
+            "type": "string"
+          },
+          "window_end": {
+            "format": "date-time",
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date-time",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "name",
+          "status",
+          "trigger",
+          "window_start",
+          "window_end",
+          "requested_at",
+          "definition"
+        ],
+        "title": "ReportRunResponse",
+        "type": "object"
+      },
+      "ReportRunSummary": {
+        "description": "A run without its report data (for lists).",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the run failed; null otherwise",
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "schedule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The schedule that generated it; null for one requested by hand",
+            "title": "Schedule Id"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for an ad-hoc report, or when its template was deleted",
+            "title": "Template Id"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version"
+          },
+          "trigger": {
+            "enum": [
+              "manual",
+              "schedule"
+            ],
+            "title": "Trigger",
+            "type": "string"
+          },
+          "window_end": {
+            "format": "date-time",
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date-time",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "name",
+          "status",
+          "trigger",
+          "window_start",
+          "window_end",
+          "requested_at"
+        ],
+        "title": "ReportRunSummary",
+        "type": "object"
+      },
+      "ReportRunsDeleteResponse": {
+        "properties": {
+          "deleted": {
+            "description": "How many reports were deleted",
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "ReportRunsDeleteResponse",
+        "type": "object"
+      },
+      "ReportScheduleCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cadence": {
+            "discriminator": {
+              "mapping": {
+                "daily": "#/components/schemas/DailyCadence",
+                "hourly": "#/components/schemas/HourlyCadence",
+                "monthly": "#/components/schemas/MonthlyCadence",
+                "weekly": "#/components/schemas/WeeklyCadence"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HourlyCadence"
+              },
+              {
+                "$ref": "#/components/schemas/DailyCadence"
+              },
+              {
+                "$ref": "#/components/schemas/WeeklyCadence"
+              },
+              {
+                "$ref": "#/components/schemas/MonthlyCadence"
+              }
+            ],
+            "title": "Cadence"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "keep_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Delete its reports older than this many days; null keeps them",
+            "title": "Keep Days"
+          },
+          "keep_last": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Keep at most this many of its reports (newest); null keeps all",
+            "title": "Keep Last"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "integer"
+          },
+          "window_override": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calendar": "#/components/schemas/CalendarWindow",
+                    "fixed": "#/components/schemas/FixedWindow",
+                    "rolling": "#/components/schemas/RollingWindow"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RollingWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FixedWindow"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the template's window for these reports; null keeps it",
+            "title": "Window Override"
+          }
+        },
+        "required": [
+          "template_id",
+          "cadence"
+        ],
+        "title": "ReportScheduleCreateRequest",
+        "type": "object"
+      },
+      "ReportScheduleResponse": {
+        "properties": {
+          "cadence": {
+            "discriminator": {
+              "mapping": {
+                "daily": "#/components/schemas/DailyCadence",
+                "hourly": "#/components/schemas/HourlyCadence",
+                "monthly": "#/components/schemas/MonthlyCadence",
+                "weekly": "#/components/schemas/WeeklyCadence"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HourlyCadence"
+              },
+              {
+                "$ref": "#/components/schemas/DailyCadence"
+              },
+              {
+                "$ref": "#/components/schemas/WeeklyCadence"
+              },
+              {
+                "$ref": "#/components/schemas/MonthlyCadence"
+              }
+            ],
+            "title": "Cadence"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "keep_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Days"
+          },
+          "keep_last": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Last"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it last queued a report",
+            "title": "Last Run At"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it next generates (UTC); null while disabled",
+            "title": "Next Run At"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "integer"
+          },
+          "template_name": {
+            "title": "Template Name",
+            "type": "string"
+          },
+          "timezone": {
+            "description": "The site's time zone the cadence is in",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "window_override": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calendar": "#/components/schemas/CalendarWindow",
+                    "fixed": "#/components/schemas/FixedWindow",
+                    "rolling": "#/components/schemas/RollingWindow"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RollingWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FixedWindow"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Override"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "template_id",
+          "template_name",
+          "cadence",
+          "enabled",
+          "timezone",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReportScheduleResponse",
+        "type": "object"
+      },
+      "ReportScheduleUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Omitted fields keep their value; window_override, keep_last and keep_days take an explicit\nnull to clear them.",
+        "properties": {
+          "cadence": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "daily": "#/components/schemas/DailyCadence",
+                    "hourly": "#/components/schemas/HourlyCadence",
+                    "monthly": "#/components/schemas/MonthlyCadence",
+                    "weekly": "#/components/schemas/WeeklyCadence"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/HourlyCadence"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DailyCadence"
+                  },
+                  {
+                    "$ref": "#/components/schemas/WeeklyCadence"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MonthlyCadence"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cadence"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "keep_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Days"
+          },
+          "keep_last": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Last"
+          },
+          "window_override": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "calendar": "#/components/schemas/CalendarWindow",
+                    "fixed": "#/components/schemas/FixedWindow",
+                    "rolling": "#/components/schemas/RollingWindow"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RollingWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarWindow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FixedWindow"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Override"
+          }
+        },
+        "title": "ReportScheduleUpdateRequest",
+        "type": "object"
+      },
+      "ReportSiteFunction": {
+        "properties": {
+          "device_types": {
+            "description": "Device functions only; empty means every device",
+            "items": {
+              "enum": [
+                "BESS",
+                "ES",
+                "INVERTER",
+                "PV",
+                "GENERATOR",
+                "LOADBANK",
+                "RELAY",
+                "IED",
+                "METER",
+                "RTAC"
+              ],
+              "type": "string"
+            },
+            "title": "Device Types",
+            "type": "array"
+          },
+          "kind": {
+            "description": "device functions need a device_id",
+            "enum": [
+              "common",
+              "site",
+              "device"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "numeric_fields": {
+            "description": "Top-level numeric fields of the result, usable as KPI items",
+            "items": {
+              "type": "string"
+            },
+            "title": "Numeric Fields",
+            "type": "array"
+          },
+          "output": {
+            "description": "series: usable in a chart block",
+            "enum": [
+              "scalar",
+              "series"
+            ],
+            "title": "Output",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "output",
+          "summary"
+        ],
+        "title": "ReportSiteFunction",
+        "type": "object"
+      },
+      "ReportSnapshot": {
+        "description": "A generated report: the definition it was made from, its window and each block's data.",
+        "properties": {
+          "blocks": {
+            "description": "One per definition block, same order",
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "alarm_events_table": "#/components/schemas/AlarmEventsTableResult",
+                  "chart": "#/components/schemas/ChartResult",
+                  "kpi": "#/components/schemas/KpiResult",
+                  "point_stats_table": "#/components/schemas/PointStatsTableResult",
+                  "text": "#/components/schemas/TextResult"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextResult"
+                },
+                {
+                  "$ref": "#/components/schemas/KpiResult"
+                },
+                {
+                  "$ref": "#/components/schemas/ChartResult"
+                },
+                {
+                  "$ref": "#/components/schemas/PointStatsTableResult"
+                },
+                {
+                  "$ref": "#/components/schemas/AlarmEventsTableResult"
+                }
+              ]
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "site_name": {
+            "title": "Site Name",
+            "type": "string"
+          },
+          "timezone": {
+            "description": "The site's time zone when it was generated",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "window_end": {
+            "format": "date-time",
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date-time",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "site_name",
+          "timezone",
+          "window_start",
+          "window_end",
+          "generated_at",
+          "definition"
+        ],
+        "title": "ReportSnapshot",
+        "type": "object"
+      },
+      "ReportTemplateCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "description": "Unique per site, ignoring case",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "definition"
+        ],
+        "title": "ReportTemplateCreateRequest",
+        "type": "object"
+      },
+      "ReportTemplateResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "description": "Starts at 1; +1 each time the definition changes",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "name",
+          "description",
+          "definition",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReportTemplateResponse",
+        "type": "object"
+      },
+      "ReportTemplateUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Omitted fields keep their value. Changing the definition bumps the version.",
+        "properties": {
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "ReportTemplateUpdateRequest",
+        "type": "object"
+      },
+      "ReportTextVariable": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ],
+        "title": "ReportTextVariable",
+        "type": "object"
+      },
+      "ReportTextVariables": {
+        "description": "What a text block can fill in: {<site variable>}, {device:<id>.<field>}, {point:<id>.<field>}.",
+        "properties": {
+          "device_fields": {
+            "description": "Written {device:<id>.<name>}, e.g. {device:12.name}",
+            "items": {
+              "$ref": "#/components/schemas/ReportTextVariable"
+            },
+            "title": "Device Fields",
+            "type": "array"
+          },
+          "point_fields": {
+            "description": "Written {point:<id>.<name>}, e.g. {point:34.max}; statistics cover the report's period",
+            "items": {
+              "$ref": "#/components/schemas/ReportTextVariable"
+            },
+            "title": "Point Fields",
+            "type": "array"
+          },
+          "site": {
+            "description": "Written {name}, e.g. {site_name}",
+            "items": {
+              "$ref": "#/components/schemas/ReportTextVariable"
+            },
+            "title": "Site",
+            "type": "array"
+          }
+        },
+        "title": "ReportTextVariables",
+        "type": "object"
+      },
+      "RollingWindow": {
+        "additionalProperties": false,
+        "description": "The `duration` ending when the report runs (e.g. the last 1D).",
+        "properties": {
+          "duration": {
+            "description": "1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M (30 days) or 3M (90 days)",
+            "enum": [
+              "1H",
+              "6H",
+              "12H",
+              "1D",
+              "2D",
+              "3D",
+              "1W",
+              "1M",
+              "3M"
+            ],
+            "title": "Duration",
+            "type": "string"
+          },
+          "kind": {
+            "const": "rolling",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "duration"
+        ],
+        "title": "RollingWindow",
         "type": "object"
       },
       "SiteComprehensiveResponse": {
@@ -3305,6 +5466,20 @@
             ],
             "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code",
             "title": "Profile"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it. Case-insensitive, US shorthands such as 'PT' accepted; stored canonical. Omit for UTC",
+            "title": "Timezone"
           }
         },
         "required": [
@@ -3476,6 +5651,96 @@
           "profile"
         ],
         "title": "SiteEndpointsResponse",
+        "type": "object"
+      },
+      "SiteFunctionKpi": {
+        "additionalProperties": false,
+        "description": "One numeric field of a site function's result over the window (e.g. energy_kwh of\nsite-energy-summary). The report catalog lists each function's numeric fields.",
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for a device function, not allowed otherwise",
+            "title": "Device Id"
+          },
+          "field": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "function": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Function",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Defaults to the field name",
+            "title": "Label"
+          },
+          "source": {
+            "const": "site_function",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "function",
+          "field"
+        ],
+        "title": "SiteFunctionKpi",
+        "type": "object"
+      },
+      "SiteFunctionSeries": {
+        "additionalProperties": false,
+        "description": "Every series a series site function returns (e.g. site-poi-power).",
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for a device function, not allowed otherwise",
+            "title": "Device Id"
+          },
+          "function": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Function",
+            "type": "string"
+          },
+          "source": {
+            "const": "site_function",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "function"
+        ],
+        "title": "SiteFunctionSeries",
         "type": "object"
       },
       "SiteHealthResponse": {
@@ -3681,6 +5946,12 @@
             "description": "Site ID (4-digit number)",
             "title": "Site Id",
             "type": "integer"
+          },
+          "timezone": {
+            "default": "UTC",
+            "description": "IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it",
+            "title": "Timezone",
+            "type": "string"
           },
           "updated_at": {
             "description": "Timestamp when site was last updated",
@@ -3913,6 +6184,20 @@
             ],
             "description": "Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it",
             "title": "Profile"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it. Case-insensitive, US shorthands such as 'PT' accepted; stored canonical. Omit (or null) to keep the current one",
+            "title": "Timezone"
           }
         },
         "title": "SiteUpdateRequest",
@@ -4317,6 +6602,94 @@
           "nodes"
         ],
         "title": "SldValuesResponse",
+        "type": "object"
+      },
+      "TextBlock": {
+        "additionalProperties": false,
+        "description": "A paragraph with variables filled in: the site's ({site_name}, {window_start}, ...), and any\ndevice's or point's on the site ({device:12.name}, {point:34.max}). See reports/text_variables.py.",
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier within the report: lower-case letters, digits, underscore",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "text",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "body"
+        ],
+        "title": "TextBlock",
+        "type": "object"
+      },
+      "TextResult": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "body": {
+            "default": "",
+            "title": "Body",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the block has no data; null when it resolved",
+            "title": "Error"
+          },
+          "kind": {
+            "const": "text",
+            "default": "text",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "TextResult",
         "type": "object"
       },
       "ThresholdAlarm": {
@@ -5080,6 +7453,38 @@
           }
         },
         "title": "VirtualPointUpdateRequest",
+        "type": "object"
+      },
+      "WeeklyCadence": {
+        "additionalProperties": false,
+        "description": "On these weekdays (0 = Monday ... 6 = Sunday).",
+        "properties": {
+          "kind": {
+            "const": "weekly",
+            "title": "Kind",
+            "type": "string"
+          },
+          "time": {
+            "description": "HH:MM on the site's clock (24 h)",
+            "title": "Time",
+            "type": "string"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "title": "Weekdays",
+            "type": "array"
+          }
+        },
+        "required": [
+          "time",
+          "kind",
+          "weekdays"
+        ],
+        "title": "WeeklyCadence",
         "type": "object"
       }
     }
@@ -7691,6 +10096,945 @@
         "summary": "Redis Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/catalog": {
+      "get": {
+        "description": "The site's time zone (local days and buckets), the block kinds and point statistics, and the\nsite functions its profile offers: series ones for charts, numeric fields for KPIs.",
+        "operationId": "get_catalog_api_reports_site__site_id__catalog_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "What a report on this site can contain: block kinds, statistics, site functions",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/runs": {
+      "delete": {
+        "description": "Every report of the site, queued and generating ones included. Templates stay.",
+        "operationId": "delete_runs_api_reports_site__site_id__runs_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunsDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete all of a site's reports",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "get": {
+        "description": "Newest request first.",
+        "operationId": "list_runs_api_reports_site__site_id__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the reports of this template",
+            "in": "query",
+            "name": "template_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the reports of this template",
+              "title": "Template Id"
+            }
+          },
+          {
+            "description": "Only reports in this state",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "succeeded",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only reports in this state",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Only the reports of this schedule",
+            "in": "query",
+            "name": "schedule_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the reports of this schedule",
+              "title": "Schedule Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportRunSummary"
+                  },
+                  "title": "Response List Runs Api Reports Site  Site Id  Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a site's reports (without their data)",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "Queues the report and returns it 'queued'; poll GET .../runs/{run_id} until it is 'succeeded'\n(with `result`) or 'failed' (with `error`). The window is resolved now, in the site's time zone,\nand may be at most 92 days (400). `window` replaces the definition's window for this report only.",
+        "operationId": "request_run_api_reports_site__site_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRunCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request a report (from a template or an inline definition)",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/runs/{run_id}": {
+      "delete": {
+        "operationId": "delete_run_api_reports_site__site_id__runs__run_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a report",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "get": {
+        "operationId": "get_run_api_reports_site__site_id__runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a report, with its data once generated",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/runs/{run_id}/rerun": {
+      "post": {
+        "description": "Queues a new report; the original stays as it was.",
+        "operationId": "rerun_api_reports_site__site_id__runs__run_id__rerun_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate a report again (same definition and window, current data)",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/schedules": {
+      "get": {
+        "operationId": "list_schedules_api_reports_site__site_id__schedules_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportScheduleResponse"
+                  },
+                  "title": "Response List Schedules Api Reports Site  Site Id  Schedules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a site's report schedules",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "The cadence is on the site's clock. Each occurrence queues the template's current definition,\nits window resolved at the occurrence's time (or `window_override`'s). keep_last / keep_days\nprune this schedule's own reports. The template must be the site's (400).",
+        "operationId": "create_schedule_api_reports_site__site_id__schedules_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportScheduleCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Schedule a template's report",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/schedules/{schedule_id}": {
+      "delete": {
+        "description": "Returns the schedule as it was. The reports it generated stay.",
+        "operationId": "delete_schedule_api_reports_site__site_id__schedules__schedule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a report schedule",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "get": {
+        "operationId": "get_schedule_api_reports_site__site_id__schedules__schedule_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a report schedule",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "put": {
+        "description": "Omitted fields keep their value; an explicit null clears window_override, keep_last or\nkeep_days. The next time is worked out again from now.",
+        "operationId": "update_schedule_api_reports_site__site_id__schedules__schedule_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportScheduleUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a report schedule",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/templates": {
+      "get": {
+        "operationId": "list_templates_api_reports_site__site_id__templates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportTemplateResponse"
+                  },
+                  "title": "Response List Templates Api Reports Site  Site Id  Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a site's report templates",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "Every point, device and site function the definition names must be on this site and fit the\nblock it is in (400, with `errors`); the name is unique per site ignoring case (409).",
+        "operationId": "create_template_api_reports_site__site_id__templates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportTemplateCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a report template",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/site/{site_id}/templates/{template_id}": {
+      "delete": {
+        "description": "Returns the template as it was. Its generated reports stay, with template_id null.",
+        "operationId": "delete_template_api_reports_site__site_id__templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a report template",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "get": {
+        "operationId": "get_template_api_reports_site__site_id__templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a report template",
+        "tags": [
+          "reports",
+          "reports"
+        ]
+      },
+      "put": {
+        "description": "Omitted fields keep their value. A changed definition is checked like on create and bumps the\nversion; reports already generated keep the definition they were made from.",
+        "operationId": "update_template_api_reports_site__site_id__templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportTemplateUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a report template",
+        "tags": [
+          "reports",
+          "reports"
         ]
       }
     },

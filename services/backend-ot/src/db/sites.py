@@ -46,6 +46,7 @@ def _site_to_response(site: Site) -> SiteResponse:
         description=site.description,
         coordinates=coordinates,
         profile=site.profile,
+        timezone=site.timezone,
         created_at=site.created_at,
         updated_at=site.updated_at,
         last_update=site.last_update,
@@ -89,6 +90,7 @@ async def create_site(site: SiteCreateRequest) -> SiteResponse:
                 description=site.description,
                 coordinates=coordinates_dict,
                 profile=site.profile,
+                timezone=site.timezone,
                 device_count=0,
             )
 
@@ -180,6 +182,8 @@ async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteRespo
             # Omitted keeps the profile; an explicit null removes it.
             if "profile" in site_update.model_fields_set:
                 site.profile = site_update.profile
+            if site_update.timezone is not None:
+                site.timezone = site_update.timezone
 
             site.last_update = datetime.now(UTC)
 

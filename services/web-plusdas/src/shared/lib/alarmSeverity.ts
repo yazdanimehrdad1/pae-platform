@@ -1,5 +1,5 @@
 import { OctagonAlert, TriangleAlert, type LucideIcon } from "lucide-react";
-import type { Severity } from "../types";
+import type { AlarmSeverity as Severity } from "@/api/types/alarms";
 
 // Every severity is shown with three cues (color, icon shape, word), so it reads in greyscale
 // and for color-blind users. Normal has no entry: it is drawn in the default neutral colors.

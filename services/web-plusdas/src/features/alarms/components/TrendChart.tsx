@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePointSeries } from "../hooks/useAlarmsData";
-import { formatSiteTime } from "../lib/siteTime";
+import { formatSiteTime } from "@/shared/lib/siteTime";
 import { TREND_RANGES, type TrendRange } from "../lib/trendRange";
 import { operatorText } from "@/shared/components/conditions/conditionModel";
 import type { Point, Rule, Severity } from "../types";

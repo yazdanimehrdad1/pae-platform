@@ -110,12 +110,18 @@ _TIME_RANGE_DELTAS: dict[str, timedelta] = {
 }
 
 
-def resolve_time_range(time_range: str) -> tuple[datetime, datetime]:
-    """Return (start, end) UTC datetimes for the given time_range token relative to now."""
+def time_range_delta(time_range: str) -> timedelta:
+    """How long a time_range token is ('1D' -> 1 day; '1M' is 30 days, '3M' 90)."""
     delta = _TIME_RANGE_DELTAS.get(time_range)
     if delta is None:
         raise ValueError(
             f"Unknown time_range '{time_range}'. Valid values: {list(_TIME_RANGE_DELTAS)}"
         )
+    return delta
+
+
+def resolve_time_range(time_range: str) -> tuple[datetime, datetime]:
+    """Return (start, end) UTC datetimes for the given time_range token relative to now."""
+    delta = time_range_delta(time_range)
     end = datetime.now(UTC)
     return end - delta, end

@@ -13,6 +13,8 @@ export interface Site {
   lastUpdate: string;
   operator: string;
   description: string;
+  /** IANA time zone of the site (e.g. America/Los_Angeles); reports use it for local days. */
+  timezone: string;
 }
 
 // Wire types: generated from backend-ot's contract, never hand-written.

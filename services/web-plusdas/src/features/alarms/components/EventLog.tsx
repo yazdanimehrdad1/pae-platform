@@ -1,7 +1,7 @@
 import { CircleCheck } from "lucide-react";
-import { formatSiteTime } from "../lib/siteTime";
+import { formatSiteTime } from "@/shared/lib/siteTime";
 import type { AlarmLogEntry } from "../types";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 /** Raise and clear entries, newest first. */
 export function EventLog({ entries, timeZone }: { entries: AlarmLogEntry[]; timeZone: string }) {

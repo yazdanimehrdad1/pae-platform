@@ -19,7 +19,8 @@ the site chosen in the site picker. `hooks/useAlarmsData.ts` combines three read
 | History drawer | `alarmsApi.queryEvents` → `GET /api/alarms/site/{id}/events` | on open and on filter change |
 
 Durations ("active for 8 min") are measured against the snapshot's server `now`. Times show in the
-browser's time zone, because sites have none yet (`docs/backend-gaps.md`).
+site's time zone, or the user's own with the "My time" switch (`shared/hooks/useDisplayTimeZone`,
+shared with Historian and Reports).
 
 ## Alarms: two sources
 - **User rules** are built in the rule builder (`components/RuleBuilder.tsx`). There are three kinds:

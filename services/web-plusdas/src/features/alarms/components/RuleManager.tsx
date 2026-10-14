@@ -12,10 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { describeCondition, KIND_LABEL, ruleDeviceId, type AlarmModel } from "../lib/alarmModel";
-import { formatSiteTime } from "../lib/siteTime";
+import { formatSiteTime } from "@/shared/lib/siteTime";
 import type { Rule } from "../types";
 import { NotificationToggles } from "./NotificationToggles";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 /** Delay, deadband or timeout of a rule, as short lines. */
 function ruleSettings(rule: Rule): string[] {

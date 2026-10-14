@@ -92,6 +92,7 @@ async def seed(data: SeedData | None = None) -> None:
                 logger.info("Created site '%s' (id=%s)", site.name, site.id)
             else:
                 site.profile = site_request.profile  # keep older dev DBs in step with the seed
+                site.timezone = site_request.timezone
                 logger.info("Site already exists '%s' (id=%s)", site.name, site.id)
             site_by_name[site.name] = site
 

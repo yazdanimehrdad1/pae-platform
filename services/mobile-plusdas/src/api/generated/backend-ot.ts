@@ -862,6 +862,192 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/site/{site_id}/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a report on this site can contain: block kinds, statistics, site functions
+         * @description The site's time zone (local days and buckets), the block kinds and point statistics, and the
+         *     site functions its profile offers: series ones for charts, numeric fields for KPIs.
+         */
+        get: operations["get_catalog_api_reports_site__site_id__catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a site's reports (without their data)
+         * @description Newest request first.
+         */
+        get: operations["list_runs_api_reports_site__site_id__runs_get"];
+        put?: never;
+        /**
+         * Request a report (from a template or an inline definition)
+         * @description Queues the report and returns it 'queued'; poll GET .../runs/{run_id} until it is 'succeeded'
+         *     (with `result`) or 'failed' (with `error`). The window is resolved now, in the site's time zone,
+         *     and may be at most 92 days (400). `window` replaces the definition's window for this report only.
+         */
+        post: operations["request_run_api_reports_site__site_id__runs_post"];
+        /**
+         * Delete all of a site's reports
+         * @description Every report of the site, queued and generating ones included. Templates stay.
+         */
+        delete: operations["delete_runs_api_reports_site__site_id__runs_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a report, with its data once generated */
+        get: operations["get_run_api_reports_site__site_id__runs__run_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete a report */
+        delete: operations["delete_run_api_reports_site__site_id__runs__run_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/runs/{run_id}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a report again (same definition and window, current data)
+         * @description Queues a new report; the original stays as it was.
+         */
+        post: operations["rerun_api_reports_site__site_id__runs__run_id__rerun_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a site's report schedules */
+        get: operations["list_schedules_api_reports_site__site_id__schedules_get"];
+        put?: never;
+        /**
+         * Schedule a template's report
+         * @description The cadence is on the site's clock. Each occurrence queues the template's current definition,
+         *     its window resolved at the occurrence's time (or `window_override`'s). keep_last / keep_days
+         *     prune this schedule's own reports. The template must be the site's (400).
+         */
+        post: operations["create_schedule_api_reports_site__site_id__schedules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/schedules/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a report schedule */
+        get: operations["get_schedule_api_reports_site__site_id__schedules__schedule_id__get"];
+        /**
+         * Update a report schedule
+         * @description Omitted fields keep their value; an explicit null clears window_override, keep_last or
+         *     keep_days. The next time is worked out again from now.
+         */
+        put: operations["update_schedule_api_reports_site__site_id__schedules__schedule_id__put"];
+        post?: never;
+        /**
+         * Delete a report schedule
+         * @description Returns the schedule as it was. The reports it generated stay.
+         */
+        delete: operations["delete_schedule_api_reports_site__site_id__schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a site's report templates */
+        get: operations["list_templates_api_reports_site__site_id__templates_get"];
+        put?: never;
+        /**
+         * Create a report template
+         * @description Every point, device and site function the definition names must be on this site and fit the
+         *     block it is in (400, with `errors`); the name is unique per site ignoring case (409).
+         */
+        post: operations["create_template_api_reports_site__site_id__templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/site/{site_id}/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a report template */
+        get: operations["get_template_api_reports_site__site_id__templates__template_id__get"];
+        /**
+         * Update a report template
+         * @description Omitted fields keep their value. A changed definition is checked like on create and bumps the
+         *     version; reports already generated keep the definition they were made from.
+         */
+        put: operations["update_template_api_reports_site__site_id__templates__template_id__put"];
+        post?: never;
+        /**
+         * Delete a report template
+         * @description Returns the template as it was. Its generated reports stay, with template_id null.
+         */
+        delete: operations["delete_template_api_reports_site__site_id__templates__template_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/site-functions/site/{site_id}": {
         parameters: {
             query?: never;
@@ -1300,6 +1486,96 @@ export interface components {
             /** Value At Raise */
             value_at_raise?: number | null;
         };
+        /** AlarmEventRow */
+        AlarmEventRow: {
+            /** Alarm Name */
+            alarm_name: string;
+            /** Cleared At */
+            cleared_at?: string | null;
+            /** Device Id */
+            device_id?: number | null;
+            /** Device Name */
+            device_name?: string | null;
+            /**
+             * Duration Seconds
+             * @description Raise to clear, or to the window end while active
+             */
+            duration_seconds?: number | null;
+            /** Event Id */
+            event_id: number;
+            /** Message */
+            message: string;
+            /**
+             * Raised At
+             * Format: date-time
+             */
+            raised_at: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "fault" | "warning";
+            /** Value At Raise */
+            value_at_raise?: number | null;
+        };
+        /**
+         * AlarmEventsTableBlock
+         * @description The alarm events that overlap the window, newest raise first.
+         */
+        AlarmEventsTableBlock: {
+            /**
+             * Device Ids
+             * @description Only these devices; empty for all
+             */
+            device_ids?: number[];
+            /**
+             * Id
+             * @description Identifier within the report: lower-case letters, digits, underscore
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "alarm_events_table";
+            /**
+             * Limit
+             * @default 200
+             */
+            limit: number;
+            /**
+             * Severity
+             * @description Only this severity; null for both
+             */
+            severity?: ("fault" | "warning") | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** AlarmEventsTableResult */
+        AlarmEventsTableResult: {
+            /** Block Id */
+            block_id: string;
+            /**
+             * Error
+             * @description Why the block has no data; null when it resolved
+             */
+            error?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "alarm_events_table";
+            /** Rows */
+            rows?: components["schemas"]["AlarmEventRow"][];
+            /** Title */
+            title?: string | null;
+            /**
+             * Total Count
+             * @description Matching events; more than len(rows) when the block's limit cut them
+             * @default 0
+             */
+            total_count: number;
+        };
         /**
          * AlarmLogEntry
          * @description One line of the event log: a raise or a clear.
@@ -1403,6 +1679,89 @@ export interface components {
             value: unknown;
         };
         /**
+         * CalendarWindow
+         * @description A whole day, week (Monday to Monday) or month in the site's time zone. offset -1 is the
+         *     previous one (yesterday, last week, last month); 0 is the current one, up to now.
+         */
+        CalendarWindow: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "calendar";
+            /**
+             * Offset
+             * @description 0: the current period so far; -1: the previous one; -2: the one before
+             * @default -1
+             */
+            offset: number;
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "day" | "week" | "month";
+        };
+        /**
+         * ChartBlock
+         * @description A time chart of points and series site functions over the window.
+         */
+        ChartBlock: {
+            /**
+             * Id
+             * @description Identifier within the report: lower-case letters, digits, underscore
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "chart";
+            /**
+             * Max Points
+             * @description Points per series kept in the stored report (sampled like the historian's charts)
+             * @default 500
+             */
+            max_points: number;
+            /** Series */
+            series: (components["schemas"]["PointSeries"] | components["schemas"]["SiteFunctionSeries"])[];
+            /**
+             * Style
+             * @default line
+             * @enum {string}
+             */
+            style: "line" | "step" | "bar";
+            /** Title */
+            title?: string | null;
+        };
+        /** ChartResult */
+        ChartResult: {
+            /** Block Id */
+            block_id: string;
+            /**
+             * Error
+             * @description Why the block has no data; null when it resolved
+             */
+            error?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "chart";
+            /**
+             * Series
+             * @description Oldest sample first; site function series keep the function's own ids
+             */
+            series?: components["schemas"]["PointTimeseries"][];
+            /**
+             * Style
+             * @default line
+             * @enum {string}
+             */
+            style: "line" | "step" | "bar";
+            /** Title */
+            title?: string | null;
+        };
+        /**
          * CommsStaleAlarm
          * @description A device with no successful poll for more than `stale_after_sec`.
          */
@@ -1468,6 +1827,19 @@ export interface components {
              * @description Longitude
              */
             lng: number;
+        };
+        /** DailyCadence */
+        DailyCadence: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "daily";
+            /**
+             * Time
+             * @description HH:MM on the site's clock (24 h)
+             */
+            time: string;
         };
         /**
          * DeviceAlarmStatus
@@ -2138,6 +2510,27 @@ export interface components {
              */
             start_time: string;
         };
+        /**
+         * FixedWindow
+         * @description Explicit bounds, with a UTC offset.
+         */
+        FixedWindow: {
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fixed";
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2161,6 +2554,22 @@ export interface components {
             ok: boolean;
             /** Port */
             port: number;
+        };
+        /**
+         * HourlyCadence
+         * @description Every hour, at this minute.
+         */
+        HourlyCadence: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "hourly";
+            /**
+             * Minute
+             * @default 0
+             */
+            minute: number;
         };
         /** InverterAvailabilityResult */
         InverterAvailabilityResult: {
@@ -2199,6 +2608,62 @@ export interface components {
              * @description The state points that were evaluated
              */
             state_points: string[];
+        };
+        /**
+         * KpiBlock
+         * @description A row of headline numbers.
+         */
+        KpiBlock: {
+            /**
+             * Id
+             * @description Identifier within the report: lower-case letters, digits, underscore
+             */
+            id: string;
+            /** Items */
+            items: (components["schemas"]["PointStatKpi"] | components["schemas"]["SiteFunctionKpi"])[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "kpi";
+            /** Title */
+            title?: string | null;
+        };
+        /** KpiResult */
+        KpiResult: {
+            /** Block Id */
+            block_id: string;
+            /**
+             * Error
+             * @description Why the block has no data; null when it resolved
+             */
+            error?: string | null;
+            /** Items */
+            items?: components["schemas"]["KpiValue"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "kpi";
+            /** Title */
+            title?: string | null;
+        };
+        /** KpiValue */
+        KpiValue: {
+            /**
+             * Error
+             * @description Why this item has no value (e.g. the function failed)
+             */
+            error?: string | null;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Value
+             * @description Null when there was nothing to compute it from
+             */
+            value?: number | null;
         };
         /** LatestMeta */
         LatestMeta: {
@@ -2406,6 +2871,24 @@ export interface components {
              */
             zip_code: number;
         };
+        /**
+         * MonthlyCadence
+         * @description On this day of every month (1 to 28, so every month has it).
+         */
+        MonthlyCadence: {
+            /** Day Of Month */
+            day_of_month: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "monthly";
+            /**
+             * Time
+             * @description HH:MM on the site's clock (24 h)
+             */
+            time: string;
+        };
         /** PoiPowerResult */
         PoiPowerResult: {
             /**
@@ -2456,6 +2939,119 @@ export interface components {
             /** Value */
             value?: number | null;
         };
+        /** PointSeries */
+        PointSeries: {
+            /** Point Id */
+            point_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "point";
+        };
+        /**
+         * PointStatKpi
+         * @description One statistic of one point over the window.
+         */
+        PointStatKpi: {
+            /**
+             * Label
+             * @description Defaults to '<point> <stat>'
+             */
+            label?: string | null;
+            /** Point Id */
+            point_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "point_stat";
+            /**
+             * Stat
+             * @enum {string}
+             */
+            stat: "min" | "max" | "avg" | "first" | "last" | "count";
+        };
+        /** PointStatsRow */
+        PointStatsRow: {
+            /**
+             * Bucket Start
+             * @description Start of the hour/day (UTC); null for the whole window
+             */
+            bucket_start?: string | null;
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /** Point Id */
+            point_id: number;
+            /** Point Name */
+            point_name: string;
+            /** Unit */
+            unit?: string | null;
+            /** Values */
+            values?: {
+                [key: string]: number | null;
+            };
+        };
+        /**
+         * PointStatsTableBlock
+         * @description A table of statistics per point, for the whole window or per hour/day (site time).
+         */
+        PointStatsTableBlock: {
+            /**
+             * Bucket
+             * @default none
+             * @enum {string}
+             */
+            bucket: "none" | "hour" | "day";
+            /**
+             * Id
+             * @description Identifier within the report: lower-case letters, digits, underscore
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "point_stats_table";
+            /** Point Ids */
+            point_ids: number[];
+            /** Stats */
+            stats?: ("min" | "max" | "avg" | "first" | "last" | "count")[];
+            /** Title */
+            title?: string | null;
+        };
+        /** PointStatsTableResult */
+        PointStatsTableResult: {
+            /** Block Id */
+            block_id: string;
+            /**
+             * Bucket
+             * @default none
+             * @enum {string}
+             */
+            bucket: "none" | "hour" | "day";
+            /**
+             * Error
+             * @description Why the block has no data; null when it resolved
+             */
+            error?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "point_stats_table";
+            /**
+             * Rows
+             * @description By point (in the block's order), then bucket
+             */
+            rows?: components["schemas"]["PointStatsRow"][];
+            /** Stats */
+            stats?: ("min" | "max" | "avg" | "first" | "last" | "count")[];
+            /** Title */
+            title?: string | null;
+        };
         /** PointTimeseries */
         PointTimeseries: {
             /** Bit Labels */
@@ -2493,6 +3089,450 @@ export interface components {
             count: number;
             /** Start Index */
             start_index: number;
+        };
+        /** ReportCatalogResponse */
+        ReportCatalogResponse: {
+            /** Block Kinds */
+            block_kinds: ("text" | "kpi" | "chart" | "point_stats_table" | "alarm_events_table")[];
+            /**
+             * Max Window Days
+             * @default 92
+             */
+            max_window_days: number;
+            /** Point Stats */
+            point_stats: ("min" | "max" | "avg" | "first" | "last" | "count")[];
+            /** Site Functions */
+            site_functions?: components["schemas"]["ReportSiteFunction"][];
+            /** Site Id */
+            site_id: number;
+            text_variables?: components["schemas"]["ReportTextVariables"];
+            /** Timezone */
+            timezone: string;
+        };
+        /**
+         * ReportDefinition
+         * @description A report: the window it covers and its blocks, in order.
+         */
+        ReportDefinition: {
+            /** Blocks */
+            blocks: (components["schemas"]["TextBlock"] | components["schemas"]["KpiBlock"] | components["schemas"]["ChartBlock"] | components["schemas"]["PointStatsTableBlock"] | components["schemas"]["AlarmEventsTableBlock"])[];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Window */
+            window: components["schemas"]["RollingWindow"] | components["schemas"]["CalendarWindow"] | components["schemas"]["FixedWindow"];
+        };
+        /**
+         * ReportRunCreateRequest
+         * @description Generate a report from a template, or from a definition given inline (an ad-hoc report).
+         *     `window` replaces the definition's window for this run only (e.g. a custom time range).
+         */
+        ReportRunCreateRequest: {
+            /** @description Generate from this definition (exactly one of template_id and definition) */
+            definition?: components["schemas"]["ReportDefinition"] | null;
+            /**
+             * Name
+             * @description Defaults to the template's name, or 'Custom report'
+             */
+            name?: string | null;
+            /**
+             * Template Id
+             * @description Generate from this template (exactly one of template_id and definition)
+             */
+            template_id?: number | null;
+            /**
+             * Window
+             * @description Overrides the definition's window for this run
+             */
+            window?: (components["schemas"]["RollingWindow"] | components["schemas"]["CalendarWindow"] | components["schemas"]["FixedWindow"]) | null;
+        };
+        /**
+         * ReportRunResponse
+         * @description A run with what it was generated from and, once it succeeded, the report itself.
+         */
+        ReportRunResponse: {
+            definition: components["schemas"]["ReportDefinition"];
+            /**
+             * Error
+             * @description Why the run failed; null otherwise
+             */
+            error?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** @description The report; set once the run succeeded */
+            result?: components["schemas"]["ReportSnapshot"] | null;
+            /**
+             * Schedule Id
+             * @description The schedule that generated it; null for one requested by hand
+             */
+            schedule_id?: number | null;
+            /** Site Id */
+            site_id: number;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed";
+            /**
+             * Template Id
+             * @description Null for an ad-hoc report, or when its template was deleted
+             */
+            template_id?: number | null;
+            /** Template Version */
+            template_version?: number | null;
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "manual" | "schedule";
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+        };
+        /**
+         * ReportRunSummary
+         * @description A run without its report data (for lists).
+         */
+        ReportRunSummary: {
+            /**
+             * Error
+             * @description Why the run failed; null otherwise
+             */
+            error?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /**
+             * Schedule Id
+             * @description The schedule that generated it; null for one requested by hand
+             */
+            schedule_id?: number | null;
+            /** Site Id */
+            site_id: number;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed";
+            /**
+             * Template Id
+             * @description Null for an ad-hoc report, or when its template was deleted
+             */
+            template_id?: number | null;
+            /** Template Version */
+            template_version?: number | null;
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "manual" | "schedule";
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+        };
+        /** ReportRunsDeleteResponse */
+        ReportRunsDeleteResponse: {
+            /**
+             * Deleted
+             * @description How many reports were deleted
+             */
+            deleted: number;
+        };
+        /** ReportScheduleCreateRequest */
+        ReportScheduleCreateRequest: {
+            /** Cadence */
+            cadence: components["schemas"]["HourlyCadence"] | components["schemas"]["DailyCadence"] | components["schemas"]["WeeklyCadence"] | components["schemas"]["MonthlyCadence"];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Keep Days
+             * @description Delete its reports older than this many days; null keeps them
+             */
+            keep_days?: number | null;
+            /**
+             * Keep Last
+             * @description Keep at most this many of its reports (newest); null keeps all
+             */
+            keep_last?: number | null;
+            /** Template Id */
+            template_id: number;
+            /**
+             * Window Override
+             * @description Replaces the template's window for these reports; null keeps it
+             */
+            window_override?: (components["schemas"]["RollingWindow"] | components["schemas"]["CalendarWindow"] | components["schemas"]["FixedWindow"]) | null;
+        };
+        /** ReportScheduleResponse */
+        ReportScheduleResponse: {
+            /** Cadence */
+            cadence: components["schemas"]["HourlyCadence"] | components["schemas"]["DailyCadence"] | components["schemas"]["WeeklyCadence"] | components["schemas"]["MonthlyCadence"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: number;
+            /** Keep Days */
+            keep_days?: number | null;
+            /** Keep Last */
+            keep_last?: number | null;
+            /**
+             * Last Run At
+             * @description When it last queued a report
+             */
+            last_run_at?: string | null;
+            /**
+             * Next Run At
+             * @description When it next generates (UTC); null while disabled
+             */
+            next_run_at?: string | null;
+            /** Site Id */
+            site_id: number;
+            /** Template Id */
+            template_id: number;
+            /** Template Name */
+            template_name: string;
+            /**
+             * Timezone
+             * @description The site's time zone the cadence is in
+             */
+            timezone: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Window Override */
+            window_override?: (components["schemas"]["RollingWindow"] | components["schemas"]["CalendarWindow"] | components["schemas"]["FixedWindow"]) | null;
+        };
+        /**
+         * ReportScheduleUpdateRequest
+         * @description Omitted fields keep their value; window_override, keep_last and keep_days take an explicit
+         *     null to clear them.
+         */
+        ReportScheduleUpdateRequest: {
+            /** Cadence */
+            cadence?: (components["schemas"]["HourlyCadence"] | components["schemas"]["DailyCadence"] | components["schemas"]["WeeklyCadence"] | components["schemas"]["MonthlyCadence"]) | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Keep Days */
+            keep_days?: number | null;
+            /** Keep Last */
+            keep_last?: number | null;
+            /** Window Override */
+            window_override?: (components["schemas"]["RollingWindow"] | components["schemas"]["CalendarWindow"] | components["schemas"]["FixedWindow"]) | null;
+        };
+        /** ReportSiteFunction */
+        ReportSiteFunction: {
+            /**
+             * Device Types
+             * @description Device functions only; empty means every device
+             */
+            device_types?: ("BESS" | "ES" | "INVERTER" | "PV" | "GENERATOR" | "LOADBANK" | "RELAY" | "IED" | "METER" | "RTAC")[];
+            /**
+             * Kind
+             * @description device functions need a device_id
+             * @enum {string}
+             */
+            kind: "common" | "site" | "device";
+            /** Name */
+            name: string;
+            /**
+             * Numeric Fields
+             * @description Top-level numeric fields of the result, usable as KPI items
+             */
+            numeric_fields?: string[];
+            /**
+             * Output
+             * @description series: usable in a chart block
+             * @enum {string}
+             */
+            output: "scalar" | "series";
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * ReportSnapshot
+         * @description A generated report: the definition it was made from, its window and each block's data.
+         */
+        ReportSnapshot: {
+            /**
+             * Blocks
+             * @description One per definition block, same order
+             */
+            blocks?: (components["schemas"]["TextResult"] | components["schemas"]["KpiResult"] | components["schemas"]["ChartResult"] | components["schemas"]["PointStatsTableResult"] | components["schemas"]["AlarmEventsTableResult"])[];
+            definition: components["schemas"]["ReportDefinition"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Site Id */
+            site_id: number;
+            /** Site Name */
+            site_name: string;
+            /**
+             * Timezone
+             * @description The site's time zone when it was generated
+             */
+            timezone: string;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+        };
+        /** ReportTemplateCreateRequest */
+        ReportTemplateCreateRequest: {
+            definition: components["schemas"]["ReportDefinition"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Name
+             * @description Unique per site, ignoring case
+             */
+            name: string;
+        };
+        /** ReportTemplateResponse */
+        ReportTemplateResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            definition: components["schemas"]["ReportDefinition"];
+            /** Description */
+            description: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Site Id */
+            site_id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Version
+             * @description Starts at 1; +1 each time the definition changes
+             */
+            version: number;
+        };
+        /**
+         * ReportTemplateUpdateRequest
+         * @description Omitted fields keep their value. Changing the definition bumps the version.
+         */
+        ReportTemplateUpdateRequest: {
+            definition?: components["schemas"]["ReportDefinition"] | null;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name?: string | null;
+        };
+        /** ReportTextVariable */
+        ReportTextVariable: {
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ReportTextVariables
+         * @description What a text block can fill in: {<site variable>}, {device:<id>.<field>}, {point:<id>.<field>}.
+         */
+        ReportTextVariables: {
+            /**
+             * Device Fields
+             * @description Written {device:<id>.<name>}, e.g. {device:12.name}
+             */
+            device_fields?: components["schemas"]["ReportTextVariable"][];
+            /**
+             * Point Fields
+             * @description Written {point:<id>.<name>}, e.g. {point:34.max}; statistics cover the report's period
+             */
+            point_fields?: components["schemas"]["ReportTextVariable"][];
+            /**
+             * Site
+             * @description Written {name}, e.g. {site_name}
+             */
+            site?: components["schemas"]["ReportTextVariable"][];
+        };
+        /**
+         * RollingWindow
+         * @description The `duration` ending when the report runs (e.g. the last 1D).
+         */
+        RollingWindow: {
+            /**
+             * Duration
+             * @description 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M (30 days) or 3M (90 days)
+             * @enum {string}
+             */
+            duration: "1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "rolling";
         };
         /**
          * SiteComprehensiveResponse
@@ -2601,6 +3641,11 @@ export interface components {
              * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code
              */
             profile?: string | null;
+            /**
+             * Timezone
+             * @description IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it. Case-insensitive, US shorthands such as 'PT' accepted; stored canonical. Omit for UTC
+             */
+            timezone?: string | null;
         };
         /**
          * SiteDeleteResponse
@@ -2679,6 +3724,50 @@ export interface components {
             profile: string | null;
             /** Site Id */
             site_id: number;
+        };
+        /**
+         * SiteFunctionKpi
+         * @description One numeric field of a site function's result over the window (e.g. energy_kwh of
+         *     site-energy-summary). The report catalog lists each function's numeric fields.
+         */
+        SiteFunctionKpi: {
+            /**
+             * Device Id
+             * @description Required for a device function, not allowed otherwise
+             */
+            device_id?: number | null;
+            /** Field */
+            field: string;
+            /** Function */
+            function: string;
+            /**
+             * Label
+             * @description Defaults to the field name
+             */
+            label?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "site_function";
+        };
+        /**
+         * SiteFunctionSeries
+         * @description Every series a series site function returns (e.g. site-poi-power).
+         */
+        SiteFunctionSeries: {
+            /**
+             * Device Id
+             * @description Required for a device function, not allowed otherwise
+             */
+            device_id?: number | null;
+            /** Function */
+            function: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "site_function";
         };
         /**
          * SiteHealthResponse
@@ -2798,6 +3887,12 @@ export interface components {
              */
             site_id: number;
             /**
+             * Timezone
+             * @description IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it
+             * @default UTC
+             */
+            timezone: string;
+            /**
              * Updated At
              * Format: date-time
              * @description Timestamp when site was last updated
@@ -2904,6 +3999,11 @@ export interface components {
              * @description Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it
              */
             profile?: string | null;
+            /**
+             * Timezone
+             * @description IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it. Case-insensitive, US shorthands such as 'PT' accepted; stored canonical. Omit (or null) to keep the current one
+             */
+            timezone?: string | null;
         };
         /**
          * SldBus
@@ -3103,6 +4203,49 @@ export interface components {
              * @description The SLD revision these links come from
              */
             sld_revision: number;
+        };
+        /**
+         * TextBlock
+         * @description A paragraph with variables filled in: the site's ({site_name}, {window_start}, ...), and any
+         *     device's or point's on the site ({device:12.name}, {point:34.max}). See reports/text_variables.py.
+         */
+        TextBlock: {
+            /** Body */
+            body: string;
+            /**
+             * Id
+             * @description Identifier within the report: lower-case letters, digits, underscore
+             */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "text";
+            /** Title */
+            title?: string | null;
+        };
+        /** TextResult */
+        TextResult: {
+            /** Block Id */
+            block_id: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Error
+             * @description Why the block has no data; null when it resolved
+             */
+            error?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "text";
+            /** Title */
+            title?: string | null;
         };
         /**
          * ThresholdAlarm
@@ -3426,6 +4569,24 @@ export interface components {
             severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             /** Unit */
             unit?: string | null;
+        };
+        /**
+         * WeeklyCadence
+         * @description On these weekdays (0 = Monday ... 6 = Sunday).
+         */
+        WeeklyCadence: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "weekly";
+            /**
+             * Time
+             * @description HH:MM on the site's clock (24 h)
+             */
+            time: string;
+            /** Weekdays */
+            weekdays: number[];
         };
     };
     responses: never;
@@ -4902,6 +6063,570 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_catalog_api_reports_site__site_id__catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCatalogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_reports_site__site_id__runs_get: {
+        parameters: {
+            query?: {
+                /** @description Only the reports of this template */
+                template_id?: number | null;
+                /** @description Only reports in this state */
+                status?: ("queued" | "running" | "succeeded" | "failed") | null;
+                /** @description Only the reports of this schedule */
+                schedule_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_run_api_reports_site__site_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportRunCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_runs_api_reports_site__site_id__runs_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunsDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_reports_site__site_id__runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_run_api_reports_site__site_id__runs__run_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rerun_api_reports_site__site_id__runs__run_id__rerun_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_schedules_api_reports_site__site_id__schedules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportScheduleResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_schedule_api_reports_site__site_id__schedules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportScheduleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_api_reports_site__site_id__schedules__schedule_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_schedule_api_reports_site__site_id__schedules__schedule_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportScheduleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_schedule_api_reports_site__site_id__schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_templates_api_reports_site__site_id__templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportTemplateResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_template_api_reports_site__site_id__templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportTemplateCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportTemplateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_template_api_reports_site__site_id__templates__template_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportTemplateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_template_api_reports_site__site_id__templates__template_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportTemplateUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportTemplateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_template_api_reports_site__site_id__templates__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportTemplateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

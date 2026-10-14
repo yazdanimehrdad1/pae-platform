@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import type { SiteRecord, SiteCreateRequest } from "@/api/types/sites";
+import { BROWSER_TIME_ZONE } from "@/shared/hooks/useDisplayTimeZone";
+import { TimeZoneCombobox } from "./components/TimeZoneCombobox";
+import { isTimeZone } from "./lib/timeZones";
 
 const formSchema = z.object({
   client_id: z.string().min(1, "Required"),
@@ -23,6 +26,8 @@ const formSchema = z.object({
   // Coordinates are optional (nullable in the contract): both blank means none.
   lat: z.string(),
   lng: z.string(),
+  // The site's local time: its reports' days and schedules, and how its times are shown.
+  timezone: z.string().trim().min(1, "Required").refine(isTimeZone, "Choose a time zone from the list"),
 }).superRefine((values, ctx) => {
   if (values.lat.trim() === "" && values.lng.trim() === "") return;
   for (const field of ["lat", "lng"] as const) {
@@ -46,6 +51,7 @@ const emptyValues: FormValues = {
   zip_code: 0,
   lat: "",
   lng: "",
+  timezone: BROWSER_TIME_ZONE,
 };
 
 function fromSite(site: SiteRecord): FormValues {
@@ -61,6 +67,7 @@ function fromSite(site: SiteRecord): FormValues {
     zip_code: site.location?.zip_code ?? 0,
     lat: site.coordinates ? String(site.coordinates.lat) : "",
     lng: site.coordinates ? String(site.coordinates.lng) : "",
+    timezone: site.timezone,
   };
 }
 
@@ -75,6 +82,7 @@ function toRequest(values: FormValues): SiteCreateRequest {
     coordinates: values.lat.trim() === ""
       ? null
       : { lat: Number(values.lat), lng: Number(values.lng) },
+    timezone: values.timezone.trim(),
   };
 }
 
@@ -84,7 +92,7 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
   site?: SiteRecord;
   onSubmit: (payload: SiteCreateRequest) => Promise<void>;
 }) {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     values: site ? fromSite(site) : emptyValues,
   });
@@ -130,6 +138,15 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
               <Input id="capacity" placeholder="e.g. 100kW" {...register("capacity")} />
               {errors.capacity && <p className="text-xs text-destructive">{errors.capacity.message}</p>}
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="timezone">Time zone</Label>
+            <Controller control={control} name="timezone" render={({ field }) => (
+              <TimeZoneCombobox id="timezone" value={field.value} onChange={field.onChange} invalid={Boolean(errors.timezone)} />
+            )} />
+            <p className="text-xs text-muted-foreground">Where the site is: its reports use this zone's days, and its times are shown in it.</p>
+            {errors.timezone && <p className="text-xs text-destructive">{errors.timezone.message}</p>}
           </div>
 
           <div className="space-y-1">

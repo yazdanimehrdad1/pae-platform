@@ -86,6 +86,9 @@ class SiteResponse(BaseModel):
     profile: str | None = Field(
         None, description="Site profile key selecting the site's endpoints, unique per site; null if the site has no site-specific code"
     )
+    timezone: str = Field(
+        "UTC", description="IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules resolve in it"
+    )
     created_at: datetime = Field(..., description="Timestamp when site was created")
     updated_at: datetime = Field(..., description="Timestamp when site was last updated")
     last_update: datetime = Field(..., description="Timestamp of last update")
