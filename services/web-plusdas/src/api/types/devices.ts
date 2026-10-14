@@ -57,6 +57,8 @@ export type PointGroup = (typeof POINT_GROUP_ORDER)[number];
 export interface DevicePointsEntry {
   deviceId: number;
   deviceName: string;
+  // The device type as backend-ot stores it, upper case ("INVERTER").
+  deviceType: string;
   groups: Record<PointGroup, DevicePoint[]>;
   points: DevicePoint[];
 }

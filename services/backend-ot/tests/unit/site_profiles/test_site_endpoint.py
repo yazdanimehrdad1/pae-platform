@@ -1,7 +1,8 @@
 """
-Unit tests for site_profiles.site_endpoint.
+Unit tests for site_profiles.declarations.endpoint.
 
-Guards the standard endpoint declaration: a controller must be async, and a profile
+Guards the standard endpoint declaration: a controller must be async, device_types is only
+for device endpoints, and a profile
 serves exactly the endpoints it declares, looked up by their full prefixed name.
 """
 
@@ -9,14 +10,16 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from schemas.site_profiles import EnergySummaryResult, SiteContext, TimeWindowParams
-from site_profiles.common.functions import common_energy_summary
-from site_profiles.individual_sites.alpha_solar.functions import (
+from schemas.site_profiles.individual_sites.alpha_solar import InverterAvailabilityResult
+from site_profiles.declarations.endpoint import SiteEndpoint
+from site_profiles.individual_sites.alpha_solar.alpha_solar_functions import (
     device_inverter_availability,
     device_plant_inverter_availability,
+    site_energy_series,
+    site_energy_summary,
     site_poi_power,
 )
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
-from site_profiles.site_endpoint import SiteEndpoint
 
 
 def sync_controller(ctx: SiteContext, params: TimeWindowParams) -> BaseModel:
@@ -38,21 +41,70 @@ class TestSiteEndpoint:
     def test_params_model_defaults_to_time_window(self):
         endpoint = SiteEndpoint(
             method="GET",
-            kind="common",
-            name="common-energy-summary",
-            controller=common_energy_summary,
+            kind="site",
+            name="site-energy-summary",
+            controller=site_energy_summary,
             response_model=EnergySummaryResult,
             summary="energy",
         )
         assert endpoint.params_model is TimeWindowParams
 
+    def test_output_defaults_to_scalar_for_every_device(self):
+        endpoint = SiteEndpoint(
+            method="GET",
+            kind="site",
+            name="site-energy-summary",
+            controller=site_energy_summary,
+            response_model=EnergySummaryResult,
+            summary="energy",
+        )
+        assert endpoint.output == "scalar"
+        assert endpoint.device_types == ()
+
+    def test_device_endpoint_may_name_device_types(self):
+        endpoint = SiteEndpoint(
+            method="GET",
+            kind="device",
+            name="device-inverter-availability",
+            controller=device_inverter_availability,
+            response_model=InverterAvailabilityResult,
+            summary="availability",
+            device_types=("INVERTER", "PV"),
+        )
+        assert endpoint.device_types == ("INVERTER", "PV")
+
+    @pytest.mark.parametrize("kind", ["site", "common"])
+    def test_device_types_on_a_non_device_endpoint_is_rejected(self, kind):
+        with pytest.raises(ValidationError, match="only for device endpoints"):
+            SiteEndpoint(
+                method="GET",
+                kind=kind,
+                name=f"{kind}-energy-summary",
+                controller=site_energy_summary,
+                response_model=EnergySummaryResult,
+                summary="energy",
+                device_types=("INVERTER",),
+            )
+
+    def test_unknown_device_type_is_rejected(self):
+        with pytest.raises(ValidationError):
+            SiteEndpoint(
+                method="GET",
+                kind="device",
+                name="device-inverter-availability",
+                controller=device_inverter_availability,
+                response_model=InverterAvailabilityResult,
+                summary="availability",
+                device_types=("TOASTER",),  # type: ignore[arg-type]
+            )
+
     def test_only_get_is_allowed(self):
         with pytest.raises(ValidationError):
             SiteEndpoint(
                 method="POST",  # type: ignore[arg-type]
-                kind="common",
-                name="common-energy-summary",
-                controller=common_energy_summary,
+                kind="site",
+                name="site-energy-summary",
+                controller=site_energy_summary,
                 response_model=EnergySummaryResult,
                 summary="energy",
             )
@@ -61,7 +113,8 @@ class TestSiteEndpoint:
 class TestFindEndpoint:
     def test_finds_each_declared_endpoint_by_name(self):
         controllers = {
-            "common-energy-summary": common_energy_summary,
+            "site-energy-series": site_energy_series,
+            "site-energy-summary": site_energy_summary,
             "site-poi-power": site_poi_power,
             "device-inverter-availability": device_inverter_availability,
             "device-plant-inverter-availability": device_plant_inverter_availability,

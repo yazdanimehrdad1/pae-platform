@@ -19,6 +19,7 @@ function site(siteId: number, name: string, overrides: Partial<Site> = {}): Site
     operator: "PAE",
     capacity: "5 MW",
     device_count: 9,
+    timezone: "UTC",
     created_at: now,
     updated_at: now,
     last_update: now,

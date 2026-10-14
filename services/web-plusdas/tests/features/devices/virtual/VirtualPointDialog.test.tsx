@@ -16,7 +16,7 @@ const calculationPoint = {
 
 function renderDialog(point: DevicePoint | null = null) {
   vi.spyOn(devicesApi, 'getBySiteWithPoints').mockResolvedValue([{
-    deviceId: 2, deviceName: 'bess', groups: { standardized: [], virtual: [], native: [] },
+    deviceId: 2, deviceName: 'bess', deviceType: 'BESS', groups: { standardized: [], virtual: [], native: [] },
     points: [
       { id: 1, name: 'power_a', category: 'NATIVE', data_type: 'uint16', unit: 'W' },
       { id: 3, name: 'power_b', category: 'NATIVE', data_type: 'uint16', unit: 'W' },

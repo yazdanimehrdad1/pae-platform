@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from helpers.common.date_time import resolve_timezone
 from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.types import DataType, DeviceType, PointClass, Severity, register_size
 from schemas.api_models.virtual_points import VirtualPointDefinition
@@ -17,6 +18,22 @@ def _normalize_device_type(device_type: object) -> object:
 def _normalize_uppercase(value: object) -> object:
     """Accept any casing for an UPPERCASE enum value (e.g. point class, severity)."""
     return value.upper() if isinstance(value, str) else value
+
+
+def _canonical_timezone(timezone_name: str | None) -> str | None:
+    """Store a site time zone as its canonical IANA name ('pt' and 'PDT' become 'America/Los_Angeles')."""
+    return resolve_timezone(timezone_name).key if timezone_name is not None else None
+
+
+def _canonical_timezone_or_utc(timezone_name: str | None) -> str:
+    """A new site's time zone: the canonical name, or UTC when omitted."""
+    return _canonical_timezone(timezone_name) or "UTC"
+
+
+SITE_TIMEZONE_DESCRIPTION = (
+    "IANA time zone of the site (e.g. 'America/Los_Angeles'); local days and report schedules "
+    "resolve in it. Case-insensitive, US shorthands such as 'PT' accepted; stored canonical"
+)
 
 
 class Coordinates(BaseModel):
@@ -109,6 +126,16 @@ class SiteCreateRequest(BaseModel):
         max_length=64,
         description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit for a site without site-specific code",
     )
+    # Optional on the wire (generated clients would otherwise require it); always set once validated.
+    timezone: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        validate_default=True,
+        description=f"{SITE_TIMEZONE_DESCRIPTION}. Omit for UTC",
+    )
+
+    _normalize_timezone = field_validator("timezone")(_canonical_timezone_or_utc)
 
 
 class SiteUpdateRequest(BaseModel):
@@ -128,6 +155,11 @@ class SiteUpdateRequest(BaseModel):
         max_length=64,
         description="Site profile key selecting the site's endpoints (e.g. 'alpha_solar'); a profile belongs to at most one site. Omit to keep the current one; null removes it",
     )
+    timezone: str | None = Field(
+        None, min_length=1, max_length=64, description=f"{SITE_TIMEZONE_DESCRIPTION}. Omit (or null) to keep the current one"
+    )
+
+    _normalize_timezone = field_validator("timezone")(_canonical_timezone)
 
 
 

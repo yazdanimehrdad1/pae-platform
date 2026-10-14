@@ -26,7 +26,18 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from schemas.api_models.alarms import UserAlarmRule
 from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.virtual_points import VirtualDefinition
-from schemas.db_models.column_types import AlarmRuleJSON, SiteSldJSON, VirtualDefinitionJSON
+from schemas.db_models.column_types import (
+    AlarmRuleJSON,
+    ReportCadenceJSON,
+    ReportDefinitionJSON,
+    ReportSnapshotJSON,
+    ReportWindowJSON,
+    SiteSldJSON,
+    VirtualDefinitionJSON,
+)
+from schemas.reports.definition import ReportDefinition, ReportWindow
+from schemas.reports.schedules import ReportCadence
+from schemas.reports.snapshot import ReportSnapshot
 
 
 class Base(DeclarativeBase):
@@ -107,6 +118,13 @@ class Site(Base):
         nullable=True,
         unique=True,
         comment="Site profile key (a package under src/site_profiles/individual_sites/), unique per site; NULL means no site-specific code"
+    )
+
+    timezone: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        server_default="UTC",
+        comment="IANA time zone of the site (e.g. America/Los_Angeles), stored canonical; local days and report schedules resolve in it"
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -580,7 +598,7 @@ class AlarmEvent(Base):
 
 
 class AlarmEvaluationState(Base):
-    """The evaluation job's memory between runs, per alarm (the raise delay timer)."""
+    """The evaluation job's memory between runs, per alarm (the raise and clear delay timers)."""
 
     __tablename__ = "alarm_evaluation_state"
 
@@ -588,6 +606,7 @@ class AlarmEvaluationState(Base):
         Integer, ForeignKey("alarm_definitions.id", ondelete="CASCADE"), primary_key=True
     )
     condition_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    clear_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -605,3 +624,70 @@ class SiteSldRecord(Base):
 
     def __repr__(self) -> str:
         return f"<SiteSldRecord(site_id={self.site_id}, revision={self.revision})>"
+
+
+class ReportTemplate(Base):
+    """A report template of a site: a named ReportDefinition (window + blocks)."""
+
+    __tablename__ = "report_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    # Stored as JSON, loaded as the parsed ReportDefinition (None only if a stored value no longer parses).
+    definition: Mapped[ReportDefinition | None] = mapped_column(ReportDefinitionJSON, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ReportRun(Base):
+    """One report: queued, being generated, generated (with its stored result) or failed."""
+
+    __tablename__ = "report_runs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
+    template_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("report_templates.id", ondelete="SET NULL"), nullable=True
+    )
+    template_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    schedule_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("report_schedules.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    definition: Mapped[ReportDefinition | None] = mapped_column(ReportDefinitionJSON, nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="queued", server_default="queued")
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False, default="manual", server_default="manual")
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    result: Mapped[ReportSnapshot | None] = mapped_column(ReportSnapshotJSON, nullable=True)
+
+
+class ReportSchedule(Base):
+    """Generate a template's report on a cadence (site time), keeping only some of those reports."""
+
+    __tablename__ = "report_schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
+    template_id: Mapped[int] = mapped_column(Integer, ForeignKey("report_templates.id", ondelete="CASCADE"), nullable=False)
+    # Stored as JSON, loaded as the parsed model (None only if a stored value no longer parses).
+    cadence: Mapped[ReportCadence | None] = mapped_column(ReportCadenceJSON, nullable=False)
+    window_override: Mapped[ReportWindow | None] = mapped_column(ReportWindowJSON, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    keep_last: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    keep_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

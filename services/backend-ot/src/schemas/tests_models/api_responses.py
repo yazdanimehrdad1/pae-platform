@@ -28,6 +28,16 @@ class ApiErrorResponse(BaseModel):
     detail: ApiErrorDetail | str
 
 
+class ApiValidationErrorDetail(ApiErrorDetail):
+    """A 400 that lists every problem (e.g. a report definition that doesn't fit its site)."""
+
+    errors: list[str]
+
+
+class ApiValidationErrorResponse(BaseModel):
+    detail: ApiValidationErrorDetail
+
+
 # --- /api/cache/* --------------------------------------------------------------------------
 
 

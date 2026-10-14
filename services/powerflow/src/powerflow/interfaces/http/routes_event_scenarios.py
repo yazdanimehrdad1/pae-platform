@@ -10,6 +10,7 @@ from powerflow.interfaces.http.schemas import ErrorResponse, OpenApiResponses
 router = APIRouter(prefix="/sites/{site}/event-scenarios", tags=["event scenarios"])
 ERRORS: OpenApiResponses = {
     404: {"model": ErrorResponse, "description": "No such site or event scenario."},
+    409: {"model": ErrorResponse, "description": "A built-in scenario is read-only."},
     422: {"model": ErrorResponse, "description": "Invalid name, or an event doesn't fit the site."},
 }
 
@@ -19,7 +20,8 @@ ERRORS: OpenApiResponses = {
     response_model=list[EventScenarioSummary],
     responses=ERRORS,
     summary="The site's event scenarios",
-    description="Each is re-checked against the site as stored now (`valid`, `problems`).",
+    description="Each is re-checked against the site as stored now (`valid`, `problems`). "
+    "The default sites come with built-in scenarios (category `default`).",
 )
 async def list_event_scenarios(
     site: str, context: AdapterContext = Depends(get_context)
@@ -39,7 +41,8 @@ async def get_event_scenario(
     response_model=EventScenario,
     responses=ERRORS,
     summary="Create or replace a scenario",
-    description="Every event's change is validated against the site's stored config.",
+    description="Every event's change and expected point is validated against the site's "
+    "stored config. Built-in (default) scenarios are read-only (409): save a copy instead.",
 )
 async def put_event_scenario(
     site: str, name: str, scenario: EventScenario, context: AdapterContext = Depends(get_context)
@@ -47,7 +50,13 @@ async def put_event_scenario(
     return await context.scenarios.save(site, name, scenario)
 
 
-@router.delete("/{name}", status_code=204, responses=ERRORS, summary="Delete a scenario")
+@router.delete(
+    "/{name}",
+    status_code=204,
+    responses=ERRORS,
+    summary="Delete a scenario",
+    description="Built-in (default) scenarios can't be deleted (409).",
+)
 async def delete_event_scenario(
     site: str, name: str, context: AdapterContext = Depends(get_context)
 ) -> Response:

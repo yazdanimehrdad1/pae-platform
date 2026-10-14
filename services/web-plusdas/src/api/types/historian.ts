@@ -7,12 +7,15 @@ type TimeseriesQuery = NonNullable<
 export type TimeRange = NonNullable<TimeseriesQuery['time_range']>;
 export type BackendPointReadings = components['schemas']['TimeseriesResponse'];
 export type LatestPointReadings = components['schemas']['LatestResponse'];
+export type PointTimeseries = components['schemas']['PointTimeseries'];
 
 // Arguments of historianApi.getDevicePointReadings (a client call signature, not a wire type).
 interface DevicePointReadingsBase {
   siteId: string;
   deviceId: string;
   pointIds: string[];
+  // A chart's request: every reading up to 3 days, plot values beyond, with gap markers (no value).
+  maxPoints?: number;
 }
 export type DevicePointReadingsRequest =
   | (DevicePointReadingsBase & { timeRange: TimeRange })

@@ -13,7 +13,7 @@ from schemas.api_models import (
     SldValue,
 )
 from schemas.internal_models import PointReading
-from site_profiles.common.calculations import POWER_UNIT_TO_KW
+from site_profiles.common.shared_helper_functions import POWER_UNIT_TO_KW
 
 # Roles whose value is shown in kW whatever the point's power unit (W, kW, MW).
 _POWER_ROLES: frozenset[SldRole] = frozenset({"power"})

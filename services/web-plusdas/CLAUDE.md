@@ -62,16 +62,16 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
   `NotFoundPage.tsx`. Only `app/` may import across features.
 - `src/api/`: the only place that calls the backend. `client.ts` (`request`, `client.get/post/put/
   delete/action`, `getErrorMessage` for FastAPI `detail`), one module per resource (`sites.ts`,
-  `devices.ts`, `historian.ts`, `modbusStream.ts`, `alarms.ts`, `sld.ts`), `sse.ts` (fetch-based server-sent events),
+  `devices.ts`, `historian.ts`, `modbusStream.ts`, `alarms.ts`, `sld.ts`, `reports.ts`), `sse.ts` (fetch-based server-sent events),
   `types/<resource>.ts` (wire aliases, view models, SSE payloads), `generated/backend-ot.ts`
   (generated, don't edit). Pages use them through React Query. To add or change a call, use the
   `add-api-call` skill.
 - `src/features/<feature>/`: page(s) plus their `components/`, `hooks/`, `lib/` and `types.ts`
   (types only that feature uses). A type used by one file stays in that file.
-- `src/mocks/`: **all** fake data and fake behavior (auth, reports, tasks).
+- `src/mocks/`: **all** fake data and fake behavior (auth, tasks).
   `grep -r "@/mocks" src` shows what is still mocked, and `src/mocks/README.md` lists each mock
   with the backend gap it waits on. ESLint blocks `@/mocks` in `src/api` and `src/components`.
-- `src/shared/`: what 2+ features use: `components/` (asset tree, spreadsheet grid, theme),
+- `src/shared/`: what 2+ features use: `components/` (asset tree, spreadsheet grid, theme, severity indicator, time zone toggle), `lib/` (alarm severity, site time, zoned wall time),
   `contexts/` (auth, notes sidebar), `hooks/`, `config/` (runtime config, device-type icons).
   It never imports features.
 - `src/components/ui/`: shadcn components (generated, keep edits minimal; `components.json`
@@ -109,9 +109,13 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
 ## Gotchas
 - `strict: false` and `noImplicitAny: false` in tsconfig (inherited): the compiler won't catch
   nulls, and `z.infer` marks every zod field optional (hence the cast in `ModbusStreamForm.toRequest`).
-- Mocked, not wired to backend-ot (the backend has no API for them yet): auth,
-  Reports and Task Builder lists, all from `src/mocks/` (see its README), and Notes
-  (localStorage). See `docs/backend-gaps.md`.
+- Mocked, not wired to backend-ot (the backend has no API for them yet): auth and the Task
+  Builder list, both from `src/mocks/` (see its README), and Notes (localStorage). See `docs/backend-gaps.md`.
+- Times of a site show in the site's time zone (`site.timezone`), or the user's own when they flip
+  "My time" (`useDisplayTimeZone`, remembered per browser, one switch for Historian, Alarms and
+  Reports). Never format a site's time with the browser's zone directly.
+- Reports render only from the stored snapshot (`run.result`); Export PDF is the browser's print
+  dialog. Layout pieces that must not print carry `print:hidden` (sidebar, notes, buttons).
 - `.env.development` / `.env.production` may exist locally (untracked, gitignored) from the old
   repo. No code reads them; never read or edit them.
 - On Windows, a Node script that calls `process.exit()` after `fetch` can crash (libuv assertion).

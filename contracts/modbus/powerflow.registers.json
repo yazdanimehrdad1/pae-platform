@@ -4905,7 +4905,7 @@
           "label": "Active Fault Code",
           "offset": 34,
           "point": "FltCode",
-          "powerflow_server": "no",
+          "powerflow_server": "calc",
           "qty": "fault_code",
           "scale": 1.0,
           "signed": false,

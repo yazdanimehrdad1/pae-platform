@@ -4,42 +4,24 @@ Pure: no I/O. The read helpers (`helpers.reads.device_points_readings`) load the
 readings and call these; nothing computed here is written anywhere.
 
 Inputs usually come from different devices, polled a moment apart, so their timestamps don't
-match. Each input carries its last value forward, for at most `max_gap`, and output samples are
-produced at the inputs' timestamps. Timestamps within `ALIGN_TOLERANCE` of each other (one poll
-cycle across devices) collapse into one output sample.
+match. They are lined up by helpers.sampling.alignment: each input carries its last value
+forward, for at most `max_gap`, output samples are produced at the inputs' timestamps, and one
+poll cycle across devices (ALIGN_TOLERANCE) collapses into one output sample.
 """
 
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from config import settings
+from helpers.sampling.alignment import align_series, default_max_gap
 from helpers.virtual_points.definition import referenced_point_ids
 from helpers.virtual_points.evaluate import evaluate_virtual_point
 from schemas.api_models.virtual_points import VirtualDefinition
 from schemas.internal_models import TimestampedValue
 
-ALIGN_TOLERANCE = timedelta(seconds=1)
-# An input value is used for up to this many poll intervals after it was read, so one missed
-# poll doesn't blank the virtual point.
-MAX_GAP_POLL_INTERVALS = 3
-
 
 def input_max_gap() -> timedelta:
-    return timedelta(seconds=MAX_GAP_POLL_INTERVALS * settings.poll_interval_seconds)
-
-
-def _event_times(series: Mapping[int, list[TimestampedValue]]) -> list[datetime]:
-    """Union of the input timestamps, each cluster within ALIGN_TOLERANCE of its first time
-    collapsed onto its last time."""
-    events: list[datetime] = []
-    cluster_start: datetime | None = None
-    for time in sorted({sample.time for samples in series.values() for sample in samples}):
-        if cluster_start is not None and time - cluster_start < ALIGN_TOLERANCE:
-            events[-1] = time
-        else:
-            cluster_start = time
-            events.append(time)
-    return events
+    """How long an input's value is used after it was read (MAX_GAP_POLL_INTERVALS polls)."""
+    return default_max_gap()
 
 
 def evaluate_series(
@@ -47,27 +29,15 @@ def evaluate_series(
 ) -> list[TimestampedValue]:
     """The virtual point's samples, oldest first. A time where any input has no value within
     `max_gap` (or where the definition yields None, e.g. a ratio by 0) produces no sample."""
-    series = {
-        point_id: sorted(inputs.get(point_id, []), key=lambda sample: sample.time)
-        for point_id in referenced_point_ids(definition)
-    }
+    series = {point_id: inputs.get(point_id, []) for point_id in referenced_point_ids(definition)}
     if not series or any(not samples for samples in series.values()):
         return []
 
-    positions = dict.fromkeys(series, -1)
     output: list[TimestampedValue] = []
-    for time in _event_times(series):
-        values: dict[int, float | None] = {}
-        for point_id, samples in series.items():
-            position = positions[point_id]
-            while position + 1 < len(samples) and samples[position + 1].time <= time:
-                position += 1
-            positions[point_id] = position
-            current = samples[position] if position >= 0 else None
-            values[point_id] = current.value if current is not None and time - current.time <= max_gap else None
-        value = evaluate_virtual_point(definition, values)
+    for aligned in align_series(series, max_gap):
+        value = evaluate_virtual_point(definition, aligned.values)
         if value is not None:
-            output.append(TimestampedValue(time=time, value=value))
+            output.append(TimestampedValue(time=aligned.time, value=value))
     return output
 
 

@@ -41,25 +41,35 @@ export type PvSetpointRequest = Schemas['PvSetpointRequest'];
 export type SetpointResult = Schemas['SetpointResult'];
 export type BessMode = NonNullable<BessSetpointRequest['mode']>;
 
-// Injected conditions (breakers, faults, comm loss, grid events) and event scenarios
+// Injected conditions (breakers, faults, alarm resets, comm loss, grid events) and event scenarios
 export type ConditionsReport = Schemas['ConditionsReport'];
 export type BreakerStatus = Schemas['BreakerStatus'];
 export type FaultCause = Schemas['FaultCause'];
+export type FaultSeverity = Schemas['Severity'];
+export type FaultStatus = Schemas['FaultStatus'];
+// The fault cause catalog: what each cause does on a BESS or PV (GET /sim/fault-causes).
+export type FaultCauseInfo = Schemas['FaultCauseInfo'];
+export type FaultAssetType = FaultCauseInfo['asset_type'];
 export type CommTarget = Schemas['CommTarget'];
 export type BreakerChange = Schemas['BreakerChange'];
 export type AssetFaultChange = Schemas['AssetFaultChange'];
+export type AlarmResetChange = Schemas['AlarmResetChange'];
 export type CommLossChange = Schemas['CommLossChange'];
 export type GridVoltageChange = Schemas['GridVoltageChange'];
 export type GridFrequencyChange = Schemas['GridFrequencyChange'];
 export type ConditionChange =
   | BreakerChange
   | AssetFaultChange
+  | AlarmResetChange
   | CommLossChange
   | GridVoltageChange
   | GridFrequencyChange;
 export type EventScenario = Schemas['EventScenario'];
 export type ScenarioEvent = Schemas['ScenarioEvent'];
+// What one point-standard point should read while a scenario plays (checked by step).
+export type ExpectedPoint = Schemas['ExpectedPoint'];
 export type EventScenarioSummary = Schemas['EventScenarioSummary'];
+export type EventScenarioCategory = Schemas['EventScenarioCategory'];
 export type ScenarioStatus = Schemas['ScenarioStatus'];
 
 // Measurements: the native snapshot, and the PAE point-standard device view

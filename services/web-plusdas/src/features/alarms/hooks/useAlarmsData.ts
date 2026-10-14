@@ -4,7 +4,7 @@ import { alarmsApi, devicesApi, historianApi } from "@/api";
 import type { AlarmDefinitionCreateRequest, AlarmDefinitionUpdateRequest, AlarmSnapshotRecord } from "@/api/types/alarms";
 import type { LatestPointReadings } from "@/api/types/historian";
 import { buildSnapshot, toEvent } from "../lib/pageData";
-import type { AlarmSnapshot, HistoryFilter, Point, Rule, Sample } from "../types";
+import type { AlarmSnapshot, HistoryFilter, Rule } from "../types";
 
 // backend-ot evaluates alarms every poll interval; the page polls at about the same pace.
 export const REFRESH_MS = 10_000;
@@ -45,27 +45,6 @@ export function useAlarmSnapshot(siteId: string | null) {
     [snapshot.data, devices.data, latest.data],
   );
   return { data, isLoading: snapshot.isLoading || devices.isLoading, error: snapshot.error ?? devices.error };
-}
-
-/** Stored readings of one numeric point, oldest first. */
-export function usePointSeries(siteId: string, point: Point | null, from: number, to: number) {
-  // Rounded to the minute so each refresh doesn't create a new cache entry.
-  const fromMinute = Math.floor(from / 60_000);
-  return useQuery({
-    queryKey: [...alarmsKey(siteId), "series", point?.id, fromMinute, to - from],
-    queryFn: async (): Promise<Sample[]> => {
-      const response = await historianApi.getDevicePointReadings({
-        siteId, deviceId: point!.deviceId, pointIds: [point!.id],
-        startTime: new Date(fromMinute * 60_000).toISOString(), endTime: new Date(to).toISOString(),
-      });
-      return (response.readings[point!.id]?.timeseries ?? [])
-        .filter(reading => reading.value != null)
-        .map(reading => ({ t: Date.parse(reading.time), v: reading.value! }));
-    },
-    enabled: point !== null,
-    refetchInterval: REFRESH_MS,
-    placeholderData: previous => previous,
-  });
 }
 
 export function useAlarmHistory(siteId: string, filter: HistoryFilter, enabled: boolean) {

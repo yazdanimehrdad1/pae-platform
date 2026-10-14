@@ -33,17 +33,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return <Navigate to="/login" replace />;
   }
 
+  // When printing, only the page itself shows (e.g. a report), unclipped by the scroll containers.
   return (
-    <div className="h-screen bg-background flex w-full overflow-hidden">
+    <div className="h-screen bg-background flex w-full overflow-hidden print:block print:h-auto print:overflow-visible">
       <AppSidebar />
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 overflow-auto">
+      <div className="flex-1 flex overflow-hidden print:block print:overflow-visible">
+        <main className="flex-1 overflow-auto print:overflow-visible">
           {children}
         </main>
 
         {!isNotesPage && (
           <>
-            <div className="relative border-l border-border flex flex-col justify-center">
+            <div className="relative border-l border-border flex flex-col justify-center print:hidden">
               <Button
                 variant="ghost"
                 size="icon"
@@ -55,7 +56,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
 
             <div
-              className={`border-l border-border transition-all duration-300 ease-in-out flex flex-col ${
+              className={`border-l border-border transition-all duration-300 ease-in-out flex flex-col print:hidden ${
                 isNotesCollapsed ? "w-0 opacity-0 overflow-hidden" : "w-80"
               }`}
             >

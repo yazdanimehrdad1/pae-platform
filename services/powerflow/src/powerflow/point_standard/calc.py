@@ -11,14 +11,16 @@
   plus a small wander), the same for every device; 0 on a de-energised device.
 - **Injected conditions:** a comm-lost device publishes frozen values (the snapshot already holds
   them) and a frozen heartbeat; `BrkPos` is the device's breaker (the site and POI meter: the
-  POI breaker; a feeder meter: its asset's).
+  POI breaker; a feeder meter: its asset's). An injected fault cause sets the 701.Alrm / 802.Evt1
+  bits and the PV FltCode listed in the fault catalog (conditions/fault_catalog.py), read from the
+  measurement's `fault_causes`, so comm loss freezes them too.
 """
 
 import math
 from collections.abc import Callable, Sequence
 from typing import Protocol, TypeVar
 
-from powerflow.conditions import CommTarget
+from powerflow.conditions import AssetKind, CommTarget, FaultCause, Severity, cause_spec
 from powerflow.core.snapshot import (
     BessMeasurement,
     EnergyTotals,
@@ -92,6 +94,24 @@ def _map_bits(sources: Sources, flags: int, enum_ref: str, mapping: dict[int, st
         if flags & flag and symbol is not None:
             value |= sources.enums.bits(enum_ref, symbol)
     return value
+
+
+def _cause_bits(
+    sources: Sources, kind: AssetKind, causes: Sequence[FaultCause], enum_ref: str
+) -> int:
+    """The bits the injected causes set on a 701.Alrm or 802.Evt1 word (fault catalog)."""
+    value = 0
+    for cause in causes:
+        spec = cause_spec(kind, cause)
+        if spec is None:
+            continue
+        symbols = spec.evt1 if enum_ref == "802.Evt1" else spec.alrm
+        value |= sources.enums.bits(enum_ref, *symbols)
+    return value
+
+
+# BessAlarm / PvAlarm bits named like their 701.Alrm symbol.
+GRID_ALARMS = ("OVER_FREQUENCY", "UNDER_FREQUENCY", "AC_DISCONNECT", "GRID_DISCONNECT")
 
 
 def _setpoint(sources: Sources, device: Device, point: str) -> float:
@@ -324,15 +344,18 @@ BESS: dict[str, Resolver] = {
         else "CONNECTED",
     ),
     "DERMode": lambda sources, _device: sources.enums.bits("701.DERMode", "GRID_FOLLOWING"),
-    "Alrm": lambda sources, device: _map_bits(
-        sources,
-        _bess(sources, device).alarm_flags,
-        "701.Alrm",
-        {
-            BessAlarm.UNDERVOLTAGE: "AC_UNDER_VOLT",
-            BessAlarm.OVERVOLTAGE: "AC_OVER_VOLT",
-            BessAlarm.OVER_TEMPERATURE: "OVER_TEMP",
-        },
+    "Alrm": lambda sources, device: (
+        _map_bits(
+            sources,
+            _bess(sources, device).alarm_flags,
+            "701.Alrm",
+            {
+                BessAlarm.UNDERVOLTAGE: "AC_UNDER_VOLT",
+                BessAlarm.OVERVOLTAGE: "AC_OVER_VOLT",
+                **{BessAlarm[name]: name for name in GRID_ALARMS},
+            },
+        )
+        | _cause_bits(sources, "bess", _bess(sources, device).fault_causes, "701.Alrm")
     ),
     "ThrotSrc": lambda sources, device: _map_bits(
         sources,
@@ -343,21 +366,24 @@ BESS: dict[str, Resolver] = {
             BessFlag.S_LIMIT: "MAX_W",
             BessFlag.SOC_LIMIT: "DERATED",
             BessFlag.RAMP_LIMIT: "DERATED",
+            BessFlag.DERATED: "DERATED",
         },
     ),
     "ChaSt": _bess_cha_state,
     "State": _bess_state,
     "LocRemCtl": lambda sources, _device: sources.enums.code("802.LocRemCtl", "REMOTE"),
-    "Evt1": lambda sources, device: _map_bits(
-        sources,
-        _bess(sources, device).alarm_flags,
-        "802.Evt1",
-        {
-            BessAlarm.SOC_LOW_WARNING: "UNDER_SOC_MIN_WARNING",
-            BessAlarm.SOC_HIGH_WARNING: "OVER_SOC_MAX_WARNING",
-            BessAlarm.OVER_TEMPERATURE: "OVER_TEMP_WARNING",
-            BessAlarm.COMM_LOSS: "COMMUNICATION_ERROR",
-        },
+    "Evt1": lambda sources, device: (
+        _map_bits(
+            sources,
+            _bess(sources, device).alarm_flags,
+            "802.Evt1",
+            {
+                BessAlarm.SOC_LOW_WARNING: "UNDER_SOC_MIN_WARNING",
+                BessAlarm.SOC_HIGH_WARNING: "OVER_SOC_MAX_WARNING",
+                BessAlarm.COMM_LOSS: "COMMUNICATION_ERROR",
+            },
+        )
+        | _cause_bits(sources, "bess", _bess(sources, device).fault_causes, "802.Evt1")
     ),
     "DoD": lambda sources, device: 100.0 - _bess(sources, device).soc_pct,
     "NCyc": lambda sources, device: math.floor(
@@ -401,6 +427,15 @@ PV_INV_STATE: dict[PvInverterState, str] = {
 }
 
 
+def _pv_fault_code(sources: Sources, device: Device) -> int:
+    """The vendor fault code of its first fault (catalog order); 0 = no fault."""
+    for cause in _pv(sources, device).fault_causes:
+        spec = cause_spec("pv", cause)
+        if spec is not None and spec.severity is Severity.FAULT:
+            return spec.fault_code
+    return 0
+
+
 def _pv_q_mode(sources: Sources, device: Device) -> int:
     return int(_setpoint(sources, device, "q_mode"))
 
@@ -425,18 +460,21 @@ PV: dict[str, Resolver] = {
         if _pv(sources, device).status in (PvStatus.OFFLINE, PvStatus.FAULT)
         else "CONNECTED",
     ),
-    "Alrm": lambda sources, device: _map_bits(
-        sources,
-        _pv(sources, device).alarm_flags,
-        "701.Alrm",
-        {
-            PvAlarm.UNDERVOLTAGE: "AC_UNDER_VOLT",
-            PvAlarm.OVERVOLTAGE: "AC_OVER_VOLT",
-            PvAlarm.GROUND_FAULT: "GROUND_FAULT",
-            PvAlarm.DC_OVERVOLTAGE: "DC_OVER_VOLT",
-            PvAlarm.COMM_LOSS: None,  # a comm-lost device can't report it; the site does
-        },
+    "Alrm": lambda sources, device: (
+        _map_bits(
+            sources,
+            _pv(sources, device).alarm_flags,
+            "701.Alrm",
+            {
+                PvAlarm.UNDERVOLTAGE: "AC_UNDER_VOLT",
+                PvAlarm.OVERVOLTAGE: "AC_OVER_VOLT",
+                PvAlarm.COMM_LOSS: None,  # a comm-lost device can't report it; the site does
+                **{PvAlarm[name]: name for name in GRID_ALARMS},
+            },
+        )
+        | _cause_bits(sources, "pv", _pv(sources, device).fault_causes, "701.Alrm")
     ),
+    "FltCode": _pv_fault_code,
     "DERMode": lambda sources, device: (
         sources.enums.bits("701.DERMode", "GRID_FOLLOWING")
         | _map_bits(
@@ -450,7 +488,12 @@ PV: dict[str, Resolver] = {
         sources,
         _pv(sources, device).limit_flags,
         "701.ThrotSrc",
-        {PvFlag.CURTAILED: "FIXED_W", PvFlag.S_LIMIT: "MAX_W", PvFlag.CLIPPED: "MAX_W"},
+        {
+            PvFlag.CURTAILED: "FIXED_W",
+            PvFlag.S_LIMIT: "MAX_W",
+            PvFlag.CLIPPED: "MAX_W",
+            PvFlag.DERATED: "DERATED",
+        },
     ),
     "WMaxLimPctEna": lambda sources, device: _ena(
         sources,

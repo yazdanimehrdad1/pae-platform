@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     # Polling Job Configuration
     poll_interval_seconds: int = Field(default=10, alias="POLL_INTERVAL_SECONDS")
 
+    # Alarm Evaluation Job Configuration
+    alarm_evaluation_interval_seconds: int = Field(default=22, ge=1, alias="ALARM_EVALUATION_INTERVAL_SECONDS")
+
+    # Report Generation Job Configuration (how often queued reports are picked up)
+    report_worker_interval_seconds: int = Field(default=5, ge=1, alias="REPORT_WORKER_INTERVAL_SECONDS")
+    # How often due report schedules are checked (a scheduled report starts at most this late)
+    report_schedule_interval_seconds: int = Field(default=60, ge=5, alias="REPORT_SCHEDULE_INTERVAL_SECONDS")
+
     # Pod identification (for Kubernetes)
     pod_name: str = Field(default="", alias="POD_NAME")  # Falls back to HOSTNAME if not set
 

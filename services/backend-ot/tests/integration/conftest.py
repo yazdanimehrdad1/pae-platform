@@ -26,6 +26,7 @@ from db.connection import close_all_db_connections
 # Child tables first is not required with CASCADE, but listing all of them makes the
 # intent explicit. RESTART IDENTITY resets sites_id_seq back to its START (1001).
 SERVICE_TABLES = (
+    "report_runs", "report_schedules", "report_templates",
     "alarm_evaluation_state", "alarm_events", "alarm_definitions",
     "device_points_readings", "device_points", "devices", "site_slds", "sites",
 )

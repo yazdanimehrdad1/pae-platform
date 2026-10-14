@@ -6,9 +6,14 @@ import pytest
 from conftest import default_site, make_site_config
 
 from powerflow.conditions import BreakerChange
-from powerflow.conditions.scenario import EventScenario, ScenarioEvent, StepTrigger
+from powerflow.conditions.scenario import (
+    EventScenario,
+    EventScenarioCategory,
+    ScenarioEvent,
+    StepTrigger,
+)
 from powerflow.errors import NotFoundError
-from powerflow.storage import ConfigRepository, SiteCategory, StoredSite
+from powerflow.storage import ConfigRepository, SiteCategory, StoredEventScenario, StoredSite
 
 CUSTOM = SiteCategory.CUSTOM
 
@@ -67,7 +72,10 @@ async def check_event_scenarios(repository: ConfigRepository) -> None:
     await repository.put_event_scenario("alpha", "trip", scenario_with("bess1"))
     await repository.put_event_scenario("alpha", "blackout", scenario_with("poi"))
     await repository.put_event_scenario("beta", "trip", scenario_with("pv1"))
-    assert await repository.list_event_scenarios("alpha") == ["blackout", "trip"]
+    assert await repository.list_event_scenarios("alpha") == [
+        StoredEventScenario(name="blackout", category=EventScenarioCategory.CUSTOM),
+        StoredEventScenario(name="trip", category=EventScenarioCategory.CUSTOM),
+    ]
     assert await repository.get_event_scenario("beta", "trip") == scenario_with("pv1")
     await repository.put_event_scenario("alpha", "trip", scenario_with("load1"))  # upsert
     assert await repository.get_event_scenario("alpha", "trip") == scenario_with("load1")
@@ -79,7 +87,30 @@ async def check_event_scenarios(repository: ConfigRepository) -> None:
     await repository.delete_site("alpha")  # its scenarios go with it
     with pytest.raises(NotFoundError):
         await repository.get_event_scenario("alpha", "trip")
-    assert await repository.list_event_scenarios("beta") == ["trip"]
+    assert [item.name for item in await repository.list_event_scenarios("beta")] == ["trip"]
 
 
-CONTRACT_CHECKS = [check_sites, check_active_site, check_event_scenarios]
+async def check_synced_builtin_event_scenarios(repository: ConfigRepository) -> None:
+    sync = repository.sync_builtin_event_scenario
+    with pytest.raises(NotFoundError):
+        await sync("alpha", "builtin", scenario_with("bess1"))
+    await repository.put_site("alpha", make_site_config())
+    await repository.put_event_scenario("alpha", "taken", scenario_with("pv1"))
+    assert await sync("alpha", "builtin", scenario_with("bess1"))  # created
+    assert not await sync("alpha", "builtin", scenario_with("bess1"))  # unchanged
+    assert await sync("alpha", "builtin", scenario_with("poi"))  # updated from the code
+    assert not await sync("alpha", "taken", scenario_with("poi"))  # a custom one is kept
+    assert await repository.get_event_scenario("alpha", "builtin") == scenario_with("poi")
+    assert await repository.get_event_scenario("alpha", "taken") == scenario_with("pv1")
+    assert await repository.list_event_scenarios("alpha") == [
+        StoredEventScenario(name="builtin", category=EventScenarioCategory.DEFAULT),
+        StoredEventScenario(name="taken", category=EventScenarioCategory.CUSTOM),
+    ]
+
+
+CONTRACT_CHECKS = [
+    check_sites,
+    check_active_site,
+    check_event_scenarios,
+    check_synced_builtin_event_scenarios,
+]

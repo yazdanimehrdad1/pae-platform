@@ -42,6 +42,29 @@ export function parseSelectionId(selectionId: string): { pointId: string; bit?: 
   return match ? { pointId: match[1], bit: Number(match[2]) } : { pointId: selectionId };
 }
 
+// A selection can also be a site-profile function's series: "fn:<name>" for a site or common
+// function, "fn:<deviceId>:<name>" for a device function, with "#<n>" for the n-th series of a
+// function that returns several (the first when omitted). parseSelectionId leaves these alone,
+// so they never match a point id.
+const FUNCTION_SELECTION = /^fn:(?:(\d+):)?([a-z0-9]+(?:-[a-z0-9]+)*)(?:#(\d+))?$/;
+
+export interface FunctionSelection {
+  name: string;
+  deviceId?: string;
+  seriesIndex: number;
+}
+
+export function functionSelectionId(name: string, deviceId?: string | number, seriesIndex = 0): string {
+  const device = deviceId === undefined ? '' : `${deviceId}:`;
+  return `fn:${device}${name}${seriesIndex > 0 ? `#${seriesIndex}` : ''}`;
+}
+
+export function parseFunctionSelectionId(selectionId: string): FunctionSelection | null {
+  const match = FUNCTION_SELECTION.exec(selectionId);
+  if (!match) return null;
+  return { name: match[2], deviceId: match[1], seriesIndex: match[3] ? Number(match[3]) : 0 };
+}
+
 export function decodeBit(rawValue: number, bit: number): 0 | 1 {
   // BigInt keeps bits above 31 correct, where JS bitwise operators would wrap.
   return Number((BigInt(Math.round(rawValue)) >> BigInt(bit)) & 1n) as 0 | 1;

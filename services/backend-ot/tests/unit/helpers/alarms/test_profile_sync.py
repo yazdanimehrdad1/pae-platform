@@ -9,7 +9,7 @@ alarm whose name a user alarm already took is skipped rather than breaking the s
 
 from helpers.alarms.profile_sync import ExistingProfileAlarm, plan_profile_alarm_sync
 from schemas.site_profiles import AlarmCheck, AlarmContext
-from site_profiles.site_alarm import SiteAlarm
+from site_profiles.declarations.alarm import SiteAlarm
 
 
 async def check(ctx: AlarmContext) -> AlarmCheck:

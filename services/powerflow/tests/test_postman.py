@@ -11,7 +11,7 @@ from powerflow.app import create_app
 from powerflow.conditions import ConditionChange
 from powerflow.conditions.scenario import EventScenario
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest
-from powerflow.interfaces.http.routes_conditions import StartScenarioRequest
+from powerflow.interfaces.http.routes_conditions import StartScenarioRequest, StopScenarioRequest
 from powerflow.interfaces.http.routes_sim import SpeedRequest, StartRequest
 from powerflow.profiles import ProfileKind, parse_profile_csv
 from powerflow.site_config import SiteConfig
@@ -65,6 +65,7 @@ def test_example_bodies_are_valid() -> None:
         ("POST", "sim/start"): StartRequest.model_validate_json,
         ("PUT", "sim/speed"): SpeedRequest.model_validate_json,
         ("POST", "sim/event-scenario/start"): StartScenarioRequest.model_validate_json,
+        ("POST", "sim/event-scenario/stop"): StopScenarioRequest.model_validate_json,
         ("PUT", "sites/:site/event-scenarios/:name"): EventScenario.model_validate_json,
     }
     collection = json.loads(load_exporter().render_collection())
@@ -83,4 +84,4 @@ def test_example_bodies_are_valid() -> None:
                 validate(body["raw"])
             checked += 1
     # BESS/PV setpoints, a site, a condition, start, speed, a scenario + its start, a CSV
-    assert checked == 9
+    assert checked == 10

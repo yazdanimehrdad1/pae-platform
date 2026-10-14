@@ -1,5 +1,5 @@
 """
-Unit tests for profile device health checks: site_profiles.site_health.DeviceHealthCheck and the
+Unit tests for profile device health checks: site_profiles.declarations.health.DeviceHealthCheck and the
 startup checks in site_profiles.profile_registry.validate_site_device_health.
 
 Guards that a check is async, lives in site_profiles/common/ or its own profile's package, returns
@@ -15,9 +15,9 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from schemas.site_profiles import DeviceHealth, DeviceHealthContext
+from site_profiles.declarations.health import DeviceHealthCheck, HealthNodeType
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.profile_registry import SITE_PROFILES_BY_KEY, validate_site_device_health
-from site_profiles.site_endpoint import SiteProfile
-from site_profiles.site_health import DeviceHealthCheck, HealthNodeType
 from utils.exceptions import SiteProfileConfigError
 
 
@@ -55,7 +55,7 @@ class TestDeviceHealthCheckShape:
     def test_only_bess_and_pv_show_health(self):
         with pytest.raises(ValidationError):
             DeviceHealthCheck.model_validate(
-                {"node_type": "meter", "evaluate": make_check("site_profiles.common.health")}
+                {"node_type": "meter", "evaluate": make_check("site_profiles.common.shared_health")}
             )
 
     def test_profile_finds_its_check_by_type(self):
@@ -68,7 +68,7 @@ class TestValidateSiteDeviceHealth:
     def test_check_in_own_package_or_common_is_accepted(self):
         validate_site_device_health((profile(
             health("bess", "site_profiles.individual_sites.one.health"),
-            health("pv", "site_profiles.common.health"),
+            health("pv", "site_profiles.common.shared_health"),
         ),))
 
     def test_check_in_another_profiles_package_is_rejected(self):

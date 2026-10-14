@@ -7,6 +7,8 @@ App code (api/, db/, helpers/, services/, ...) must never import from this packa
 from schemas.tests_models.api_responses import (
     ApiErrorDetail,
     ApiErrorResponse,
+    ApiValidationErrorDetail,
+    ApiValidationErrorResponse,
     CacheClearResult,
     CacheDeleteResult,
     CacheExistsResult,
@@ -43,6 +45,8 @@ from schemas.tests_models.seed_models import (
 __all__ = [
     "ApiErrorDetail",
     "ApiErrorResponse",
+    "ApiValidationErrorDetail",
+    "ApiValidationErrorResponse",
     "CacheClearResult",
     "CacheDeleteResult",
     "CacheExistsResult",

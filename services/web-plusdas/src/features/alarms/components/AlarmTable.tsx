@@ -3,11 +3,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import type { AlarmModel, AlarmView } from "../lib/alarmModel";
 import { describeCondition, formatLimit, formatPointValue } from "../lib/alarmModel";
-import { SEVERITY } from "../lib/severity";
-import { formatDuration, formatSiteTime } from "../lib/siteTime";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
+import { formatDuration, formatSiteTime } from "@/shared/lib/siteTime";
 import type { NotificationSettings, Rule } from "../types";
 import { NotificationToggles } from "./NotificationToggles";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 function currentValue(view: AlarmView, now: number): string {
   if (view.rule.kind === "comms_stale") {

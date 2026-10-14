@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from powerflow.conditions import ActiveConditions
+from powerflow.conditions import ActiveConditions, FaultCause
 
 
 class FrozenModel(BaseModel):
@@ -127,6 +127,10 @@ class BessMeasurement(FrozenModel):
     energy: EnergyTotals = Field(default_factory=EnergyTotals)
     breaker_state: int = Field(default=1, description="Its breaker: 0 OPEN, 1 CLOSED.")
     breaker_state_name: str = "CLOSED"
+    fault_causes: list[FaultCause] = Field(
+        default_factory=list,
+        description="Injected causes whose bits are set (active and latched), in catalog order.",
+    )
 
 
 class PvMeasurement(FrozenModel):
@@ -154,6 +158,10 @@ class PvMeasurement(FrozenModel):
     energy: EnergyTotals = Field(default_factory=EnergyTotals)
     breaker_state: int = Field(default=1, description="Its breaker: 0 OPEN, 1 CLOSED.")
     breaker_state_name: str = "CLOSED"
+    fault_causes: list[FaultCause] = Field(
+        default_factory=list,
+        description="Injected causes whose bits are set (active and latched), in catalog order.",
+    )
 
 
 class LoadMeasurement(FrozenModel):

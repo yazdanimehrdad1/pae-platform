@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { powerflowApi } from '@/api';
-import type { ConditionsReport, DevicesSnapshot, EngineStatus, SetpointResult } from '@/api/types/powerflow';
+import type { ConditionsReport, DevicesSnapshot, EngineStatus, FaultCauseInfo, SetpointResult } from '@/api/types/powerflow';
 import SimulationPage from '@/features/simulation/SimulationPage';
 import { REFERENCE_SITE } from './fixtures';
 
@@ -54,12 +54,43 @@ const CONDITIONS: ConditionsReport = {
     { id: 'pv1', kind: 'pv', closed: true },
     { id: 'load1', kind: 'load', closed: true },
   ],
-  faults: [{ asset_id: 'pv1', cause: 'ground_fault' }],
+  faults: [
+    {
+      asset_id: 'pv1',
+      cause: 'ground_fault',
+      severity: 'fault',
+      latched: false,
+      auto_restore: false,
+      since_step: 90,
+      restore_step: null,
+      restore_sim_time: null,
+    },
+  ],
   comm_loss: [{ target: 'meter', id: 'm_bess2', since_step: 100 }],
   grid_vm_pu: null,
   grid_hz: null,
   scenario: null,
+  scenarios: [],
 };
+
+const cause = (asset_type: 'bess' | 'pv', cause: FaultCauseInfo['cause'], label: string, severity: 'fault' | 'warning'): FaultCauseInfo => ({
+  asset_type,
+  cause,
+  label,
+  severity,
+  alrm: [],
+  evt1: [],
+  fault_code: 0,
+  p_max_factor: 1,
+  p_available_factor: 1,
+});
+
+const FAULT_CAUSES: FaultCauseInfo[] = [
+  cause('bess', 'trip', 'Trip (generic)', 'fault'),
+  cause('bess', 'fan_error', 'Fan error', 'warning'),
+  cause('pv', 'trip', 'Trip (generic)', 'fault'),
+  cause('pv', 'ground_fault', 'Ground fault', 'fault'),
+];
 
 beforeAll(() => {
   Element.prototype.scrollIntoView ??= () => {}; // Radix Select scrolls the chosen option into view
@@ -80,9 +111,26 @@ beforeEach(() => {
   });
   vi.spyOn(powerflowApi, 'getStatus').mockResolvedValue(STATUS);
   vi.spyOn(powerflowApi, 'getConditions').mockResolvedValue(CONDITIONS);
+  vi.spyOn(powerflowApi, 'getFaultCauses').mockResolvedValue(FAULT_CAUSES);
   vi.spyOn(powerflowApi, 'listEventScenarios').mockResolvedValue([
-    { name: 'trip', description: 'Trip BESS 1', event_count: 2, valid: true, problems: [] },
-    { name: 'old', description: null, event_count: 1, valid: false, problems: ['event 1: no breaker'] },
+    {
+      name: 'trip',
+      category: 'custom',
+      description: 'Trip BESS 1',
+      event_count: 2,
+      expected_points: [],
+      valid: true,
+      problems: [],
+    },
+    {
+      name: 'old',
+      category: 'custom',
+      description: null,
+      event_count: 1,
+      expected_points: [],
+      valid: false,
+      problems: ['event 1: no breaker'],
+    },
   ]);
   vi.spyOn(powerflowApi, 'getSite').mockResolvedValue(REFERENCE_SITE);
   vi.spyOn(powerflowApi, 'listProfiles').mockResolvedValue({ load: ['high_demand'], pv: ['clear_sky_high'] });
@@ -177,12 +225,126 @@ describe('SimulationPage', () => {
     await waitFor(() =>
       expect(apply).toHaveBeenCalledWith({ type: 'breaker', breaker: 'bess1', closed: true }),
     );
-    expect(screen.getByRole('switch', { name: 'Fault pv1' }).getAttribute('aria-checked')).toBe('true');
+    expect((await findElement('[data-fault="pv1:ground_fault"]')).textContent).toBe('Ground fault');
     const row = await findElement('[data-scenario-row="trip"]');
-    fireEvent.click(within(row).getByRole('button', { name: 'Start' }));
+    fireEvent.click(within(row).getByRole('button', { name: 'Start trip' }));
     await waitFor(() => expect(start).toHaveBeenCalledWith('trip'));
     const stale = await findElement('[data-scenario-row="old"]');
-    expect((within(stale).getByRole('button', { name: 'Start' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(stale).getByRole('button', { name: 'Start old' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('shows overlapping runs with their scenario step and schedules or stops one', async () => {
+    const run = (name: string, state: 'scheduled' | 'playing', current_step: number | null, start_step: number) => ({
+      name,
+      started_step: start_step - 1,
+      start_step,
+      state,
+      current_step,
+      length: 700,
+      total: 3,
+      fired: state === 'playing' ? 1 : 0,
+      missed: 0,
+      next_step: 150,
+      finished: false,
+    });
+    vi.spyOn(powerflowApi, 'getConditions').mockResolvedValue({
+      ...CONDITIONS,
+      scenarios: [run('trip', 'playing', 23, 98), run('sag', 'scheduled', null, 200)],
+    });
+    const start = vi.spyOn(powerflowApi, 'startEventScenario').mockResolvedValue(CONDITIONS);
+    const stop = vi.spyOn(powerflowApi, 'stopEventScenario').mockResolvedValue(CONDITIONS);
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Scenarios');
+    const playing = await findElement('[data-scenario-status="trip"]');
+    expect(playing.querySelector('[data-run-step]')?.textContent).toBe('scenario step 23 of 700');
+    const scheduled = await findElement('[data-scenario-status="sag"]');
+    expect(scheduled.querySelector('[data-run-step]')?.textContent).toBe('starts at sim step 200');
+    // a playing scenario can't be started again, but others can
+    const tripRow = await findElement('[data-scenario-row="trip"]');
+    expect((within(tripRow).getByRole('button', { name: 'Start trip' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(scheduled).getByRole('button', { name: 'Stop sag' }));
+    await waitFor(() => expect(stop).toHaveBeenCalledWith('sag'));
+    const oldRow = await findElement('[data-scenario-row="old"]');
+    expect((within(oldRow).getByRole('button', { name: 'Start old' }) as HTMLButtonElement).disabled).toBe(true); // stale
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('schedules a scenario at a sim step', async () => {
+    const start = vi.spyOn(powerflowApi, 'startEventScenario').mockResolvedValue(CONDITIONS);
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Scenarios');
+    const row = await findElement('[data-scenario-row="trip"]');
+    fireEvent.click(within(row).getByRole('button', { name: 'Schedule trip' }));
+    const input = (await screen.findByLabelText('Start at sim step')) as HTMLInputElement;
+    expect(input.value).toBe('130'); // the current step (120) + 10
+    fireEvent.change(input, { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith('trip', 500));
+  });
+
+  it('injects a fault with auto-restore and resets a latched one', async () => {
+    const apply = vi.spyOn(powerflowApi, 'applyCondition').mockResolvedValue(CONDITIONS);
+    const reset = vi.spyOn(powerflowApi, 'resetAlarms').mockResolvedValue({} as SetpointResult);
+    vi.spyOn(powerflowApi, 'getConditions').mockResolvedValue({
+      ...CONDITIONS,
+      faults: [{ ...CONDITIONS.faults[0], latched: true }],
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Scenarios');
+    const latched = await findElement('[data-fault="pv1:ground_fault"]');
+    expect(latched.textContent).toBe('Ground fault · latched');
+    const resetButton = screen.getByRole('button', { name: 'Reset alarms pv1' }) as HTMLButtonElement;
+    await waitFor(() => expect(resetButton.disabled).toBe(false));
+    fireEvent.click(resetButton);
+    await waitFor(() => expect(reset).toHaveBeenCalledWith('pv', 'pv1'));
+    fireEvent.click(screen.getByRole('switch', { name: 'Auto-restore bess1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inject fault bess1' }));
+    await waitFor(() =>
+      expect(apply).toHaveBeenCalledWith({ type: 'asset_fault', asset_id: 'bess1', active: true, cause: 'trip', auto_restore: true }),
+    );
+  });
+
+  it('marks built-in scenarios and keeps them from being deleted', async () => {
+    vi.spyOn(powerflowApi, 'listEventScenarios').mockResolvedValue([
+      {
+        name: 'poi-trip',
+        category: 'default',
+        description: 'POI opens at step 5',
+        event_count: 2,
+        expected_points: [
+          { device: 'site.site', point: 'GridMode', equals: 'BLACKOUT', tolerance: 0, from_step: 5, to_step: 34 },
+          { device: 'pv.pv1', point: 'Alrm', bits_set: ['GRID_DISCONNECT'], tolerance: 0, from_step: 5, to_step: null },
+        ],
+        valid: true,
+        problems: [],
+      },
+    ]);
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Scenarios');
+    const row = await findElement('[data-scenario-row="poi-trip"]');
+    expect(within(row).getByText('built-in')).toBeTruthy();
+    expect((within(row).getByRole('button', { name: 'Delete poi-trip' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(row).queryByRole('button', { name: 'Edit poi-trip' })).toBeNull(); // read-only
+    vi.spyOn(powerflowApi, 'getEventScenario').mockResolvedValue({
+      schema_version: 1,
+      description: 'POI opens at step 5',
+      events: [{ at: { kind: 'step', step: 5 }, change: { type: 'breaker', breaker: 'poi', closed: false }, label: null }],
+      expected_points: [],
+    });
+    fireEvent.click(within(row).getByRole('button', { name: 'Duplicate poi-trip' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Duplicate poi-trip')).toBeTruthy();
+    expect((within(dialog).getByLabelText('Name') as HTMLInputElement).value).toBe('poi-trip-copy');
+    expect((within(dialog).getByLabelText('Name') as HTMLInputElement).disabled).toBe(false);
+    expect(row.querySelector('[data-scenario-description]')?.textContent).toBe('POI opens at step 5');
+    expect([...row.querySelectorAll('[data-scenario-points] li')].map((item) => item.textContent)).toEqual([
+      'site.site GridMode = BLACKOUT · steps 5–34',
+      'pv.pv1 Alrm has GRID_DISCONNECT · step 5',
+    ]);
   });
 
   it('shows live breakers on the SLD and switches one on click', async () => {

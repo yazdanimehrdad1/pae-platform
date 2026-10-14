@@ -4,10 +4,10 @@ import {
   Building2,
   BellRing,
   BarChart3,
-  PlayCircle,
   FileText,
   Bot,
   Cpu,
+  Gauge,
   Users,
   Settings,
   Search,
@@ -64,13 +64,6 @@ const navigationItems: NavigationItem[] = [
     roles: ['engineer', 'admin', 'monitor']
   },
   {
-    id: 'narrative',
-    title: 'Narrative',
-    icon: PlayCircle,
-    path: '/narrative',
-    roles: ['engineer', 'admin', 'monitor']
-  },
-  {
     id: 'reports',
     title: 'Reports',
     icon: FileText,
@@ -91,6 +84,13 @@ const navigationItems: NavigationItem[] = [
     path: '/simulation',
     roles: ['engineer', 'admin'],
     newTabOption: true,
+  },
+  {
+    id: 'optimization',
+    title: 'Optimization',
+    icon: Gauge,
+    path: '/optimization',
+    roles: ['engineer', 'admin']
   },
   {
     id: 'users',
@@ -129,7 +129,7 @@ export function AppSidebar() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
+      "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 print:hidden",
       isCollapsed ? "w-16" : "w-64"
     )}>
       <div className={cn(

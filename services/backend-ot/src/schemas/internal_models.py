@@ -31,6 +31,13 @@ class TimestampedValue(BaseModel):
     value: float
 
 
+class AlignedValues(BaseModel):
+    """Several series' values at one aligned time (helpers.sampling.alignment): by key,
+    the latest value at or before `time`, or None when there is none recent enough."""
+    time: datetime
+    values: dict[int, float | None]
+
+
 class PointReading(BaseModel):
     """One reading of a point, with the point's metadata: a row of the readings queries
     (helpers.reads.device_points_readings). A computed virtual point reading has the same shape."""

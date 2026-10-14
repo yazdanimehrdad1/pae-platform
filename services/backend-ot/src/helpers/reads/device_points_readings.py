@@ -3,15 +3,24 @@
 NATIVE (and STANDARDIZED) points are read from device_points_readings. VIRTUAL points are computed
 on read from their inputs' stored readings (helpers.virtual_points.resolve); nothing is stored
 for them, and any stored rows under a virtual point's id are ignored.
+
+A chart's request (max_points) is sampled by helpers.sampling: every reading of a window up to
+3 days, plot values beyond, with gap markers either way (README.md there).
 """
 
 from collections.abc import Collection
 from datetime import datetime
 
-from sqlalchemy import and_, select
+from sqlalchemy import ColumnElement, and_, select
 from sqlalchemy import func as sql_func
 
 from db.session import get_session
+from helpers.sampling import (
+    default_max_gap,
+    plot_values_statement,
+    sample_readings,
+    use_plot_values,
+)
 from helpers.virtual_points.definition import referenced_point_ids
 from helpers.virtual_points.resolve import evaluate_latest, evaluate_series, input_max_gap
 from schemas.api_models.virtual_points import VirtualDefinition
@@ -81,9 +90,14 @@ async def get_timeseries_by_point_ids(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
     limit: int | None = 1000,
+    max_points: int | None = None,
 ) -> list[PointReading]:
     """
     Get time-series readings per point, ordered by (device_point_id, timestamp DESC).
+
+    max_points with a start_time and end_time is a chart's request, sampled by helpers.sampling:
+    `limit` is ignored, a window up to 3 days returns every reading, a longer one plot values,
+    and both get gap markers (readings with derived_value None). Without a window it is ignored.
 
     Each point yields its most recent `limit` readings, newest-first. This holds whether
     the window comes from `limit` alone or from start_time/end_time — the most recent
@@ -95,6 +109,10 @@ async def get_timeseries_by_point_ids(
     virtual_points = await get_virtual_points_by_ids(point_ids, site_id=site_id, device_id=device_id)
     virtual_ids = {point.id for point in virtual_points}
     stored_ids = [point_id for point_id in point_ids if point_id not in virtual_ids]
+    if max_points is not None and start_time is not None and end_time is not None:
+        return await _chart_timeseries(
+            point_ids, stored_ids, virtual_points, site_id, device_id, start_time, end_time, max_points
+        )
 
     readings: list[PointReading] = []
     if stored_ids or not point_ids:
@@ -105,6 +123,41 @@ async def get_timeseries_by_point_ids(
     if virtual_points:
         readings += await _computed_timeseries(virtual_points, start_time, end_time, limit)
         readings.sort(key=_by_point_newest_first)
+    return readings
+
+
+async def _chart_timeseries(
+    point_ids: list[int],
+    stored_ids: list[int],
+    virtual_points: list[DevicePoint],
+    site_id: int | None,
+    device_id: int | None,
+    start_time: datetime,
+    end_time: datetime,
+    max_points: int,
+) -> list[PointReading]:
+    """get_timeseries_by_point_ids for a chart: stored readings reduced in Postgres when the
+    window takes plot values, virtual points computed in full and then sampled."""
+    max_gap = default_max_gap()
+    virtual_ids = {point.id for point in virtual_points}
+    readings: list[PointReading] = []
+    if stored_ids or not point_ids:
+        if use_plot_values(start_time, end_time, max_points):
+            conditions = _reading_conditions(stored_ids, site_id, device_id, start_time, end_time, virtual_ids)
+            statement = plot_values_statement(_POINT_COLUMNS, conditions, start_time, end_time, max_points, max_gap)
+            async with get_session() as session:
+                result = await session.execute(statement)
+                readings = [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
+        else:
+            stored = await _select_timeseries(
+                stored_ids, site_id=site_id, device_id=device_id, start_time=start_time,
+                end_time=end_time, limit=None, exclude_point_ids=virtual_ids,
+            )
+            readings = sample_readings(stored, start_time, end_time, max_points, max_gap)
+    if virtual_points:
+        computed = await _computed_timeseries(virtual_points, start_time, end_time, None)
+        readings += sample_readings(computed, start_time, end_time, max_points, max_gap)
+    readings.sort(key=_by_point_newest_first)
     return readings
 
 
@@ -237,17 +290,16 @@ async def _select_latest(
         return [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
 
 
-async def _select_timeseries(
+def _reading_conditions(
     point_ids: list[int],
-    site_id: int | None = None,
-    device_id: int | None = None,
-    start_time: datetime | None = None,
-    end_time: datetime | None = None,
-    limit: int | None = 1000,
-    exclude_point_ids: Collection[int] = (),
-) -> list[PointReading]:
-    """Stored readings per point, newest-first, the newest `limit` per point."""
-    conditions = []
+    site_id: int | None,
+    device_id: int | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    exclude_point_ids: Collection[int],
+) -> list[ColumnElement[bool]]:
+    """Which stored readings a timeseries query covers (shared by the raw and plot-value reads)."""
+    conditions: list[ColumnElement[bool]] = []
     if point_ids:
         conditions.append(DevicePointsReading.device_point_id.in_(point_ids))
     if exclude_point_ids:
@@ -260,6 +312,20 @@ async def _select_timeseries(
         conditions.append(DevicePointsReading.timestamp >= start_time)
     if end_time is not None:
         conditions.append(DevicePointsReading.timestamp <= end_time)
+    return conditions
+
+
+async def _select_timeseries(
+    point_ids: list[int],
+    site_id: int | None = None,
+    device_id: int | None = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    limit: int | None = 1000,
+    exclude_point_ids: Collection[int] = (),
+) -> list[PointReading]:
+    """Stored readings per point, newest-first, the newest `limit` per point."""
+    conditions = _reading_conditions(point_ids, site_id, device_id, start_time, end_time, exclude_point_ids)
 
     rank_subq = (
         select(

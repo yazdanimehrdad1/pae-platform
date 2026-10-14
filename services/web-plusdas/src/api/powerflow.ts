@@ -10,6 +10,8 @@ import type {
   EngineStatus,
   EventScenario,
   EventScenarioSummary,
+  FaultAssetType,
+  FaultCauseInfo,
   ModbusRegistersResponse,
   ProfileFolder,
   ProfileScenarios,
@@ -41,8 +43,14 @@ export const powerflowApi = {
   getConditions: () => api.get<ConditionsReport>('/sim/conditions'),
   applyCondition: (change: ConditionChange) => api.post<ConditionsReport>('/sim/conditions', change),
   clearConditions: () => api.post<ConditionsReport>('/sim/conditions/clear', {}),
-  startEventScenario: (name: string) => api.post<ConditionsReport>('/sim/event-scenario/start', { name }),
-  stopEventScenario: () => api.post<ConditionsReport>('/sim/event-scenario/stop', {}),
+  // The fault cause catalog: per asset type, each cause's severity, alarm bits and derate.
+  getFaultCauses: () => api.get<FaultCauseInfo[]>('/sim/fault-causes'),
+  // `atStep`: the engine step that is the scenario's step 1 (omitted = the next step). Several
+  // scenarios can be scheduled or playing at once.
+  startEventScenario: (name: string, atStep?: number) =>
+    api.post<ConditionsReport>('/sim/event-scenario/start', atStep == null ? { name } : { name, at_step: atStep }),
+  // `name` omitted = stop every run.
+  stopEventScenario: (name?: string) => api.post<ConditionsReport>('/sim/event-scenario/stop', name ? { name } : {}),
   listEventScenarios: (siteName: string) => api.get<EventScenarioSummary[]>(`${site(siteName)}/event-scenarios`),
   getEventScenario: (siteName: string, name: string) =>
     api.get<EventScenario>(`${site(siteName)}/event-scenarios/${encodeURIComponent(name)}`),
@@ -86,4 +94,7 @@ export const powerflowApi = {
     api.put<SetpointResult>(`/assets/bess/${encodeURIComponent(id)}/setpoint`, request),
   setPv: (id: string, request: PvSetpointRequest) =>
     api.put<SetpointResult>(`/assets/pv/${encodeURIComponent(id)}/setpoint`, request),
+  // Alarm reset (AlmRst = 1): clears the asset's latched faults; a cause still injected stays.
+  resetAlarms: (assetType: FaultAssetType, id: string) =>
+    api.put<SetpointResult>(`/assets/${assetType}/${encodeURIComponent(id)}/setpoint`, { alarm_reset: true }),
 };

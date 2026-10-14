@@ -397,7 +397,7 @@ export interface paths {
         put?: never;
         /**
          * Apply one condition change now
-         * @description Open/close a breaker, fault or clear an asset, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.
+         * @description Open/close a breaker, fault or clear an asset (a cleared fault latches until an alarm_reset, unless it was injected with auto_restore), reset an asset's alarms, lose or restore comms, or set the grid voltage/frequency. Works in any run state; the next step applies it.
          */
         post: operations["apply_condition_api_sim_conditions_post"];
         delete?: never;
@@ -417,7 +417,7 @@ export interface paths {
         put?: never;
         /**
          * Clear every injected condition
-         * @description Stops the event scenario and returns to the site config's breaker positions, with no faults, comm loss or grid events.
+         * @description Stops the event scenario and returns to the site config's breaker positions, with no faults (latched ones included), comm loss or grid events.
          */
         post: operations["clear_conditions_api_sim_conditions_clear_post"];
         delete?: never;
@@ -436,8 +436,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Play a stored event scenario of the active site
-         * @description Its events fire from the current step on (step triggers count from here).
+         * Play or schedule a stored event scenario of the active site
+         * @description Its step 1 is the next engine step, or `at_step`. Several scenarios can be scheduled or playing at once; where they change the same thing, the later change wins.
          */
         post: operations["start_scenario_api_sim_event_scenario_start_post"];
         delete?: never;
@@ -455,8 +455,28 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Stop the event scenario (its conditions stay) */
+        /** Stop one event scenario run, or all (their conditions stay) */
         post: operations["stop_scenario_api_sim_event_scenario_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim/fault-causes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The fault causes per asset type and the points they drive
+         * @description Faults trip the inverter and latch when cleared (until an alarm reset) unless injected with auto_restore; warnings derate it and clear at once.
+         */
+        get: operations["get_fault_causes_api_sim_fault_causes_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -659,7 +679,7 @@ export interface paths {
         };
         /**
          * The site's event scenarios
-         * @description Each is re-checked against the site as stored now (`valid`, `problems`).
+         * @description Each is re-checked against the site as stored now (`valid`, `problems`). The default sites come with built-in scenarios (category `default`).
          */
         get: operations["list_event_scenarios_api_sites__site__event_scenarios_get"];
         put?: never;
@@ -681,11 +701,14 @@ export interface paths {
         get: operations["get_event_scenario_api_sites__site__event_scenarios__name__get"];
         /**
          * Create or replace a scenario
-         * @description Every event's change is validated against the site's stored config.
+         * @description Every event's change and expected point is validated against the site's stored config. Built-in (default) scenarios are read-only (409): save a copy instead.
          */
         put: operations["put_event_scenario_api_sites__site__event_scenarios__name__put"];
         post?: never;
-        /** Delete a scenario */
+        /**
+         * Delete a scenario
+         * @description Built-in (default) scenarios can't be deleted (409).
+         */
         delete: operations["delete_event_scenario_api_sites__site__event_scenarios__name__delete"];
         options?: never;
         head?: never;
@@ -740,11 +763,24 @@ export interface components {
              */
             grid_vm_pu: number | null;
         };
+        /** AlarmResetChange */
+        AlarmResetChange: {
+            /**
+             * Asset Id
+             * @description A BESS or PV id.
+             */
+            asset_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "alarm_reset";
+        };
         /** AssetFaultChange */
         AssetFaultChange: {
             /**
              * Active
-             * @description false clears the fault.
+             * @description false clears the asset (every cause): warnings go, faults latch until an alarm_reset.
              * @default true
              */
             active: boolean;
@@ -754,7 +790,13 @@ export interface components {
              */
             asset_id: string;
             /**
-             * @description trip (any); over_temperature (BESS); ground_fault, dc_overvoltage (PV).
+             * Auto Restore
+             * @description A fault clears itself 2-10 min of sim time after injection (no latch).
+             * @default false
+             */
+            auto_restore: boolean;
+            /**
+             * @description A cause from GET /sim/fault-causes for the asset's type (ignored on clear).
              * @default trip
              */
             cause: components["schemas"]["FaultCause"];
@@ -887,6 +929,11 @@ export interface components {
              * @default 0
              */
             energy_discharged_kwh: number;
+            /**
+             * Fault Causes
+             * @description Injected causes whose bits are set (active and latched), in catalog order.
+             */
+            fault_causes?: components["schemas"]["FaultCause"][];
             /** Id */
             id: string;
             /** Limit Flag Names */
@@ -932,6 +979,11 @@ export interface components {
          * @description A partial BESS setpoint: omitted fields keep their current value.
          */
         BessSetpointRequest: {
+            /**
+             * Alarm Reset
+             * @description true: alarm reset (AlmRst = 1), clears latched faults.
+             */
+            alarm_reset?: boolean | null;
             mode?: components["schemas"]["BessMode"] | null;
             /**
              * P Kw
@@ -1074,8 +1126,13 @@ export interface components {
              * @description Injected source voltage; null = grid.vm_pu.
              */
             grid_vm_pu: number | null;
-            /** @description The event scenario playing (or finished, until stopped or cleared). */
+            /** @description The most recently started or scheduled run (see `scenarios` for all). */
             scenario: components["schemas"]["ScenarioStatus"] | null;
+            /**
+             * Scenarios
+             * @description Every scheduled, playing or finished run, in start order (they can overlap), until stopped or cleared.
+             */
+            scenarios: components["schemas"]["ScenarioStatus"][];
         };
         /**
          * DataType
@@ -1296,10 +1353,18 @@ export interface components {
         };
         /** EventScenario */
         EventScenario: {
-            /** Description */
+            /**
+             * Description
+             * @description What the scenario does.
+             */
             description?: string | null;
             /** Events */
             events: components["schemas"]["ScenarioEvent"][];
+            /**
+             * Expected Points
+             * @description The impacted points and the values they should read, checked by step.
+             */
+            expected_points?: components["schemas"]["ExpectedPoint"][];
             /**
              * Schema Version
              * @default 1
@@ -1307,32 +1372,158 @@ export interface components {
              */
             schema_version: 1;
         };
+        /**
+         * EventScenarioCategory
+         * @enum {string}
+         */
+        EventScenarioCategory: "default" | "custom";
         /** EventScenarioSummary */
         EventScenarioSummary: {
-            /** Description */
+            /** @description `default`: a built-in scenario (read-only, synced from powerflow at start); `custom`: saved through the API. */
+            category: components["schemas"]["EventScenarioCategory"];
+            /**
+             * Description
+             * @description What the scenario does.
+             */
             description: string | null;
             /** Event Count */
             event_count: number;
+            /** Expected Points */
+            expected_points: components["schemas"]["ExpectedPoint"][];
             /** Name */
             name: string;
             /** Problems */
             problems: string[];
             /**
              * Valid
-             * @description Whether every event applies to the site as stored now.
+             * @description Whether every event and expected point applies to the site as stored now.
              */
             valid: boolean;
+        };
+        /**
+         * ExpectedPoint
+         * @description What one point-standard point (a Modbus register) should read while the scenario plays:
+         *     `equals` (a number, or for an enum point its symbol, e.g. "FAULT") and/or bits of a bitfield
+         *     point that must be set or clear, on every step from `from_step` to `to_step`.
+         */
+        ExpectedPoint: {
+            /**
+             * Bits Clear
+             * @description Bit labels that must be clear.
+             */
+            bits_clear?: string[];
+            /**
+             * Bits Set
+             * @description Bit labels that must be set.
+             */
+            bits_set?: string[];
+            /**
+             * Device
+             * @description Device label: "<kind>.<id>", e.g. "bess.bess1", "pv.pv1", "load.load1", "feeder_meter.m_bess1", "poi_meter.meter", "site.site".
+             */
+            device: string;
+            /**
+             * Equals
+             * @description A number (SI units), or an enum symbol of the point.
+             */
+            equals?: number | string | null;
+            /**
+             * From Step
+             * @description Steps after the start, counted like StepTrigger.
+             */
+            from_step: number;
+            /** Note */
+            note?: string | null;
+            /**
+             * Point
+             * @description Standard point name, e.g. "InvSt", "Alrm", "W".
+             */
+            point: string;
+            /**
+             * To Step
+             * @description Inclusive; null = only from_step.
+             */
+            to_step?: number | null;
+            /**
+             * Tolerance
+             * @description For a numeric `equals`.
+             * @default 0
+             */
+            tolerance: number;
         };
         /**
          * FaultCause
          * @enum {string}
          */
-        FaultCause: "trip" | "over_temperature" | "ground_fault" | "dc_overvoltage";
+        FaultCause: "trip" | "over_temperature" | "under_temperature" | "ground_fault" | "dc_overvoltage" | "dc_undervoltage" | "over_charge_current" | "over_discharge_current" | "contactor_error" | "door_open" | "emergency_stop" | "over_temperature_warning" | "fan_error" | "blown_string_fuse";
+        /**
+         * FaultCauseInfo
+         * @description One injectable cause on one asset kind, and the points it drives.
+         */
+        FaultCauseInfo: {
+            /**
+             * Alrm
+             * @description 701.Alrm bits it sets.
+             */
+            alrm: string[];
+            /**
+             * Asset Type
+             * @enum {string}
+             */
+            asset_type: "bess" | "pv";
+            cause: components["schemas"]["FaultCause"];
+            /**
+             * Evt1
+             * @description 802.Evt1 bits it sets (BESS).
+             */
+            evt1: string[];
+            /**
+             * Fault Code
+             * @description PV FltCode while it's the first active fault (0 = none).
+             */
+            fault_code: number;
+            /** Label */
+            label: string;
+            /**
+             * P Available Factor
+             * @description Warnings: PV available power is scaled by this.
+             */
+            p_available_factor: number;
+            /**
+             * P Max Factor
+             * @description Warnings: the P/S rating is scaled by this.
+             */
+            p_max_factor: number;
+            severity: components["schemas"]["Severity"];
+        };
         /** FaultStatus */
         FaultStatus: {
             /** Asset Id */
             asset_id: string;
+            /** Auto Restore */
+            auto_restore: boolean;
             cause: components["schemas"]["FaultCause"];
+            /**
+             * Latched
+             * @description Cleared, but held until an alarm_reset.
+             */
+            latched: boolean;
+            /**
+             * Restore Sim Time
+             * @description Auto-restore: the sim time it clears.
+             */
+            restore_sim_time: string | null;
+            /**
+             * Restore Step
+             * @description Auto-restore: gone before this step.
+             */
+            restore_step: number | null;
+            severity: components["schemas"]["Severity"];
+            /**
+             * Since Step
+             * @description The step it was injected at.
+             */
+            since_step: number;
         };
         /**
          * GridConfig
@@ -2050,6 +2241,11 @@ export interface components {
              * @default 0
              */
             energy_produced_today_kwh: number;
+            /**
+             * Fault Causes
+             * @description Injected causes whose bits are set (active and latched), in catalog order.
+             */
+            fault_causes?: components["schemas"]["FaultCause"][];
             /** Id */
             id: string;
             /** Inverter State */
@@ -2089,6 +2285,11 @@ export interface components {
          *     Omitted fields keep their current value.
          */
         PvSetpointRequest: {
+            /**
+             * Alarm Reset
+             * @description true: alarm reset (AlmRst = 1), clears latched faults.
+             */
+            alarm_reset?: boolean | null;
             /**
              * P Limit Kw
              * @description Curtailment limit (kW).
@@ -2136,16 +2337,26 @@ export interface components {
             /** At */
             at: components["schemas"]["StepTrigger"] | components["schemas"]["TimeTrigger"];
             /** Change */
-            change: components["schemas"]["BreakerChange"] | components["schemas"]["AssetFaultChange"] | components["schemas"]["CommLossChange"] | components["schemas"]["GridVoltageChange"] | components["schemas"]["GridFrequencyChange"];
+            change: components["schemas"]["BreakerChange"] | components["schemas"]["AssetFaultChange"] | components["schemas"]["AlarmResetChange"] | components["schemas"]["CommLossChange"] | components["schemas"]["GridVoltageChange"] | components["schemas"]["GridFrequencyChange"];
             /** Label */
             label?: string | null;
         };
         /** ScenarioStatus */
         ScenarioStatus: {
+            /**
+             * Current Step
+             * @description The scenario's own step now (counted like its triggers and expected points); null while scheduled.
+             */
+            current_step: number | null;
             /** Finished */
             finished: boolean;
             /** Fired */
             fired: number;
+            /**
+             * Length
+             * @description The scenario step of its last event.
+             */
+            length: number;
             /**
              * Missed
              * @description sim_time events already in the past at start.
@@ -2155,11 +2366,25 @@ export interface components {
             name: string;
             /**
              * Next Step
-             * @description The step the next event fires before.
+             * @description The engine step the next event fires before.
              */
             next_step: number | null;
-            /** Started Step */
+            /**
+             * Start Step
+             * @description The engine step that is the scenario's step 1.
+             */
+            start_step: number;
+            /**
+             * Started Step
+             * @description The engine step just before the scenario's step 1.
+             */
             started_step: number;
+            /**
+             * State
+             * @description scheduled: its step 1 is still ahead; playing: events pending; finished.
+             * @enum {string}
+             */
+            state: "scheduled" | "playing" | "finished";
             /**
              * Total
              * @description Events in the scenario.
@@ -2176,6 +2401,11 @@ export interface components {
         SetpointResult: {
             /** Accepted */
             accepted: components["schemas"]["BessSetpointState"] | components["schemas"]["PvSetpointState"];
+            /**
+             * Alarms Reset
+             * @description alarm_reset: the latched faults it cleared.
+             */
+            alarms_reset?: components["schemas"]["FaultCause"][] | null;
             /** Asset Id */
             asset_id: string;
             /** Asset Type */
@@ -2189,9 +2419,14 @@ export interface components {
             flags: string[];
             /** Requested */
             requested: {
-                [key: string]: number | string | null;
+                [key: string]: boolean | number | string | null;
             };
         };
+        /**
+         * Severity
+         * @enum {string}
+         */
+        Severity: "fault" | "warning";
         /** SimulationConfig */
         SimulationConfig: {
             /**
@@ -2352,6 +2587,11 @@ export interface components {
         };
         /** StartScenarioRequest */
         StartScenarioRequest: {
+            /**
+             * At Step
+             * @description The engine step that is the scenario's step 1 (after the current step); null = the next step.
+             */
+            at_step?: number | null;
             /** Name */
             name: string;
         };
@@ -2367,6 +2607,14 @@ export interface components {
              * @description Fires before the Nth step after the scenario starts.
              */
             step: number;
+        };
+        /** StopScenarioRequest */
+        StopScenarioRequest: {
+            /**
+             * Name
+             * @description The run to stop; null = every run.
+             */
+            name?: string | null;
         };
         /** StoredSite */
         StoredSite: {
@@ -3348,7 +3596,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BreakerChange"] | components["schemas"]["AssetFaultChange"] | components["schemas"]["CommLossChange"] | components["schemas"]["GridVoltageChange"] | components["schemas"]["GridFrequencyChange"];
+                "application/json": components["schemas"]["BreakerChange"] | components["schemas"]["AssetFaultChange"] | components["schemas"]["AlarmResetChange"] | components["schemas"]["CommLossChange"] | components["schemas"]["GridVoltageChange"] | components["schemas"]["GridFrequencyChange"];
             };
         };
         responses: {
@@ -3370,7 +3618,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Another event scenario is playing. */
+            /** @description That event scenario is already scheduled or playing. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3441,7 +3689,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Another event scenario is playing. */
+            /** @description That event scenario is already scheduled or playing. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3468,7 +3716,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StopScenarioRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3477,6 +3729,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConditionsReport"];
+                };
+            };
+            /** @description No such asset, meter, breaker or scenario. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description That event scenario is already scheduled or playing. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The change doesn't apply to this site. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_fault_causes_api_sim_fault_causes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaultCauseInfo"][];
                 };
             };
         };
@@ -3923,6 +4222,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description A built-in scenario is read-only. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Invalid name, or an event doesn't fit the site. */
             422: {
                 headers: {
@@ -3957,6 +4265,15 @@ export interface operations {
             };
             /** @description No such site or event scenario. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A built-in scenario is read-only. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4009,6 +4326,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description A built-in scenario is read-only. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Invalid name, or an event doesn't fit the site. */
             422: {
                 headers: {
@@ -4041,6 +4367,15 @@ export interface operations {
             };
             /** @description No such site or event scenario. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A built-in scenario is read-only. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

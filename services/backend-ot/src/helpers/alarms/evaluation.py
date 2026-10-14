@@ -44,8 +44,8 @@ from schemas.db_models.orm_models import (
     DevicePointsReading,
 )
 from schemas.site_profiles import AlarmContext
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.profile_registry import SITE_PROFILES_BY_KEY
-from site_profiles.site_endpoint import SiteProfile
 
 logger = get_logger(__name__)
 
@@ -81,13 +81,17 @@ async def evaluate_site_alarms(site_id: int, now: datetime) -> list[AlarmTransit
         transitions: list[AlarmTransition] = []
         for alarm in alarms:
             stored = stored_states.get(alarm.id)
-            state = AlarmState(active=alarm.id in active_events, condition_since=stored.condition_since if stored else None)
+            state = AlarmState(
+                active=alarm.id in active_events,
+                condition_since=stored.condition_since if stored else None,
+                clear_since=stored.clear_since if stored else None,
+            )
             try:
                 if not alarm.enabled:
                     new_state, transition = disabled_step(state, now)
                 else:
-                    observation, delay = await _observe(alarm, context, profile, values, device_of, last_success, now)
-                    new_state, transition = step(state, observation, delay, now)
+                    observation, delay, clear_delay = await _observe(alarm, context, profile, values, device_of, last_success, now)
+                    new_state, transition = step(state, observation, delay, now, clear_delay)
             except Exception as error:
                 logger.error("site %s: alarm %s ('%s') evaluation failed: %s", site_id, alarm.id, alarm.name, error, exc_info=True)
                 continue
@@ -96,9 +100,13 @@ async def evaluate_site_alarms(site_id: int, now: datetime) -> list[AlarmTransit
                 _record(session, alarm, transition, active_events.get(alarm.id))
                 transitions.append(transition)
             if stored is None:
-                session.add(AlarmEvaluationState(definition_id=alarm.id, condition_since=new_state.condition_since, last_evaluated_at=now))
+                session.add(AlarmEvaluationState(
+                    definition_id=alarm.id, condition_since=new_state.condition_since, clear_since=new_state.clear_since,
+                    last_evaluated_at=now,
+                ))
             else:
-                stored.condition_since, stored.last_evaluated_at = new_state.condition_since, now
+                stored.condition_since, stored.clear_since = new_state.condition_since, new_state.clear_since
+                stored.last_evaluated_at = now
 
         await session.commit()
         return transitions
@@ -112,24 +120,28 @@ async def _observe(
     device_of: Mapping[int, int],
     last_success: Mapping[int, datetime],
     now: datetime,
-) -> tuple[AlarmObservation | None, timedelta]:
-    """The observation for one alarm, and the delay before it may raise."""
+) -> tuple[AlarmObservation | None, timedelta, timedelta]:
+    """The observation for one alarm, the delay before it may raise, and the delay before it may clear."""
+    none = timedelta(0)
     if alarm.source == "PROFILE":
         declared = profile.find_alarm(alarm.profile_alarm_key) if profile else None
         if declared is None:
-            return None, timedelta(0)
+            return None, none, none
         check = await declared.evaluate(context)
-        return AlarmObservation(holds=check.active, cleared=not check.active, value=check.value, device_id=check.device_id), timedelta(0)
+        observation = AlarmObservation(holds=check.active, cleared=not check.active, value=check.value, device_id=check.device_id)
+        return observation, none, none
     rule = alarm.rule
     match rule:
         case ThresholdAlarm():
-            return observe_threshold(rule, values, device_of), timedelta(seconds=rule.delay_sec)
+            observation = observe_threshold(rule, values, device_of)
+            return observation, timedelta(seconds=rule.delay_sec), timedelta(seconds=rule.clear_delay_sec)
         case ConditionAlarm():
-            return observe_condition(rule, values, device_of), timedelta(seconds=rule.delay_sec)
+            observation = observe_condition(rule, values, device_of)
+            return observation, timedelta(seconds=rule.delay_sec), timedelta(seconds=rule.clear_delay_sec)
         case CommsStaleAlarm():
-            return observe_comms_stale(rule, last_success.get(rule.device_id), now), timedelta(0)
+            return observe_comms_stale(rule, last_success.get(rule.device_id), now), none, none
         case _:
-            return None, timedelta(0)  # a stored rule that no longer parses
+            return None, none, none  # a stored rule that no longer parses
 
 
 def _record(session: AsyncSession, alarm: AlarmDefinition, transition: AlarmTransition, active: AlarmEvent | None) -> None:

@@ -14,11 +14,20 @@ from typing import Literal, get_type_hints
 
 from pydantic import BaseModel
 
-from schemas.site_profiles import AlarmCheck, DeviceHealth, FunctionKind, TimeWindowParams
+from schemas.api_models import PointTimeseries
+from schemas.api_models.types import DeviceType
+from schemas.site_profiles import (
+    AlarmCheck,
+    DeviceHealth,
+    EndpointOutput,
+    FunctionKind,
+    TimeWindowParams,
+)
+from site_profiles.declarations.alarm import SiteAlarm
+from site_profiles.declarations.endpoint import SiteEndpoint
+from site_profiles.declarations.health import DeviceHealthCheck
+from site_profiles.declarations.profile import SiteProfile
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
-from site_profiles.site_alarm import SiteAlarm
-from site_profiles.site_endpoint import SiteEndpoint, SiteProfile
-from site_profiles.site_health import DeviceHealthCheck
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
 ALL_SITE_PROFILES: tuple[SiteProfile, ...] = (ALPHA_SOLAR_PROFILE,)
@@ -28,6 +37,7 @@ SITE_PROFILES_BY_KEY: dict[str, SiteProfile] = {profile.key: profile for profile
 _COMMON_PACKAGE = "site_profiles.common"
 _INDIVIDUAL_SITES_PACKAGE = "site_profiles.individual_sites"
 _NAME_AFTER_PREFIX = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+_SERIES_ANNOTATIONS: tuple[object, ...] = (PointTimeseries, list[PointTimeseries])
 
 
 class SiteEndpointRoute(BaseModel):
@@ -39,6 +49,8 @@ class SiteEndpointRoute(BaseModel):
     summary: str
     params_model: type[TimeWindowParams]
     response_model: type[BaseModel]
+    output: EndpointOutput
+    device_types: tuple[DeviceType, ...]
 
 
 def get_site_profile(profile_key: str) -> SiteProfile:
@@ -90,6 +102,16 @@ def _check_endpoint(profile_key: str, endpoint: SiteEndpoint) -> None:
             f"but the endpoint declares response_model={endpoint.response_model.__name__}"
         )
 
+    if endpoint.output == "series":
+        response_model = endpoint.response_model
+        series_field = response_model.model_fields.get("series")
+        if series_field is None or series_field.annotation not in _SERIES_ANNOTATIONS:
+            raise SiteProfileConfigError(
+                f"{where}: a series endpoint's response_model needs a field "
+                f"'series: PointTimeseries' or 'series: list[PointTimeseries]', "
+                f"but {response_model.__name__} has none"
+            )
+
 
 def _route_for(endpoint: SiteEndpoint) -> SiteEndpointRoute:
     return SiteEndpointRoute(
@@ -99,6 +121,8 @@ def _route_for(endpoint: SiteEndpoint) -> SiteEndpointRoute:
         summary=endpoint.summary,
         params_model=endpoint.params_model,
         response_model=endpoint.response_model,
+        output=endpoint.output,
+        device_types=endpoint.device_types,
     )
 
 
@@ -112,8 +136,10 @@ def build_site_endpoint_routes(profiles: tuple[SiteProfile, ...]) -> list[SiteEn
     - common controllers live in site_profiles/common/; site and device controllers live in
       site_profiles/individual_sites/<profile key>/;
     - the controller's return annotation is the declared response_model;
+    - a series endpoint's response_model has 'series: PointTimeseries' or a list of them;
     - names are unique within a profile;
-    - a name declared by several profiles has the same method, kind, params and response.
+    - a name declared by several profiles has the same method, kind, params, response, output
+      and device types.
     """
     routes: dict[str, SiteEndpointRoute] = {}
     seen_keys: set[str] = set()
@@ -134,7 +160,7 @@ def build_site_endpoint_routes(profiles: tuple[SiteProfile, ...]) -> list[SiteEn
             existing = routes.setdefault(endpoint.name, route)
             if existing != route.model_copy(update={"summary": existing.summary}):
                 raise SiteProfileConfigError(
-                    f"Endpoint '{endpoint.name}' has a different method/kind/params/response in "
+                    f"Endpoint '{endpoint.name}' has a different method/kind/params/response/output/device types in "
                     f"different profiles; endpoints that share a name must share a contract"
                 )
 

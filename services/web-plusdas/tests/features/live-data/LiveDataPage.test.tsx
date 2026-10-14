@@ -30,10 +30,10 @@ const pvPoints = {
 };
 const DEVICES: Record<string, DevicePointsEntry[]> = {
   '1001': [
-    { deviceId: 11, deviceName: 'pv-1', groups: pvPoints, points: [...pvPoints.standardized, ...pvPoints.virtual, ...pvPoints.native] },
-    { deviceId: 12, deviceName: 'bess-1', groups: { standardized: [], virtual: [], native: [point(5, 'soc')] }, points: [point(5, 'soc')] },
+    { deviceId: 11, deviceName: 'pv-1', deviceType: 'PV', groups: pvPoints, points: [...pvPoints.standardized, ...pvPoints.virtual, ...pvPoints.native] },
+    { deviceId: 12, deviceName: 'bess-1', deviceType: 'BESS', groups: { standardized: [], virtual: [], native: [point(5, 'soc')] }, points: [point(5, 'soc')] },
   ],
-  '2002': [{ deviceId: 21, deviceName: 'meter-9', groups: { standardized: [], virtual: [], native: [] }, points: [] }],
+  '2002': [{ deviceId: 21, deviceName: 'meter-9', deviceType: 'METER', groups: { standardized: [], virtual: [], native: [] }, points: [] }],
 };
 
 const time = (second: number) => new Date(Date.UTC(2026, 9, 1, 12, 0, second)).toISOString();
@@ -94,6 +94,17 @@ describe('Live Data point monitoring', () => {
     expect(cellsOf('SITE_AC_POWER').slice(0, 9)).toEqual(['SITE_AC_POWER', '—', 'float32', '2', '—', 'W', '1000', '1001', '1002']);
     expect(cellsOf('ac_voltage').slice(0, 9)).toEqual(['ac_voltage', '1001holding', 'uint16', '1', '0.1', 'V', '239.5', '238', '—']);
     expect(cellsOf('inverter_state').slice(0, 8)).toEqual(['inverter_state', '16input', 'enum16', '1', '—', '—', 'mppt', '—']);
+  });
+
+  it('scrolls the table in one box, so the left-right scrollbar is at the bottom of the panel', async () => {
+    renderPage();
+    fireEvent.click(within(await deviceList()).getByRole('option', { name: /pv-1/ }));
+    const table = await within(snapshot()).findByRole('table');
+    const scrollBox = within(snapshot()).getByTestId('readings-scroll');
+    // The table sits directly in the panel's scroll box: no inner scroll wrapper under the last row.
+    expect(table.parentElement).toBe(scrollBox);
+    expect(scrollBox.className).toMatch(/\boverflow-auto\b/);
+    expect(scrollBox.className).toMatch(/\bflex-1\b/);
   });
 
   it('fetches again only when a snapshot is taken', async () => {

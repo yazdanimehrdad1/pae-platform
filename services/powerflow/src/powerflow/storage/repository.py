@@ -12,7 +12,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from powerflow.conditions.scenario import EventScenario
+from powerflow.conditions.scenario import EventScenario, EventScenarioCategory
 from powerflow.errors import NotFoundError
 from powerflow.site_config import SiteConfig
 from powerflow.storage.seed_data import default_active_site, default_sites
@@ -29,6 +29,11 @@ class StoredSite(BaseModel):
         description="`default` sites ship with powerflow and can't be deleted (they can be "
         "edited); every site created through the API is `custom`."
     )
+
+
+class StoredEventScenario(BaseModel):
+    name: str
+    category: EventScenarioCategory
 
 
 class ConfigRepository(ABC):
@@ -56,8 +61,8 @@ class ConfigRepository(ABC):
         """Raises NotFoundError if the site doesn't exist."""
 
     @abstractmethod
-    async def list_event_scenarios(self, site: str) -> list[str]:
-        """Sorted names. Raises NotFoundError if the site doesn't exist."""
+    async def list_event_scenarios(self, site: str) -> list[StoredEventScenario]:
+        """Sorted by name. Raises NotFoundError if the site doesn't exist."""
 
     @abstractmethod
     async def get_event_scenario(self, site: str, name: str) -> EventScenario:
@@ -65,7 +70,16 @@ class ConfigRepository(ABC):
 
     @abstractmethod
     async def put_event_scenario(self, site: str, name: str, scenario: EventScenario) -> None:
-        """Create or replace. Raises NotFoundError if the site doesn't exist."""
+        """Create (category custom) or replace (the category is kept). Raises NotFoundError if
+        the site doesn't exist."""
+
+    @abstractmethod
+    async def sync_builtin_event_scenario(
+        self, site: str, name: str, scenario: EventScenario
+    ) -> bool:
+        """Create a built-in (category default), or replace a stored built-in of that name; a
+        custom scenario of that name is left alone. True if anything was written. Raises
+        NotFoundError if the site doesn't exist."""
 
     @abstractmethod
     async def delete_event_scenario(self, site: str, name: str) -> None:
@@ -82,6 +96,7 @@ class InMemoryConfigRepository(ConfigRepository):
         self._categories: dict[str, SiteCategory] = {}
         self._active: str | None = None
         self._event_scenarios: dict[tuple[str, str], EventScenario] = {}
+        self._scenario_categories: dict[tuple[str, str], EventScenarioCategory] = {}
 
     @classmethod
     def with_default_sites(cls) -> "InMemoryConfigRepository":
@@ -111,6 +126,7 @@ class InMemoryConfigRepository(ConfigRepository):
         del self._categories[name]
         for key in [key for key in self._event_scenarios if key[0] == name]:
             del self._event_scenarios[key]
+            del self._scenario_categories[key]
         if self._active == name:
             self._active = None
 
@@ -121,9 +137,14 @@ class InMemoryConfigRepository(ConfigRepository):
         self._require_site(name)
         self._active = name
 
-    async def list_event_scenarios(self, site: str) -> list[str]:
+    async def list_event_scenarios(self, site: str) -> list[StoredEventScenario]:
         self._require_site(site)
-        return sorted(name for site_name, name in self._event_scenarios if site_name == site)
+        return [
+            StoredEventScenario(name=name, category=self._scenario_categories[(site, name)])
+            for name in sorted(
+                name for site_name, name in self._event_scenarios if site_name == site
+            )
+        ]
 
     async def get_event_scenario(self, site: str, name: str) -> EventScenario:
         if (site, name) not in self._event_scenarios:
@@ -133,11 +154,26 @@ class InMemoryConfigRepository(ConfigRepository):
     async def put_event_scenario(self, site: str, name: str, scenario: EventScenario) -> None:
         self._require_site(site)
         self._event_scenarios[(site, name)] = scenario
+        self._scenario_categories.setdefault((site, name), EventScenarioCategory.CUSTOM)
+
+    async def sync_builtin_event_scenario(
+        self, site: str, name: str, scenario: EventScenario
+    ) -> bool:
+        self._require_site(site)
+        key = (site, name)
+        if self._scenario_categories.get(key) is EventScenarioCategory.CUSTOM:
+            return False
+        if self._event_scenarios.get(key) == scenario:
+            return False
+        self._event_scenarios[key] = scenario
+        self._scenario_categories[(site, name)] = EventScenarioCategory.DEFAULT
+        return True
 
     async def delete_event_scenario(self, site: str, name: str) -> None:
         if (site, name) not in self._event_scenarios:
             raise NotFoundError(f"no event scenario {name!r} for site {site!r}")
         del self._event_scenarios[(site, name)]
+        del self._scenario_categories[(site, name)]
 
     async def close(self) -> None:
         """Nothing to release."""

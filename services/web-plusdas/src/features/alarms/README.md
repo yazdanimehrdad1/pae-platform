@@ -15,18 +15,26 @@ the site chosen in the site picker. `hooks/useAlarmsData.ts` combines three read
 | Alarms, active events plus those cleared in 6 h, the raise/clear log, server time | `alarmsApi.getSnapshot` → `GET /api/alarms/site/{id}/snapshot` | every 10 s |
 | Devices and their points | `devicesApi.getRecords` → `GET /api/devices/site/{id}/devices` | every 60 s |
 | Point values; a device's last poll is its newest native reading | `historianApi.getLatestReadings` (per device) | every 10 s |
-| Trend of a point | `historianApi.getDevicePointReadings` (timeseries) | every 10 s |
 | History drawer | `alarmsApi.queryEvents` → `GET /api/alarms/site/{id}/events` | on open and on filter change |
 
 Durations ("active for 8 min") are measured against the snapshot's server `now`. Times show in the
-browser's time zone, because sites have none yet (`docs/backend-gaps.md`).
+site's time zone, or the user's own with the "My time" switch (`shared/hooks/useDisplayTimeZone`,
+shared with Historian and Reports).
 
 ## Alarms: two sources
 - **User rules** are built in the rule builder (`components/RuleBuilder.tsx`). There are three kinds:
-  - **threshold**: one point against a value or another point, or a bit test; with a delay and a deadband;
-  - **condition**: ALL/ANY groups over several points, with a delay. It uses the shared condition
-    editor, the same one virtual points use (`src/shared/components/conditions/`);
+  - **threshold**: one point against a value or another point, or a bit test; with a delay, a clear
+    delay and a deadband;
+  - **condition**: ALL/ANY groups over several points, with a delay and a clear delay. It uses the
+    shared condition editor, the same one virtual points use (`src/shared/components/conditions/`);
   - **comms stale**: a device with no successful poll for N seconds.
+- **When an alarm asserts and deasserts** (backend-ot evaluates every enabled alarm about every 22 s):
+  it raises once its condition has been true for the **delay**, and clears once it has been false
+  for the **clear delay** (0: at the next evaluation). If it becomes true again during the clear
+  delay, the clear delay starts over. A threshold with a **deadband** counts as false only once the
+  value is back past the limit by the deadband (`> 50`, deadband 2: false at 48 or less); with no
+  deadband, false means simply not true (`> 0` is false at 0). Comms stale clears on the next
+  successful poll; profile alarms clear when their check says so.
 - **Profile alarms** are defined in code, in backend-ot's site profile. Their logic, name,
   severity and message are read-only here.
 

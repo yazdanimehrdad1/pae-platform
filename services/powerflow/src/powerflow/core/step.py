@@ -6,8 +6,9 @@ deterministic for the same config, profiles, seed, setpoint and condition sequen
 1. Sim time = origin + step_index·step_s (origin = start_time, or the wall clock the engine read
    for "now"); read the PV availability and load profiles.
 2. Apply the setpoints to the asset models (limits). Injected conditions override them: a faulted
-   inverter delivers nothing (FAULT), an asset cut off by an open breaker is OFFLINE, a load cut
-   off is de-energised.
+   inverter (an active or latched fault) delivers nothing (FAULT), an asset cut off by an open
+   breaker is OFFLINE, a load cut off is de-energised, and a warning derates the inverter.
+   Auto-restore faults due by this step are gone first.
 3. Set the network injections, breakers and source voltage, and solve.
 4. Advance the SOCs and the energy counters with the actual power.
 5. Return the new state and the snapshot. Comm loss then freezes what a device publishes (its
@@ -25,7 +26,14 @@ from typing import TypeVar
 
 import numpy as np
 
-from powerflow.conditions import CommTarget, Conditions, FaultCause, initial_conditions, summary
+from powerflow.conditions import (
+    CommTarget,
+    Conditions,
+    FaultCause,
+    expire_faults,
+    initial_conditions,
+    summary,
+)
 from powerflow.core.energy import attach as attach_energy
 from powerflow.core.energy import integrate as integrate_energy
 from powerflow.core.runtime import SiteRuntime
@@ -154,6 +162,7 @@ def simulate_step(
         raise ValueError(f"step_index {step_index} must be > {state.step_index}")
     if conditions is None:
         conditions = initial_conditions(runtime.config)
+    conditions = expire_faults(conditions, step_index)
     simulation = runtime.config.simulation
     dt_s = (step_index - state.step_index) * simulation.step_s
     sim_time = sim_time_at(state.origin, simulation.step_s, step_index)
@@ -201,30 +210,41 @@ def _dispatch_assets(
     dt_s: float,
 ) -> AssetOutputs:
     """The asset models' outputs. Precedence: an injected fault, then de-energised (breaker open
-    or site dead), then the setpoint."""
+    or site dead), then the setpoint (on the ratings a warning leaves)."""
     outputs = AssetOutputs()
     for asset_id, asset in runtime.bess.items():
         live = energization.injection_live(bess_injection(asset_id))
-        if asset_id in conditions.faults or not live:
+        tripped = conditions.tripped(asset_id)
+        if tripped or not live:
             # A tripped inverter delivers nothing; its auxiliaries keep drawing while energised.
-            status_now = (
-                bess_model.BessStatus.FAULT
-                if asset_id in conditions.faults
-                else bess_model.BessStatus.OFFLINE
-            )
+            status_now = bess_model.BessStatus.FAULT if tripped else bess_model.BessStatus.OFFLINE
             aux_kw = asset.params.aux_load_kw if live else 0.0
             outputs.bess[asset_id] = bess_model.BessOutput(
                 0.0, 0.0, 0.0, 0.0, bess_model.BessFlag.NONE, status_now, aux_kw
             )
             continue
-        outputs.bess[asset_id] = bess_model.dispatch(
-            asset.params, state.bess[asset_id], setpoints.bess[asset_id], dt_s
+        factor = conditions.p_max_factor("bess", asset_id)
+        output = bess_model.dispatch(
+            bess_model.derated(asset.params, factor),
+            state.bess[asset_id],
+            setpoints.bess[asset_id],
+            dt_s,
         )
+        if factor < 1:
+            output = replace(output, flags=output.flags | bess_model.BessFlag.DERATED)
+        outputs.bess[asset_id] = output
     for asset_id, asset in runtime.pv.items():
         column = "ghi_wm2" if asset.params.source is IRRADIANCE else "p_kw"
         available = pv_model.availability(asset.params, asset.profile.value_at(column, t_s))
-        output = pv_model.dispatch(asset.params, setpoints.pv[asset_id], available)
-        if asset_id in conditions.faults:
+        p_max_factor = conditions.p_max_factor("pv", asset_id)
+        p_available_factor = conditions.p_available_factor("pv", asset_id)
+        available = pv_model.scale_availability(available, p_available_factor)
+        output = pv_model.dispatch(
+            pv_model.derated(asset.params, p_max_factor), setpoints.pv[asset_id], available
+        )
+        if min(p_max_factor, p_available_factor) < 1:
+            output = replace(output, flags=output.flags | pv_model.PvFlag.DERATED)
+        if conditions.tripped(asset_id):
             output = _pv_stopped(output, pv_model.PvStatus.FAULT)
         elif not energization.injection_live(pv_injection(asset_id)):
             output = _pv_stopped(output, pv_model.PvStatus.OFFLINE)
@@ -285,9 +305,6 @@ def build_snapshot(
     def breaker_of(breaker: str) -> status.BreakerState:
         return status.breaker_state(breaker not in conditions.open_breakers)
 
-    def fault_cause(asset_id: str) -> FaultCause | None:
-        return conditions.faults.get(asset_id)
-
     def bus(name: str) -> BusResult:
         return network.buses[name] if network is not None else NO_VOLTAGE
 
@@ -297,9 +314,30 @@ def build_snapshot(
         result = network.transformers.get(transformer_name(asset_id))
         return result.loading_pct if result is not None else 0.0
 
+    poi_hz = grid_frequency_hz(
+        sim_time,
+        runtime.config.simulation.seed,
+        conditions.grid_hz,
+        energized=network is not None and energization.bus_live(POI_BUS_ID),
+    )
+
+    def grid_bits(asset_id: str, injection: str, v_pu: float, alarm: type[IntFlag]) -> int:
+        """Frequency excursion (while energised) and disconnection bits."""
+        bits = status.disconnect_bits(
+            asset_id not in conditions.open_breakers,
+            energization.injection_live(injection),
+            alarm["AC_DISCONNECT"],
+            alarm["GRID_DISCONNECT"],
+        )
+        if v_pu > 0:
+            bits |= status.frequency_bits(poi_hz, alarm["OVER_FREQUENCY"], alarm["UNDER_FREQUENCY"])
+        return bits
+
     bess: list[BessMeasurement] = []
     for asset_id, output in outputs.bess.items():
-        params = runtime.bess[asset_id].params
+        params = bess_model.derated(
+            runtime.bess[asset_id].params, conditions.p_max_factor("bess", asset_id)
+        )
         soc_pct = bess_states[asset_id].soc_pct
         discharge_kwh, charge_kwh = bess_model.energy_available_kwh(params, soc_pct)
         discharge_kw, charge_kw = bess_model.p_available_kw(params, soc_pct, dt_s)
@@ -312,8 +350,13 @@ def build_snapshot(
             terminal.vm_pu,
             transformer_loading(asset_id),
         )
-        if fault_cause(asset_id) is FaultCause.OVER_TEMPERATURE:
+        causes = conditions.asserted_causes("bess", asset_id)
+        if FaultCause.OVER_TEMPERATURE in causes:
             bess_alarms |= status.BessAlarm.OVER_TEMPERATURE
+        bess_alarms = status.BessAlarm(
+            bess_alarms
+            | grid_bits(asset_id, bess_injection(asset_id), terminal.vm_pu, status.BessAlarm)
+        )
         bess.append(
             BessMeasurement(
                 id=asset_id,
@@ -340,6 +383,7 @@ def build_snapshot(
                 alarm_flag_names=_flag_names(bess_alarms),
                 breaker_state=int(breaker_of(asset_id)),
                 breaker_state_name=breaker_of(asset_id).name,
+                fault_causes=causes,
             )
         )
 
@@ -348,11 +392,14 @@ def build_snapshot(
         terminal = bus(lv_bus(asset_id))
         inverter_state = status.pv_inverter_state(output)
         pv_alarms = status.pv_alarms(terminal.vm_pu, transformer_loading(asset_id))
-        cause = fault_cause(asset_id)
-        if cause is FaultCause.GROUND_FAULT:
+        causes = conditions.asserted_causes("pv", asset_id)
+        if FaultCause.GROUND_FAULT in causes:
             pv_alarms |= status.PvAlarm.GROUND_FAULT
-        elif cause is FaultCause.DC_OVERVOLTAGE:
+        if FaultCause.DC_OVERVOLTAGE in causes:
             pv_alarms |= status.PvAlarm.DC_OVERVOLTAGE
+        pv_alarms = status.PvAlarm(
+            pv_alarms | grid_bits(asset_id, pv_injection(asset_id), terminal.vm_pu, status.PvAlarm)
+        )
         pv.append(
             PvMeasurement(
                 id=asset_id,
@@ -376,6 +423,7 @@ def build_snapshot(
                 alarm_flag_names=_flag_names(pv_alarms),
                 breaker_state=int(breaker_of(asset_id)),
                 breaker_state_name=breaker_of(asset_id).name,
+                fault_causes=causes,
             )
         )
 
@@ -453,12 +501,7 @@ def build_snapshot(
         meter_state_name=meter.name,
         alarm_flags=int(meter_alarms),
         alarm_flag_names=_flag_names(meter_alarms),
-        hz=grid_frequency_hz(
-            sim_time,
-            runtime.config.simulation.seed,
-            conditions.grid_hz,
-            energized=network is not None and energization.bus_live(POI_BUS_ID),
-        ),
+        hz=poi_hz,
         breaker_state=int(breaker_of(POI_BUS_ID)),
         breaker_state_name=breaker_of(POI_BUS_ID).name,
     )
@@ -498,7 +541,11 @@ def build_snapshot(
         pv=pv,
         loads=loads,
         meters=meters,
-        conditions=summary(conditions, runtime.config),
+        conditions=summary(
+            conditions,
+            runtime.config,
+            sim_time - timedelta(seconds=step_index * runtime.config.simulation.step_s),
+        ),
     )
 
 
@@ -521,7 +568,7 @@ def _repeat_last_good(
                 "converged": False,
                 "poi": poi,
                 "meters": meters,
-                "conditions": summary(conditions, runtime.config),
+                "conditions": summary(conditions, runtime.config, state.origin),
             }
         )
     # Never converged: report the idle asset state with no network values.

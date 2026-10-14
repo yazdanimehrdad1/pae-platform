@@ -5,6 +5,7 @@ import {
   filterPoints,
   formatReading,
   isTrendable,
+  registersByPoint,
   trendRows,
 } from '@/features/simulation/lib/measurements';
 
@@ -45,5 +46,17 @@ describe('measurements helpers', () => {
       samples: [{ step_id: 1, sim_time: '2026-06-21T12:00:01Z', converged: true, values: [500, null] }],
     };
     expect(trendRows(history)).toEqual([{ t: Date.parse('2026-06-21T12:00:01Z'), step: 1, W: 500, WSet: null }]);
+  });
+
+  it('lists each point\'s register addresses by data type width', () => {
+    const register = (point: string, address: number, data_type: string) =>
+      ({ point, address, data_type, unit: '', scale: 1, powerflow_server: 'yes' as const });
+    const addresses = registersByPoint({
+      registers: [register('W', 1000, 'int32'), register('Hz', 1002, 'uint16'), register('WH', 1003, 'uint64')],
+    });
+    expect(addresses.get('W')).toEqual([1000, 1001]);
+    expect(addresses.get('Hz')).toEqual([1002]);
+    expect(addresses.get('WH')).toEqual([1003, 1004, 1005, 1006]);
+    expect(registersByPoint(undefined).size).toBe(0);
   });
 });

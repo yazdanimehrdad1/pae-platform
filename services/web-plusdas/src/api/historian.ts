@@ -4,6 +4,7 @@ import { client } from './client';
 export const historianApi = {
   getDevicePointReadings: (req: DevicePointReadingsRequest): Promise<BackendPointReadings> => {
     const params = new URLSearchParams({ point_ids: req.pointIds.join(',') });
+    if (req.maxPoints !== undefined) params.set('max_points', String(req.maxPoints));
     if ('timeRange' in req) {
       params.set('time_range', req.timeRange);
     } else {

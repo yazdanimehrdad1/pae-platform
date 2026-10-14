@@ -25,6 +25,7 @@ from powerflow.interfaces.http.adapter import HttpAdapter, build_router, install
 from powerflow.interfaces.modbus.adapter import ModbusAdapter
 from powerflow.network.pandapower_solver import PandapowerSolver
 from powerflow.point_standard import load_point_standard
+from powerflow.point_standard.expectations import expected_point_check
 from powerflow.settings import settings
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ConfigRepository, ProfileStore
@@ -37,7 +38,7 @@ from powerflow.storage.postgres import (
 
 # The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
 # (see contracts/README.md).
-API_VERSION = "0.2.0"
+API_VERSION = "0.3.0"
 DESCRIPTION = """\
 Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,
 quasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,
@@ -95,14 +96,20 @@ def create_app(
         engine = Engine(runtime, PandapowerSolver, profile_store)
         setpoints = SetpointService(engine)
         library = SiteLibrary(store, profile_store, engine, active_site)
+        point_standard = load_point_standard(settings.resolved_point_standard_dir())
         context = AdapterContext(
             engine=engine,
             points=PointRegistry(engine, setpoints),
             setpoints=setpoints,
             library=library,
-            point_standard=load_point_standard(settings.resolved_point_standard_dir()),
-            scenarios=EventScenarioLibrary(store, engine, library),
+            point_standard=point_standard,
+            scenarios=EventScenarioLibrary(
+                store, engine, library, expected_point_check(point_standard)
+            ),
         )
+        synced = await context.scenarios.sync_builtins()
+        if synced:
+            logger.info("synced %d built-in event scenario(s) on the default sites", synced)
         adapters = AdapterRegistry()
         adapters.register(HttpAdapter.name, lambda _: HttpAdapter())
         adapters.register(

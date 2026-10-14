@@ -3,7 +3,8 @@ Unit tests for request validation in schemas.api_models.requests.
 
 Guards that the API accepts exactly the supported data_type / device_type vocabulary,
 that a point's size matches its data_type's register width, and that a point's optional
-class / severity accept exactly their vocabulary in any casing, under the wire name "class".
+class / severity accept exactly their vocabulary in any casing, under the wire name "class",
+and that a site's time zone is stored as its canonical IANA name (unknown zones rejected).
 """
 
 import pytest
@@ -13,6 +14,9 @@ from schemas.api_models.requests import (
     DeviceCreateRequest,
     DevicePointCreateRequest,
     DevicePointUpdateRequest,
+    Location,
+    SiteCreateRequest,
+    SiteUpdateRequest,
 )
 from schemas.api_models.types import (
     SUPPORTED_DATA_TYPES,
@@ -110,3 +114,49 @@ class TestPointClassAndSeverity:
     def test_serializes_as_class_on_the_wire(self):
         point = DevicePointCreateRequest.model_validate(self._payload(**{"class": "ANALOG"}))
         assert point.model_dump(by_alias=True)["class"] == "ANALOG"
+
+
+class TestSiteTimezone:
+    def _create(self, **overrides: object) -> SiteCreateRequest:
+        defaults = SiteCreateRequest(
+            client_id="c",
+            name="Site",
+            location=Location(street="1 Main St", city="Fresno", state="CA", zip_code=93701),
+            operator="op",
+            capacity="1MW",
+        )
+        return SiteCreateRequest.model_validate(defaults.model_dump() | overrides)
+
+    def test_create_defaults_to_utc(self):
+        assert self._create().timezone == "UTC"
+
+    def test_create_explicit_null_is_utc(self):
+        assert self._create(timezone=None).timezone == "UTC"
+
+    @pytest.mark.parametrize(
+        ("typed", "canonical"),
+        [
+            ("America/Los_Angeles", "America/Los_Angeles"),
+            ("america/los_angeles", "America/Los_Angeles"),
+            ("  PT ", "America/Los_Angeles"),
+            ("utc", "UTC"),
+            ("Europe/Berlin", "Europe/Berlin"),
+        ],
+    )
+    def test_create_stores_the_canonical_name(self, typed: str, canonical: str):
+        assert self._create(timezone=typed).timezone == canonical
+
+    @pytest.mark.parametrize("bad", ["Mars/Olympus_Mons", "CEST", "+02:00"])
+    def test_create_rejects_an_unknown_zone(self, bad: str):
+        with pytest.raises(ValidationError, match="Unknown timezone"):
+            self._create(timezone=bad)
+
+    def test_update_omitted_timezone_stays_unset(self):
+        update = SiteUpdateRequest(operator="new")
+        assert update.timezone is None
+        assert "timezone" not in update.model_fields_set
+
+    def test_update_canonicalizes_and_rejects_like_create(self):
+        assert SiteUpdateRequest(timezone="et").timezone == "America/New_York"
+        with pytest.raises(ValidationError, match="Unknown timezone"):
+            SiteUpdateRequest(timezone="Nowhere/City")

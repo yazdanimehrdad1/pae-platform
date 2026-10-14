@@ -16,6 +16,9 @@ from logger import get_logger
 from schemas.api_models.alarms import AlarmRule, UserAlarmRule
 from schemas.api_models.single_line_diagram import SiteSld
 from schemas.api_models.virtual_points import VirtualDefinition, VirtualPointDefinition
+from schemas.reports.definition import ReportDefinition, ReportWindow
+from schemas.reports.schedules import ReportCadence
+from schemas.reports.snapshot import ReportSnapshot
 
 logger = get_logger(__name__)
 
@@ -71,3 +74,35 @@ class SiteSldJSON(PydanticJSON):
 
     adapter: ClassVar[TypeAdapter[SiteSld]] = TypeAdapter(SiteSld)
     column_name = "site_slds.document"
+
+
+class ReportDefinitionJSON(PydanticJSON):
+    """`report_templates.definition` and `report_runs.definition`: a ReportDefinition."""
+
+    cache_ok = True  # SQLAlchemy reads this per class: without it, statements using the column aren't cached
+    adapter: ClassVar[TypeAdapter[ReportDefinition]] = TypeAdapter(ReportDefinition)
+    column_name = "report definition"
+
+
+class ReportSnapshotJSON(PydanticJSON):
+    """`report_runs.result`: a ReportSnapshot."""
+
+    cache_ok = True
+    adapter: ClassVar[TypeAdapter[ReportSnapshot]] = TypeAdapter(ReportSnapshot)
+    column_name = "report_runs.result"
+
+
+class ReportCadenceJSON(PydanticJSON):
+    """`report_schedules.cadence`: an hourly, daily, weekly or monthly ReportCadence."""
+
+    cache_ok = True
+    adapter: ClassVar[TypeAdapter[ReportCadence]] = TypeAdapter(ReportCadence)
+    column_name = "report_schedules.cadence"
+
+
+class ReportWindowJSON(PydanticJSON):
+    """`report_schedules.window_override`: a ReportWindow."""
+
+    cache_ok = True
+    adapter: ClassVar[TypeAdapter[ReportWindow]] = TypeAdapter(ReportWindow)
+    column_name = "report_schedules.window_override"

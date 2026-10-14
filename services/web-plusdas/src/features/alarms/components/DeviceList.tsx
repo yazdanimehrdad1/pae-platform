@@ -1,9 +1,9 @@
 import type { KeyboardEvent } from "react";
 import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SEVERITY } from "../lib/severity";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
 import type { Device, DeviceStatus } from "../types";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 /**
  * Devices in the given (worst-first) order. Normal devices stay plain; those with events in the

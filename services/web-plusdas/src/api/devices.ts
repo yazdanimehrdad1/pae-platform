@@ -30,6 +30,7 @@ function toPointsEntry(device: DeviceRecord): DevicePointsEntry {
   return {
     deviceId: device.device_id,
     deviceName: device.name,
+    deviceType: device.type,
     groups,
     points: POINT_GROUP_ORDER.flatMap(group => groups[group]),
   };

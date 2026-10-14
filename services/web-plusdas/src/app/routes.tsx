@@ -12,11 +12,13 @@ const ManageSites = lazy(() => import("@/features/sites/ManageSitesPage"));
 const SiteDevices = lazy(() => import("@/features/sites/SiteDevicesPage"));
 const ManageDevices = lazy(() => import("@/features/sites/ManageDevicesPage"));
 const DeviceDetails = lazy(() => import("@/features/devices/DeviceDetailsPage"));
-const Narrative = lazy(() => import("@/features/narrative/NarrativePage"));
 const Reports = lazy(() => import("@/features/reports/ReportsPage"));
+const ReportView = lazy(() => import("@/features/reports/ReportViewPage"));
+const ReportBuilder = lazy(() => import("@/features/reports/ReportBuilderPage"));
 const SLD = lazy(() => import("@/features/sld/SLDPage"));
 const TaskBuilder = lazy(() => import("@/features/task-builder/TaskBuilderPage"));
 const Simulation = lazy(() => import("@/features/simulation/SimulationPage"));
+const Optimization = lazy(() => import("@/features/optimization/OptimizationPage"));
 const NotesPage = lazy(() => import("@/features/notes/NotesPage"));
 const Settings = lazy(() => import("@/features/settings/SettingsPage"));
 const NotFound = lazy(() => import("./NotFoundPage"));
@@ -46,11 +48,13 @@ export const AppRoutes = () => {
           <Route path="/site-devices" element={<DashboardLayout><SiteDevices /></DashboardLayout>} />
           <Route path="/site-devices/manage" element={<DashboardLayout><ManageDevices /></DashboardLayout>} />
           <Route path="/devices/:deviceId" element={<DashboardLayout><DeviceDetails /></DashboardLayout>} />
-          <Route path="/narrative" element={<DashboardLayout><Narrative /></DashboardLayout>} />
           <Route path="/reports" element={<DashboardLayout><Reports /></DashboardLayout>} />
+          <Route path="/reports/:siteId/runs/:runId" element={<DashboardLayout><ReportView /></DashboardLayout>} />
+          <Route path="/reports/:siteId/builder" element={<DashboardLayout><ReportBuilder /></DashboardLayout>} />
           <Route path="/sld" element={<DashboardLayout><SLD /></DashboardLayout>} />
           <Route path="/task-builder" element={<DashboardLayout><TaskBuilder /></DashboardLayout>} />
           <Route path="/simulation" element={<DashboardLayout><Simulation /></DashboardLayout>} />
+          <Route path="/optimization" element={<DashboardLayout><Optimization /></DashboardLayout>} />
           <Route path="/users" element={<DashboardLayout><div className="p-6"><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground mt-2">User administration coming soon</p></div></DashboardLayout>} />
           <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           <Route path="/notes" element={<DashboardLayout><NotesPage /></DashboardLayout>} />

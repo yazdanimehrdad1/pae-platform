@@ -3,6 +3,9 @@
 It validates the request (invalid → error), merges it into the asset's current setpoint,
 applies the static limits (out of range → clamped, and reported), and stores the result for the
 next step. Dynamic limits (SOC, ramp) are applied every step and reported in the measurements.
+
+`alarm_reset: true` is the one-shot alarm reset (AlmRst = 1): it drops the asset's latched faults
+(a cause still injected keeps it tripped) and isn't stored.
 """
 
 import math
@@ -10,6 +13,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from powerflow.conditions import FaultCause
 from powerflow.core.engine import Engine
 from powerflow.models import bess as bess_model
 from powerflow.models import pv as pv_model
@@ -25,6 +29,9 @@ class BessSetpointRequest(BaseModel):
     p_kw: float | None = Field(default=None, description="+ discharge, − charge (kW).")
     q_kvar: float | None = Field(default=None, description="+ injecting vars (kvar).")
     mode: bess_model.BessMode | None = None
+    alarm_reset: bool | None = Field(
+        default=None, description="true: alarm reset (AlmRst = 1), clears latched faults."
+    )
 
 
 class PvSetpointRequest(BaseModel):
@@ -43,6 +50,9 @@ class PvSetpointRequest(BaseModel):
         ge=-1,
         le=1,
         description="Power factor; + injecting vars, − absorbing; |pf| ≥ 0.8. Selects PF mode.",
+    )
+    alarm_reset: bool | None = Field(
+        default=None, description="true: alarm reset (AlmRst = 1), clears latched faults."
     )
 
     @model_validator(mode="after")
@@ -73,10 +83,13 @@ class PvSetpointState(BaseModel):
 class SetpointResult(BaseModel):
     asset_type: str
     asset_id: str
-    requested: dict[str, float | str | None]
+    requested: dict[str, bool | float | str | None]
     accepted: BessSetpointState | PvSetpointState
     clamped: bool
     flags: list[str] = Field(description="Static limits that clamped the request.")
+    alarms_reset: list[FaultCause] | None = Field(
+        default=None, description="alarm_reset: the latched faults it cleared."
+    )
 
 
 def bess_setpoint_state(setpoint: bess_model.BessSetpoint) -> BessSetpointState:
@@ -104,6 +117,9 @@ class SetpointService:
         params = self._engine.runtime.pv_asset(asset_id).params
         return pv_setpoint_state(self._engine.setpoints.pv(asset_id), params)
 
+    def _reset(self, asset_id: str, alarm_reset: bool | None) -> list[FaultCause] | None:
+        return self._engine.reset_alarms(asset_id) if alarm_reset else None
+
     def write_bess(self, asset_id: str, request: BessSetpointRequest) -> SetpointResult:
         params = self._engine.runtime.bess_asset(asset_id).params
         current = self._engine.setpoints.bess(asset_id)
@@ -114,6 +130,7 @@ class SetpointService:
         p_kw, q_kvar, flags = bess_model.clamp_static(params, p_kw, q_kvar)
         accepted = bess_model.BessSetpoint(p_kw=p_kw, q_kvar=q_kvar, mode=mode)
         self._engine.setpoints.set_bess(asset_id, accepted)
+        alarms_reset = self._reset(asset_id, request.alarm_reset)
         flag_names = [
             member.name for member in bess_model.BessFlag if member in flags and member.name
         ]
@@ -124,6 +141,7 @@ class SetpointService:
             accepted=bess_setpoint_state(accepted),
             clamped=bool(flag_names),
             flags=flag_names,
+            alarms_reset=alarms_reset,
         )
 
     def write_pv(self, asset_id: str, request: PvSetpointRequest) -> SetpointResult:
@@ -151,6 +169,7 @@ class SetpointService:
 
         accepted = pv_model.PvSetpoint(p_limit_kw=p_limit_kw, q_mode=q_mode, q_kvar=q_kvar, pf=pf)
         self._engine.setpoints.set_pv(asset_id, accepted)
+        alarms_reset = self._reset(asset_id, request.alarm_reset)
         return SetpointResult(
             asset_type="pv",
             asset_id=asset_id,
@@ -158,4 +177,5 @@ class SetpointService:
             accepted=pv_setpoint_state(accepted, params),
             clamped=bool(flags),
             flags=flags,
+            alarms_reset=alarms_reset,
         )

@@ -5,6 +5,8 @@ import { getErrorMessage } from "@/api/client";
 import { MAX_ENABLED_ALARMS, type AlarmDefinitionCreateRequest, type AlarmDefinitionUpdateRequest } from "@/api/types/alarms";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimeZoneToggle } from "@/shared/components/TimeZoneToggle";
+import { useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { toast } from "@/shared/hooks/use-toast";
 import { AlarmTable } from "./components/AlarmTable";
 import { DeviceDetail } from "./components/DeviceDetail";
@@ -13,25 +15,9 @@ import { HistoryDrawer } from "./components/HistoryDrawer";
 import { RuleBuilder } from "./components/RuleBuilder";
 import { RuleManager } from "./components/RuleManager";
 import { SummaryBar } from "./components/SummaryBar";
-import type { TrendRange } from "./lib/trendRange";
 import { useAlarmSnapshot, useRuleMutations } from "./hooks/useAlarmsData";
-import { buildAlarmModel, watchedPointId, type AlarmModel, type AlarmView } from "./lib/alarmModel";
+import { buildAlarmModel, type AlarmView } from "./lib/alarmModel";
 import type { Rule } from "./types";
-
-// backend-ot has no site time zone yet, so times show in the browser's zone.
-const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-/**
- * The point a device's trend opens on: its alarming point, else one with a rule, else the first
- * numeric one with a value (standardized points may have no readings), else the first numeric one.
- */
-function defaultPointId(model: AlarmModel, rules: Rule[], deviceId: string): string | null {
-  const numeric = [...model.pointsById.values()].filter(point => point.deviceId === deviceId && point.kind === "numeric");
-  const alarming = model.active.find(alarm => alarm.point?.deviceId === deviceId && alarm.point.kind === "numeric")?.point;
-  const withRule = numeric.find(point => rules.some(rule => watchedPointId(rule) === point.id));
-  const withValue = numeric.find(point => point.value !== null);
-  return alarming?.id ?? withRule?.id ?? withValue?.id ?? numeric[0]?.id ?? null;
-}
 
 export default function AlarmsPage() {
   const { data: sites = [], isLoading: areSitesLoading } = useQuery({ queryKey: ["sites"], queryFn: sitesApi.getAll });
@@ -40,6 +26,8 @@ export default function AlarmsPage() {
     if (!siteId && sites.length > 0) setSiteId(sites[0].id);
   }, [sites, siteId]);
   const site = sites.find(candidate => candidate.id === siteId);
+  // Times in the site's zone, or the user's own if they switched to it.
+  const { timeZone, display, setDisplay, siteTimeZone } = useDisplayTimeZone(site?.timezone);
 
   return (
     <div className="h-screen overflow-y-auto">
@@ -47,7 +35,7 @@ export default function AlarmsPage() {
         <header className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="text-2xl font-semibold">System alarms</h1>
           <div className="flex items-end gap-3">
-            <p className="pb-2 text-sm text-muted-foreground">Times in {TIME_ZONE}</p>
+            <div className="pb-2"><TimeZoneToggle siteTimeZone={siteTimeZone} display={display} onDisplayChange={setDisplay} /></div>
             <div className="w-56 space-y-1">
               <Label htmlFor="alarms-site" className="text-xs text-muted-foreground">Site</Label>
               <Select value={siteId} onValueChange={setSiteId}>
@@ -58,7 +46,7 @@ export default function AlarmsPage() {
           </div>
         </header>
         {site ? (
-          <SiteAlarms key={site.id} siteId={site.id} />
+          <SiteAlarms key={site.id} siteId={site.id} timeZone={timeZone} />
         ) : (
           <p className="text-sm text-muted-foreground">{areSitesLoading ? "Loading sites..." : "No sites yet."}</p>
         )}
@@ -68,15 +56,13 @@ export default function AlarmsPage() {
 }
 
 /** One site's alarms. Keyed by site, so selections reset when the site changes. */
-function SiteAlarms({ siteId }: { siteId: string }) {
+function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) {
   const { data: snapshot, isLoading, error } = useAlarmSnapshot(siteId);
   const model = useMemo(() => (snapshot ? buildAlarmModel(snapshot) : null), [snapshot]);
   const { create, update, remove } = useRuleMutations(siteId);
 
   const [chosenDeviceId, setChosenDeviceId] = useState<string | null>(null);
-  const [chosenPointId, setChosenPointId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [trendRange, setTrendRange] = useState<TrendRange>("6h");
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   // The user rule open in the builder; null for a new rule.
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
@@ -93,22 +79,14 @@ function SiteAlarms({ siteId }: { siteId: string }) {
 
   const { now, rules, devices, log } = snapshot;
   const selectedDevice = model.devicesById.get(chosenDeviceId ?? "") ?? model.sortedDevices[0] ?? null;
-  const selectedPointId = selectedDevice
-    ? (chosenPointId && model.pointsById.get(chosenPointId)?.deviceId === selectedDevice.id ? chosenPointId : defaultPointId(model, rules, selectedDevice.id))
-    : null;
   const faults = model.active.filter(alarm => alarm.event.severity === "fault").length;
   const normalDevices = devices.filter(device => model.deviceStatus.get(device.id) === "normal").length;
   const canEnableMore = rules.filter(rule => rule.enabled).length < MAX_ENABLED_ALARMS;
 
-  const selectDevice = (deviceId: string) => {
-    setChosenDeviceId(deviceId);
-    setChosenPointId(null);
-  };
+  const selectDevice = (deviceId: string) => setChosenDeviceId(deviceId);
   const selectAlarm = (alarm: AlarmView) => {
     setSelectedEventId(alarm.event.id);
-    if (!alarm.device) return; // site-level alarms have no single device to show
-    setChosenDeviceId(alarm.device.id);
-    setChosenPointId(alarm.point?.kind === "numeric" ? alarm.point.id : null);
+    if (alarm.device) setChosenDeviceId(alarm.device.id); // site-level alarms have no single device to show
   };
   // A change from the alarm table or the rules dialog: enabled, or the notification channels.
   const onChangeRule = (rule: Rule, patch: AlarmDefinitionUpdateRequest) =>
@@ -182,7 +160,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         alarms={model.active}
         model={model}
         now={now}
-        timeZone={TIME_ZONE}
+        timeZone={timeZone}
         selectedEventId={selectedEventId}
         lastClearedAt={lastClearedAt}
         clearedCount={model.recentlyCleared.length}
@@ -201,17 +179,12 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         />
         {selectedDevice ? (
           <DeviceDetail
-            siteId={siteId}
             device={selectedDevice}
             status={model.deviceStatus.get(selectedDevice.id) ?? "normal"}
-            model={model}
             rules={rules}
             log={log}
             now={now}
-            timeZone={TIME_ZONE}
-            selectedPointId={selectedPointId}
-            trendRange={trendRange}
-            onTrendRangeChange={setTrendRange}
+            timeZone={timeZone}
           />
         ) : (
           <p className="text-sm text-muted-foreground">This site has no devices.</p>
@@ -223,7 +196,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         onOpenChange={setIsRulesOpen}
         rules={rules}
         model={model}
-        timeZone={TIME_ZONE}
+        timeZone={timeZone}
         onChange={onChangeRule}
         onEdit={openBuilder}
         onDelete={onDeleteRule}
@@ -237,7 +210,7 @@ function SiteAlarms({ siteId }: { siteId: string }) {
         model={model}
         devices={model.sortedDevices}
         now={now}
-        timeZone={TIME_ZONE}
+        timeZone={timeZone}
         initialDeviceId={history.deviceId}
       />
     </>

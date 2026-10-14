@@ -17,6 +17,7 @@ from helpers.reads.query_params import (
     parse_point_ids,
     resolve_display_tz,
 )
+from helpers.sampling import MAX_PLOT_POINTS, MAX_POINTS_DESCRIPTION, MIN_PLOT_POINTS
 from logger import get_logger
 from schemas.api_models import (
     LatestMeta,
@@ -84,6 +85,7 @@ async def get_timeseries_readings(
     end_time: datetime | None = Query(None, description="End time in ISO format. Must carry a UTC offset unless tz is supplied. Cannot be combined with time_range."),
     time_range: TimeRange | None = Query(None, description="Relative time window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. Cannot be combined with start_time/end_time."),
     limit: int = Query(1000, ge=1, le=10000, description="Maximum readings per point, taking the most recent N (returned newest-first)"),
+    max_points: int | None = Query(None, ge=MIN_PLOT_POINTS, le=MAX_PLOT_POINTS, description=MAX_POINTS_DESCRIPTION),
     translate: bool = Query(False, description="Translate enum/bitfield values to human-readable form"),
     tz: str | None = TZ_QUERY,
 ):
@@ -125,7 +127,7 @@ async def get_timeseries_readings(
     try:
         point_readings = await get_timeseries_by_point_ids(
             ids, site_id=site_id, device_id=device_id,
-            start_time=start_time, end_time=end_time, limit=limit,
+            start_time=start_time, end_time=end_time, limit=limit, max_points=max_points,
         )
     except Exception as e:
         logger.error("get_timeseries_readings failed site=%s device=%s point_ids=%s: %s", site_id, device_id, ids, e, exc_info=True)

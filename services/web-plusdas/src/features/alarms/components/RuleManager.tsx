@@ -12,10 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { describeCondition, KIND_LABEL, ruleDeviceId, type AlarmModel } from "../lib/alarmModel";
-import { formatSiteTime } from "../lib/siteTime";
+import { formatSiteTime } from "@/shared/lib/siteTime";
 import type { Rule } from "../types";
 import { NotificationToggles } from "./NotificationToggles";
-import { SeverityIndicator } from "./SeverityIndicator";
+import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 
 /** Delay, deadband or timeout of a rule, as short lines. */
 function ruleSettings(rule: Rule): string[] {
@@ -23,6 +23,7 @@ function ruleSettings(rule: Rule): string[] {
   if (!spec) return ["Logic in the site profile"];
   if (spec.kind === "comms_stale") return [`Timeout ${spec.stale_after_sec} s`];
   const settings = [`Delay ${spec.delay_sec} s`];
+  if ((spec.clear_delay_sec ?? 0) > 0) settings.push(`Clears after ${spec.clear_delay_sec} s`);
   if (spec.kind === "threshold" && spec.deadband > 0) settings.push(`Deadband ${spec.deadband}`);
   return settings;
 }

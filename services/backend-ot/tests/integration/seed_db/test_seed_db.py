@@ -189,7 +189,7 @@ class TestSeedAlarms:
         alarms = ALARM_LIST.validate_python((await client.get(f"/api/alarms/site/{site.site_id}/definitions")).json())
         names = [alarm.name for alarm in alarms]
         assert len(names) == len(set(names))
-        assert [alarm.profile_alarm_key for alarm in alarms if alarm.source == "PROFILE"] == ["placeholder_profile_alarm_1"]
+        assert [alarm.profile_alarm_key for alarm in alarms if alarm.source == "PROFILE"] == ["high_severity_alarm_point_active"]
 
 
 class TestSeededSld:

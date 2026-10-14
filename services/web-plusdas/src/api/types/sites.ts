@@ -11,9 +11,10 @@ export interface Site {
   status: 'online' | 'warning' | 'offline';
   deviceCount: number;
   lastUpdate: string;
-  capacity: string;
   operator: string;
   description: string;
+  /** IANA time zone of the site (e.g. America/Los_Angeles); reports use it for local days. */
+  timezone: string;
 }
 
 // Wire types: generated from backend-ot's contract, never hand-written.
@@ -23,3 +24,7 @@ export type SiteRecord = Schemas['SiteResponse'];
 export type SiteCreateRequest = Schemas['SiteCreateRequest'];
 export type SiteUpdateRequest = Schemas['SiteUpdateRequest'];
 export type SiteDeleteResponse = Schemas['SiteDeleteResponse'];
+export type SiteHealth = Schemas['SiteHealthResponse'];
+export type DeviceAlarmStatus = Schemas['DeviceAlarmStatus'];
+export type ActivePointAlarm = Schemas['ActivePointAlarm'];
+export type PointSeverity = NonNullable<ActivePointAlarm['severity']>;
