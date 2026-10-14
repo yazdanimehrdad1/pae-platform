@@ -33,7 +33,7 @@ const DELAY_PRESETS = [
 ];
 
 type RuleKind = AlarmRuleInput["kind"];
-type Errors = Partial<Record<"name" | "device" | "delay" | "deadband" | "staleAfter", string>>;
+type Errors = Partial<Record<"name" | "device" | "delay" | "clearDelay" | "deadband" | "staleAfter", string>>;
 
 /** Parses a required number: returns the value, or the error text to show beside the field. */
 function parseNumber(raw: string, { min }: { min?: number } = {}): number | string {
@@ -53,6 +53,8 @@ function initialForm(rule: Rule | undefined) {
   const spec = rule?.rule ?? null;
   const delay = spec && spec.kind !== "comms_stale" ? spec.delay_sec : 0;
   const isPreset = DELAY_PRESETS.some(preset => preset.value === String(delay));
+  const clearDelay = spec && spec.kind !== "comms_stale" ? (spec.clear_delay_sec ?? 0) : 0;
+  const isClearPreset = DELAY_PRESETS.some(preset => preset.value === String(clearDelay));
   return {
     kind: (spec?.kind ?? "threshold") as RuleKind,
     condition: spec?.kind === "threshold" ? conditionFromWire(spec.condition) : newCondition(),
@@ -60,6 +62,8 @@ function initialForm(rule: Rule | undefined) {
     deviceId: spec?.kind === "comms_stale" ? String(spec.device_id) : "",
     delayPreset: isPreset ? String(delay) : "custom",
     customDelay: isPreset ? "" : String(delay),
+    clearDelayPreset: isClearPreset ? String(clearDelay) : "custom",
+    customClearDelay: isClearPreset ? "" : String(clearDelay),
     deadband: spec?.kind === "threshold" ? String(spec.deadband) : "0",
     staleAfter: spec?.kind === "comms_stale" ? String(spec.stale_after_sec) : "60",
   };
@@ -75,8 +79,9 @@ function collectGroupErrors(group: ConditionGroupDraft, into: Record<string, Con
 
 /**
  * Inline form for a new user alarm rule on the page's site, or for editing one (`initial`), saved to backend-ot (which evaluates it):
- * - a threshold: one point against a value or another point, or a bit test; with delay and deadband;
- * - a condition: ALL/ANY groups over several points (the virtual point editor), with a delay;
+ * - a threshold: one point against a value or another point, or a bit test; with a delay (true for this
+ *   long to raise), a clear delay (no longer true for this long to clear) and a deadband;
+ * - a condition: ALL/ANY groups over several points (the virtual point editor), with both delays;
  * - comms stale: a device with no successful poll for a while.
  */
 export function RuleBuilder({ initial, points, devices, existingNames, canEnable, onSave, onCancel }: {
@@ -102,6 +107,8 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
   const [deviceId, setDeviceId] = useState(form.deviceId);
   const [delayPreset, setDelayPreset] = useState(form.delayPreset);
   const [customDelay, setCustomDelay] = useState(form.customDelay);
+  const [clearDelayPreset, setClearDelayPreset] = useState(form.clearDelayPreset);
+  const [customClearDelay, setCustomClearDelay] = useState(form.customClearDelay);
   const [deadband, setDeadband] = useState(form.deadband);
   const [staleAfter, setStaleAfter] = useState(form.staleAfter);
   const [severity, setSeverity] = useState<Severity>(initial?.severity ?? "warning");
@@ -128,6 +135,7 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
     const nameError = validateRuleName(name, takenNames);
     if (nameError) nextErrors.name = nameError;
     const delayValue = delayPreset === "custom" ? parseNumber(customDelay, { min: 0 }) : Number(delayPreset);
+    const clearDelayValue = clearDelayPreset === "custom" ? parseNumber(customClearDelay, { min: 0 }) : Number(clearDelayPreset);
     let nextConditionErrors: ConditionErrors = {};
     const nextGroupErrors: Record<string, ConditionErrors> = {};
     let rule: AlarmRuleInput | null = null;
@@ -136,17 +144,21 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
     if (kind === "threshold") {
       nextConditionErrors = validateCondition(condition);
       if (typeof delayValue === "string") nextErrors.delay = delayValue;
+      if (typeof clearDelayValue === "string") nextErrors.clearDelay = clearDelayValue;
       const deadbandValue = isBitTest ? 0 : parseNumber(deadband, { min: 0 });
       if (typeof deadbandValue === "string") nextErrors.deadband = deadbandValue;
-      if (Object.keys(nextConditionErrors).length === 0 && typeof delayValue === "number" && typeof deadbandValue === "number") {
-        rule = { kind: "threshold", condition: conditionToWire(condition), delay_sec: delayValue, deadband: deadbandValue };
+      if (Object.keys(nextConditionErrors).length === 0 && typeof delayValue === "number" && typeof clearDelayValue === "number" && typeof deadbandValue === "number") {
+        rule = {
+          kind: "threshold", condition: conditionToWire(condition), delay_sec: delayValue, clear_delay_sec: clearDelayValue, deadband: deadbandValue,
+        };
         defaultMessage = describeConditionDraft(condition, pointsById);
       }
     } else if (kind === "condition") {
       collectGroupErrors(group, nextGroupErrors);
       if (typeof delayValue === "string") nextErrors.delay = delayValue;
-      if (Object.keys(nextGroupErrors).length === 0 && typeof delayValue === "number") {
-        rule = { kind: "condition", when: groupToWire(group), delay_sec: delayValue };
+      if (typeof clearDelayValue === "string") nextErrors.clearDelay = clearDelayValue;
+      if (Object.keys(nextGroupErrors).length === 0 && typeof delayValue === "number" && typeof clearDelayValue === "number") {
+        rule = { kind: "condition", when: groupToWire(group), delay_sec: delayValue, clear_delay_sec: clearDelayValue };
         defaultMessage = describeGroupDraft(group, pointsById);
       }
     } else {
@@ -189,7 +201,26 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
             onChange={e => setCustomDelay(e.target.value)} aria-invalid={!!errors.delay} aria-describedby="rule-delay-error" />
         )}
       </div>
+      <p className="text-xs text-muted-foreground">Raises once it has been true this long.</p>
       <FieldError id="rule-delay-error" message={errors.delay} />
+    </div>
+  );
+
+  const clearDelayField = (
+    <div className="space-y-1 md:col-span-2">
+      <Label htmlFor="rule-clear-delay">Clear delay (for)</Label>
+      <div className="flex gap-2">
+        <Select value={clearDelayPreset} onValueChange={setClearDelayPreset}>
+          <SelectTrigger id="rule-clear-delay"><SelectValue /></SelectTrigger>
+          <SelectContent>{DELAY_PRESETS.map(preset => <SelectItem key={preset.value} value={preset.value}>{preset.label}</SelectItem>)}</SelectContent>
+        </Select>
+        {clearDelayPreset === "custom" && (
+          <Input aria-label="Custom clear delay in seconds" placeholder="seconds" inputMode="numeric" value={customClearDelay}
+            onChange={e => setCustomClearDelay(e.target.value)} aria-invalid={!!errors.clearDelay} aria-describedby="rule-clear-delay-error" />
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">Clears once it has been false this long.</p>
+      <FieldError id="rule-clear-delay-error" message={errors.clearDelay} />
     </div>
   );
 
@@ -261,6 +292,7 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
             errors={conditionErrors}
           />
           {delayField}
+          {clearDelayField}
           {!isBitTest && (
             <div className="space-y-1 md:col-span-2">
               <Label htmlFor="rule-deadband">Deadband (clear hysteresis)</Label>
@@ -278,7 +310,7 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
             <ConditionGroup group={group} onChange={setGroup} points={points} errorsFor={key => groupErrors[key]} label="Raise when" />
           </div>
           {delayField}
-          <p className="self-end pb-2 text-xs text-muted-foreground md:col-span-4">Clears as soon as the condition no longer holds.</p>
+          {clearDelayField}
         </div>
       )}
 

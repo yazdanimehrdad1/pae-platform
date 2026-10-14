@@ -94,9 +94,37 @@ describe('RuleBuilder threshold', () => {
       name: 'soc_high', severity: 'warning', enabled: true,
       notify_mobile: true, notify_email: true,
       message: 'bess-1 · state_of_charge > 90 %',
-      rule: { kind: 'threshold', delay_sec: 0, deadband: 1.5,
+      rule: { kind: 'threshold', delay_sec: 0, clear_delay_sec: 0, deadband: 1.5,
         condition: { type: 'condition', point_id: 64, operator: '>', value: 90, compare_point_id: null, bit: null } },
     });
+  });
+
+  it('saves a clear delay: the alarm clears once the condition has been false that long', async () => {
+    const onSave = renderBuilder();
+    typeName('soc_high');
+    await choosePoint('state_of_charge');
+    typeThreshold('90');
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Clear delay (for)' }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Custom' }));
+    fireEvent.change(screen.getByLabelText('Custom clear delay in seconds'), { target: { value: '45' } });
+    save();
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(saved(onSave).rule).toMatchObject({ kind: 'threshold', delay_sec: 0, clear_delay_sec: 45 });
+  });
+
+  it('refuses a negative clear delay', async () => {
+    const onSave = renderBuilder();
+    typeName('soc_high');
+    await choosePoint('state_of_charge');
+    typeThreshold('90');
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Clear delay (for)' }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Custom' }));
+    fireEvent.change(screen.getByLabelText('Custom clear delay in seconds'), { target: { value: '-5' } });
+    save();
+
+    expect(await screen.findByText('Must be 0 or more')).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('a bitfield point tests a bit, with no deadband', async () => {
@@ -107,7 +135,7 @@ describe('RuleBuilder threshold', () => {
     save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(saved(onSave).rule).toEqual({ kind: 'threshold', delay_sec: 0, deadband: 0,
+    expect(saved(onSave).rule).toEqual({ kind: 'threshold', delay_sec: 0, clear_delay_sec: 0, deadband: 0,
       condition: { type: 'condition', point_id: 66, operator: 'bit_set', value: null, compare_point_id: null, bit: 3 } });
     expect(saved(onSave).message).toBe('bess-1 · faults · trip is set');
   });
@@ -139,7 +167,7 @@ describe('RuleBuilder condition on several points', () => {
     save();
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(saved(onSave).rule).toEqual({ kind: 'condition', delay_sec: 0, when: { type: 'group', match: 'all', items: [
+    expect(saved(onSave).rule).toEqual({ kind: 'condition', delay_sec: 0, clear_delay_sec: 0, when: { type: 'group', match: 'all', items: [
       { type: 'condition', point_id: 64, operator: '>', value: 10, compare_point_id: null, bit: null },
       { type: 'condition', point_id: 166, operator: '==', value: 0, compare_point_id: null, bit: null },
     ] } });

@@ -96,6 +96,17 @@ describe('Live Data point monitoring', () => {
     expect(cellsOf('inverter_state').slice(0, 8)).toEqual(['inverter_state', '16input', 'enum16', '1', '—', '—', 'mppt', '—']);
   });
 
+  it('scrolls the table in one box, so the left-right scrollbar is at the bottom of the panel', async () => {
+    renderPage();
+    fireEvent.click(within(await deviceList()).getByRole('option', { name: /pv-1/ }));
+    const table = await within(snapshot()).findByRole('table');
+    const scrollBox = within(snapshot()).getByTestId('readings-scroll');
+    // The table sits directly in the panel's scroll box: no inner scroll wrapper under the last row.
+    expect(table.parentElement).toBe(scrollBox);
+    expect(scrollBox.className).toMatch(/\boverflow-auto\b/);
+    expect(scrollBox.className).toMatch(/\bflex-1\b/);
+  });
+
   it('fetches again only when a snapshot is taken', async () => {
     renderPage();
     fireEvent.click(within(await deviceList()).getByRole('option', { name: /pv-1/ }));

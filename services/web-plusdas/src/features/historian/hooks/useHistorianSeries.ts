@@ -9,6 +9,26 @@ import { buildChartRows, buildLineSeries, type LinePoint, type SeriesByKey } fro
 import { PLOT_POINTS } from '../sampling/constants';
 import { usePointCatalog } from './usePointCatalog';
 
+// Readings are fetched when a chart needs them (a new point, window or zoom), and again only when
+// the user asks: the Refresh button, or Auto refresh (off by default) every AUTO_REFRESH_MS. So no
+// refetch on a timer, on window focus, on reconnect or when a chart remounts.
+export const AUTO_REFRESH_MS = 60_000;
+const SERIES_KEY = 'historian-series';
+const FUNCTION_KEY = 'historian-fn';
+
+/** Every readings query of the site's charts (points and site functions): what Refresh refetches. */
+export function isHistorianQueryOf(siteId: string | null) {
+  return (query: { queryKey: readonly unknown[] }) =>
+    (query.queryKey[0] === SERIES_KEY || query.queryKey[0] === FUNCTION_KEY) && query.queryKey[1] === siteId;
+}
+
+const fetchOnRequestOnly = (autoRefresh: boolean) => ({
+  staleTime: Infinity,
+  refetchInterval: autoRefresh ? AUTO_REFRESH_MS : false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const);
+
 const windowKey = (timeWindow: TimeWindow) => 'preset' in timeWindow
   ? ['preset', timeWindow.preset]
   : ['custom', timeWindow.startTime, timeWindow.endTime];
@@ -25,7 +45,8 @@ const windowArgs = (timeWindow: TimeWindow) => ({
 export function useHistorianSeries(
   siteId: string | null,
   selectedPoints: string[],
-  timeWindow: TimeWindow
+  timeWindow: TimeWindow,
+  { autoRefresh = false }: { autoRefresh?: boolean } = {},
 ): {
   data: ChartRow[];
   lines: Record<string, LinePoint[]>;
@@ -58,11 +79,10 @@ export function useHistorianSeries(
   // One API call per device group, in parallel
   const pointResults = useQueries({
     queries: groups.map(([deviceId, points]) => ({
-      queryKey: ['historian-series', siteId, deviceId, points.join(','), ...windowKey(timeWindow)],
+      queryKey: [SERIES_KEY, siteId, deviceId, points.join(','), ...windowKey(timeWindow)],
       queryFn: () => historianApi.getDevicePointReadings({ siteId: siteId!, deviceId, pointIds: points, ...windowArgs(timeWindow) }),
       enabled: !!siteId && points.length > 0,
-      staleTime: 0,
-      refetchInterval: 60_000,
+      ...fetchOnRequestOnly(autoRefresh),
       placeholderData: keepPreviousData,
     })),
   });
@@ -70,11 +90,10 @@ export function useHistorianSeries(
   // One API call per function (a function returning several series is fetched once per selection).
   const functionResults = useQueries({
     queries: functionSelections.map(({ selection }) => ({
-      queryKey: ['historian-fn', siteId, selection.deviceId ?? null, selection.name, ...windowKey(timeWindow)],
+      queryKey: [FUNCTION_KEY, siteId, selection.deviceId ?? null, selection.name, ...windowKey(timeWindow)],
       queryFn: () => siteFunctionsApi.getSeries({ siteId: siteId!, name: selection.name, deviceId: selection.deviceId, ...windowArgs(timeWindow) }),
       enabled: !!siteId,
-      staleTime: 0,
-      refetchInterval: 60_000,
+      ...fetchOnRequestOnly(autoRefresh),
       placeholderData: keepPreviousData,
     })),
   });

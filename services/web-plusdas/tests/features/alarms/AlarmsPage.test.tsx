@@ -26,7 +26,6 @@ beforeEach(() => {
     : { site_id: 2002, now: SNAPSHOT_RECORD.now, definitions: [], events: [], log: [] }));
   vi.spyOn(devicesApi, 'getRecords').mockImplementation(async siteId => (siteId === '1001' ? DEVICE_RECORDS : []));
   vi.spyOn(historianApi, 'getLatestReadings').mockImplementation(async (_siteId, deviceId) => LATEST.get(Number(deviceId))!);
-  vi.spyOn(historianApi, 'getDevicePointReadings').mockResolvedValue({ meta: {}, readings: {} } as never);
   vi.spyOn(alarmsApi, 'update').mockImplementation(async (_siteId, alarmId, patch: AlarmDefinitionUpdateRequest) => {
     definitions = definitions.map(definition => (definition.id === alarmId ? { ...definition, ...patch } as AlarmDefinitionRecord : definition));
     return definitions.find(definition => definition.id === alarmId)!;
@@ -64,18 +63,19 @@ describe('AlarmsPage', () => {
     expect(alarmsApi.getSnapshot).toHaveBeenCalledWith('1001');
   });
 
-  it("shows the device's trend and its events of the last 6 h, without a points table or full-history link", async () => {
+  it("shows the device's events of the last 6 h, without a trend, points table or full-history link", async () => {
     renderPage();
     await screen.findByText('1 active fault');
     const device = screen.getByRole('region', { name: 'bess-1' });
     expect(within(device).getByRole('heading', { level: 3, name: 'Events, last 6 h' })).toBeTruthy();
     expect(within(device).getByText('BESS SOC low')).toBeTruthy();
+    expect(within(device).queryByRole('heading', { level: 3, name: /^state_of_charge/ })).toBeNull(); // no trend chart
     expect(within(device).queryByRole('heading', { name: 'Points' })).toBeNull();
     expect(within(device).queryByRole('button', { name: 'Query full history' })).toBeNull();
     expect(within(device).queryAllByRole('table')).toHaveLength(0);
   });
 
-  it('opens the alarm device with its point in the trend when an alarm row is clicked', async () => {
+  it('opens the alarm device when an alarm row is clicked', async () => {
     renderPage();
     await screen.findByText('1 active fault');
     fireEvent.click(screen.getByRole('option', { name: /pv-1/ }));
@@ -84,19 +84,6 @@ describe('AlarmsPage', () => {
 
     fireEvent.click(alarmRow('bess-1'));
     expect(deviceHeading().textContent).toBe('bess-1');
-    expect(screen.getByRole('heading', { level: 3, name: /^state_of_charge/ })).toBeTruthy();
-  });
-
-  it('opens the trend on a point that has readings when the device has no alarming or ruled point', async () => {
-    definitions = definitions.filter(definition => definition.id !== 1); // no rule on state_of_charge
-    const bessLatest = structuredClone(LATEST.get(2)!);
-    delete bessLatest.readings['65']; // pack_voltage, the first numeric point, has no reading
-    vi.mocked(historianApi.getLatestReadings).mockImplementation(async (_siteId, deviceId) =>
-      (deviceId === '2' ? bessLatest : LATEST.get(Number(deviceId))!));
-    renderPage();
-    await screen.findByText('0 active faults');
-    fireEvent.click(screen.getByRole('option', { name: /bess-1/ }));
-    await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: /^state_of_charge/ })).toBeTruthy());
   });
 
   it("saves a notification change to the alarm, so the rules dialog shows it too", async () => {

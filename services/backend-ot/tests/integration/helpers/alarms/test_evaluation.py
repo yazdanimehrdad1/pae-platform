@@ -4,6 +4,8 @@ Integration tests for helpers.alarms.evaluation.evaluate_site_alarms (one evalua
 Guards, against stored readings and a controlled `now`:
 - a threshold raises only after its delay, records the value and the point's device, holds
   inside the deadband and clears past it; point-vs-point thresholds use the other point's value;
+- a flag above zero clears when it reads zero; a clear delay waits for the condition to stay false,
+  and restarts when it comes back;
 - an input older than the max gap counts as missing (no raise);
 - comms-stale raises back-dated to last success + timeout and clears on the next stored reading;
 - a multi-point condition raises and clears; a disabled alarm is not raised.
@@ -98,6 +100,39 @@ class TestThreshold:
         assert cleared.kind == "clear"
         (event,) = await events(client, site_id)
         assert event.cleared_at == at(40)
+
+    async def test_a_flag_above_zero_clears_when_it_reads_zero(self, client, db):
+        # The live bug: "flags > 0" stayed active forever, because clearing needed a value below 0.
+        site_id, _, (_, _, flags) = await site_with_points(client)
+        await create_alarm(client, site_id, threshold_alarm(flags.id, value=0))
+        await reading(db, flags, 0, 1)
+        assert [transition.kind for transition in await evaluate_site_alarms(site_id, at(0))] == ["raise"]
+        await reading(db, flags, 10, 0)
+        assert [transition.kind for transition in await evaluate_site_alarms(site_id, at(10))] == ["clear"]
+        (event,) = await events(client, site_id)
+        assert event.cleared_at == at(10)
+
+    async def test_clear_delay_waits_for_the_condition_to_stay_false(self, client, db):
+        site_id, _, (_, _, flags) = await site_with_points(client)
+        request = threshold_alarm(flags.id, value=0)
+        request.rule = request.rule.model_copy(update={"clear_delay_sec": 60})
+        await create_alarm(client, site_id, request)
+        await reading(db, flags, 0, 1)
+        await evaluate_site_alarms(site_id, at(0))
+
+        await reading(db, flags, 10, 0)
+        assert await evaluate_site_alarms(site_id, at(10)) == []  # false, but not for 60 s yet
+        await reading(db, flags, 30, 1)
+        assert await evaluate_site_alarms(site_id, at(30)) == []  # true again: the clear delay starts over
+        await reading(db, flags, 40, 0)
+        assert await evaluate_site_alarms(site_id, at(40)) == []
+        await reading(db, flags, 90, 0)
+        assert await evaluate_site_alarms(site_id, at(90)) == []  # 50 s false
+        await reading(db, flags, 100, 0)
+        (cleared,) = await evaluate_site_alarms(site_id, at(100))  # 60 s false
+        assert (cleared.kind, cleared.at) == ("clear", at(100))
+        (event,) = await events(client, site_id)
+        assert (event.raised_at, event.cleared_at) == (at(0), at(100))
 
     async def test_an_edited_rule_closes_the_old_event_and_raises_after_its_own_delay(self, client, db):
         site_id, _, (power, *_) = await site_with_points(client)

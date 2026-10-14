@@ -1,11 +1,14 @@
 """
 Unit tests for helpers.alarms.engine (one evaluation of one alarm).
 
-Guards the same semantics as the UI's reference engine (web-plusdas ruleEngine.ts):
+Guards when an alarm asserts and deasserts:
 - a raise waits for `delay` of continuous violation, then happens at the evaluation completing it;
-- a threshold clears only past the limit by `deadband` (value or another point); `==`/`!=`, bit
-  tests and conditions clear as soon as they no longer hold;
-- missing data changes nothing but resets the delay timer;
+- a clear waits for `clear_delay` of the clear test passing continuously (0: at once); the
+  condition holding again restarts it;
+- a threshold clears once back past the limit by `deadband` (value or another point); at deadband 0
+  exactly when the comparison is no longer true (so `> 0` clears at 0: a 0/1 flag clears);
+  `==`/`!=`, bit tests and conditions clear as soon as they no longer hold;
+- missing data changes nothing but resets both timers;
 - comms-stale raises back-dated to last success + timeout and clears on a fresh poll;
 - a disabled alarm clears an active one.
 """
@@ -82,6 +85,34 @@ class TestStep:
         state, transition = step(active, normal(), NO_DELAY, at(10))
         assert not state.active and transition is not None and (transition.kind, transition.at) == ("clear", at(10))
 
+    def test_no_clear_delay_clears_at_once(self):
+        state, transition = step(AlarmState(active=True), normal(), NO_DELAY, at(0), NO_DELAY)
+        assert state == AlarmState() and transition is not None and transition.at == at(0)
+
+    def test_clear_delay_needs_the_clear_test_to_pass_continuously(self):
+        clear_delay = timedelta(seconds=60)
+        state, transition = step(AlarmState(active=True), normal(), NO_DELAY, at(0), clear_delay)
+        assert (state, transition) == (AlarmState(active=True, clear_since=at(0)), None)
+        state, transition = step(state, normal(), NO_DELAY, at(40), clear_delay)
+        assert transition is None and state.active and state.clear_since == at(0)
+        state, transition = step(state, normal(), NO_DELAY, at(60), clear_delay)
+        assert state == AlarmState() and transition is not None and (transition.kind, transition.at) == ("clear", at(60))
+
+    def test_the_condition_coming_back_restarts_the_clear_delay(self):
+        clear_delay = timedelta(seconds=60)
+        state, _ = step(AlarmState(active=True), normal(), NO_DELAY, at(0), clear_delay)
+        state, transition = step(state, holding(), NO_DELAY, at(30), clear_delay)
+        assert (state, transition) == (AlarmState(active=True), None)
+        state, _ = step(state, normal(), NO_DELAY, at(40), clear_delay)
+        state, transition = step(state, normal(), NO_DELAY, at(90), clear_delay)
+        assert transition is None and state.clear_since == at(40)  # 50 s since it last came back
+        _, transition = step(state, normal(), NO_DELAY, at(100), clear_delay)
+        assert transition is not None and transition.at == at(100)
+
+    def test_missing_data_resets_the_clear_delay(self):
+        state, transition = step(AlarmState(active=True, clear_since=at(0)), None, NO_DELAY, at(50), timedelta(seconds=60))
+        assert (state, transition) == (AlarmState(active=True), None)
+
     def test_raise_can_be_back_dated(self):
         observation = holding().model_copy(update={"raise_at": at(-60)})
         _, transition = step(AlarmState(), observation, NO_DELAY, at(0))
@@ -93,6 +124,28 @@ class TestStep:
 
 
 class TestThresholdClear:
+    def test_a_flag_above_zero_clears_at_zero(self):
+        # The live bug: "Evt1 > 0" never cleared, because it needed a value below 0.
+        flag = threshold(">", value=0)
+        assert threshold_cleared(flag.condition, {1: 0}, 0)
+        assert not threshold_cleared(flag.condition, {1: 1}, 0)
+
+    def test_at_deadband_zero_it_clears_exactly_when_no_longer_true(self):
+        for operator, still_true, no_longer_true in [(">", 10.5, 10), (">=", 10, 9.9), ("<", 9.5, 10), ("<=", 10, 10.1)]:
+            rule = threshold(operator)
+            assert not threshold_cleared(rule.condition, {1: still_true}, 0), operator
+            assert threshold_cleared(rule.condition, {1: no_longer_true}, 0), operator
+
+    def test_the_deadband_edge(self):
+        assert threshold_cleared(threshold(">", deadband=2).condition, {1: 8}, 2)
+        assert not threshold_cleared(threshold(">", deadband=2).condition, {1: 8.1}, 2)
+        assert not threshold_cleared(threshold(">=", deadband=2).condition, {1: 8}, 2)
+        assert threshold_cleared(threshold(">=", deadband=2).condition, {1: 7.9}, 2)
+        assert threshold_cleared(threshold("<", deadband=2).condition, {1: 12}, 2)
+        assert not threshold_cleared(threshold("<", deadband=2).condition, {1: 11.9}, 2)
+        assert not threshold_cleared(threshold("<=", deadband=2).condition, {1: 12}, 2)
+        assert threshold_cleared(threshold("<=", deadband=2).condition, {1: 12.1}, 2)
+
     def test_above_clears_below_limit_minus_deadband(self):
         rule = threshold(">", deadband=2)
         assert not threshold_cleared(rule.condition, {1: 9}, rule.deadband)

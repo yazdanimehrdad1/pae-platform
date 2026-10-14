@@ -4,9 +4,11 @@ An alarm belongs to a site and comes from one of two sources:
 
 - ``USER``: built in the UI. Its ``rule`` is one of three kinds:
   - ``threshold``: one comparison (a point against a value or another point, or a bit test), raised
-    after ``delay_sec`` of continuous violation, cleared past the limit by ``deadband``;
+    after it holds for ``delay_sec``, cleared after it has been back past the limit by ``deadband``
+    for ``clear_delay_sec``;
   - ``comms_stale``: a device with no successful poll for ``stale_after_sec``;
-  - ``condition``: ALL/ANY groups of comparisons over several points, raised after ``delay_sec``.
+  - ``condition``: ALL/ANY groups of comparisons over several points, raised after the group holds
+    for ``delay_sec``, cleared after it no longer holds for ``clear_delay_sec``.
 - ``PROFILE``: declared in the site profile's code (site_profiles); its logic, name, severity and
   message are code. Users can only enable it, set its notifications and pick it for Active alarms.
 
@@ -45,6 +47,9 @@ class ThresholdAlarm(BaseModel):
     kind: Literal["threshold"]
     condition: VirtualCondition
     delay_sec: int = Field(0, ge=0, description="The condition must hold this long before the alarm raises")
+    clear_delay_sec: int = Field(
+        0, ge=0, description="Once active, the clear test must pass this long before the alarm clears (0: at once)",
+    )
     deadband: float = Field(
         0.0,
         ge=0,
@@ -68,11 +73,15 @@ class CommsStaleAlarm(BaseModel):
 
 
 class ConditionAlarm(BaseModel):
-    """ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds."""
+    """ALL/ANY groups of comparisons over several points; clears once the group no longer holds (for
+    clear_delay_sec)."""
 
     kind: Literal["condition"]
     when: VirtualConditionGroup
     delay_sec: int = Field(0, ge=0, description="The group must hold this long before the alarm raises")
+    clear_delay_sec: int = Field(
+        0, ge=0, description="Once active, the group must not hold for this long before the alarm clears (0: at once)",
+    )
 
     @model_validator(mode="after")
     def _check_depth(self) -> ConditionAlarm:

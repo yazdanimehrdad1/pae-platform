@@ -598,7 +598,7 @@ class AlarmEvent(Base):
 
 
 class AlarmEvaluationState(Base):
-    """The evaluation job's memory between runs, per alarm (the raise delay timer)."""
+    """The evaluation job's memory between runs, per alarm (the raise and clear delay timers)."""
 
     __tablename__ = "alarm_evaluation_state"
 
@@ -606,6 +606,7 @@ class AlarmEvaluationState(Base):
         Integer, ForeignKey("alarm_definitions.id", ondelete="CASCADE"), primary_key=True
     )
     condition_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    clear_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RefreshReadingsButton } from '@/features/historian/components/RefreshReadingsButton';
@@ -13,13 +13,18 @@ function renderButton(siteId: string | null) {
 }
 
 describe('RefreshReadingsButton', () => {
-  it('refetches every historian series of the site', () => {
+  it("refetches every chart query of the site, points and site functions, and no other site's", async () => {
     const queryClient = renderButton('1001');
-    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const seed = (queryKey: unknown[]) => queryClient.setQueryData(queryKey, []);
+    seed(['historian-series', '1001', '2', '7', 'preset', '1H']);
+    seed(['historian-fn', '1001', null, 'site-poi-power', 'preset', '1H']);
+    seed(['historian-series', '2002', '5', '9', 'preset', '1H']);
+    seed(['site-devices-with-points', '1001']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
 
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['historian-series', '1001'] });
+    const invalidated = queryClient.getQueryCache().getAll().filter(query => query.state.isInvalidated).map(query => query.queryKey[0] + ':' + query.queryKey[1]);
+    expect(invalidated.sort()).toEqual(['historian-fn:1001', 'historian-series:1001']);
   });
 
   it('is disabled without a site', () => {

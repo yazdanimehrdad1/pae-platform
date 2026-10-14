@@ -23,6 +23,7 @@ function ruleSettings(rule: Rule): string[] {
   if (!spec) return ["Logic in the site profile"];
   if (spec.kind === "comms_stale") return [`Timeout ${spec.stale_after_sec} s`];
   const settings = [`Delay ${spec.delay_sec} s`];
+  if ((spec.clear_delay_sec ?? 0) > 0) settings.push(`Clears after ${spec.clear_delay_sec} s`);
   if (spec.kind === "threshold" && spec.deadband > 0) settings.push(`Deadband ${spec.deadband}`);
   return settings;
 }

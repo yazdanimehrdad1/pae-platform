@@ -55,6 +55,16 @@ class TestRules:
         with pytest.raises(ValidationError):
             RULE.validate_python({"kind": "comms_stale", "device_id": 1, "stale_after_sec": 0})
 
+    def test_clear_delay_defaults_to_zero_so_stored_rules_still_parse(self):
+        leaf = {"point_id": 1, "operator": ">", "value": 5}
+        assert RULE.validate_python(threshold()).clear_delay_sec == 0
+        assert RULE.validate_python({"kind": "condition", "when": {"match": "all", "items": [leaf]}}).clear_delay_sec == 0
+        assert RULE.validate_python(threshold() | {"clear_delay_sec": 60}).clear_delay_sec == 60
+
+    def test_clear_delay_is_never_negative(self):
+        with pytest.raises(ValidationError):
+            RULE.validate_python(threshold() | {"clear_delay_sec": -1})
+
 
 class TestBodies:
     @pytest.mark.parametrize("name", ["1_bad", "has space", "", "x" * 151])

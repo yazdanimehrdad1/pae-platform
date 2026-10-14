@@ -15,23 +15,9 @@ import { HistoryDrawer } from "./components/HistoryDrawer";
 import { RuleBuilder } from "./components/RuleBuilder";
 import { RuleManager } from "./components/RuleManager";
 import { SummaryBar } from "./components/SummaryBar";
-import type { TrendRange } from "./lib/trendRange";
 import { useAlarmSnapshot, useRuleMutations } from "./hooks/useAlarmsData";
-import { buildAlarmModel, watchedPointId, type AlarmModel, type AlarmView } from "./lib/alarmModel";
+import { buildAlarmModel, type AlarmView } from "./lib/alarmModel";
 import type { Rule } from "./types";
-
-
-/**
- * The point a device's trend opens on: its alarming point, else one with a rule, else the first
- * numeric one with a value (standardized points may have no readings), else the first numeric one.
- */
-function defaultPointId(model: AlarmModel, rules: Rule[], deviceId: string): string | null {
-  const numeric = [...model.pointsById.values()].filter(point => point.deviceId === deviceId && point.kind === "numeric");
-  const alarming = model.active.find(alarm => alarm.point?.deviceId === deviceId && alarm.point.kind === "numeric")?.point;
-  const withRule = numeric.find(point => rules.some(rule => watchedPointId(rule) === point.id));
-  const withValue = numeric.find(point => point.value !== null);
-  return alarming?.id ?? withRule?.id ?? withValue?.id ?? numeric[0]?.id ?? null;
-}
 
 export default function AlarmsPage() {
   const { data: sites = [], isLoading: areSitesLoading } = useQuery({ queryKey: ["sites"], queryFn: sitesApi.getAll });
@@ -76,9 +62,7 @@ function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) 
   const { create, update, remove } = useRuleMutations(siteId);
 
   const [chosenDeviceId, setChosenDeviceId] = useState<string | null>(null);
-  const [chosenPointId, setChosenPointId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [trendRange, setTrendRange] = useState<TrendRange>("6h");
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   // The user rule open in the builder; null for a new rule.
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
@@ -95,22 +79,14 @@ function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) 
 
   const { now, rules, devices, log } = snapshot;
   const selectedDevice = model.devicesById.get(chosenDeviceId ?? "") ?? model.sortedDevices[0] ?? null;
-  const selectedPointId = selectedDevice
-    ? (chosenPointId && model.pointsById.get(chosenPointId)?.deviceId === selectedDevice.id ? chosenPointId : defaultPointId(model, rules, selectedDevice.id))
-    : null;
   const faults = model.active.filter(alarm => alarm.event.severity === "fault").length;
   const normalDevices = devices.filter(device => model.deviceStatus.get(device.id) === "normal").length;
   const canEnableMore = rules.filter(rule => rule.enabled).length < MAX_ENABLED_ALARMS;
 
-  const selectDevice = (deviceId: string) => {
-    setChosenDeviceId(deviceId);
-    setChosenPointId(null);
-  };
+  const selectDevice = (deviceId: string) => setChosenDeviceId(deviceId);
   const selectAlarm = (alarm: AlarmView) => {
     setSelectedEventId(alarm.event.id);
-    if (!alarm.device) return; // site-level alarms have no single device to show
-    setChosenDeviceId(alarm.device.id);
-    setChosenPointId(alarm.point?.kind === "numeric" ? alarm.point.id : null);
+    if (alarm.device) setChosenDeviceId(alarm.device.id); // site-level alarms have no single device to show
   };
   // A change from the alarm table or the rules dialog: enabled, or the notification channels.
   const onChangeRule = (rule: Rule, patch: AlarmDefinitionUpdateRequest) =>
@@ -203,17 +179,12 @@ function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) 
         />
         {selectedDevice ? (
           <DeviceDetail
-            siteId={siteId}
             device={selectedDevice}
             status={model.deviceStatus.get(selectedDevice.id) ?? "normal"}
-            model={model}
             rules={rules}
             log={log}
             now={now}
             timeZone={timeZone}
-            selectedPointId={selectedPointId}
-            trendRange={trendRange}
-            onTrendRangeChange={setTrendRange}
           />
         ) : (
           <p className="text-sm text-muted-foreground">This site has no devices.</p>

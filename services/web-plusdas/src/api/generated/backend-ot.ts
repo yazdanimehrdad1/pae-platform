@@ -1778,9 +1778,16 @@ export interface components {
         };
         /**
          * ConditionAlarm
-         * @description ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.
+         * @description ALL/ANY groups of comparisons over several points; clears once the group no longer holds (for
+         *     clear_delay_sec).
          */
         "ConditionAlarm-Input": {
+            /**
+             * Clear Delay Sec
+             * @description Once active, the group must not hold for this long before the alarm clears (0: at once)
+             * @default 0
+             */
+            clear_delay_sec: number;
             /**
              * Delay Sec
              * @description The group must hold this long before the alarm raises
@@ -1796,9 +1803,16 @@ export interface components {
         };
         /**
          * ConditionAlarm
-         * @description ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.
+         * @description ALL/ANY groups of comparisons over several points; clears once the group no longer holds (for
+         *     clear_delay_sec).
          */
         "ConditionAlarm-Output": {
+            /**
+             * Clear Delay Sec
+             * @description Once active, the group must not hold for this long before the alarm clears (0: at once)
+             * @default 0
+             */
+            clear_delay_sec: number;
             /**
              * Delay Sec
              * @description The group must hold this long before the alarm raises
@@ -4252,6 +4266,12 @@ export interface components {
          * @description One comparison: `point <op> value`, `point <op> other point`, or a bit test.
          */
         ThresholdAlarm: {
+            /**
+             * Clear Delay Sec
+             * @description Once active, the clear test must pass this long before the alarm clears (0: at once)
+             * @default 0
+             */
+            clear_delay_sec: number;
             condition: components["schemas"]["VirtualCondition"];
             /**
              * Deadband

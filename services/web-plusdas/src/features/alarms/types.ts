@@ -74,12 +74,6 @@ export interface AlarmLogEntry {
   at: string;
   message: string;
 }
-
-export interface Sample {
-  t: number;
-  v: number;
-}
-
 export interface HistoryFilter {
   deviceId?: string;
   severity?: Severity;

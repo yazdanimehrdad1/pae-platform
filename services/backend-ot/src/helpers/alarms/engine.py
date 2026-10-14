@@ -1,16 +1,17 @@
 """The alarm engine: what one evaluation of one alarm decides. Pure: no I/O, no clock.
 
-A port of the UI's reference engine (web-plusdas `features/alarms/lib/ruleEngine.ts`), applied to
-one observation per cycle instead of a replayed series:
+One observation per alarm per cycle:
 
 - an alarm raises after its condition has held continuously for `delay_sec` (0 = at once), at
   the evaluation that completes the delay;
-- an active alarm clears when its clear test passes: a threshold comparison must come back past
-  the limit by `deadband` (hysteresis); `==`, `!=`, bit tests, conditions and profile checks clear
-  as soon as they no longer hold;
+- an active alarm clears after its clear test has passed continuously for `clear_delay_sec` (0 = at
+  once), at the evaluation that completes it. The clear test: a threshold comparison is back past
+  the limit by `deadband` (hysteresis; with deadband 0, simply no longer true); `==`, `!=`, bit
+  tests, conditions and profile checks no longer hold. If the condition holds again first, the
+  clear timer starts over;
 - comms-stale raises back-dated to last success + timeout, and clears on the next fresh poll;
-- an evaluation without data (an input missing or stale) changes nothing, but resets the delay
-  timer, so the condition must hold across fresh data.
+- an evaluation without data (an input missing or stale) changes nothing, but resets both timers,
+  so a raise or a clear must be seen across fresh data.
 
 Comparisons and groups use the virtual-point evaluators (`condition_holds`, `group_holds`).
 """
@@ -39,7 +40,8 @@ class AlarmObservation(BaseModel):
 
 class AlarmState(BaseModel):
     active: bool = False
-    condition_since: datetime | None = None
+    condition_since: datetime | None = Field(None, description="Inactive: since when the condition has held")
+    clear_since: datetime | None = Field(None, description="Active: since when the clear test has passed")
 
 
 class AlarmTransition(BaseModel):
@@ -50,15 +52,22 @@ class AlarmTransition(BaseModel):
 
 
 def step(
-    state: AlarmState, observation: AlarmObservation | None, delay: timedelta, now: datetime
+    state: AlarmState,
+    observation: AlarmObservation | None,
+    delay: timedelta,
+    now: datetime,
+    clear_delay: timedelta = timedelta(0),
 ) -> tuple[AlarmState, AlarmTransition | None]:
     """The next state and, if any, the raise or clear this evaluation causes."""
     if observation is None:
         return AlarmState(active=state.active), None
     if state.active:
-        if observation.cleared:
+        if not observation.cleared:
+            return AlarmState(active=True), None
+        clear_since = state.clear_since or now
+        if now - clear_since >= clear_delay:
             return AlarmState(), AlarmTransition(kind="clear", at=now)
-        return state, None
+        return AlarmState(active=True, clear_since=clear_since), None
     if not observation.holds:
         return AlarmState(), None
     since = state.condition_since or now
@@ -74,16 +83,23 @@ def disabled_step(state: AlarmState, now: datetime) -> tuple[AlarmState, AlarmTr
 
 
 def threshold_cleared(condition: VirtualCondition, values: Mapping[int, float], deadband: float) -> bool:
-    """The clear test with hysteresis: `>`/`>=` clear below limit - deadband, `<`/`<=` above limit +
-    deadband (the limit is the value or the other point); others clear when the condition is false."""
+    """The clear test with hysteresis: the value is back past the limit by `deadband` (the limit is
+    the value or the other point). At deadband 0 that is exactly "the comparison no longer holds":
+    `> L` clears at <= L, `>= L` below L, `< L` at >= L, `<= L` above L. Others clear when false."""
     if condition.operator in BIT_OPERATORS or condition.operator in ("==", "!="):
         return not condition_holds(condition, values)
     value = values[condition.point_id]
     limit = values[condition.compare_point_id] if condition.compare_point_id is not None else condition.value
     assert limit is not None  # guaranteed by VirtualCondition's validator
-    if condition.operator in (">", ">="):
-        return value < limit - deadband
-    return value > limit + deadband
+    match condition.operator:
+        case ">":
+            return value <= limit - deadband
+        case ">=":
+            return value < limit - deadband
+        case "<":
+            return value >= limit + deadband
+        case _:  # "<="
+            return value > limit + deadband
 
 
 def observe_threshold(rule: ThresholdAlarm, values: Mapping[int, float | None], device_of: Mapping[int, int]) -> AlarmObservation | None:

@@ -52,7 +52,7 @@ const definition = (id: number, name: string, extra: Partial<AlarmDefinitionReco
 export const DEFINITIONS: AlarmDefinitionRecord[] = [
   definition(1, "bess_soc_low", {
     severity: "fault", message: "BESS SOC low", notify_mobile: true,
-    rule: { kind: "threshold", delay_sec: 60, deadband: 2,
+    rule: { kind: "threshold", delay_sec: 60, clear_delay_sec: 0, deadband: 2,
       condition: { type: "condition", point_id: 64, operator: "<", value: 20, compare_point_id: null, bit: null } },
   }),
   definition(2, "pv_comms_lost", {
@@ -64,7 +64,7 @@ export const DEFINITIONS: AlarmDefinitionRecord[] = [
   }),
   definition(4, "bess_trip_while_ready", {
     kind: "condition", enabled: false,
-    rule: { kind: "condition", delay_sec: 30, when: { type: "group", match: "all", items: [
+    rule: { kind: "condition", delay_sec: 30, clear_delay_sec: 0, when: { type: "group", match: "all", items: [
       { type: "condition", point_id: 66, operator: "bit_set", value: null, compare_point_id: null, bit: 3 },
       { type: "condition", point_id: 166, operator: "==", value: 1, compare_point_id: null, bit: null },
     ] } },

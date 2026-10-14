@@ -48,6 +48,13 @@ describe('describeCondition / formatLimit', () => {
     expect(describe_('pv_inverter_offline')).toBe('PV inverter is not producing');
   });
 
+  it('says when a rule waits before clearing', () => {
+    const socLow = rule('bess_soc_low');
+    const withClearDelay = { ...socLow, rule: { ...socLow.rule!, clear_delay_sec: 120 } } as typeof socLow;
+    expect(describeCondition(withClearDelay, model.pointsById, model.devicesById))
+      .toBe('bess-1 · state_of_charge < 20 % for 1 min, clears after 2 min false');
+  });
+
   it('formats the limit side', () => {
     expect(formatLimit(rule('bess_soc_low'), model.pointsById)).toBe('< 20 %');
     expect(formatLimit(rule('pv_comms_lost'), model.pointsById)).toBe('> 60 s');

@@ -1,42 +1,22 @@
-import { useMemo } from "react";
-import { watchedPointId, type AlarmModel } from "../lib/alarmModel";
 import type { AlarmLogEntry, Device, DeviceStatus, Rule } from "../types";
 import { EventLog } from "./EventLog";
 import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
-import type { TrendRange } from "../lib/trendRange";
-import { TrendChart } from "./TrendChart";
 
 const DEFAULT_STALE_AFTER_SEC = 60;
 
-/** The selected device: identity and poll health, trend of one point, its events of the last 6 h. */
-export function DeviceDetail({ siteId, device, status, model, rules, log, now, timeZone, selectedPointId, trendRange, onTrendRangeChange }: {
-  siteId: string;
+/** The selected device: identity and poll health, and its events of the last 6 h. */
+export function DeviceDetail({ device, status, rules, log, now, timeZone }: {
   device: Device;
   status: DeviceStatus;
-  model: AlarmModel;
   rules: Rule[];
   log: AlarmLogEntry[];
   now: number;
   timeZone: string;
-  selectedPointId: string | null;
-  trendRange: TrendRange;
-  onTrendRangeChange: (range: TrendRange) => void;
 }) {
-  const points = useMemo(() => [...model.pointsById.values()].filter(point => point.deviceId === device.id), [model, device.id]);
-  const limitsByPoint = useMemo(() => {
-    const limits = new Map<string, Rule[]>();
-    for (const rule of rules) {
-      const pointId = watchedPointId(rule);
-      if (pointId && rule.enabled) limits.set(pointId, [...(limits.get(pointId) ?? []), rule]);
-    }
-    return limits;
-  }, [rules]);
-
   const staleRule = rules.find(rule => rule.enabled && rule.rule?.kind === "comms_stale" && String(rule.rule.device_id) === device.id);
   const staleAfterSec = staleRule?.rule?.kind === "comms_stale" ? staleRule.rule.stale_after_sec : DEFAULT_STALE_AFTER_SEC;
   const polledSecondsAgo = device.lastPollAt ? Math.max(0, Math.round((now - Date.parse(device.lastPollAt)) / 1000)) : null;
   const isPollStale = polledSecondsAgo === null || polledSecondsAgo > staleAfterSec;
-  const trendPoint = points.find(point => point.id === selectedPointId && point.kind === "numeric") ?? null;
   const deviceLog = log.filter(entry => entry.deviceId === device.id);
 
   return (
@@ -62,13 +42,6 @@ export function DeviceDetail({ siteId, device, status, model, rules, log, now, t
           <span className="text-sm tabular-nums text-muted-foreground">Polled {polledSecondsAgo} s ago</span>
         )}
       </header>
-
-      {trendPoint ? (
-        <TrendChart siteId={siteId} point={trendPoint} limits={limitsByPoint.get(trendPoint.id) ?? []} now={now} timeZone={timeZone}
-          range={trendRange} onRangeChange={onTrendRangeChange} />
-      ) : (
-        <p className="text-sm text-muted-foreground">This device has no numeric point to trend.</p>
-      )}
 
       <div>
         <h3 className="mb-1 text-sm font-medium">Events, last 6 h</h3>

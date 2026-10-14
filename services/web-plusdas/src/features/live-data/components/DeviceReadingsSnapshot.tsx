@@ -3,7 +3,7 @@ import { Camera } from "lucide-react";
 import { getErrorMessage } from "@/api/client";
 import type { DevicePointsEntry, PointGroup } from "@/api/types/devices";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useReadingsSnapshot } from "../hooks/useReadingsSnapshot";
 import { buildReadingsTable, formatReading, SNAPSHOT_READINGS } from "../lib/readingsSnapshot";
 
@@ -40,8 +40,11 @@ export function DeviceReadingsSnapshot({ siteId, device }: { siteId: string; dev
       ) : isLoading || !table ? (
         <p className="text-sm text-muted-foreground">Taking snapshot…</p>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
-          <Table>
+        // One scroll box for both directions, so the left-right scrollbar sits at the bottom of the panel
+        // (not under the last row) and the header and Point column stay put. Hence a plain <table>: the
+        // shared Table wraps itself in a second scroll box.
+        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border" data-testid="readings-scroll">
+          <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 z-20 bg-card">
               <TableRow>
                 <TableHead className="sticky left-0 z-30 min-w-56 bg-card">Point</TableHead>
@@ -95,7 +98,7 @@ export function DeviceReadingsSnapshot({ siteId, device }: { siteId: string; dev
                 </Fragment>
               ))}
             </TableBody>
-          </Table>
+          </table>
         </div>
       )}
     </section>

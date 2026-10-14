@@ -1057,8 +1057,15 @@
         "type": "object"
       },
       "ConditionAlarm-Input": {
-        "description": "ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.",
+        "description": "ALL/ANY groups of comparisons over several points; clears once the group no longer holds (for\nclear_delay_sec).",
         "properties": {
+          "clear_delay_sec": {
+            "default": 0,
+            "description": "Once active, the group must not hold for this long before the alarm clears (0: at once)",
+            "minimum": 0.0,
+            "title": "Clear Delay Sec",
+            "type": "integer"
+          },
           "delay_sec": {
             "default": 0,
             "description": "The group must hold this long before the alarm raises",
@@ -1083,8 +1090,15 @@
         "type": "object"
       },
       "ConditionAlarm-Output": {
-        "description": "ALL/ANY groups of comparisons over several points; clears as soon as the group no longer holds.",
+        "description": "ALL/ANY groups of comparisons over several points; clears once the group no longer holds (for\nclear_delay_sec).",
         "properties": {
+          "clear_delay_sec": {
+            "default": 0,
+            "description": "Once active, the group must not hold for this long before the alarm clears (0: at once)",
+            "minimum": 0.0,
+            "title": "Clear Delay Sec",
+            "type": "integer"
+          },
           "delay_sec": {
             "default": 0,
             "description": "The group must hold this long before the alarm raises",
@@ -6695,6 +6709,13 @@
       "ThresholdAlarm": {
         "description": "One comparison: `point <op> value`, `point <op> other point`, or a bit test.",
         "properties": {
+          "clear_delay_sec": {
+            "default": 0,
+            "description": "Once active, the clear test must pass this long before the alarm clears (0: at once)",
+            "minimum": 0.0,
+            "title": "Clear Delay Sec",
+            "type": "integer"
+          },
           "condition": {
             "$ref": "#/components/schemas/VirtualCondition"
           },

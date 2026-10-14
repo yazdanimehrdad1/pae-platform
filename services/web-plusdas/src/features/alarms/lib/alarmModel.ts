@@ -109,8 +109,10 @@ export function formatPointValue(point: Point, value: number | null = point.valu
   return point.kind === "numeric" && point.unit && value !== null ? `${number} ${point.unit}` : number;
 }
 
-const delayText = (seconds: number) =>
-  seconds > 0 ? ` for ${seconds >= 60 && seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s`}` : "";
+const duration = (seconds: number) => (seconds >= 60 && seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s`);
+const delayText = (seconds: number) => (seconds > 0 ? ` for ${duration(seconds)}` : "");
+/** ", clears after 1 min false" when the rule waits before clearing. */
+const clearDelayText = (seconds: number | undefined) => (seconds ? `, clears after ${duration(seconds)} false` : "");
 
 /** The limit side of a threshold ("> 85 °C", "≥ other point", "trip is set"), or the comms timeout. "—" for the other kinds. */
 export function formatLimit(rule: Rule, pointsById: Map<string, ConditionPointOption>): string {
@@ -142,9 +144,9 @@ export function describeCondition(rule: Rule, pointsById: Map<string, ConditionP
     case "comms_stale":
       return `${devicesById.get(String(spec.device_id))?.name ?? `Device ${spec.device_id}`}: no successful poll > ${spec.stale_after_sec} s`;
     case "threshold":
-      return `${describeConditionDraft(conditionFromWire(spec.condition), pointsById)}${delayText(spec.delay_sec)}`;
+      return `${describeConditionDraft(conditionFromWire(spec.condition), pointsById)}${delayText(spec.delay_sec)}${clearDelayText(spec.clear_delay_sec)}`;
     case "condition":
-      return `${describeGroupDraft(groupFromWire(spec.when), pointsById)}${delayText(spec.delay_sec)}`;
+      return `${describeGroupDraft(groupFromWire(spec.when), pointsById)}${delayText(spec.delay_sec)}${clearDelayText(spec.clear_delay_sec)}`;
   }
 }
 

@@ -25,6 +25,7 @@ import { describeDiscreteSeries } from "./lib/discreteSeries";
 import { usePointCatalog } from "./hooks/usePointCatalog";
 import { DEFAULT_DISCRETE_MODE, type DiscreteModeId } from "./components/discrete/discreteModes";
 import { DiscreteModeToggle } from "./components/discrete/DiscreteModeToggle";
+import { AutoRefreshToggle } from "./components/AutoRefreshToggle";
 import { RefreshReadingsButton } from "./components/RefreshReadingsButton";
 import { StateLanes } from "./components/discrete/StateLanes";
 import { buildStepLayout, renderStepSeries, STATE_AXIS_WIDTH } from "./components/discrete/stepSeries";
@@ -173,10 +174,11 @@ function TrendTooltip({ active, label, payload, lines, analogKeys, pointLabels, 
   );
 }
 
-function TrendChart({ selectedPoints, timeWindow, timeZone, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
+function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
   selectedPoints: string[];
   timeWindow: TimeWindow;
   timeZone: string;
+  autoRefresh: boolean;
   pointLabels: Record<string, string>;
   siteId: string | null;
   discreteMode: DiscreteModeId;
@@ -190,7 +192,7 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, pointLabels, siteId,
   const viewWindow: TimeWindow = zoomRange
     ? { startTime: new Date(zoomRange.start).toISOString(), endTime: new Date(zoomRange.end).toISOString() }
     : timeWindow;
-  const { data, lines, functionSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow);
+  const { data, lines, functionSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow, { autoRefresh });
   const { pointsById } = usePointCatalog(siteId);
   const spanMs = 'preset' in timeWindow
     ? PRESET_MS[timeWindow.preset]
@@ -396,6 +398,8 @@ export default function Historian() {
   const [draggedTrendId, setDraggedTrendId] = useState<string | null>(null);
   const [layoutCount, setLayoutCount] = useState<number>(1);
   const [timeRange, setTimeRange] = useState<TimeRange | 'custom'>('1H');
+  // Off by default: the charts refresh only on Refresh, or every minute while this is on.
+  const [autoRefresh, setAutoRefresh] = useState(false);
   // A custom range is kept as UTC instants; the inputs show and take it in the display zone.
   const [customStart, setCustomStart] = useState<string>(() => new Date(Date.now() - 3_600_000).toISOString());
   const [customEnd, setCustomEnd] = useState<string>(() => new Date().toISOString());
@@ -807,6 +811,7 @@ export default function Historian() {
                             </SelectContent>
                           </Select>
                           <RefreshReadingsButton siteId={selectedSiteId || null} />
+                          <AutoRefreshToggle enabled={autoRefresh} onChange={setAutoRefresh} />
                         </div>
                         {timeRange === 'custom' && (
                           <div className="flex items-center gap-2">
@@ -835,25 +840,25 @@ export default function Historian() {
                               </Select>
                             )}
                           </div>
-                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
                         <div ref={middleTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
                         <div ref={bottomTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
                         <div ref={fourthTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
                         </div>
                       )}
                     </div>
