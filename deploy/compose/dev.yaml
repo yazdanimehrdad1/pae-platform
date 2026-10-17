@@ -17,3 +17,4 @@ include:
       - ../../services/web-plusdas/compose.yaml
       - web-plusdas.dev.override.yaml
   - path: ../../services/powerflow/compose.yaml
+  - path: ../../services/intelli-gateway/compose.yaml

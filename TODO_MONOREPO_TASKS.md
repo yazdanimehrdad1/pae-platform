@@ -66,7 +66,8 @@ provider first, with its contract regenerated (the gap table is in that folder's
 
 ## Next service
 
-- **First new Python service (optimizer or powerflow; ports 8010 / 8020 reserved).** Scaffold it
-  with the `new-service` skill, so it doubles as the convention's real test. A Python consumer
-  of backend-ot's contract will need a typed-client generator, which needs the user's OK on a
-  dependency. See the typed-client rule in `contracts/README.md`.
+- **intelli-gateway phase 2: first Python consumer of backend-ot's contract.** The service was
+  scaffolded with the `new-service` skill and runs on fake data. Its backend-ot connector needs
+  typed response models checked against `contracts/openapi/backend-ot.openapi.json` (strict
+  hand-written models plus a drift test, or a generator, which needs the user's OK on a
+  dependency). See the typed-client rule in `contracts/README.md`.

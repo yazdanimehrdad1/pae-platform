@@ -1,0 +1,22 @@
+# intelli-gateway — standalone: `make -C services/intelli-gateway up`.
+# Also included by the monorepo dev stack (deploy/compose/dev.yaml). Service convention:
+# service/volume names prefixed with the service dir, no container_name, no custom or external
+# networks, host ports overridable, container-network values in `environment:`.
+name: intelli-gateway
+
+services:
+  intelli-gateway:
+    image: intelli-gateway:dev
+    build: .
+    ports:
+      - "${INTELLI_GATEWAY_HTTP_PORT:-8030}:8000"
+    # Service settings; optional. See .env.example.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      # Phase 2 points this at backend-ot on the compose network.
+      - BACKEND_OT_URL=http://backend-ot:8000
+    restart: unless-stopped

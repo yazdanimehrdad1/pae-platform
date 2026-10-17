@@ -35,7 +35,7 @@ backend-ot http **8000**, postgres **5435**, redis **6380** · mock-modbus **502
 http **5173** (the UI; its Vite dev server `make -C services/web-plusdas run` uses 5174) ·
 powerflow http **8020**, postgres **5436** · mobile-plusdas Metro **8081** (`make -C
 services/mobile-plusdas run`; the app isn't in the dev stack, phones reach backend-ot on
-8000 via the host's LAN IP). Override them
+8000 via the host's LAN IP) · intelli-gateway http **8030**. Override them
 only when something *outside* the platform holds a port:
 - Dev stack: in the root `.env` (copy `.env.example`), or in the shell.
 - One service alone: in the shell, e.g. `BACKEND_OT_HTTP_PORT=18000 make -C services/backend-ot up`.
