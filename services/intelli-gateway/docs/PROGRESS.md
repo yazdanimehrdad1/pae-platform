@@ -62,7 +62,7 @@ tools, and gives a hint about the likely issue and the checks to make.
   - `schemas/`, `interfaces/`, `services/<system>/`, `api/routers/`, `utils/`, `fake_data/`
   - feature folders (`agent/`, `tools/`, `knowledge/`, `prompts/`) hold functions only
 
-### 3. Date fix and the backend-ot client (staged, **not committed yet**)
+### 3. Date fix and the backend-ot client (commit `28a2f69`)
 - **Date fix:** each question now carries the site's local date, weekday, time and UTC offset,
   plus "yesterday". The model had mislabelled dates near midnight. This adds the `tzdata`
   dependency, which the user approved.
@@ -101,8 +101,7 @@ tools, and gives a hint about the likely issue and the checks to make.
 
 ## Next steps (in order)
 
-1. **Commit the staged work** (step 3 above). Ask the user first.
-2. **Engineer knowledge in Postgres:**
+1. **Engineer knowledge in Postgres:**
    - Add `intelli-gateway-postgres` to `compose.yaml` on host port 5437. Register the port in
      the root `CLAUDE.md`, root `.env.example` and the `run-platform` skill.
    - Use numbered SQL migrations applied at startup with an advisory lock, like powerflow
@@ -113,14 +112,14 @@ tools, and gives a hint about the likely issue and the checks to make.
      knowledge, and a `test-integration` against a throwaway Postgres, like powerflow's
      `compose.test.yaml`.
    - Decide with the user how real-site knowledge gets in at first: a seed module per site, or
-     only through the authoring API (step 3).
-3. **Authoring API for engineers:** CRUD on point guides and experience notes, under
+     only through the authoring API (step 2).
+2. **Authoring API for engineers:** CRUD on point guides and experience notes, under
    `/api/v1/sites/{site_id}/...`. It is additive to this service's contract, so regenerate it
    with `make contract`. Later a web-plusdas page could use it, but web-plusdas currently only
    proxies `/api` and `/powerflow-api`, so that needs a design decision first.
-4. **Run the real-Claude integration test** (`make test-integration`) and keep it passing. It
+3. **Run the real-Claude integration test** (`make test-integration`) and keep it passing. It
    checks tool use and a cache read on the follow-up question.
-5. **Cut token use** (deferred on purpose):
+4. **Cut token use** (deferred on purpose):
    - Long backend-ot device names make long point names; consider short aliases.
    - `get_device_status` on devices with about 50 points produces big results; add a filter, or
      return only status and alarm points by default.
