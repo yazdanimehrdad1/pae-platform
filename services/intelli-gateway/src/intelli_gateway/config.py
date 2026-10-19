@@ -54,9 +54,14 @@ class Settings(BaseSettings):
     data_stale_after_s: float = Field(default=600, gt=0, alias="DATA_STALE_AFTER_S")
 
     # --- Connectors ---
-    # Fake in-memory data only for now; the backend-ot and Postgres connectors come next.
+    # true: fictional in-memory sites. false: site data from backend-ot (services/backend_ot);
+    # engineer knowledge then starts empty until the Postgres store exists.
     use_fake_data: bool = Field(default=True, alias="USE_FAKE_DATA")
     backend_ot_url: str = Field(default="http://localhost:8000", alias="BACKEND_OT_URL")
+    backend_ot_timeout_s: float = Field(default=10.0, gt=0, alias="BACKEND_OT_TIMEOUT_S")
+    backend_ot_retries: int = Field(default=3, ge=1, alias="BACKEND_OT_RETRIES")
+    # How long the device and point catalog of a site is cached.
+    backend_ot_catalog_ttl_s: float = Field(default=60, ge=0, alias="BACKEND_OT_CATALOG_TTL_S")
     # Example external API (an Open-Meteo-compatible forecast endpoint). Unset: the
     # get_weather_forecast tool is not registered.
     external_api_url: str | None = Field(default=None, alias="EXTERNAL_API_URL")

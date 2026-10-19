@@ -80,7 +80,10 @@ class GatewayService:
             SystemBlock(render_site_block(site, knowledge.text), cache=True),
         ]
         result = await self._loop.run(
-            site_ctx, system, conversation.messages, render_user_turn(question, self._clock())
+            site_ctx,
+            system,
+            conversation.messages,
+            render_user_turn(question, self._clock(), site.timezone),
         )
         conversation.messages = result.messages
         await self._conversations.save(conversation)

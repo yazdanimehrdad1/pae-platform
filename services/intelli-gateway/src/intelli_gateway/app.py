@@ -9,7 +9,12 @@ from fastapi.responses import JSONResponse
 from intelli_gateway.api.middleware.request_id import request_id_middleware
 from intelli_gateway.api.routers import health, sites, tools
 from intelli_gateway.config import Settings, load_settings
-from intelli_gateway.utils.exceptions import ForbiddenError, LLMUnavailableError, NotFoundError
+from intelli_gateway.utils.exceptions import (
+    ForbiddenError,
+    LLMUnavailableError,
+    NotFoundError,
+    UpstreamUnavailableError,
+)
 from intelli_gateway.utils.logger import configure_logging
 from intelli_gateway.wiring import Services, build_services
 
@@ -49,6 +54,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app.add_exception_handler(NotFoundError, _error(404))
     app.add_exception_handler(ForbiddenError, _error(403))
     app.add_exception_handler(LLMUnavailableError, _error(503))
+    app.add_exception_handler(UpstreamUnavailableError, _error(503))
     app.include_router(health.router, prefix="/api")
     app.include_router(sites.router, prefix="/api")
     app.include_router(tools.router, prefix="/api")

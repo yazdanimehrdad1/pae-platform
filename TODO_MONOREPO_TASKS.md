@@ -66,8 +66,10 @@ provider first, with its contract regenerated (the gap table is in that folder's
 
 ## Next service
 
-- **intelli-gateway phase 2: first Python consumer of backend-ot's contract.** The service was
-  scaffolded with the `new-service` skill and runs on fake data. Its backend-ot connector needs
-  typed response models checked against `contracts/openapi/backend-ot.openapi.json` (strict
-  hand-written models plus a drift test, or a generator, which needs the user's OK on a
-  dependency). See the typed-client rule in `contracts/README.md`.
+- **intelli-gateway: engineer knowledge in Postgres.** Site data now comes from backend-ot
+  (`services/backend_ot/`, strict models with a drift test against backend-ot's contract). With
+  `USE_FAKE_DATA=false` the knowledge store (point guides, notes, manuals, IM scripts) is empty
+  until its Postgres store and an authoring API exist.
+- **backend-ot point classes in the powerflow seed.** `tests/seed_db/powerflow_seed.py` marks
+  every bitfield as an ALARM point, so mode words like `DERMode` show up as active alarms
+  (intelli-gateway's agent has to explain them away). Classify mode/status bitfields as BINARY.

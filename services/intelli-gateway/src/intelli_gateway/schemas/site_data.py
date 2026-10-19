@@ -89,12 +89,13 @@ class PointValue(BaseModel):
     device_id: int
     value: float | int | str | bool | None
     unit: str | None = None
-    timestamp: AwareDatetime
+    # None: the point has never been read.
+    timestamp: AwareDatetime | None = None
     quality: str | None = None
     # Enum points: the label of the current value. Bitfield points: the labels of the set bits.
     label: str | None = None
     active_bits: list[str] | None = None
-    age_s: float
+    age_s: float | None = None
     # No new reading for longer than the stale threshold: the device may have stopped reporting.
     stale: bool = False
 

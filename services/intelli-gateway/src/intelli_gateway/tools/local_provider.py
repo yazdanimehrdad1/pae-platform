@@ -11,6 +11,7 @@ from intelli_gateway.schemas.tools import JSONValue, ToolResult, ToolSpec
 from intelli_gateway.tools import authz
 from intelli_gateway.tools.base import ToolDefinition, ToolError
 from intelli_gateway.tools.bounds import bound_output, serialized_size
+from intelli_gateway.utils.exceptions import UpstreamUnavailableError
 from intelli_gateway.utils.telemetry import span
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,14 @@ class LocalToolProvider:
                 content = await definition.handler(validated, ctx)
         except ToolError as error:
             return ToolResult(content=error.to_content(), is_error=True)
+        except UpstreamUnavailableError as error:
+            logger.warning(
+                "tool_upstream_failed", extra={"fields": {"tool": name, "error": str(error)}}
+            )
+            return ToolResult(
+                content={"error": str(error), "hint": "a data source is unavailable; try later"},
+                is_error=True,
+            )
         except Exception:
             # Unexpected: log it with the traceback, give Claude a generic error result.
             logger.exception("tool_failed", extra={"fields": {"tool": name}})

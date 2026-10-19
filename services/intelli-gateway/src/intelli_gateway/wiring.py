@@ -14,6 +14,8 @@ from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.llm_client import LLMClient
 from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.knowledge.loader import KnowledgeLoader
+from intelli_gateway.services.backend_ot.client import BackendOtClient
+from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConnector
 from intelli_gateway.services.claude.client import AnthropicLLMClient
 from intelli_gateway.services.forecast.client import ForecastClient
 from intelli_gateway.tools.base import ToolDefinition
@@ -21,7 +23,6 @@ from intelli_gateway.tools.catalog import build_local_tools
 from intelli_gateway.tools.common import SiteToolLimits
 from intelli_gateway.tools.external_tools import build_external_tools
 from intelli_gateway.tools.local_provider import LocalToolProvider
-from intelli_gateway.utils.exceptions import ConfigurationError
 
 
 @dataclass
@@ -38,6 +39,31 @@ class Services:
             await self.forecast_client.aclose()
 
 
+def _default_site_data(settings: Settings, clock: Callable[[], datetime]) -> SiteDataConnector:
+    if settings.use_fake_data:
+        return FakeSiteDataConnector(clock=clock, stale_after_s=settings.data_stale_after_s)
+    client = BackendOtClient(
+        base_url=settings.backend_ot_url,
+        timeout_s=settings.backend_ot_timeout_s,
+        attempts=settings.backend_ot_retries,
+    )
+    return BackendOtSiteDataConnector(
+        client,
+        stale_after_s=settings.data_stale_after_s,
+        catalog_ttl_s=settings.backend_ot_catalog_ttl_s,
+        clock=clock,
+    )
+
+
+def _default_knowledge_store(settings: Settings) -> KnowledgeStore:
+    # The fictional guides belong to the fake sites only: with real data their site ids could
+    # match a real site and give it wrong guidance. Until the Postgres store exists, real sites
+    # start with no engineer knowledge.
+    if settings.use_fake_data:
+        return InMemoryKnowledgeStore.from_fake_sites()
+    return InMemoryKnowledgeStore([])
+
+
 def build_services(
     settings: Settings,
     llm: LLMClient | None = None,
@@ -45,14 +71,8 @@ def build_services(
     knowledge_store: KnowledgeStore | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> Services:
-    if not settings.use_fake_data and (site_data is None or knowledge_store is None):
-        raise ConfigurationError(
-            "USE_FAKE_DATA=false needs the backend-ot and Postgres connectors (phase 2)"
-        )
-    site_data = site_data or FakeSiteDataConnector(
-        clock=clock, stale_after_s=settings.data_stale_after_s
-    )
-    knowledge_store = knowledge_store or InMemoryKnowledgeStore.from_fake_sites()
+    site_data = site_data or _default_site_data(settings, clock)
+    knowledge_store = knowledge_store or _default_knowledge_store(settings)
     llm = llm or AnthropicLLMClient(settings)
 
     tools: list[ToolDefinition] = build_local_tools(

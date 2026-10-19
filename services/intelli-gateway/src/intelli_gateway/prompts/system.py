@@ -5,7 +5,8 @@ conversation. Nothing here may vary per request (no current time, no request ids
 time goes in the user turn instead.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from intelli_gateway.schemas.site_data import Site
 
@@ -48,5 +49,25 @@ def render_site_block(site: Site, knowledge_text: str) -> str:
     return "# Site\n" + "\n".join(facts) + "\n\n# Site knowledge\n\n" + knowledge_text
 
 
-def render_user_turn(question: str, now: datetime) -> str:
-    return f"Current time: {now.isoformat(timespec='seconds')}\n\n{question}"
+def render_user_turn(question: str, now: datetime, timezone: str) -> str:
+    """The question, preceded by the current time in UTC and at the site.
+
+    Spelling out the site's local date, weekday and "yesterday" keeps relative dates right: with
+    only a UTC timestamp, the model mislabelled days near midnight.
+    """
+    utc = now.astimezone(UTC)
+    lines = [f"Current time (UTC): {utc.isoformat(timespec='seconds')}"]
+    try:
+        zone = ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        lines.append(f"Site time zone {timezone!r} is unknown; use UTC dates.")
+    else:
+        local = utc.astimezone(zone)
+        offset = local.strftime("%z")
+        yesterday = local - timedelta(days=1)
+        lines.append(
+            f"Site local time ({timezone}, UTC{offset[:3]}:{offset[3:]}): "
+            f"{local.strftime('%A %Y-%m-%d %H:%M')}. "
+            f"Yesterday at the site was {yesterday.strftime('%A %Y-%m-%d')}."
+        )
+    return "\n".join(lines) + f"\n\n{question}"

@@ -21,5 +21,14 @@ class ConfigurationError(GatewayError):
     pass
 
 
-class ExternalApiError(GatewayError):
+class UpstreamUnavailableError(GatewayError):
+    """A system this service reads from failed or returned something unexpected. The API maps
+    it to 503; inside a tool call it becomes an error result Claude can explain."""
+
+
+class ExternalApiError(UpstreamUnavailableError):
+    pass
+
+
+class BackendOtError(UpstreamUnavailableError):
     pass

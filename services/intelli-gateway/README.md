@@ -4,9 +4,14 @@ The AI helper for site engineers. An engineer asks a question about one generati
 Claude answers it by calling read-only tools, then gives a hint about the likely issue and the
 checks to make.
 
-**Status:** the service runs on fictional in-memory sites (`USE_FAKE_DATA=true`). Next, site data
-comes from backend-ot over HTTP (all of it in `services/backend_ot/`), and engineer knowledge
-moves to the service's own Postgres.
+**Status:**
+- `USE_FAKE_DATA=true` (default): fictional in-memory sites with example engineer knowledge.
+- `USE_FAKE_DATA=false`: site data from backend-ot at `BACKEND_OT_URL` (every call is in
+  `services/backend_ot/`). Engineer knowledge starts empty until it moves to the service's own
+  Postgres (next step).
+
+Point names are qualified with their device, `DEVICE.point` (e.g. `INV2.active_power`), because
+backend-ot point names are only unique within a device.
 
 ## What the agent knows
 
@@ -101,9 +106,9 @@ routers in `api/routers/`, cross-cutting helpers in `utils/`. Feature folders ho
 |---|---|
 | `app.py`, `config.py`, `contract.py`, `wiring.py` | App factory, settings (the only place config is read), OpenAPI contract rendering, and the object graph built from settings. |
 | `api/` | `routers/` (`health`, `sites`, `tools`), `middleware/request_id.py`, and `dependencies.py` (the auth placeholder). No business logic. |
-| `schemas/` | Every data shape: `api_models/` (request and response bodies), `site_data.py`, `knowledge.py` (point guides), `tools.py`, `agent.py`, `context.py`, `forecast.py`. |
+| `schemas/` | Every data shape: `api_models/` (request and response bodies), `backend_ot/` (backend-ot's responses, strict), `site_data.py`, `knowledge.py` (point guides), `tools.py`, `agent.py`, `context.py`, `forecast.py`. |
 | `interfaces/` | The Protocols the code depends on: `site_data`, `knowledge_store`, `tool_provider`, `llm_client`, `conversation_store`. |
-| `services/` | Clients for external systems: `claude/client.py` (the only module that imports `anthropic`), `forecast/client.py`, and `backend_ot/` next. |
+| `services/` | Clients for external systems: `claude/client.py` (the only module that imports `anthropic`), `forecast/client.py`, and `backend_ot/` (`client.py` for every backend-ot request, `site_data.py` mapping it to the agent's shapes). |
 | `agent/` | `loop.py` (the tool-use loop), `service.py` (what the routers call), `conversations.py` (in-memory store). |
 | `tools/` | The tools (`site_tools`, `alarm_tools`, `knowledge_tools`, `external_tools`; `catalog.py` builds them all), the `@tool` decorator, `LocalToolProvider`, `CompositeToolProvider`, authz and output bounds. |
 | `knowledge/` | Builds a site's knowledge text and tracks its size (`loader.py`); decides which guide entries apply to a reading (`guides.py`). |

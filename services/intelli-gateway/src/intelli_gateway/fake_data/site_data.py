@@ -250,7 +250,7 @@ class FakeSiteDataConnector:
                         value=reading.value,
                         label=reading.label,
                         active_bits=reading.active_bits,
-                        timestamp=reading.timestamp,
+                        timestamp=reading.timestamp or now,
                     )
                 )
         return ActiveAlarms(events=events, point_alarms=point_alarms)
