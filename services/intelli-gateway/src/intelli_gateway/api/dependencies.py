@@ -1,9 +1,11 @@
-"""FastAPI dependencies: the auth placeholder and access to the wired services."""
+"""FastAPI dependencies: the auth placeholder, access checks and the wired services."""
 
 from fastapi import Header, HTTPException, Request
 
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.schemas.context import RequestContext
+from intelli_gateway.solar_forecast.service import ForecastService
+from intelli_gateway.utils.exceptions import ForbiddenError
 from intelli_gateway.utils.logger import request_id_var
 
 DEV_USER_ID = "dev-user"
@@ -42,3 +44,18 @@ def get_request_context(
 def get_service(request: Request) -> GatewayService:
     service: GatewayService = request.app.state.services.gateway
     return service
+
+
+def get_forecast_service(request: Request) -> ForecastService:
+    service: ForecastService = request.app.state.services.forecast
+    return service
+
+
+def require_site_access(ctx: RequestContext, site_id: int) -> None:
+    if not ctx.can_access_site(site_id):
+        raise ForbiddenError("no access to this site")
+
+
+def require_role(ctx: RequestContext, role: str) -> None:
+    if role not in ctx.roles:
+        raise ForbiddenError(f"requires the {role} role")

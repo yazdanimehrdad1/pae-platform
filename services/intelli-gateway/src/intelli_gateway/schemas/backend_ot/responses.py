@@ -28,6 +28,7 @@ class StrictModel(BaseModel):
 class Coordinates(StrictModel):
     lat: float
     lng: float
+    elevation_m: float | None = None
 
 
 class Location(StrictModel):
@@ -53,6 +54,26 @@ class SiteResponse(StrictModel):
     location: Location | None = None
     profile: str | None = None
     timezone: str = "UTC"
+
+
+# --- PV arrays (GET /api/sites/{site_id}/pv-arrays) ---
+
+
+class PvArrayConfigResponse(StrictModel):
+    """The PV array behind a PV or INVERTER device. Azimuth: degrees clockwise from north."""
+
+    device_id: int
+    site_id: int
+    device_name: str
+    device_type: str
+    tilt_deg: float
+    azimuth_deg: float
+    dc_capacity_kw: float
+    ac_capacity_kw: float
+    system_loss_pct: float
+    temp_coefficient_pct_per_c: float
+    created_at: datetime
+    updated_at: datetime
 
 
 # --- devices with their points (GET /api/devices/site/{site_id}/devices) ---

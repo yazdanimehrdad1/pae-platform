@@ -1,5 +1,5 @@
 """Real Claude API calls (cost tokens). Skipped unless RUN_LLM_TESTS=1 and a credential is set
-(ANTHROPIC_API_KEY in the environment or this service's .env). Run: `make test-integration`."""
+(ANTHROPIC_API_KEY in the environment or this service's .env). Run: `make test-llm`."""
 
 import os
 

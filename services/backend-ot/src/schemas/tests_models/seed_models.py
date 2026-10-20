@@ -13,6 +13,7 @@ from schemas.api_models.alarms import AlarmDefinitionCreateRequest
 from schemas.api_models.requests import (
     DeviceCreateRequest,
     DevicePointCreateRequest,
+    PvArrayConfigUpsertRequest,
     SiteCreateRequest,
     VirtualPointCreateRequest,
 )
@@ -69,3 +70,5 @@ class SeedData(BaseModel):
     virtual_points: Callable[[PointIdResolver], list[SeedVirtualPoint]] = _no_virtual_points
     user_alarms: Callable[[PointIdResolver, DeviceIdResolver], list[SeedAlarm]] = _no_alarms
     site_slds: Callable[[PointIdResolver, DeviceIdResolver], dict[str, SiteSld]] = _no_slds
+    # PV array configs, keyed by device name (PV or INVERTER devices only).
+    pv_arrays: dict[str, PvArrayConfigUpsertRequest] = Field(default_factory=dict)

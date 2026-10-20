@@ -4,10 +4,10 @@ This is the only place configuration is read. The Claude model name lives here a
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # services/intelli-gateway/.env, anchored to this file so it loads the same way from any CWD.
 # Never a parent directory's .env.
@@ -62,11 +62,49 @@ class Settings(BaseSettings):
     backend_ot_retries: int = Field(default=3, ge=1, alias="BACKEND_OT_RETRIES")
     # How long the device and point catalog of a site is cached.
     backend_ot_catalog_ttl_s: float = Field(default=60, ge=0, alias="BACKEND_OT_CATALOG_TTL_S")
-    # Example external API (an Open-Meteo-compatible forecast endpoint). Unset: the
-    # get_weather_forecast tool is not registered.
-    external_api_url: str | None = Field(default=None, alias="EXTERNAL_API_URL")
-    external_api_timeout_s: float = Field(default=10.0, gt=0, alias="EXTERNAL_API_TIMEOUT_S")
-    external_api_retries: int = Field(default=3, ge=1, alias="EXTERNAL_API_RETRIES")
+
+    # --- Database (this service's own Postgres) ---
+    # Unset: forecasts are kept in memory (lost on restart). In the dev stack compose sets it.
+    database_url: SecretStr | None = Field(default=None, alias="DATABASE_URL")
+
+    # --- PV forecast (solar_forecast/; sources in services/<name>/) ---
+    forecast_enabled: bool = Field(default=True, alias="FORECAST_ENABLED")
+    # A registered source name (solar_forecast/registry.py): open_meteo, noaa_hrrr, fake.
+    forecast_source: str = Field(default="open_meteo", alias="FORECAST_SOURCE")
+    # Tried in order when the primary fails; comma-separated, empty = no fallback.
+    forecast_fallback_sources: Annotated[tuple[str, ...], NoDecode] = Field(
+        default=(), alias="FORECAST_FALLBACK_SOURCES"
+    )
+    forecast_horizon_hours: int = Field(default=72, ge=1, le=384, alias="FORECAST_HORIZON_HOURS")
+    forecast_resolution_minutes: Literal[15, 60] = Field(
+        default=15, alias="FORECAST_RESOLUTION_MINUTES"
+    )
+    # The refresh job runs at startup, then every this many minutes. 0 disables the job
+    # (refresh only through POST /api/v1/forecast/refresh).
+    forecast_fetch_interval_minutes: int = Field(
+        default=15, ge=0, alias="FORECAST_FETCH_INTERVAL_MINUTES"
+    )
+    forecast_retention_days: int = Field(default=90, ge=1, alias="FORECAST_RETENTION_DAYS")
+
+    # Open-Meteo (services/open_meteo/). Hosted free API: non-commercial use only. Point the URL
+    # at https://customer-api.open-meteo.com (with a key) or a self-hosted server for production.
+    open_meteo_base_url: str = Field(
+        default="https://api.open-meteo.com", alias="OPEN_METEO_BASE_URL"
+    )
+    open_meteo_api_key: SecretStr | None = Field(default=None, alias="OPEN_METEO_API_KEY")
+    open_meteo_timeout_s: float = Field(default=15.0, gt=0, alias="OPEN_METEO_TIMEOUT_S")
+    open_meteo_retries: int = Field(default=3, ge=1, alias="OPEN_METEO_RETRIES")
+    # The free tier allows 600 requests a minute and 10,000 a day.
+    open_meteo_max_calls_per_minute: int = Field(
+        default=500, ge=1, alias="OPEN_METEO_MAX_CALLS_PER_MINUTE"
+    )
+
+    @field_validator("forecast_fallback_sources", mode="before")
+    @classmethod
+    def _split_sources(cls, value: object) -> object:
+        if isinstance(value, str):
+            return tuple(name.strip() for name in value.split(",") if name.strip())
+        return value
 
 
 def load_settings() -> Settings:

@@ -28,7 +28,7 @@ from db.connection import close_all_db_connections
 SERVICE_TABLES = (
     "report_runs", "report_schedules", "report_templates",
     "alarm_evaluation_state", "alarm_events", "alarm_definitions",
-    "device_points_readings", "device_points", "devices", "site_slds", "sites",
+    "device_points_readings", "device_points", "pv_array_configs", "devices", "site_slds", "sites",
 )
 
 RESET_ALLOWED = os.environ.get("INTEGRATION_DB_RESET_ALLOWED") == "1"

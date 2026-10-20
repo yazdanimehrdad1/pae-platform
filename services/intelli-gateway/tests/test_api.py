@@ -50,7 +50,6 @@ class TestReadEndpoints:
         async with make_client(settings, ScriptedLLMClient()) as client:
             response_ = await client.get("/api/v1/tools")
         names = [ToolSpecResponse.model_validate(spec).name for spec in response_.json()]
-        # No EXTERNAL_API_URL in these settings: the forecast tool is not registered.
         assert names == [
             "explain_point",
             "get_active_alarms",
@@ -59,17 +58,19 @@ class TestReadEndpoints:
             "get_device_status",
             "get_point_history",
             "get_point_values",
+            "get_pv_forecast",
             "get_site_overview",
             "list_points",
             "lookup_fault",
             "search_experience_notes",
         ]
 
-    async def test_forecast_tool_registered_when_configured(self) -> None:
-        settings = make_settings(EXTERNAL_API_URL="https://forecast.test/v1/forecast")
+    async def test_forecast_tool_not_registered_when_forecast_disabled(self) -> None:
+        settings = make_settings(ANTHROPIC_API_KEY="test-key", FORECAST_ENABLED="false")
         async with make_client(settings, ScriptedLLMClient()) as client:
             response_ = await client.get("/api/v1/tools")
-        assert "get_weather_forecast" in [spec["name"] for spec in response_.json()]
+        names = [ToolSpecResponse.model_validate(spec).name for spec in response_.json()]
+        assert "get_pv_forecast" not in names
 
 
 class TestAsk:

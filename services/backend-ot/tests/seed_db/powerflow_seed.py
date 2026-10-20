@@ -25,7 +25,9 @@ from pathlib import Path
 from typing import Literal
 
 from schemas.api_models import (
+    Coordinates,
     Location,
+    PvArrayConfigUpsertRequest,
     SiteCreateRequest,
     SiteSld,
     SldBus,
@@ -85,6 +87,15 @@ KIND_LABELS: dict[PowerflowDeviceKind, str] = {
     "poi_meter": "POI meter",
     "feeder_meter": "feeder meter",
 }
+# powerflow sites have no real location. The PV forecast needs one, so every simulated site sits
+# at the same sunny dev location, and every PV array gets the same plausible fixed-tilt layout.
+DEV_SITE_COORDINATES = Coordinates(lat=33.45, lng=-112.07, elevation_m=331.0)  # Phoenix, AZ
+DEV_SITE_TIMEZONE = "America/Phoenix"
+DEV_PV_TILT_DEG = 25.0
+DEV_PV_AZIMUTH_DEG = 180.0  # south
+DEV_PV_SYSTEM_LOSS_PCT = 14.0
+DEV_PV_TEMP_COEFFICIENT_PCT_PER_C = -0.35
+
 AssetKind = Literal["bess", "pv", "load"]
 METER_ROLES: dict[SldRole, str] = {
     "vab": "PhVphAB", "vbc": "PhVphBC", "vca": "PhVphCA",
@@ -179,7 +190,21 @@ def build_site(site_key: str, site: PowerflowSite) -> SiteCreateRequest:
             f"{site.display_name}. Simulated by powerflow (site {site_key}); seeded from "
             "contracts/powerflow/sites.json and contracts/modbus/powerflow.registers.json"
         ),
+        coordinates=DEV_SITE_COORDINATES,
         profile=None,
+        timezone=DEV_SITE_TIMEZONE,
+    )
+
+
+def build_pv_array(pv: PowerflowPv) -> PvArrayConfigUpsertRequest:
+    """The PV array of a simulated PV inverter: its DC and AC ratings, dev-default orientation."""
+    return PvArrayConfigUpsertRequest(
+        tilt_deg=DEV_PV_TILT_DEG,
+        azimuth_deg=DEV_PV_AZIMUTH_DEG,
+        dc_capacity_kw=pv.dc_kwp,
+        ac_capacity_kw=pv.p_max_kw,
+        system_loss_pct=DEV_PV_SYSTEM_LOSS_PCT,
+        temp_coefficient_pct_per_c=DEV_PV_TEMP_COEFFICIENT_PCT_PER_C,
     )
 
 
@@ -336,6 +361,7 @@ def build_seed(site_key: str, registers: PowerflowRegistersContract,
     site = sites.sites[site_key]
     site_request = build_site(site_key, site)
     devices = [build_device(site_key, device, registers, site_request.name) for device in site.devices]
+    pv_by_id = {pv.id: pv for pv in site.pv}
     points = {
         device_name(site_key, device): [
             build_point(register, device.base)
@@ -350,6 +376,11 @@ def build_seed(site_key: str, registers: PowerflowRegistersContract,
         device_points=points,
         site_slds=lambda point_id, device_id: {
             site_request.name: build_sld(site_key, site, point_id, device_id)
+        },
+        pv_arrays={
+            device_name(site_key, device): build_pv_array(pv_by_id[device.asset_id])
+            for device in site.devices
+            if device.kind == "pv"
         },
     )
 

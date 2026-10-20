@@ -4,7 +4,8 @@ Integration tests for the powerflow dev seed (`seed_db.py powerflow <site>`).
 Invariant guarded: seeding powerflow's 2bess_1pv site creates its site (no profile), its nine
 devices with their served points and scan ranges, and its single line diagram whose links all
 resolve; the seeded devices carry the same STANDARDIZED points as API-created ones; reseeding
-adds nothing; and it coexists with the mock-modbus site (devices are matched within their site).
+adds nothing; the PV inverter gets its PV array config and the site its dev
+location; and it coexists with the mock-modbus site (devices are matched within their site).
 """
 
 from pydantic import TypeAdapter
@@ -12,11 +13,18 @@ from seed_db.seed_db import powerflow_seed_data, seed
 
 from helpers.sites.sld import sld_link_errors
 from integration.factories import create_device, create_site
-from schemas.api_models import DevicePointResponse, DeviceWithPoints, SiteResponse, SiteSldResponse
+from schemas.api_models import (
+    DevicePointResponse,
+    DeviceWithPoints,
+    PvArrayConfigResponse,
+    SiteResponse,
+    SiteSldResponse,
+)
 
 SITE_LIST = TypeAdapter(list[SiteResponse])
 DEVICE_LIST = TypeAdapter(list[DeviceWithPoints])
 POINT_LIST = TypeAdapter(list[DevicePointResponse])
+PV_ARRAY_LIST = TypeAdapter(list[PvArrayConfigResponse])
 POWERFLOW_SITE = "2bess_1pv"
 
 
@@ -113,3 +121,32 @@ class TestPowerflowSeed:
         assert {site.name for site in sites} == {"Alpha Solar Farm", "Powerflow 2BESS 1PV"}
         alpha = await site_named(client, "Alpha Solar Farm")
         assert {device.host for device in await devices_of(client, alpha)} == {"mock-modbus"}
+
+    async def test_pv_array_and_location(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        await seed(data)
+        site = await site_named(client, data.sites[0].name)
+        assert site.coordinates == data.sites[0].coordinates
+        assert site.coordinates is not None and site.coordinates.elevation_m is not None
+        assert site.timezone == data.sites[0].timezone
+        response = await client.get(f"/api/sites/{site.site_id}/pv-arrays")
+        assert response.status_code == 200, response.text
+        arrays = PV_ARRAY_LIST.validate_python(response.json())
+        assert {array.device_name: array.dc_capacity_kw for array in arrays} == {
+            name: config.dc_capacity_kw for name, config in data.pv_arrays.items()
+        }
+        assert all(array.device_type == "PV" for array in arrays)
+
+    async def test_reseeding_keeps_an_edited_pv_array(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        await seed(data)
+        site = await site_named(client, data.sites[0].name)
+        (array,) = PV_ARRAY_LIST.validate_python(
+            (await client.get(f"/api/sites/{site.site_id}/pv-arrays")).json()
+        )
+        edited = data.pv_arrays[array.device_name].model_copy(update={"tilt_deg": 5.0})
+        url = f"/api/devices/site/{site.site_id}/devices/{array.device_id}/pv-array"
+        assert (await client.put(url, json=edited.model_dump(mode="json"))).status_code == 200
+        await seed(data)
+        after = PvArrayConfigResponse.model_validate((await client.get(url)).json())
+        assert after.tilt_deg == 5.0

@@ -18,6 +18,7 @@ from intelli_gateway.schemas.backend_ot.responses import (
     AlarmSnapshotResponse,
     DeviceWithPoints,
     LatestResponse,
+    PvArrayConfigResponse,
     SiteHealthResponse,
     SiteResponse,
     SiteSldResponse,
@@ -38,6 +39,7 @@ _TIMESERIES = TypeAdapter(TimeseriesResponse)
 _SNAPSHOT = TypeAdapter(AlarmSnapshotResponse)
 _EVENTS = TypeAdapter(list[AlarmEventResponse])
 _HEALTH = TypeAdapter(SiteHealthResponse)
+_PV_ARRAYS = TypeAdapter(list[PvArrayConfigResponse])
 # backend-ot clamps `max_points` to this range.
 MAX_POINTS_RANGE = (100, 5000)
 
@@ -93,6 +95,11 @@ class BackendOtClient:
         """None when the site has no single-line diagram yet."""
         body = await self._get(f"/api/sites/{site_id}/sld", allow_404=True)
         return _parse(_SLD, body) if body else None
+
+    async def list_pv_arrays(self, site_id: int) -> list[PvArrayConfigResponse] | None:
+        """The PV arrays of the site's active devices; None when the site doesn't exist."""
+        body = await self._get(f"/api/sites/{site_id}/pv-arrays", allow_404=True)
+        return _parse(_PV_ARRAYS, body) if body else None
 
     # --- readings ---
 

@@ -5,6 +5,24 @@
 name: intelli-gateway
 
 services:
+  intelli-gateway-postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${INTELLI_GATEWAY_POSTGRES_PORT:-5437}:5432"
+    environment:
+      - POSTGRES_DB=intelli_gateway
+      - POSTGRES_USER=intelli_gateway
+      - POSTGRES_PASSWORD=${INTELLI_GATEWAY_POSTGRES_PASSWORD:-intelli_gateway}
+    # PV forecast history and fetch log. `make down-all` deletes it.
+    volumes:
+      - intelli-gateway-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelli_gateway -d intelli_gateway"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   intelli-gateway:
     image: intelli-gateway:dev
     build: .
@@ -17,6 +35,12 @@ services:
     environment:
       - API_HOST=0.0.0.0
       - API_PORT=8000
-      # Phase 2 points this at backend-ot on the compose network.
       - BACKEND_OT_URL=http://backend-ot:8000
+      - DATABASE_URL=postgresql+asyncpg://intelli_gateway:${INTELLI_GATEWAY_POSTGRES_PASSWORD:-intelli_gateway}@intelli-gateway-postgres:5432/intelli_gateway
+    depends_on:
+      intelli-gateway-postgres:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  intelli-gateway-postgres-data:

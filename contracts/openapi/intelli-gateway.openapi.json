@@ -1,6 +1,66 @@
 {
   "components": {
     "schemas": {
+      "ArrayIntervalResponse": {
+        "properties": {
+          "array_id": {
+            "description": "backend-ot device id of the PV array",
+            "title": "Array Id",
+            "type": "integer"
+          },
+          "cell_temp_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cell Temp C"
+          },
+          "poa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poa"
+          },
+          "pv_ac_kw": {
+            "title": "Pv Ac Kw",
+            "type": "number"
+          },
+          "pv_dc_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pv Dc Kw"
+          },
+          "pv_energy_kwh": {
+            "title": "Pv Energy Kwh",
+            "type": "number"
+          }
+        },
+        "required": [
+          "array_id",
+          "poa",
+          "cell_temp_c",
+          "pv_dc_kw",
+          "pv_ac_kw",
+          "pv_energy_kwh"
+        ],
+        "title": "ArrayIntervalResponse",
+        "type": "object"
+      },
       "AskRequest": {
         "additionalProperties": false,
         "properties": {
@@ -82,6 +142,97 @@
         "title": "AskResponse",
         "type": "object"
       },
+      "DailySummaryResponse": {
+        "properties": {
+          "complete": {
+            "description": "False when the forecast covers only part of the day",
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "date": {
+            "description": "The site's local date",
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "energy_kwh": {
+            "title": "Energy Kwh",
+            "type": "number"
+          },
+          "first_production_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Production At"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "last_production_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Production At"
+          },
+          "peak_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak At"
+          },
+          "peak_kw": {
+            "title": "Peak Kw",
+            "type": "number"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "date",
+          "timezone",
+          "provider",
+          "issued_at",
+          "energy_kwh",
+          "peak_kw",
+          "peak_at",
+          "first_production_at",
+          "last_production_at",
+          "complete"
+        ],
+        "title": "DailySummaryResponse",
+        "type": "object"
+      },
       "ErrorResponse": {
         "properties": {
           "detail": {
@@ -93,6 +244,163 @@
           "detail"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "ForecastHealthResponse": {
+        "properties": {
+          "active_provider": {
+            "title": "Active Provider",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fallback_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fallback Providers",
+            "type": "array"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/SiteForecastHealthResponse"
+            },
+            "title": "Sites",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "active_provider",
+          "fallback_providers",
+          "sites"
+        ],
+        "title": "ForecastHealthResponse",
+        "type": "object"
+      },
+      "ForecastIntervalResponse": {
+        "properties": {
+          "arrays": {
+            "description": "Per-array breakdown; empty when the source predicts the site total only",
+            "items": {
+              "$ref": "#/components/schemas/ArrayIntervalResponse"
+            },
+            "title": "Arrays",
+            "type": "array"
+          },
+          "cloud_cover_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloud Cover Pct"
+          },
+          "dhi": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dhi"
+          },
+          "dni": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dni"
+          },
+          "ghi": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ghi"
+          },
+          "interval_end": {
+            "format": "date-time",
+            "title": "Interval End",
+            "type": "string"
+          },
+          "interval_start": {
+            "format": "date-time",
+            "title": "Interval Start",
+            "type": "string"
+          },
+          "pv_ac_kw": {
+            "title": "Pv Ac Kw",
+            "type": "number"
+          },
+          "pv_dc_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pv Dc Kw"
+          },
+          "pv_energy_kwh": {
+            "title": "Pv Energy Kwh",
+            "type": "number"
+          },
+          "temp_air_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temp Air C"
+          },
+          "wind_speed_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Speed Ms"
+          }
+        },
+        "required": [
+          "interval_start",
+          "interval_end",
+          "pv_ac_kw",
+          "pv_energy_kwh",
+          "pv_dc_kw",
+          "ghi",
+          "dni",
+          "dhi",
+          "temp_air_c",
+          "wind_speed_ms",
+          "cloud_cover_pct",
+          "arrays"
+        ],
+        "title": "ForecastIntervalResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -122,6 +430,221 @@
         "type": "object"
       },
       "JsonValue": {},
+      "PvForecastResponse": {
+        "properties": {
+          "fallback_used": {
+            "description": "A fallback produced it: the primary source failed",
+            "title": "Fallback Used",
+            "type": "boolean"
+          },
+          "interval_convention": {
+            "default": "mean over [interval_start, interval_end); energy summed; times UTC",
+            "title": "Interval Convention",
+            "type": "string"
+          },
+          "intervals": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastIntervalResponse"
+            },
+            "title": "Intervals",
+            "type": "array"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "provider": {
+            "description": "The source that produced this forecast",
+            "title": "Provider",
+            "type": "string"
+          },
+          "resolution_minutes": {
+            "title": "Resolution Minutes",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "source_kind": {
+            "description": "weather_model (weather + PV model) or pv_power",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "site_id",
+          "provider",
+          "source_kind",
+          "fallback_used",
+          "issued_at",
+          "resolution_minutes",
+          "intervals"
+        ],
+        "title": "PvForecastResponse",
+        "type": "object"
+      },
+      "RefreshResponse": {
+        "properties": {
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRefreshResponse"
+            },
+            "title": "Sites",
+            "type": "array"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "started_at",
+          "finished_at",
+          "sites"
+        ],
+        "title": "RefreshResponse",
+        "type": "object"
+      },
+      "SiteForecastHealthResponse": {
+        "properties": {
+          "fallback_in_use": {
+            "title": "Fallback In Use",
+            "type": "boolean"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Provider"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "site_id",
+          "last_attempt_at",
+          "last_success_at",
+          "last_provider",
+          "fallback_in_use",
+          "last_error",
+          "stale"
+        ],
+        "title": "SiteForecastHealthResponse",
+        "type": "object"
+      },
+      "SiteRefreshResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fallback_used": {
+            "title": "Fallback Used",
+            "type": "boolean"
+          },
+          "intervals": {
+            "title": "Intervals",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "ok",
+          "provider",
+          "fallback_used",
+          "intervals",
+          "error"
+        ],
+        "title": "SiteRefreshResponse",
+        "type": "object"
+      },
       "SiteResponse": {
         "properties": {
           "capacity_kw": {
@@ -299,13 +822,128 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WeatherForecastResponse": {
+        "properties": {
+          "interval_convention": {
+            "default": "mean over [interval_start, interval_end); energy summed; times UTC",
+            "title": "Interval Convention",
+            "type": "string"
+          },
+          "intervals": {
+            "items": {
+              "$ref": "#/components/schemas/WeatherIntervalResponse"
+            },
+            "title": "Intervals",
+            "type": "array"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "resolution_minutes": {
+            "title": "Resolution Minutes",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "site_id",
+          "provider",
+          "issued_at",
+          "resolution_minutes",
+          "intervals"
+        ],
+        "title": "WeatherForecastResponse",
+        "type": "object"
+      },
+      "WeatherIntervalResponse": {
+        "properties": {
+          "cloud_cover_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloud Cover Pct"
+          },
+          "dhi": {
+            "title": "Dhi",
+            "type": "number"
+          },
+          "dni": {
+            "title": "Dni",
+            "type": "number"
+          },
+          "ghi": {
+            "title": "Ghi",
+            "type": "number"
+          },
+          "interval_end": {
+            "format": "date-time",
+            "title": "Interval End",
+            "type": "string"
+          },
+          "interval_start": {
+            "format": "date-time",
+            "title": "Interval Start",
+            "type": "string"
+          },
+          "poa_by_array": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Plane-of-array irradiance per array id",
+            "title": "Poa By Array",
+            "type": "object"
+          },
+          "temp_air_c": {
+            "title": "Temp Air C",
+            "type": "number"
+          },
+          "wind_speed_ms": {
+            "title": "Wind Speed Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "interval_start",
+          "interval_end",
+          "ghi",
+          "dni",
+          "dhi",
+          "temp_air_c",
+          "wind_speed_ms",
+          "cloud_cover_pct",
+          "poa_by_array"
+        ],
+        "title": "WeatherIntervalResponse",
+        "type": "object"
       }
     }
   },
   "info": {
     "description": "AI helper for site engineers: Claude answers questions about a generation site using read-only tools",
     "title": "intelli-gateway",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -328,6 +966,228 @@
         "summary": "Liveness",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/forecast/health": {
+      "get": {
+        "operationId": "forecast_health_api_v1_forecast_health_get",
+        "parameters": [
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "PV forecast health: active provider, fallbacks, last success per site",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/forecast/refresh": {
+      "post": {
+        "operationId": "refresh_forecast_api_v1_forecast_refresh_post",
+        "parameters": [
+          {
+            "description": "One site; omit for every forecastable site",
+            "in": "query",
+            "name": "site_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "One site; omit for every forecastable site",
+              "title": "Site Id"
+            }
+          },
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Fetch new PV forecasts now (admin)",
+        "tags": [
+          "forecast"
         ]
       }
     },
@@ -555,6 +1415,750 @@
         "summary": "Ask a question about a site",
         "tags": [
           "v1"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/forecast": {
+      "get": {
+        "operationId": "get_forecast_api_v1_sites__site_id__forecast_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "ISO 8601 with offset; omit = from the start",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO 8601 with offset; omit = from the start",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "ISO 8601 with offset; omit = to the end",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO 8601 with offset; omit = to the end",
+              "title": "End"
+            }
+          },
+          {
+            "description": "Minutes; a multiple of the stored resolution",
+            "in": "query",
+            "name": "resolution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Minutes; a multiple of the stored resolution",
+              "title": "Resolution"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvForecastResponse"
+                }
+              },
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No forecast stored for the site"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "The latest PV forecast of a site over a window",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/forecast/history": {
+      "get": {
+        "operationId": "get_forecast_history_api_v1_sites__site_id__forecast_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "ISO 8601 with offset",
+            "in": "query",
+            "name": "issued_before",
+            "required": true,
+            "schema": {
+              "description": "ISO 8601 with offset",
+              "format": "date-time",
+              "title": "Issued Before",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "description": "Minutes; a multiple of the stored resolution",
+            "in": "query",
+            "name": "resolution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Minutes; a multiple of the stored resolution",
+              "title": "Resolution"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvForecastResponse"
+                }
+              },
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No forecast stored for the site"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "What was forecast, as issued before a given time (backtesting)",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/forecast/latest": {
+      "get": {
+        "operationId": "get_latest_forecast_api_v1_sites__site_id__forecast_latest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvForecastResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No forecast stored for the site"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "The latest PV forecast of a site, in full",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/forecast/raw": {
+      "get": {
+        "operationId": "get_raw_weather_api_v1_sites__site_id__forecast_raw_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeatherForecastResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No forecast stored for the site"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "The weather behind the latest PV forecast (404 for PV-power-only sources)",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/forecast/summary": {
+      "get": {
+        "operationId": "get_forecast_summary_api_v1_sites__site_id__forecast_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The site's local date, YYYY-MM-DD",
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "description": "The site's local date, YYYY-MM-DD",
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dev auth: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailySummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No forecast stored for the site"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Forecast energy, peak and first/last production for one local day",
+        "tags": [
+          "forecast"
         ]
       }
     },

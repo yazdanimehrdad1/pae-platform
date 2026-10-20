@@ -1,7 +1,7 @@
 # intelli-gateway: progress and next steps
 
 This is a handover note, so work can pick up where it left off. It was last updated on
-2026-10-19. Keep it current: when a step lands, move it from "Next steps" to "Done".
+2026-10-20. Keep it current: when a step lands, move it from "Next steps" to "Done".
 
 For setup, the API, the tools and the layout, see [README.md](../README.md). For rules and
 gotchas, see [CLAUDE.md](../CLAUDE.md).
@@ -86,6 +86,27 @@ tools, and gives a hint about the likely issue and the checks to make.
 `make check-boundaries` is clean. The real-Claude integration test
 (`make test-integration`) has not been run.
 
+### 4. PV forecast (uncommitted, 2026-10-20)
+- **backend-ot (provider first):** `pv_array_configs` (migration 017, one per PV/INVERTER
+  device: tilt, azimuth, DC/AC kW, losses, temperature coefficient), `elevation_m` in the site
+  coordinates, `GET /api/sites/{id}/pv-arrays` and `GET/PUT/DELETE
+  /api/devices/site/{id}/devices/{device_id}/pv-array`. Contract 3.0.0 -> 3.1.0 (additive). The
+  powerflow seed puts site 1001 in Phoenix (33.45, -112.07, 331 m, America/Phoenix) with pv1 at
+  tilt 25, azimuth 180, 6500 kW DC / 5000 kW AC.
+- **This service's Postgres** (port 5437): `services/postgres/` (engine, migration runner with an
+  advisory lock, `001_forecasts.sql`: runs, intervals, fetch log). New dependencies, approved:
+  `sqlalchemy[asyncio]`, `asyncpg`, `pvlib`.
+- **The forecast:** `solar_forecast/` (`ForecastService`, `WeatherModelSource`, `PvlibPvModel`,
+  registry, refresh job), `services/open_meteo/` (15-min `minutely_15`, POA per array plane),
+  `services/noaa_hrrr/` (stub), endpoints under `/api/v1/.../forecast`, and the agent tool
+  `get_pv_forecast` (replaces the example `get_weather_forecast` and `EXTERNAL_API_*`). API
+  0.1.0 -> 0.2.0 (additive).
+- **Swap path:** a weather API = provider file + registry entry + config; a PV-power API (Solcast,
+  Solargis) = source file + registry entry + config. Fallbacks via `FORECAST_FALLBACK_SOURCES`.
+- **Tests:** shared provider/source contract suites, the repository contract (in memory and
+  Postgres), PV model, facade, endpoints. `make test-integration` is now the Postgres suite;
+  the real-Claude test moved to `make test-llm`.
+
 ## Decisions made with the user (don't change without asking)
 - **Engineer knowledge lives in this service** (in memory now, its own Postgres next), not in
   backend-ot. Guides are scoped **per site device**: (site_id, device_id, point name).
@@ -101,23 +122,19 @@ tools, and gives a hint about the likely issue and the checks to make.
 
 ## Next steps (in order)
 
-1. **Engineer knowledge in Postgres:**
-   - Add `intelli-gateway-postgres` to `compose.yaml` on host port 5437. Register the port in
-     the root `CLAUDE.md`, root `.env.example` and the `run-platform` skill.
-   - Use numbered SQL migrations applied at startup with an advisory lock, like powerflow
-     (`services/powerflow/src/powerflow/storage/`). Tables: `point_guides` (with states and
-     limits as JSONB, or child tables), `knowledge_documents` (manuals, IM scripts, notes).
-   - Implement a Postgres `KnowledgeStore` (SQLAlchemy 2 async + asyncpg; both are already used
-     by powerflow, but ask before adding them). Add a seed target that loads the Pydantic fake
-     knowledge, and a `test-integration` against a throwaway Postgres, like powerflow's
-     `compose.test.yaml`.
+1. **Engineer knowledge in Postgres** (the Postgres container, migration runner, SQLAlchemy and
+   `test-integration` now exist, from the PV forecast):
+   - Add `002_knowledge.sql`: `point_guides` (with states and limits as JSONB, or child tables),
+     `knowledge_documents` (manuals, IM scripts, notes).
+   - Implement a Postgres `KnowledgeStore` in `services/postgres/`, a seed target that loads the
+     Pydantic fake knowledge, and integration tests next to the forecast repository's.
    - Decide with the user how real-site knowledge gets in at first: a seed module per site, or
      only through the authoring API (step 2).
 2. **Authoring API for engineers:** CRUD on point guides and experience notes, under
    `/api/v1/sites/{site_id}/...`. It is additive to this service's contract, so regenerate it
    with `make contract`. Later a web-plusdas page could use it, but web-plusdas currently only
    proxies `/api` and `/powerflow-api`, so that needs a design decision first.
-3. **Run the real-Claude integration test** (`make test-integration`) and keep it passing. It
+3. **Run the real-Claude integration test** (`make test-llm`) and keep it passing. It
    checks tool use and a cache read on the follow-up question.
 4. **Cut token use** (deferred on purpose):
    - Long backend-ot device names make long point names; consider short aliases.
@@ -149,7 +166,8 @@ tools, and gives a hint about the likely issue and the checks to make.
 
 ```sh
 make -C services/intelli-gateway lint typecheck test       # fake data, scripted Claude, no network
-make -C services/intelli-gateway test-integration          # real Claude API (costs tokens)
+make -C services/intelli-gateway test-integration          # Postgres tests (Docker, throwaway DB)
+make -C services/intelli-gateway test-llm                  # real Claude API (costs tokens)
 make -C services/intelli-gateway contract                  # after any API change
 make check-boundaries                                      # repo-wide boundary check
 # ask a question (dev stack running, ANTHROPIC_API_KEY in the service .env)

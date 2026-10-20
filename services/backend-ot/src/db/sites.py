@@ -30,7 +30,7 @@ def _site_to_response(site: Site) -> SiteResponse:
     coordinates = None
     if site.coordinates:
         from schemas.api_models import Coordinates
-        coordinates = Coordinates(lat=site.coordinates["lat"], lng=site.coordinates["lng"])
+        coordinates = Coordinates.model_validate(site.coordinates)
     location = None
     if site.location:
         from schemas.api_models import Location
@@ -79,7 +79,7 @@ async def create_site(site: SiteCreateRequest) -> SiteResponse:
             location_dict = site.location.model_dump()
             coordinates_dict = None
             if site.coordinates:
-                coordinates_dict = {"lat": site.coordinates.lat, "lng": site.coordinates.lng}
+                coordinates_dict = site.coordinates.model_dump(exclude_none=True)
 
             new_site = Site(
                 client_id=site.client_id,
@@ -178,7 +178,7 @@ async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteRespo
             if site_update.description is not None:
                 site.description = site_update.description
             if site_update.coordinates is not None:
-                site.coordinates = {"lat": site_update.coordinates.lat, "lng": site_update.coordinates.lng}
+                site.coordinates = site_update.coordinates.model_dump(exclude_none=True)
             # Omitted keeps the profile; an explicit null removes it.
             if "profile" in site_update.model_fields_set:
                 site.profile = site_update.profile

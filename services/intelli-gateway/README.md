@@ -2,7 +2,9 @@
 
 The AI helper for site engineers. An engineer asks a question about one generation site, and
 Claude answers it by calling read-only tools, then gives a hint about the likely issue and the
-checks to make.
+checks to make. It also provides the platform's **PV forecast** (per site, 15-minute, 72 h,
+refreshed every 15 minutes) with a replaceable weather/irradiance source; see
+[src/intelli_gateway/solar_forecast/README.md](src/intelli_gateway/solar_forecast/README.md).
 
 **Status:**
 - `USE_FAKE_DATA=true` (default): fictional in-memory sites with example engineer knowledge.
@@ -38,7 +40,7 @@ Point guides are keyed per site device: (site_id, device_id, point name).
 | `lookup_fault` | one state, alarm bit or vendor fault code: causes, checks, safety note |
 | `get_device_script` | a device's IM script (register mapping) |
 | `search_experience_notes` | past incidents, by keyword, point or device |
-| `get_weather_forecast` | only when `EXTERNAL_API_URL` is set |
+| `get_pv_forecast` | the stored PV forecast, hourly from now: kW, kWh and the weather behind it (when `FORECAST_ENABLED`) |
 
 The fake sites are built to be diagnosable:
 - **Sunfield (site 1):** INV2's cabinet runs hot. Late morning to evening it derates to 1500 kW, its alarm word sets OVER_TEMP, and an over-temperature alarm is raised each day. There is also a past WS1 comms loss.
@@ -84,6 +86,16 @@ Conversations live in memory and are lost on restart.
 | `GET /api/v1/sites` | The sites the caller can access. |
 | `GET /api/v1/tools` | The tool specs Claude sees. It mirrors MCP `list_tools` and is meant for debugging. |
 | `GET /api/healthz` | Liveness check. |
+| `GET /api/v1/sites/{site_id}/forecast` | The latest PV forecast over `start`/`end` (ISO 8601 with offset), `resolution` (minutes), `format=json\|csv`. |
+| `GET /api/v1/sites/{site_id}/forecast/latest` | The latest PV forecast in full. |
+| `GET /api/v1/sites/{site_id}/forecast/summary?date=` | Energy, peak and first/last production for one local day. |
+| `GET /api/v1/sites/{site_id}/forecast/history?issued_before=` | What was forecast as of an earlier time (backtesting). |
+| `GET /api/v1/sites/{site_id}/forecast/raw` | The weather behind the latest forecast (404 for PV-power-only sources). |
+| `GET /api/v1/forecast/health` | Active provider, fallbacks, last attempt and success per site. |
+| `POST /api/v1/forecast/refresh` | Fetch new forecasts now (`?site_id=` for one site). Needs the `admin` role. |
+
+Forecast responses carry `provider`, `units` and `interval_convention` (values are means over
+`[interval_start, interval_end)`, energy summed, times UTC).
 
 **Auth placeholder.** The service reads the dev headers `X-User-Id`, `X-Roles` and
 `X-Site-Ids` (comma-separated site ids). With no headers, it falls back to a dev user who can
@@ -94,7 +106,8 @@ and nothing else changes.
 
 ```sh
 make -C services/intelli-gateway lint typecheck test   # no network, no Docker; Claude is faked
-make -C services/intelli-gateway test-integration      # real Claude API: costs tokens, needs a key
+make -C services/intelli-gateway test-integration      # Postgres tests on a throwaway container
+make -C services/intelli-gateway test-llm              # real Claude API: costs tokens, needs a key
 ```
 
 ## Layout (`src/intelli_gateway/`)
@@ -105,13 +118,14 @@ routers in `api/routers/`, cross-cutting helpers in `utils/`. Feature folders ho
 | Path | Contents |
 |---|---|
 | `app.py`, `config.py`, `contract.py`, `wiring.py` | App factory, settings (the only place config is read), OpenAPI contract rendering, and the object graph built from settings. |
-| `api/` | `routers/` (`health`, `sites`, `tools`), `middleware/request_id.py`, and `dependencies.py` (the auth placeholder). No business logic. |
-| `schemas/` | Every data shape: `api_models/` (request and response bodies), `backend_ot/` (backend-ot's responses, strict), `site_data.py`, `knowledge.py` (point guides), `tools.py`, `agent.py`, `context.py`, `forecast.py`. |
-| `interfaces/` | The Protocols the code depends on: `site_data`, `knowledge_store`, `tool_provider`, `llm_client`, `conversation_store`. |
-| `services/` | Clients for external systems: `claude/client.py` (the only module that imports `anthropic`), `forecast/client.py`, and `backend_ot/` (`client.py` for every backend-ot request, `site_data.py` mapping it to the agent's shapes). |
+| `api/` | `routers/` (`health`, `sites`, `tools`, `forecast`), `middleware/request_id.py`, and `dependencies.py` (the auth placeholder). No business logic. |
+| `schemas/` | Every data shape: `api_models/` (request and response bodies), `backend_ot/` (backend-ot's responses, strict), `site_data.py`, `knowledge.py` (point guides), `tools.py`, `agent.py`, `context.py`, `solar_forecast.py` (the provider-neutral forecast models), `open_meteo/` (Open-Meteo's wire format). |
+| `interfaces/` | The Protocols the code depends on: `site_data`, `knowledge_store`, `tool_provider`, `llm_client`, `conversation_store`, and for the forecast `pv_forecast_source`, `weather_provider`, `pv_model`, `forecast_repository`, `site_config_source`. |
+| `services/` | Clients for external systems: `claude/client.py` (the only module that imports `anthropic`), `backend_ot/` (`client.py` for every backend-ot request, `site_data.py` and `site_config.py` mapping it to the agent's and the forecast's shapes), `open_meteo/` and `noaa_hrrr/` (forecast providers; HRRR is a stub), `postgres/` (engine, migrations, forecast repository). |
 | `agent/` | `loop.py` (the tool-use loop), `service.py` (what the routers call), `conversations.py` (in-memory store). |
-| `tools/` | The tools (`site_tools`, `alarm_tools`, `knowledge_tools`, `external_tools`; `catalog.py` builds them all), the `@tool` decorator, `LocalToolProvider`, `CompositeToolProvider`, authz and output bounds. |
+| `solar_forecast/` | The PV forecast: `ForecastService` (the facade), `weather_model_source.py`, `pv_model.py` (pvlib), `registry.py` (source names), `scheduler.py` (the refresh job). |
+| `tools/` | The tools (`site_tools`, `alarm_tools`, `knowledge_tools`, `forecast_tools`; `catalog.py` builds them all), the `@tool` decorator, `LocalToolProvider`, `CompositeToolProvider`, authz and output bounds. |
 | `knowledge/` | Builds a site's knowledge text and tracks its size (`loader.py`); decides which guide entries apply to a reading (`guides.py`). |
 | `prompts/` | The system prompt templates. |
-| `fake_data/` | Everything fake: the fake data's shapes (`models.py`), the fictional sites (`sites.py`), the fake site data connector with its plant model (`site_data.py`) and the in-memory knowledge store (`knowledge_store.py`). |
+| `fake_data/` | Everything fake: the fake data's shapes (`models.py`), the fictional sites (`sites.py`), the fake site data connector with its plant model (`site_data.py`) the in-memory knowledge store (`knowledge_store.py`), and the forecast fakes (`forecast.py`: site configs, clear-sky weather, a PV-power source, an in-memory repository). |
 | `utils/` | `logger.py` (JSON logs with request_id), `exceptions.py`, `telemetry.py` (OpenTelemetry hook). |

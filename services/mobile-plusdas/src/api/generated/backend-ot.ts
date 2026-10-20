@@ -590,6 +590,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/devices/site/{site_id}/devices/{device_id}/pv-array": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a PV or inverter device's PV array config
+         * @description 404 if the device isn't in the site or has no config; 400 if it isn't a PV or INVERTER device.
+         */
+        get: operations["get_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_get"];
+        /**
+         * Create or replace a PV or inverter device's PV array config
+         * @description Replaces every field (omitted optional fields take their defaults). 404 if the device isn't
+         *     in the site; 400 if it isn't a PV or INVERTER device.
+         */
+        put: operations["put_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_put"];
+        post?: never;
+        /**
+         * Delete a PV or inverter device's PV array config
+         * @description Returns the deleted config. 404 if the device isn't in the site or has no config.
+         */
+        delete: operations["delete_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/devices/site/{site_id}/devices/{device_id}/restore": {
         parameters: {
             query?: never;
@@ -1247,6 +1276,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/pv-arrays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the PV array configs of a site's devices
+         * @description One entry per active PV or INVERTER device that has a PV array config (orientation,
+         *     DC/AC ratings, losses, temperature coefficient). Empty if none is configured; 404 if the
+         *     site doesn't exist.
+         */
+        get: operations["get_site_pv_arrays_endpoint_api_sites__site_id__pv_arrays_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{site_id}/restore": {
         parameters: {
             query?: never;
@@ -1873,6 +1924,11 @@ export interface components {
          * @description Coordinates model for site location.
          */
         Coordinates: {
+            /**
+             * Elevation M
+             * @description Elevation above sea level, meters; omit if unknown
+             */
+            elevation_m?: number | null;
             /**
              * Lat
              * @description Latitude
@@ -3135,6 +3191,101 @@ export interface components {
             timeseries?: components["schemas"]["TimeseriesPoint"][];
             /** Unit */
             unit?: string | null;
+        };
+        /**
+         * PvArrayConfigResponse
+         * @description The PV array behind a PV or INVERTER device.
+         */
+        PvArrayConfigResponse: {
+            /**
+             * Ac Capacity Kw
+             * @description AC limit of the inverter(s) feeding this array, kW
+             */
+            ac_capacity_kw: number;
+            /**
+             * Azimuth Deg
+             * @description Direction the modules face, degrees clockwise from north (180 = south)
+             */
+            azimuth_deg: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Dc Capacity Kw
+             * @description DC nameplate of the array, kW (kWp)
+             */
+            dc_capacity_kw: number;
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /**
+             * Device Type
+             * @enum {string}
+             */
+            device_type: "BESS" | "ES" | "INVERTER" | "PV" | "GENERATOR" | "LOADBANK" | "RELAY" | "IED" | "METER" | "RTAC";
+            /** Site Id */
+            site_id: number;
+            /**
+             * System Loss Pct
+             * @description Lumped system losses, percent
+             */
+            system_loss_pct: number;
+            /**
+             * Temp Coefficient Pct Per C
+             * @description Module power temperature coefficient, percent per degC
+             */
+            temp_coefficient_pct_per_c: number;
+            /**
+             * Tilt Deg
+             * @description Module tilt from horizontal, degrees (0 = flat)
+             */
+            tilt_deg: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * PvArrayConfigUpsertRequest
+         * @description The PV array behind a PV or INVERTER device: orientation, ratings and losses.
+         */
+        PvArrayConfigUpsertRequest: {
+            /**
+             * Ac Capacity Kw
+             * @description AC limit of the inverter(s) feeding this array, kW
+             */
+            ac_capacity_kw: number;
+            /**
+             * Azimuth Deg
+             * @description Direction the modules face, degrees clockwise from north (180 = south)
+             */
+            azimuth_deg: number;
+            /**
+             * Dc Capacity Kw
+             * @description DC nameplate of the array, kW (kWp)
+             */
+            dc_capacity_kw: number;
+            /**
+             * System Loss Pct
+             * @description Lumped system losses (soiling, wiring, mismatch, inverter), percent
+             * @default 14
+             */
+            system_loss_pct: number;
+            /**
+             * Temp Coefficient Pct Per C
+             * @description Module power temperature coefficient, percent per degC (negative)
+             * @default -0.35
+             */
+            temp_coefficient_pct_per_c: number;
+            /**
+             * Tilt Deg
+             * @description Module tilt from horizontal, degrees (0 = flat)
+             */
+            tilt_deg: number;
         };
         /**
          * RegisterRange
@@ -5776,6 +5927,106 @@ export interface operations {
             };
         };
     };
+    get_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PvArrayConfigUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restore_existing_device_api_devices_site__site_id__devices__device_id__restore_post: {
         parameters: {
             query?: never;
@@ -7186,6 +7437,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteHealthResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_pv_arrays_endpoint_api_sites__site_id__pv_arrays_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"][];
                 };
             };
             /** @description Validation Error */

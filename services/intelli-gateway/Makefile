@@ -22,11 +22,17 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration contract build rebuild up down down-all restart \
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration test-llm contract build rebuild up down down-all restart \
 	logs ps clean run
 
-# Standalone stack. Host port: INTELLI_GATEWAY_HTTP_PORT (default 8030).
+# Standalone stack (the gateway + its Postgres). Host ports: INTELLI_GATEWAY_HTTP_PORT (8030),
+# INTELLI_GATEWAY_POSTGRES_PORT (5437).
 COMPOSE := docker compose -f compose.yaml
+
+# Integration-test stack: one isolated compose project per worktree, so parallel worktrees never
+# share (or tear down) each other's throwaway Postgres.
+WORKTREE_ID  := $(shell basename "$(abspath $(CURDIR)/../..)" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '-')
+TEST_COMPOSE := docker compose -p intelli-gateway-test-$(WORKTREE_ID) -f compose.test.yaml
 APP     := intelli-gateway
 UV_RUN  := uv run --frozen
 # Published HTTP API (contracts/ is the only directory shared between services).
@@ -41,7 +47,8 @@ help:
 	@echo "  format           ruff format + ruff --fix"
 	@echo "  typecheck        pyright (blocking; strict except api/, fake_data/, knowledge/, prompts/)"
 	@echo "  test             unit tests (pytest, no Docker, fake data, mocked Claude)"
-	@echo "  test-integration real Claude API test (needs ANTHROPIC_API_KEY; costs tokens)"
+	@echo "  test-integration integration tests on a throwaway Postgres (Docker)"
+	@echo "  test-llm         real Claude API test (needs ANTHROPIC_API_KEY; costs tokens)"
 	@echo "  run              run the API on the host (port 8030)"
 	@echo "  contract         regenerate $(CONTRACT_FILE) (the OpenAPI spec)"
 	@echo ""
@@ -72,11 +79,19 @@ typecheck:
 test:
 	$(UV_RUN) pytest $(or $(TEST_PATH),tests --ignore=tests/integration) -v --color=yes -rfE
 
-# Run after any route/model change; `make test` fails while the contract is stale.
-# Calls the real Claude API (tokens cost money); skipped unless RUN_LLM_TESTS=1.
+# Postgres-backed tests in a throwaway container stack (tmpfs, no host ports, torn down after).
+# The real-Claude test in tests/integration is skipped there (it needs RUN_LLM_TESTS=1).
 test-integration:
-	RUN_LLM_TESTS=1 $(UV_RUN) pytest tests/integration -v --color=yes -rfE
+	@echo "Running integration tests (project intelli-gateway-test-$(WORKTREE_ID))..."
+	@docker volume create intelli-gateway-uv-cache >/dev/null
+	@status=0; PYTEST_TARGET=$(or $(TEST_PATH),tests/integration) $(TEST_COMPOSE) run --rm tests || status=$$?; \
+		$(TEST_COMPOSE) down --remove-orphans >/dev/null 2>&1 || true; exit $$status
 
+# Calls the real Claude API (tokens cost money): never part of the root fan-out.
+test-llm:
+	RUN_LLM_TESTS=1 $(UV_RUN) pytest tests/integration/test_llm.py -v --color=yes -rfE
+
+# Run after any route/model change; `make test` fails while the contract is stale.
 contract:
 	$(UV_RUN) python scripts/export_openapi.py --output $(CONTRACT_FILE)
 
@@ -114,7 +129,7 @@ down-all:
 restart: down up
 
 logs:
-	$(COMPOSE) logs -f $(APP)
+	$(COMPOSE) logs -f $(APP) $(APP)-postgres
 
 ps:
 	$(COMPOSE) ps

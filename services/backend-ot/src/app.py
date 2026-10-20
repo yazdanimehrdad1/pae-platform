@@ -95,7 +95,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="PAE Backend OT",
         description="Modbus TCP service for polling and storing time-series data",
-        version="3.0.0",
+        version="3.1.0",
         lifespan=lifespan,
     )
 

@@ -16,7 +16,8 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
   mobile-plusdas/    Expo / React Native phone app (iOS + Android): bare-bones: lists backend-ot's
                      sites (alarms, push, reports, AI later); not containerized
   intelli-gateway/   AI helper for site engineers: Claude answers questions about a site through
-                     read-only tools (tool-use loop, MCP-ready tool layer); fake data in phase 1
+                     read-only tools (tool-use loop, MCP-ready tool layer); also the PV forecast
+                     (replaceable weather source, Open-Meteo now), stored in its own Postgres
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
@@ -79,7 +80,7 @@ the root, and `make -C services/<svc> help` in each service.
 | optimizer (reserved) | 8010 |
 | powerflow | 8020 (http), 5436 (postgres), 1502 (modbus; 502 in the container) |
 | mobile-plusdas | 8081 (Expo Metro dev server, `make -C services/mobile-plusdas run`; no container) |
-| intelli-gateway | 8030 (http) |
+| intelli-gateway | 8030 (http), 5437 (postgres) |
 
 ## Contracts
 Rules and the contract list are in `contracts/README.md`. For a change that alters what a service

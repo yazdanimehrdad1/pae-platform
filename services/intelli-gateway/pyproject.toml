@@ -12,6 +12,9 @@ dependencies = [
     "tenacity>=9.2.1",
     "httpx>=0.25",
     "tzdata>=2026.5",
+    "asyncpg>=0.32.0",
+    "pvlib>=0.16.1",
+    "sqlalchemy[asyncio]>=2.1.5",
 ]
 
 # PEP 735 dependency group: `uv sync` installs it by default; never shipped in the image.

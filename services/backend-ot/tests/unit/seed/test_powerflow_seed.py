@@ -5,7 +5,9 @@ Invariant guarded: every point-standard device of a powerflow default site
 server directly (host powerflow, port 502, unit 1, zero-based), and every register it serves
 (`contracts/modbus/powerflow.registers.json`, powerflow_server yes/calc) becomes one NATIVE point
 at base + offset with the contract's type, scale, unit and labels; unserved registers are not
-seeded. The site's single line diagram validates and links only points the seed creates. The
+seeded. The site's single line diagram validates and links only points the seed creates.
+Every PV device gets a PV array config with the contract's DC/AC ratings, and the site has a
+location (coordinates with elevation) so it can be forecast. The
 committed contracts are read as static fixtures (no DB/network).
 """
 
@@ -174,3 +176,25 @@ def test_every_default_site_builds(site: str, registers, sites) -> None:
     assert len(seed.devices) == len(sites.sites[site].devices)
     (sld,) = seed.site_slds(lambda _device, _point: 1, lambda _device: 1).values()
     assert sld.nodes
+
+
+class TestPvArrays:
+    def test_every_pv_device_has_its_contract_ratings(self, seed: SeedData, sites) -> None:
+        site = sites.sites[SITE]
+        pv_devices = [device for device in site.devices if device.kind == "pv"]
+        assert pv_devices
+        assert set(seed.pv_arrays) == {device_name(SITE, device) for device in pv_devices}
+        pv_by_id = {pv.id: pv for pv in site.pv}
+        for device in pv_devices:
+            config = seed.pv_arrays[device_name(SITE, device)]
+            assert config.dc_capacity_kw == pv_by_id[device.asset_id].dc_kwp
+            assert config.ac_capacity_kw == pv_by_id[device.asset_id].p_max_kw
+
+    def test_pv_arrays_belong_to_pv_devices(self, seed: SeedData) -> None:
+        types = {seed_device.device.name: seed_device.device.type for seed_device in seed.devices}
+        assert all(types[name] == "PV" for name in seed.pv_arrays)
+
+    def test_site_has_a_location(self, seed: SeedData) -> None:
+        (site,) = seed.sites
+        assert site.coordinates is not None and site.coordinates.elevation_m is not None
+        assert site.timezone != "UTC"

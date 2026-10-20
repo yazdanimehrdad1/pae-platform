@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BeforeValidator
 
+from api.controllers.pv_arrays import get_site_pv_arrays
 from api.controllers.site_health import get_site_health
 from api.controllers.sites import (
     create_site,
@@ -21,6 +22,7 @@ from api.controllers.sites import (
 from api.controllers.sld_values import get_sld_values
 from logger import get_logger
 from schemas.api_models import (
+    PvArrayConfigResponse,
     Severity,
     SiteComprehensiveResponse,
     SiteCreateRequest,
@@ -274,6 +276,27 @@ async def get_site_health_endpoint(
     A device id that isn't a device of the site is 404."""
     try:
         return await get_site_health(site_id, severities=severity, device_ids=device_ids)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.get(
+    "/{site_id}/pv-arrays",
+    response_model=list[PvArrayConfigResponse],
+    summary="Get the PV array configs of a site's devices",
+)
+async def get_site_pv_arrays_endpoint(site_id: int) -> list[PvArrayConfigResponse]:
+    """One entry per active PV or INVERTER device that has a PV array config (orientation,
+    DC/AC ratings, losses, temperature coefficient). Empty if none is configured; 404 if the
+    site doesn't exist."""
+    try:
+        return await get_site_pv_arrays(site_id)
     except AppError as e:
         detail = {"error": type(e).__name__, "message": e.message}
         if e.payload:

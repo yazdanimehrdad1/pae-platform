@@ -1155,6 +1155,20 @@
       "Coordinates": {
         "description": "Coordinates model for site location.",
         "properties": {
+          "elevation_m": {
+            "anyOf": [
+              {
+                "maximum": 9000.0,
+                "minimum": -500.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Elevation above sea level, meters; omit if unknown",
+            "title": "Elevation M"
+          },
           "lat": {
             "description": "Latitude",
             "title": "Lat",
@@ -4076,6 +4090,151 @@
           "data_type"
         ],
         "title": "PointTimeseries",
+        "type": "object"
+      },
+      "PvArrayConfigResponse": {
+        "description": "The PV array behind a PV or INVERTER device.",
+        "properties": {
+          "ac_capacity_kw": {
+            "description": "AC limit of the inverter(s) feeding this array, kW",
+            "title": "Ac Capacity Kw",
+            "type": "number"
+          },
+          "azimuth_deg": {
+            "description": "Direction the modules face, degrees clockwise from north (180 = south)",
+            "title": "Azimuth Deg",
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dc_capacity_kw": {
+            "description": "DC nameplate of the array, kW (kWp)",
+            "title": "Dc Capacity Kw",
+            "type": "number"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "device_name": {
+            "title": "Device Name",
+            "type": "string"
+          },
+          "device_type": {
+            "enum": [
+              "BESS",
+              "ES",
+              "INVERTER",
+              "PV",
+              "GENERATOR",
+              "LOADBANK",
+              "RELAY",
+              "IED",
+              "METER",
+              "RTAC"
+            ],
+            "title": "Device Type",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "system_loss_pct": {
+            "description": "Lumped system losses, percent",
+            "title": "System Loss Pct",
+            "type": "number"
+          },
+          "temp_coefficient_pct_per_c": {
+            "description": "Module power temperature coefficient, percent per degC",
+            "title": "Temp Coefficient Pct Per C",
+            "type": "number"
+          },
+          "tilt_deg": {
+            "description": "Module tilt from horizontal, degrees (0 = flat)",
+            "title": "Tilt Deg",
+            "type": "number"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "site_id",
+          "device_name",
+          "device_type",
+          "tilt_deg",
+          "azimuth_deg",
+          "dc_capacity_kw",
+          "ac_capacity_kw",
+          "system_loss_pct",
+          "temp_coefficient_pct_per_c",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PvArrayConfigResponse",
+        "type": "object"
+      },
+      "PvArrayConfigUpsertRequest": {
+        "additionalProperties": false,
+        "description": "The PV array behind a PV or INVERTER device: orientation, ratings and losses.",
+        "properties": {
+          "ac_capacity_kw": {
+            "description": "AC limit of the inverter(s) feeding this array, kW",
+            "exclusiveMinimum": 0.0,
+            "title": "Ac Capacity Kw",
+            "type": "number"
+          },
+          "azimuth_deg": {
+            "description": "Direction the modules face, degrees clockwise from north (180 = south)",
+            "exclusiveMaximum": 360.0,
+            "minimum": 0.0,
+            "title": "Azimuth Deg",
+            "type": "number"
+          },
+          "dc_capacity_kw": {
+            "description": "DC nameplate of the array, kW (kWp)",
+            "exclusiveMinimum": 0.0,
+            "title": "Dc Capacity Kw",
+            "type": "number"
+          },
+          "system_loss_pct": {
+            "default": 14.0,
+            "description": "Lumped system losses (soiling, wiring, mismatch, inverter), percent",
+            "exclusiveMaximum": 100.0,
+            "minimum": 0.0,
+            "title": "System Loss Pct",
+            "type": "number"
+          },
+          "temp_coefficient_pct_per_c": {
+            "default": -0.35,
+            "description": "Module power temperature coefficient, percent per degC (negative)",
+            "maximum": 0.0,
+            "minimum": -2.0,
+            "title": "Temp Coefficient Pct Per C",
+            "type": "number"
+          },
+          "tilt_deg": {
+            "description": "Module tilt from horizontal, degrees (0 = flat)",
+            "maximum": 90.0,
+            "minimum": 0.0,
+            "title": "Tilt Deg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tilt_deg",
+          "azimuth_deg",
+          "dc_capacity_kw",
+          "ac_capacity_kw"
+        ],
+        "title": "PvArrayConfigUpsertRequest",
         "type": "object"
       },
       "RegisterRange": {
@@ -7567,7 +7726,7 @@
   "info": {
     "description": "Modbus TCP service for polling and storing time-series data",
     "title": "PAE Backend OT",
-    "version": "3.0.0"
+    "version": "3.1.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -9666,6 +9825,171 @@
           }
         },
         "summary": "Update a device",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/site/{site_id}/devices/{device_id}/pv-array": {
+      "delete": {
+        "description": "Returns the deleted config. 404 if the device isn't in the site or has no config.",
+        "operationId": "delete_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvArrayConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a PV or inverter device's PV array config",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      },
+      "get": {
+        "description": "404 if the device isn't in the site or has no config; 400 if it isn't a PV or INVERTER device.",
+        "operationId": "get_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvArrayConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a PV or inverter device's PV array config",
+        "tags": [
+          "devices",
+          "devices"
+        ]
+      },
+      "put": {
+        "description": "Replaces every field (omitted optional fields take their defaults). 404 if the device isn't\nin the site; 400 if it isn't a PV or INVERTER device.",
+        "operationId": "put_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PvArrayConfigUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PvArrayConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create or replace a PV or inverter device's PV array config",
         "tags": [
           "devices",
           "devices"
@@ -12270,6 +12594,54 @@
           }
         },
         "summary": "Get the ALARM-class points that are set, per device",
+        "tags": [
+          "sites",
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{site_id}/pv-arrays": {
+      "get": {
+        "description": "One entry per active PV or INVERTER device that has a PV array config (orientation,\nDC/AC ratings, losses, temperature coefficient). Empty if none is configured; 404 if the\nsite doesn't exist.",
+        "operationId": "get_site_pv_arrays_endpoint_api_sites__site_id__pv_arrays_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PvArrayConfigResponse"
+                  },
+                  "title": "Response Get Site Pv Arrays Endpoint Api Sites  Site Id  Pv Arrays Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the PV array configs of a site's devices",
         "tags": [
           "sites",
           "sites"
