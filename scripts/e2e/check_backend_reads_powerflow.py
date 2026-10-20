@@ -8,7 +8,9 @@ contracts/powerflow/sites.json.
 Live values move every simulation step, so the check pauses powerflow, waits for a backend-ot
 poll taken after the pause, compares every seeded NATIVE point to powerflow's value as its
 register holds it (rounded to the register's scale, saturated to its type), then resumes
-powerflow. Unserved points aren't seeded; a value powerflow can't produce reads 0.
+powerflow. powerflow reports SI (W, var, V, Wh); the seed stores kilo units (kW, kvar, kV, kWh), so
+the reference value is converted to the point's unit first. Unserved points aren't seeded; a value
+powerflow can't produce reads 0.
 
 Usage (stdlib only; any Python 3.11+):
     uv run --no-project python scripts/e2e/check_backend_reads_powerflow.py \\
@@ -40,6 +42,9 @@ TYPE_RANGE = {
 DEFAULT_RANGE = (0, (1 << 16) - 1)  # uint16, enum16, bitfield16
 # Mirrors backend-ot's seed naming (tests/seed_db/powerflow_seed.py: device_name).
 NAME_BY_KIND = {"site": "plant_controller", "met_station": "met_station", "poi_meter": "poi_meter"}
+# SI value -> the seeded point's unit (mirrors backend-ot's seed: powerflow_seed.KILO_UNITS).
+SI_PER_UNIT = {"kW": 1000.0, "kvar": 1000.0, "kVA": 1000.0, "kWh": 1000.0, "kvarh": 1000.0,
+               "kVAh": 1000.0, "kV": 1000.0}
 
 
 def _request(url: str, method: str = "GET") -> Any:
@@ -109,7 +114,10 @@ def _check_once(api: str, powerflow_api: str, site: str, paused_at: datetime) ->
             fresh += 1
             expected_point = reference[point["name"]]
             scale = point["scale_factor"] or 1.0
-            expected = _register_value(expected_point["value"], point["data_type"], scale)
+            value = expected_point["value"]
+            if value is not None:
+                value /= SI_PER_UNIT.get(point["unit"], 1.0)
+            expected = _register_value(value, point["data_type"], scale)
             actual = reading.get("value") or 0.0
             if abs(actual - expected) > max(abs(scale), 1e-9) * 1e-3 + 1e-6:
                 mismatches.append(f"{point['name']}@{point['address']}={actual} expected {expected}")

@@ -4,7 +4,8 @@ Invariant guarded: every point-standard device of a powerflow default site
 (`contracts/powerflow/sites.json`) becomes one seeded device that reads powerflow's Modbus
 server directly (host powerflow, port 502, unit 1, zero-based), and every register it serves
 (`contracts/modbus/powerflow.registers.json`, powerflow_server yes/calc) becomes one NATIVE point
-at base + offset with the contract's type, scale, unit and labels; unserved registers are not
+at base + offset with the contract's type and labels, its scale and unit converted to engineering
+units (kW, kvar, kVA, kWh, kV; others as published); unserved registers are not
 seeded. The site's single line diagram validates and links only points the seed creates.
 Every PV device gets a PV array config with the contract's DC/AC ratings, and the site has a
 location (coordinates with elevation) so it can be forecast. The
@@ -14,12 +15,14 @@ committed contracts are read as static fixtures (no DB/network).
 import pytest
 from seed_db.powerflow_seed import (
     DEVICE_TYPES,
+    KILO_UNITS,
     POWERFLOW_HOST,
     REGISTERS_CONTRACT,
     SITES_CONTRACT,
     build_seed,
     default_contract_path,
     device_name,
+    engineering_unit,
     load_registers,
     load_sites,
     site_display_name,
@@ -110,8 +113,7 @@ class TestPoints:
                 assert point.address == ref.base + register.offset
                 assert point.data_type == register.data_type
                 assert point.size == register_size(register.data_type) == register.width
-                assert point.scale_factor == register.scale
-                assert point.unit == (register.unit or None)
+                assert (point.scale_factor, point.unit) == engineering_unit(register)
                 assert point.enum_detail == register.enum_detail
                 assert point.bitfield_detail == register.bitfield_detail
                 assert point.poll_kind == "holding" and point.word_order == "msw_first"
@@ -136,6 +138,24 @@ class TestPoints:
                     for point in points
                 ]
             )
+
+    def test_engineering_units(self, seed: SeedData) -> None:
+        """One raw count of a power/energy register is 1 kW/kvar/kVA/kWh; voltages read in kV."""
+        bess = {point.name: point for point in seed.device_points["2bess_1pv-bess1"]}
+        meter = {point.name: point for point in seed.device_points["2bess_1pv-poi_meter"]}
+        assert (bess["W"].unit, bess["W"].scale_factor) == ("kW", 1.0)
+        assert (bess["Var"].unit, bess["Var"].scale_factor) == ("kvar", 1.0)
+        assert (bess["VA"].unit, bess["VA"].scale_factor) == ("kVA", 1.0)
+        assert (bess["TotWhInj"].unit, bess["TotWhInj"].scale_factor) == ("kWh", 1.0)
+        assert (bess["TotVarhInj"].unit, bess["TotVarhInj"].scale_factor) == ("kvarh", 1.0)
+        assert (bess["LLV"].unit, bess["LLV"].scale_factor) == ("kV", 0.0001)  # 0.1 V counts
+        assert (meter["PPV"].unit, meter["PPV"].scale_factor) == ("kV", 0.001)  # 1 V counts
+        assert (meter["A"].unit, meter["A"].scale_factor) == ("A", 1.0)
+        assert (bess["Hz"].unit, bess["SoC"].unit) == ("Hz", "%")
+
+    def test_no_si_power_energy_or_voltage_units_remain(self, seed: SeedData) -> None:
+        units = {point.unit for points in seed.device_points.values() for point in points}
+        assert not units & set(KILO_UNITS)
 
     def test_classes(self, seed: SeedData) -> None:
         points = {point.name: point for point in seed.device_points["2bess_1pv-bess1"]}

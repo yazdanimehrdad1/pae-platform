@@ -12,8 +12,9 @@ Mapping (one backend-ot device per point-standard device of the site):
     powerflow Modbus server -> host "powerflow" (compose DNS), port 502, unit id 1, direct
                                reads (not the aggregator), zero-based addresses
     served register         -> NATIVE point: address = device base + offset, the standard name,
-    (yes / calc)               data type, scale, SI unit, enum/bit labels, holding table,
-                               big-endian msw-first. Unserved ("no") rows always read 0: skipped.
+    (yes / calc)               data type, scale and unit in engineering units (W -> kW, var -> kvar,
+                               VA -> kVA, Wh -> kWh, V -> kV: scale / 1000), enum/bit labels, holding
+                               table, big-endian msw-first. Unserved ("no") rows always read 0: skipped.
     topology                -> the site (no profile) and its single line diagram
 
 The site is the shipped default; edits made to it in powerflow's database aren't seen.
@@ -96,6 +97,14 @@ DEV_PV_AZIMUTH_DEG = 180.0  # south
 DEV_PV_SYSTEM_LOSS_PCT = 14.0
 DEV_PV_TEMP_COEFFICIENT_PCT_PER_C = -0.35
 
+# powerflow's SI register units -> the platform's engineering units (value / KILO).
+KILO = 1000.0
+KILO_UNITS: dict[str, str] = {
+    "W": "kW", "var": "kvar", "VA": "kVA",
+    "Wh": "kWh", "varh": "kvarh", "VAh": "kVAh",
+    "V": "kV",
+}
+
 AssetKind = Literal["bess", "pv", "load"]
 METER_ROLES: dict[SldRole, str] = {
     "vab": "PhVphAB", "vbc": "PhVphBC", "vca": "PhVphCA",
@@ -148,16 +157,25 @@ def point_class(register: PowerflowRegister) -> PointClass:
     return "ANALOG"
 
 
+def engineering_unit(register: PowerflowRegister) -> tuple[float, str | None]:
+    """The register's scale and unit in the platform's engineering units (kW, kvar, kVA, kWh,
+    kvarh, kVAh, kV; everything else as published). powerflow publishes SI (W, var, V, ...)."""
+    if register.unit in KILO_UNITS:
+        return round(register.scale / KILO, 12), KILO_UNITS[register.unit]
+    return register.scale, register.unit or None
+
+
 def build_point(register: PowerflowRegister, base: int) -> DevicePointCreateRequest:
     point_kind = point_class(register)
+    scale_factor, unit = engineering_unit(register)
     return DevicePointCreateRequest(
         address=base + register.offset,
         name=register.point,
         poll_kind="holding",
         data_type=register.data_type,
         size=register_size(register.data_type),
-        scale_factor=register.scale,
-        unit=register.unit or None,
+        scale_factor=scale_factor,
+        unit=unit,
         byte_order="big-endian",
         word_order="msw_first",
         enum_detail=register.enum_detail,
