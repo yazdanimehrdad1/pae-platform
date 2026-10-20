@@ -10,6 +10,7 @@ from pydantic import TypeAdapter
 from powerflow.app import create_app
 from powerflow.conditions import ConditionChange
 from powerflow.conditions.scenario import EventScenario
+from powerflow.core.auto_dispatch import AutoDispatchRequest
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest
 from powerflow.interfaces.http.routes_conditions import StartScenarioRequest, StopScenarioRequest
 from powerflow.interfaces.http.routes_sim import SpeedRequest, StartRequest
@@ -64,6 +65,7 @@ def test_example_bodies_are_valid() -> None:
         ("POST", "sim/conditions"): TypeAdapter(ConditionChange).validate_json,
         ("POST", "sim/start"): StartRequest.model_validate_json,
         ("PUT", "sim/speed"): SpeedRequest.model_validate_json,
+        ("PUT", "sim/auto-dispatch"): AutoDispatchRequest.model_validate_json,
         ("POST", "sim/event-scenario/start"): StartScenarioRequest.model_validate_json,
         ("POST", "sim/event-scenario/stop"): StopScenarioRequest.model_validate_json,
         ("PUT", "sites/:site/event-scenarios/:name"): EventScenario.model_validate_json,
@@ -83,5 +85,6 @@ def test_example_bodies_are_valid() -> None:
                 validate = validators[(request["method"], "/".join(path[1:]))]
                 validate(body["raw"])
             checked += 1
-    # BESS/PV setpoints, a site, a condition, start, speed, a scenario + its start, a CSV
-    assert checked == 10
+    # BESS/PV setpoints, a site, a condition, start, speed, auto dispatch, a scenario + its start,
+    # a CSV
+    assert checked == 11

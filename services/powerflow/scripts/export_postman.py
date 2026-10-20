@@ -82,6 +82,13 @@ def json_body(method: str, path: str) -> object | None:
         return {}  # start now; {"at": "<ISO time>"} schedules it
     if method == "put" and path == "/api/sim/speed":
         return {"speed": 10}
+    if method == "put" and path == "/api/sim/auto-dispatch":
+        return {  # {"enabled": false} back to idle
+            "enabled": True,
+            "power_pct": 50,
+            "defaults": {"soc_low_pct": 20, "soc_high_pct": 80, "rest_s": 300},
+            "bess": {"bess1": {"p_noise_std_pct": 5, "ramp_kw_per_s": 50}},
+        }
     if method == "post" and path == "/api/sim/event-scenario/start":
         return {"name": "bess1_trip"}  # now; add "at_step": N to schedule it
     if method == "post" and path == "/api/sim/event-scenario/stop":

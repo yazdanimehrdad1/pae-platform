@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { powerflowKeys } from "../hooks/usePowerflow";
+import { powerflowKeys, useAutoDispatch } from "../hooks/usePowerflow";
 
 const BESS_MODES: BessMode[] = ["idle", "pq", "offline"];
 
@@ -37,7 +37,8 @@ function ResultLine({ result }: { result: SetpointResult }) {
   );
 }
 
-function BessSetpointForm({ bess }: { bess: BessConfig }) {
+// `locked`: auto dispatch drives the BESS (Scenarios tab), so powerflow refuses setpoints.
+function BessSetpointForm({ bess, locked }: { bess: BessConfig; locked: boolean }) {
   const current = useQuery({
     queryKey: [...powerflowKeys.assets, "bess", bess.id],
     queryFn: () => powerflowApi.getBess(bess.id),
@@ -62,15 +63,15 @@ function BessSetpointForm({ bess }: { bess: BessConfig }) {
       <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
         <div className="space-y-1">
           <Label htmlFor={`${bess.id}-p`}>P kW (+ discharge)</Label>
-          <Input id={`${bess.id}-p`} type="number" placeholder={setpoint ? String(setpoint.p_kw) : ""} value={pKw} onChange={(event) => setPKw(event.target.value)} />
+          <Input id={`${bess.id}-p`} type="number" disabled={locked} placeholder={setpoint ? String(setpoint.p_kw) : ""} value={pKw} onChange={(event) => setPKw(event.target.value)} />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${bess.id}-q`}>Q kvar</Label>
-          <Input id={`${bess.id}-q`} type="number" placeholder={setpoint ? String(setpoint.q_kvar) : ""} value={qKvar} onChange={(event) => setQKvar(event.target.value)} />
+          <Input id={`${bess.id}-q`} type="number" disabled={locked} placeholder={setpoint ? String(setpoint.q_kvar) : ""} value={qKvar} onChange={(event) => setQKvar(event.target.value)} />
         </div>
         <div className="space-y-1">
           <Label>Mode</Label>
-          <Select value={mode} onValueChange={(value) => setMode(value as BessMode)}>
+          <Select value={mode} disabled={locked} onValueChange={(value) => setMode(value as BessMode)}>
             <SelectTrigger aria-label={`${bess.id} mode`}>
               <SelectValue placeholder={setpoint?.mode ?? "mode"} />
             </SelectTrigger>
@@ -83,10 +84,15 @@ function BessSetpointForm({ bess }: { bess: BessConfig }) {
             </SelectContent>
           </Select>
         </div>
-        <Button size="sm" className="gap-1" disabled={send.isPending || (pKw === "" && qKvar === "" && mode === "")} onClick={() => send.mutate()}>
+        <Button size="sm" className="gap-1" disabled={locked || send.isPending || (pKw === "" && qKvar === "" && mode === "")} onClick={() => send.mutate()}>
           <Send className="w-4 h-4" /> Send
         </Button>
       </div>
+      {locked && (
+        <p className="text-xs text-muted-foreground" data-auto-dispatch-lock>
+          Auto dispatch is on (Scenarios tab): turn it off to write setpoints.
+        </p>
+      )}
       {setpoint && (
         <p className="text-xs text-muted-foreground">
           Current: {setpoint.p_kw} kW, {setpoint.q_kvar} kvar, {setpoint.mode}
@@ -153,6 +159,10 @@ function PvSetpointForm({ pv }: { pv: PvConfig }) {
 // The active site's assets (configured values) and the BESS/PV setpoints.
 export function AssetsPanel({ selectedIsActive }: { selectedIsActive: boolean }) {
   const assets = useQuery({ queryKey: powerflowKeys.assets, queryFn: powerflowApi.getAssets, retry: false });
+  // The BESS auto dispatch drives (included while it's on): powerflow refuses their setpoints.
+  const autoDispatched = new Set(
+    (useAutoDispatch().data?.bess ?? []).filter((row) => row.included).map((row) => row.asset_id),
+  );
 
   if (assets.isLoading) return <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />;
   if (assets.isError) return <p role="alert" className="text-destructive">{getErrorMessage(assets.error)}</p>;
@@ -177,7 +187,7 @@ export function AssetsPanel({ selectedIsActive }: { selectedIsActive: boolean })
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <BessSetpointForm bess={bess} />
+            <BessSetpointForm bess={bess} locked={autoDispatched.has(bess.id)} />
           </CardContent>
         </Card>
       ))}

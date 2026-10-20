@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Building2,
+  Bell,
   BellRing,
   BarChart3,
   FileText,
@@ -20,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/shared/contexts/auth";
+import { activeAlarmsText, useActiveAlarms, worstActiveSeverity } from "@/shared/hooks/useActiveAlarms";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +47,7 @@ const navigationItems: NavigationItem[] = [
   {
     id: 'alarms',
     title: 'System alarms',
-    icon: BellRing,
+    icon: Bell, // rings in the alarm color while any site has an active alarm (see AppSidebar)
     path: '/alarms',
     roles: ['monitor', 'admin', 'engineer']
   },
@@ -127,6 +129,11 @@ export function AppSidebar() {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // The System alarms bell: red while any site has an active fault, amber while only warnings.
+  const activeAlarms = useActiveAlarms().data;
+  const alarmSeverity = worstActiveSeverity(activeAlarms);
+  const alarmText = activeAlarmsText(activeAlarms);
+
   return (
     <div className={cn(
       "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 print:hidden",
@@ -175,13 +182,16 @@ export function AppSidebar() {
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {visibleItems.map((item) => {
-          const Icon = item.icon;
           const active = isActive(item.path);
+          const alarming = item.id === 'alarms' && alarmSeverity !== null;
+          const Icon = alarming ? BellRing : item.icon;
 
           const link = (
             <NavLink
               key={item.id}
               to={item.path}
+              title={alarming ? alarmText ?? undefined : undefined}
+              data-alarm-severity={item.id === 'alarms' ? alarmSeverity ?? 'none' : undefined}
               className={cn(
                 "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                 "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -190,7 +200,13 @@ export function AppSidebar() {
                   : "text-sidebar-foreground"
               )}
             >
-              <Icon className={cn("w-5 h-5", !isCollapsed && "mr-3")} />
+              <Icon
+                className={cn(
+                  "w-5 h-5",
+                  !isCollapsed && "mr-3",
+                  alarming && (alarmSeverity === 'fault' ? "text-alarm-fault" : "text-alarm-warning")
+                )}
+              />
               {!isCollapsed && <span>{item.title}</span>}
             </NavLink>
           );

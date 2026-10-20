@@ -12,6 +12,7 @@ Guards, against a real database:
 - disabling an alarm clears its active event; the schema's CHECKs hold;
 - the snapshot returns the alarms, active events plus those cleared within 6 h, and their log;
 - the event history returns events overlapping a range, newest first, with filters; 400 on a reversed range, 422 without a UTC offset.
+- the active summary counts active (uncleared) events of every site by severity, listing only sites with any.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,7 @@ from schemas.api_models import (
 )
 from schemas.api_models.alarms import (
     MAX_ENABLED_ALARMS,
+    ActiveAlarmsSummaryResponse,
     AlarmDefinitionCreateRequest,
     AlarmDefinitionResponse,
     AlarmDefinitionUpdateRequest,
@@ -397,3 +399,37 @@ class TestEventHistory:
         })
         assert no_offset.status_code == 422
         assert (await self.query(client, 9999)).status_code == 404
+
+
+class TestActiveSummary:
+    async def test_counts_active_events_of_every_site_by_severity(self, client, db):
+        first_site, _, (power, *_) = await site_with_points(client, name="First")
+        second_site, _, (other, *_) = await site_with_points(client, name="Second")
+        quiet_site, _, _ = await site_with_points(client, name="Quiet")
+        first_alarm = await create_alarm(client, first_site, threshold_alarm("power_high", power.id))
+        first_other_alarm = await create_alarm(client, first_site, threshold_alarm("power_very_high", power.id))
+        second_alarm = await create_alarm(client, second_site, threshold_alarm("power_high", other.id))
+        now = datetime.now(UTC)
+        # One active event per alarm at a time.
+        await insert_event(db, first_alarm.id, first_site, now - timedelta(minutes=5), None, severity="fault")
+        await insert_event(db, first_other_alarm.id, first_site, now - timedelta(minutes=3), None)
+        await insert_event(db, second_alarm.id, second_site, now - timedelta(minutes=2), None)
+        await insert_event(db, second_alarm.id, second_site, now - timedelta(hours=1), now - timedelta(minutes=30),
+                           severity="fault")  # cleared: not counted
+
+        response = await client.get("/api/alarms/active-summary")
+        assert response.status_code == 200, response.text
+        summary = ActiveAlarmsSummaryResponse.model_validate(response.json())
+        assert (summary.fault_count, summary.warning_count) == (1, 2)
+        assert [(site.site_id, site.fault_count, site.warning_count) for site in summary.sites] == [
+            (first_site, 1, 1),
+            (second_site, 0, 1),
+        ]
+        assert quiet_site not in {site.site_id for site in summary.sites}
+
+    async def test_nothing_active_is_zero(self, client):
+        response = await client.get("/api/alarms/active-summary")
+        assert response.status_code == 200, response.text
+        assert ActiveAlarmsSummaryResponse.model_validate(response.json()) == ActiveAlarmsSummaryResponse(
+            fault_count=0, warning_count=0, sites=[]
+        )

@@ -1,5 +1,7 @@
 import type {
   AssetsResponse,
+  AutoDispatchReport,
+  AutoDispatchRequest,
   BessAssetResponse,
   BessSetpointRequest,
   ConditionChange,
@@ -58,6 +60,13 @@ export const powerflowApi = {
     api.put<EventScenario>(`${site(siteName)}/event-scenarios/${encodeURIComponent(name)}`, scenario),
   deleteEventScenario: (siteName: string, name: string) =>
     api.delete(`${site(siteName)}/event-scenarios/${encodeURIComponent(name)}`),
+
+  // -- auto dispatch ---------------------------------------------------------------------------
+  // On: each included BESS cycles inside its SOC window at power_pct % of its rating (site-wide
+  // defaults, per-BESS overrides), and its setpoint writes are refused (409). Off: back to idle.
+  // A reset turns it off.
+  getAutoDispatch: () => api.get<AutoDispatchReport>('/sim/auto-dispatch'),
+  setAutoDispatch: (request: AutoDispatchRequest) => api.put<AutoDispatchReport>('/sim/auto-dispatch', request),
 
   // -- sites -----------------------------------------------------------------------------------
   listSites: () => api.get<SiteList>('/sites'),

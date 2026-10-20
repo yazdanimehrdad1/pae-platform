@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { powerflowApi } from '@/api';
-import type { ConditionsReport, DevicesSnapshot, EngineStatus, FaultCauseInfo, SetpointResult } from '@/api/types/powerflow';
+import type { AutoDispatchBess, AutoDispatchReport, ConditionsReport, DevicesSnapshot, EngineStatus, FaultCauseInfo, SetpointResult } from '@/api/types/powerflow';
 import SimulationPage from '@/features/simulation/SimulationPage';
 import { REFERENCE_SITE } from './fixtures';
 
@@ -73,6 +73,41 @@ const CONDITIONS: ConditionsReport = {
   scenarios: [],
 };
 
+const AUTO_DISPATCH_OFF: AutoDispatchReport = { enabled: false, power_pct: null, defaults: {}, bess_overrides: {}, bess: [] };
+
+const dispatchedBess = (asset_id: string, overrides: Partial<AutoDispatchBess> = {}): AutoDispatchBess => ({
+  asset_id,
+  included: true,
+  phase: 'discharging',
+  direction: 'discharge',
+  soc_pct: 62.5,
+  soc_min_pct: 5,
+  soc_max_pct: 95,
+  soc_low_pct: 20,
+  soc_high_pct: 80,
+  rest_s: 0,
+  rest_remaining_s: null,
+  p_noise_std_pct: 0,
+  ramp_kw_per_s: null,
+  q_kvar: 0,
+  ...overrides,
+});
+
+// bess1 cycles (resting at an edge); bess2 is excluded and takes manual setpoints.
+const AUTO_DISPATCH_ON: AutoDispatchReport = {
+  enabled: true,
+  power_pct: 50,
+  defaults: { soc_low_pct: 20, soc_high_pct: 80 },
+  bess_overrides: { bess2: { included: false } },
+  bess: [
+    dispatchedBess('bess1', { phase: 'resting', rest_remaining_s: 42 }),
+    dispatchedBess('bess2', {
+      included: false, phase: null, direction: null, soc_low_pct: null, soc_high_pct: null, rest_s: null,
+      p_noise_std_pct: null, q_kvar: null,
+    }),
+  ],
+};
+
 const cause = (asset_type: 'bess' | 'pv', cause: FaultCauseInfo['cause'], label: string, severity: 'fault' | 'warning'): FaultCauseInfo => ({
   asset_type,
   cause,
@@ -112,6 +147,7 @@ beforeEach(() => {
   vi.spyOn(powerflowApi, 'getStatus').mockResolvedValue(STATUS);
   vi.spyOn(powerflowApi, 'getConditions').mockResolvedValue(CONDITIONS);
   vi.spyOn(powerflowApi, 'getFaultCauses').mockResolvedValue(FAULT_CAUSES);
+  vi.spyOn(powerflowApi, 'getAutoDispatch').mockResolvedValue(AUTO_DISPATCH_OFF);
   vi.spyOn(powerflowApi, 'listEventScenarios').mockResolvedValue([
     {
       name: 'trip',
@@ -402,5 +438,51 @@ describe('SimulationPage', () => {
     fireEvent.click(within(form).getByRole('button', { name: /Send/ }));
     await waitFor(() => expect(setBess).toHaveBeenCalledWith('bess1', { p_kw: 9000 }));
     expect(await within(form).findByText(/clamped: P_LIMIT/)).toBeTruthy();
+  });
+
+  it('turns auto dispatch on with per-BESS overrides and shows each BESS phase', async () => {
+    const setAutoDispatch = vi.spyOn(powerflowApi, 'setAutoDispatch').mockResolvedValue(AUTO_DISPATCH_ON);
+    // The refresh after the PUT reads it back on.
+    vi.spyOn(powerflowApi, 'getAutoDispatch').mockImplementation(async () =>
+      setAutoDispatch.mock.calls.length > 0 ? AUTO_DISPATCH_ON : AUTO_DISPATCH_OFF,
+    );
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Scenarios');
+    const toggle = await screen.findByRole('switch', { name: 'Auto dispatch' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.change(screen.getByLabelText('Defaults SOC low %'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText('Defaults Rest s'), { target: { value: '300' } });
+    fireEvent.change(screen.getByLabelText('bess1 SOC high %'), { target: { value: '70' } });
+    fireEvent.click(screen.getByRole('switch', { name: 'Include bess2' }));
+    expect((screen.getByLabelText('bess2 SOC low %') as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(setAutoDispatch).toHaveBeenCalledWith({
+        enabled: true,
+        power_pct: 50,
+        defaults: { soc_low_pct: 20, rest_s: 300 },
+        bess: { bess1: { soc_high_pct: 70 }, bess2: { included: false } },
+      }),
+    );
+    const row = await findElement('[data-auto-dispatch-bess="bess1"]');
+    expect(await within(row).findByText('Resting')).toBeTruthy();
+    expect(within(row).getByText(/42 s left/)).toBeTruthy();
+    const excluded = await findElement('[data-auto-dispatch-bess="bess2"]');
+    expect(within(excluded).getByText('manual setpoints')).toBeTruthy();
+  });
+
+  it('locks the setpoint form only of a BESS that auto dispatch drives', async () => {
+    vi.spyOn(powerflowApi, 'getAutoDispatch').mockResolvedValue(AUTO_DISPATCH_ON);
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Assets & setpoints');
+    const driven = await findElement('[data-bess-form="bess1"]');
+    await within(driven).findByText(/Auto dispatch is on/);
+    expect((within(driven).getByLabelText('P kW (+ discharge)') as HTMLInputElement).disabled).toBe(true);
+    expect((within(driven).getByRole('button', { name: /Send/ }) as HTMLButtonElement).disabled).toBe(true);
+    const excluded = await findElement('[data-bess-form="bess2"]');
+    expect(within(excluded).queryByText(/Auto dispatch is on/)).toBeNull();
+    expect((within(excluded).getByLabelText('P kW (+ discharge)') as HTMLInputElement).disabled).toBe(false);
   });
 });

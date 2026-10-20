@@ -9,6 +9,8 @@ export type AlarmDefinitionUpdateRequest = Schemas['AlarmDefinitionUpdateRequest
 export type AlarmEventRecord = Schemas['AlarmEventResponse'];
 export type AlarmLogRecord = Schemas['AlarmLogEntry'];
 export type AlarmSnapshotRecord = Schemas['AlarmSnapshotResponse'];
+/** Active alarms (raised, not cleared) across every site, by severity. */
+export type ActiveAlarmsSummaryRecord = Schemas['ActiveAlarmsSummaryResponse'];
 export type AlarmSeverity = AlarmDefinitionRecord['severity'];
 export type AlarmSource = AlarmDefinitionRecord['source'];
 export type AlarmKind = AlarmDefinitionRecord['kind'];

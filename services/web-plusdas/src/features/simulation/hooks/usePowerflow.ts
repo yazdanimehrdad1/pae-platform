@@ -17,6 +17,7 @@ export const powerflowKeys = {
   modbusRegisters: ["powerflow", "modbus-registers"] as const,
   conditions: ["powerflow", "conditions"] as const,
   faultCauses: ["powerflow", "fault-causes"] as const,
+  autoDispatch: ["powerflow", "auto-dispatch"] as const,
   devices: ["powerflow", "devices"] as const,
   deviceHistory: (device: string, points: string[]) => ["powerflow", "device-history", device, ...points] as const,
   snapshot: ["powerflow", "snapshot"] as const,
@@ -80,6 +81,17 @@ export function useConditions(enabled = true) {
   return useQuery({
     queryKey: powerflowKeys.conditions,
     queryFn: powerflowApi.getConditions,
+    enabled,
+    refetchInterval: STATUS_POLL_MS,
+    retry: false,
+  });
+}
+
+/** Auto dispatch of the active site: on/off, power and each BESS's direction (polled while shown). */
+export function useAutoDispatch(enabled = true) {
+  return useQuery({
+    queryKey: powerflowKeys.autoDispatch,
+    queryFn: powerflowApi.getAutoDispatch,
     enabled,
     refetchInterval: STATUS_POLL_MS,
     retry: false,

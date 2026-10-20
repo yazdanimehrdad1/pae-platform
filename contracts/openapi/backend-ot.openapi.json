@@ -1,6 +1,36 @@
 {
   "components": {
     "schemas": {
+      "ActiveAlarmsSummaryResponse": {
+        "description": "Active alarms across every site: what an app-wide indicator (the sidebar bell) shows.",
+        "properties": {
+          "fault_count": {
+            "description": "Active fault events across all sites",
+            "title": "Fault Count",
+            "type": "integer"
+          },
+          "sites": {
+            "description": "Only sites with at least one active event, by site_id",
+            "items": {
+              "$ref": "#/components/schemas/SiteActiveAlarms"
+            },
+            "title": "Sites",
+            "type": "array"
+          },
+          "warning_count": {
+            "description": "Active warning events across all sites",
+            "title": "Warning Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fault_count",
+          "warning_count",
+          "sites"
+        ],
+        "title": "ActiveAlarmsSummaryResponse",
+        "type": "object"
+      },
       "ActivePointAlarm": {
         "description": "An ALARM-class point whose latest reading is set.",
         "properties": {
@@ -5301,6 +5331,30 @@
         "title": "RollingWindow",
         "type": "object"
       },
+      "SiteActiveAlarms": {
+        "description": "One site's active alarms (raised, not cleared), by severity.",
+        "properties": {
+          "fault_count": {
+            "title": "Fault Count",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "warning_count": {
+            "title": "Warning Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "fault_count",
+          "warning_count"
+        ],
+        "title": "SiteActiveAlarms",
+        "type": "object"
+      },
       "SiteComprehensiveResponse": {
         "description": "Comprehensive site response with devices and their categorized points.",
         "properties": {
@@ -7517,6 +7571,29 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/alarms/active-summary": {
+      "get": {
+        "description": "How many alarm events are active (raised, not cleared) right now: fault and warning totals\nover every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator.",
+        "operationId": "get_active_summary_api_alarms_active_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveAlarmsSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Active alarms across all sites, by severity",
+        "tags": [
+          "alarms",
+          "alarms"
+        ]
+      }
+    },
     "/api/alarms/site/{site_id}/definitions": {
       "get": {
         "operationId": "list_definitions_api_alarms_site__site_id__definitions_get",

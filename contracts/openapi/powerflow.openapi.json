@@ -168,6 +168,361 @@
         "title": "AssetsResponse",
         "type": "object"
       },
+      "AutoDispatchBess": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoDispatchDirection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where it goes (after the rest, if resting); null while excluded."
+          },
+          "included": {
+            "title": "Included",
+            "type": "boolean"
+          },
+          "p_noise_std_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P Noise Std Pct"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoDispatchPhase"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null while excluded."
+          },
+          "q_kvar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q Kvar"
+          },
+          "ramp_kw_per_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ramp Kw Per S"
+          },
+          "rest_remaining_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sim seconds left while resting.",
+            "title": "Rest Remaining S"
+          },
+          "rest_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest S"
+          },
+          "soc_high_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soc High Pct"
+          },
+          "soc_low_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The window it cycles in; null while excluded.",
+            "title": "Soc Low Pct"
+          },
+          "soc_max_pct": {
+            "title": "Soc Max Pct",
+            "type": "number"
+          },
+          "soc_min_pct": {
+            "description": "The battery's band.",
+            "title": "Soc Min Pct",
+            "type": "number"
+          },
+          "soc_pct": {
+            "title": "Soc Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "asset_id",
+          "included",
+          "phase",
+          "direction",
+          "soc_pct",
+          "soc_min_pct",
+          "soc_max_pct",
+          "soc_low_pct",
+          "soc_high_pct",
+          "rest_s",
+          "rest_remaining_s",
+          "p_noise_std_pct",
+          "ramp_kw_per_s",
+          "q_kvar"
+        ],
+        "title": "AutoDispatchBess",
+        "type": "object"
+      },
+      "AutoDispatchBessSettings": {
+        "additionalProperties": false,
+        "description": "Settings for auto dispatch: as the site-wide defaults, or one BESS's overrides. Every field\nis optional; an omitted one falls back (override → defaults → built-in).",
+        "properties": {
+          "included": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "false: auto dispatch leaves the BESS alone, and it takes setpoints as usual. Default true.",
+            "title": "Included"
+          },
+          "p_noise_std_pct": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Gaussian noise on the target P, std in % of it (seeded per step); default 0.",
+            "title": "P Noise Std Pct"
+          },
+          "q_kvar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Q held while cycling; default 0.",
+            "title": "Q Kvar"
+          },
+          "ramp_kw_per_s": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Max change of the command per sim second (the inverter's ramp still applies); default none.",
+            "title": "Ramp Kw Per S"
+          },
+          "rest_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Idle at an edge for this long (sim s) before turning; default 0.",
+            "title": "Rest S"
+          },
+          "soc_high_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Window high edge; default the battery's soc_max_pct.",
+            "title": "Soc High Pct"
+          },
+          "soc_low_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Window low edge; default the battery's soc_min_pct.",
+            "title": "Soc Low Pct"
+          },
+          "start_direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoDispatchDirection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default: discharge from above the middle of the window, else charge."
+          }
+        },
+        "title": "AutoDispatchBessSettings",
+        "type": "object"
+      },
+      "AutoDispatchDirection": {
+        "enum": [
+          "charge",
+          "discharge"
+        ],
+        "title": "AutoDispatchDirection",
+        "type": "string"
+      },
+      "AutoDispatchPhase": {
+        "enum": [
+          "charging",
+          "discharging",
+          "resting"
+        ],
+        "title": "AutoDispatchPhase",
+        "type": "string"
+      },
+      "AutoDispatchReport": {
+        "properties": {
+          "bess": {
+            "description": "Every BESS while on; empty while off.",
+            "items": {
+              "$ref": "#/components/schemas/AutoDispatchBess"
+            },
+            "title": "Bess",
+            "type": "array"
+          },
+          "bess_overrides": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AutoDispatchBessSettings"
+            },
+            "description": "As sent; empty while off.",
+            "title": "Bess Overrides",
+            "type": "object"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/AutoDispatchBessSettings",
+            "description": "As sent; empty while off."
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "power_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "% of each BESS's rating; null while off.",
+            "title": "Power Pct"
+          }
+        },
+        "required": [
+          "enabled",
+          "power_pct",
+          "defaults",
+          "bess_overrides",
+          "bess"
+        ],
+        "title": "AutoDispatchReport",
+        "type": "object"
+      },
+      "AutoDispatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bess": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AutoDispatchBessSettings"
+            },
+            "description": "Per BESS id: what differs from the defaults.",
+            "title": "Bess",
+            "type": "object"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/AutoDispatchBessSettings",
+            "description": "For every BESS."
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "power_pct": {
+            "default": 50.0,
+            "description": "% of each BESS's discharge/charge rating to drive it at.",
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Power Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AutoDispatchRequest",
+        "type": "object"
+      },
       "BatteryConfig": {
         "additionalProperties": false,
         "properties": {
@@ -4179,7 +4534,7 @@
   "info": {
     "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
     "title": "powerflow",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -5351,6 +5706,77 @@
         "summary": "One JSON Schema (site-config)",
         "tags": [
           "schemas"
+        ]
+      }
+    },
+    "/api/sim/auto-dispatch": {
+      "get": {
+        "operationId": "get_auto_dispatch_api_sim_auto_dispatch_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoDispatchReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auto dispatch now: on or off, its settings and each BESS's phase",
+        "tags": [
+          "auto dispatch"
+        ]
+      },
+      "put": {
+        "description": "On: each included BESS discharges at power_pct % of its rating down to its window's low edge, rests (rest_s), charges up to the high edge, rests, and repeats, with optional power noise, an extra ramp limit, a start direction and a fixed Q. `defaults` apply to every BESS and `bess` overrides them per BESS id (a field left out falls back). Setpoint writes to a driven BESS are 409 meanwhile (an alarm reset still goes); an excluded one takes them. Off, or excluded: the BESS goes back to idle. Works in any run state; a reset turns it off.",
+        "operationId": "put_auto_dispatch_api_sim_auto_dispatch_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoDispatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoDispatchReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An override names no BESS of the active site."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid settings, e.g. an SOC window outside a battery's band."
+          }
+        },
+        "summary": "Turn auto dispatch on or off, or change its settings",
+        "tags": [
+          "auto dispatch"
         ]
       }
     },

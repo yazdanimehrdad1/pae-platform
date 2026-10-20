@@ -8,11 +8,13 @@ from db.connection import get_async_session_factory
 from helpers.alarms.definitions import list_alarm_definitions
 from schemas.api_models.alarms import (
     RECENT_WINDOW_HOURS,
+    ActiveAlarmsSummaryResponse,
     AlarmDefinitionResponse,
     AlarmEventResponse,
     AlarmLogEntry,
     AlarmSeverity,
     AlarmSnapshotResponse,
+    SiteActiveAlarms,
 )
 from schemas.db_models.orm_models import AlarmDefinition, AlarmEvent
 
@@ -71,6 +73,36 @@ async def query_alarm_events(
     session_factory = get_async_session_factory()
     async with session_factory() as session:
         return [AlarmEventResponse.model_validate(event) for event in (await session.execute(query)).scalars().all()]
+
+
+def build_active_summary(counts: list[tuple[int, AlarmSeverity, int]]) -> ActiveAlarmsSummaryResponse:
+    """Pure: (site_id, severity, active count) rows → totals plus one entry per site, by site_id."""
+    per_site: dict[int, SiteActiveAlarms] = {}
+    for site_id, severity, count in counts:
+        site = per_site.setdefault(site_id, SiteActiveAlarms(site_id=site_id, fault_count=0, warning_count=0))
+        if severity == "fault":
+            site.fault_count += count
+        else:
+            site.warning_count += count
+    sites = [per_site[site_id] for site_id in sorted(per_site)]
+    return ActiveAlarmsSummaryResponse(
+        fault_count=sum(site.fault_count for site in sites),
+        warning_count=sum(site.warning_count for site in sites),
+        sites=sites,
+    )
+
+
+async def get_active_alarm_summary() -> ActiveAlarmsSummaryResponse:
+    """Active events (raised, not cleared) of every site, counted by site and severity."""
+    query = (
+        select(AlarmEvent.site_id, AlarmEvent.severity, func.count())
+        .where(AlarmEvent.cleared_at.is_(None))
+        .group_by(AlarmEvent.site_id, AlarmEvent.severity)
+    )
+    session_factory = get_async_session_factory()
+    async with session_factory() as session:
+        rows = (await session.execute(query)).all()
+    return build_active_summary([(site_id, severity, count) for site_id, severity, count in rows])
 
 
 async def count_active_device_events(device_id: int, severity: AlarmSeverity) -> int:

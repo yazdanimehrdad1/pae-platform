@@ -8,7 +8,7 @@ for a raise and '<alarm name> cleared' for a clear.
 
 from datetime import UTC, datetime, timedelta
 
-from helpers.alarms.events import build_log
+from helpers.alarms.events import build_active_summary, build_log
 from schemas.api_models.alarms import AlarmEventResponse
 
 NOW = datetime(2026, 9, 30, 12, 0, tzinfo=UTC)
@@ -36,3 +36,19 @@ class TestBuildLog:
     def test_unknown_alarm_name_falls_back_to_its_id(self):
         (raised, cleared) = sorted(build_log([event(1, 2, 1)], {}, NOW - timedelta(hours=6)), key=lambda e: e.kind, reverse=True)
         assert cleared.message == "alarm 10 cleared"
+
+
+class TestBuildActiveSummary:
+    """Active-alarm counts per (site, severity) become totals plus one entry per site."""
+
+    def test_totals_and_sites_by_id(self):
+        summary = build_active_summary([(7, "warning", 2), (3, "fault", 1), (7, "fault", 4)])
+        assert (summary.fault_count, summary.warning_count) == (5, 2)
+        assert [(site.site_id, site.fault_count, site.warning_count) for site in summary.sites] == [
+            (3, 1, 0),
+            (7, 4, 2),
+        ]
+
+    def test_nothing_active_is_all_zero(self):
+        summary = build_active_summary([])
+        assert (summary.fault_count, summary.warning_count, summary.sites) == (0, 0, [])

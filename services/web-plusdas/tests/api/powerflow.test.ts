@@ -36,6 +36,17 @@ describe('powerflowApi', () => {
     expect(JSON.parse(init.body)).toEqual({ p_kw: 1500, mode: 'pq' });
   });
 
+  it('reads and sets auto dispatch', async () => {
+    const fetchMock = stubFetch(200, { enabled: false, power_pct: null, bess: [] });
+    await powerflowApi.getAutoDispatch();
+    await powerflowApi.setAutoDispatch({ enabled: true, power_pct: 40, defaults: { rest_s: 60 }, bess: { bess2: { included: false } } });
+    expect(fetchMock.mock.calls[0][0]).toBe('/powerflow-api/sim/auto-dispatch');
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe('/powerflow-api/sim/auto-dispatch');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ enabled: true, power_pct: 40, defaults: { rest_s: 60 }, bess: { bess2: { included: false } } });
+  });
+
   it('reads the fault cause catalog', async () => {
     const fetchMock = stubFetch(200, []);
     await powerflowApi.getFaultCauses();

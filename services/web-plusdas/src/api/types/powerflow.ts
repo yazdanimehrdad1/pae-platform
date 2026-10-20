@@ -72,6 +72,15 @@ export type EventScenarioSummary = Schemas['EventScenarioSummary'];
 export type EventScenarioCategory = Schemas['EventScenarioCategory'];
 export type ScenarioStatus = Schemas['ScenarioStatus'];
 
+// Auto dispatch: every BESS cycles between its SOC limits on its own (no setpoints needed)
+export type AutoDispatchRequest = Schemas['AutoDispatchRequest'];
+export type AutoDispatchReport = Schemas['AutoDispatchReport'];
+export type AutoDispatchBess = Schemas['AutoDispatchBess'];
+export type AutoDispatchDirection = Schemas['AutoDispatchDirection'];
+export type AutoDispatchPhase = Schemas['AutoDispatchPhase'];
+// Site-wide defaults, or one BESS's overrides (every field optional; omitted = fall back).
+export type AutoDispatchBessSettings = Schemas['AutoDispatchBessSettings'];
+
 // Measurements: the native snapshot, and the PAE point-standard device view
 export type Snapshot = Schemas['Snapshot'];
 export type DevicesSnapshot = Schemas['DevicesSnapshot'];
