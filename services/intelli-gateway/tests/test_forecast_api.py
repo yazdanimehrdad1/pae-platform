@@ -126,21 +126,13 @@ class TestReadEndpoints:
         assert len(rows) == 3 and float(rows[1]["pv_ac_kw"]) == body.intervals[1].pv_ac_kw
         assert bad.status_code == 422
 
-    async def test_summary_history_and_raw(self) -> None:
+    async def test_summary_and_raw(self) -> None:
         async with make_client() as client:
             await refreshed(client)
             summary = await client.get(f"{BASE}/summary", params={"date": "2026-06-15"})
-            history = await client.get(
-                f"{BASE}/history", params={"issued_before": "2026-06-16T00:00:00+00:00"}
-            )
-            too_early = await client.get(
-                f"{BASE}/history", params={"issued_before": "2026-06-01T00:00:00+00:00"}
-            )
             raw = await client.get(f"{BASE}/raw")
         day = DailySummaryResponse.model_validate(summary.json())
         assert day.provider == "fake_weather" and day.energy_kwh > 0 and day.peak_kw > 0
-        assert history.status_code == 200
-        assert too_early.status_code == 404
         weather = WeatherForecastResponse.model_validate(raw.json())
         assert weather.provider == "fake_weather" and weather.units == UNITS
 

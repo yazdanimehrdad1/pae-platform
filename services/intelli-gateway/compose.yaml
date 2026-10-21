@@ -35,6 +35,8 @@ services:
     environment:
       - API_HOST=0.0.0.0
       - API_PORT=8000
+      # Containers read real sites from backend-ot (host `make run` and tests use the fake ones).
+      - USE_FAKE_DATA=${INTELLI_GATEWAY_USE_FAKE_DATA:-false}
       - BACKEND_OT_URL=http://backend-ot:8000
       - DATABASE_URL=postgresql+asyncpg://intelli_gateway:${INTELLI_GATEWAY_POSTGRES_PASSWORD:-intelli_gateway}@intelli-gateway-postgres:5432/intelli_gateway
     depends_on:

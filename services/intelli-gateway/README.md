@@ -89,7 +89,6 @@ Conversations live in memory and are lost on restart.
 | `GET /api/v1/sites/{site_id}/forecast` | The latest PV forecast over `start`/`end` (ISO 8601 with offset), `resolution` (minutes), `format=json\|csv`. |
 | `GET /api/v1/sites/{site_id}/forecast/latest` | The latest PV forecast in full. |
 | `GET /api/v1/sites/{site_id}/forecast/summary?date=` | Energy, peak and first/last production for one local day. |
-| `GET /api/v1/sites/{site_id}/forecast/history?issued_before=` | What was forecast as of an earlier time (backtesting). |
 | `GET /api/v1/sites/{site_id}/forecast/raw` | The weather behind the latest forecast (404 for PV-power-only sources). |
 | `GET /api/v1/forecast/health` | Active provider, fallbacks, last attempt and success per site. |
 | `POST /api/v1/forecast/refresh` | Fetch new forecasts now (`?site_id=` for one site). Needs the `admin` role. |

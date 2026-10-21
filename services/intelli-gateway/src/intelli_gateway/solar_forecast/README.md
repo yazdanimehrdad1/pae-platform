@@ -1,7 +1,8 @@
 # PV forecast
 
 Per-site PV power forecasts: 15-minute intervals, 72 hours ahead by default, refreshed every
-15 minutes and stored with full history (for backtesting). The weather/irradiance source is
+15 minutes and stored in this service's Postgres (each refresh a new run, kept until
+retention; reads use the newest). The weather/irradiance source is
 replaceable. If Open-Meteo goes away, you add one source and change config. The endpoints, the
 PV model, storage and the facade stay as they are.
 
@@ -86,7 +87,7 @@ The model sits behind `interfaces/pv_model.py`, so it can be swapped too.
 | `OPEN_METEO_BASE_URL` | `https://api.open-meteo.com` | Hosted, commercial (`https://customer-api.open-meteo.com`) or self-hosted |
 | `OPEN_METEO_API_KEY` | unset | Sent as `apikey` when set |
 | `OPEN_METEO_TIMEOUT_S` / `_RETRIES` / `_MAX_CALLS_PER_MINUTE` | `15` / `3` / `500` | Per request, attempts, rate limit (the free tier allows 600/min and 10,000/day) |
-| `DATABASE_URL` | unset | Postgres for history; unset keeps it in memory |
+| `DATABASE_URL` | unset | Postgres for the forecasts; unset keeps them in memory |
 
 A provider's own settings (`OPEN_METEO_*`, later `SOLCAST_*`, ...) are read only when it is
 selected.
@@ -149,10 +150,22 @@ from intelli_gateway.services.open_meteo.provider import OpenMeteoProvider
 from intelli_gateway.solar_forecast.pv_model import PvlibPvModel
 from intelli_gateway.solar_forecast.weather_model_source import WeatherModelSource
 
-site = SiteConfig(site_id=1, name="demo", timezone="America/Phoenix",
-                  location=ForecastLocation(latitude=33.45, longitude=-112.07, elevation_m=331),
-                  arrays=(PvArrayConfig(array_id=1, name="pv", tilt_deg=25, azimuth_deg=180,
-                                        dc_capacity_kw=6500, ac_capacity_kw=5000),))
+site = SiteConfig(
+    site_id=1,
+    name="demo",
+    timezone="America/Phoenix",
+    location=ForecastLocation(latitude=33.45, longitude=-112.07, elevation_m=331),
+    arrays=(
+        PvArrayConfig(
+            array_id=1,
+            name="pv",
+            tilt_deg=25,
+            azimuth_deg=180,
+            dc_capacity_kw=6500,
+            ac_capacity_kw=5000,
+        ),
+    ),
+)
 source = WeatherModelSource(OpenMeteoProvider("https://api.open-meteo.com", 15, 3), PvlibPvModel())
 forecast = asyncio.run(source.forecast(site, horizon_hours=24, resolution_minutes=15))
 ```

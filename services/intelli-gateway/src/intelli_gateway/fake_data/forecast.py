@@ -220,14 +220,11 @@ class InMemoryForecastRepository:
     async def save(self, forecast: PVForecast) -> None:
         self.forecasts.append(forecast)
 
-    async def latest(
-        self, site_id: int, issued_before: datetime | None = None
-    ) -> PVForecast | None:
+    async def latest(self, site_id: int) -> PVForecast | None:
         candidates = [
             (index, forecast)
             for index, forecast in enumerate(self.forecasts)
             if forecast.site_id == site_id
-            and (issued_before is None or forecast.issued_at < issued_before)
         ]
         if not candidates:
             return None

@@ -85,7 +85,7 @@ class ForecastService:
     async def refresh(self, site_id: int | None = None) -> RefreshResult:
         """Fetch a new forecast for one site or every forecastable site: the primary source
         first, then each fallback in order. Every attempt goes to the fetch log; each success is
-        stored as a new run (history is kept). Then forecasts past retention are dropped."""
+        stored as a new run. Then forecasts past retention are dropped."""
         if not self._settings.enabled:
             raise ConfigurationError("the PV forecast is disabled (FORECAST_ENABLED=false)")
         started_at = self._clock()
@@ -202,23 +202,6 @@ class ForecastService:
         forecast), resampled to resolution_minutes: kW and W/m2 are averaged, kWh summed."""
         _check_window(start, end)
         return _window(await self._stored(site_id), start, end, resolution_minutes)
-
-    async def get_history(
-        self,
-        site_id: int,
-        issued_before: datetime,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        resolution_minutes: int | None = None,
-    ) -> PVForecast:
-        """What was forecast for [start, end) by the newest run issued before `issued_before`."""
-        _check_window(start, end)
-        if issued_before.tzinfo is None:
-            raise InvalidRequestError("issued_before must carry a timezone offset")
-        forecast = await self._repository.latest(site_id, issued_before=issued_before)
-        if forecast is None:
-            raise NotFoundError(f"no forecast for site {site_id} issued before {issued_before}")
-        return _window(forecast, start, end, resolution_minutes)
 
     async def get_daily_summary(self, site_id: int, day: date) -> DailySummary:
         """Energy, peak and first/last production for one local day of the site."""

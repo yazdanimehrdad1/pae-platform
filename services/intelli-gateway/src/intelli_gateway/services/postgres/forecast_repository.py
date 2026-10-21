@@ -187,13 +187,13 @@ class PostgresForecastRepository:
             if rows:
                 await connection.execute(insert(intervals_table), rows)
 
-    async def latest(
-        self, site_id: int, issued_before: datetime | None = None
-    ) -> PVForecast | None:
-        query = select(runs_table).where(runs_table.c.site_id == site_id)
-        if issued_before is not None:
-            query = query.where(runs_table.c.issued_at < issued_before)
-        query = query.order_by(runs_table.c.issued_at.desc(), runs_table.c.id.desc()).limit(1)
+    async def latest(self, site_id: int) -> PVForecast | None:
+        query = (
+            select(runs_table)
+            .where(runs_table.c.site_id == site_id)
+            .order_by(runs_table.c.issued_at.desc(), runs_table.c.id.desc())
+            .limit(1)
+        )
         async with self._engine.connect() as connection:
             run = (await connection.execute(query)).mappings().first()
             if run is None:

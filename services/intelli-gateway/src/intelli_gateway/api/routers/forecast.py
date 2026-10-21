@@ -162,27 +162,6 @@ async def get_forecast_summary(
 
 
 @router.get(
-    "/sites/{site_id}/forecast/history",
-    response_model=PvForecastResponse,
-    summary="What was forecast, as issued before a given time (backtesting)",
-    responses={**SITE_ERRORS, 200: {"content": {"text/csv": {}}}},
-)
-async def get_forecast_history(
-    site_id: int,
-    issued_before: datetime = Query(..., description="ISO 8601 with offset"),
-    start: datetime | None = Query(None),
-    end: datetime | None = Query(None),
-    resolution: int | None = Resolution,
-    output: OutputFormat = Query("json", alias="format"),
-    ctx: RequestContext = Depends(get_request_context),
-    service: ForecastService = Depends(get_forecast_service),
-) -> PvForecastResponse | Response:
-    require_site_access(ctx, site_id)
-    forecast = await service.get_history(site_id, issued_before, start, end, resolution)
-    return _respond(forecast, output)
-
-
-@router.get(
     "/sites/{site_id}/forecast/raw",
     response_model=WeatherForecastResponse,
     summary="The weather behind the latest PV forecast (404 for PV-power-only sources)",

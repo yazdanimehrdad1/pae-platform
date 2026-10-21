@@ -151,9 +151,9 @@ tools, and gives a hint about the likely issue and the checks to make.
   - no stored data quality and no poll history (a device's last reading time stands in for comms
     health)
   - no min/max/avg endpoint (history is summarized on the client)
-- **The dev-stack container still uses fake data.** The local `.env` has `USE_FAKE_DATA=true`.
-  To use real data there, set it to `false` and recreate the container:
-  `docker compose -f deploy/compose/dev.yaml up -d --force-recreate intelli-gateway`.
+- **Containers use real data; the host uses fake data.** `compose.yaml` sets
+  `USE_FAKE_DATA=${INTELLI_GATEWAY_USE_FAKE_DATA:-false}`, so the dev stack reads backend-ot (and
+  forecasts site 1001); `make run` and the tests keep the fictional sites (the settings default).
 - **Conversations are lost on restart,** and concurrent requests to the same conversation are
   not serialized.
 - **Not built yet:**

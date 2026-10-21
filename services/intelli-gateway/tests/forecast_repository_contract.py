@@ -93,16 +93,12 @@ async def round_trips_a_forecast(repository: ForecastRepository) -> None:
     assert await repository.latest(3003) is None
 
 
-async def keeps_history_and_reads_by_issue_time(repository: ForecastRepository) -> None:
-    older = forecast(issued_at=ISSUED, source_name="old")
+async def reads_the_newest_run(repository: ForecastRepository) -> None:
     newer = forecast(issued_at=ISSUED + timedelta(hours=1), source_name="new")
-    await repository.save(older)
     await repository.save(newer)
+    await repository.save(forecast(issued_at=ISSUED, source_name="old"))  # saved later, older
     latest = await repository.latest(1001)
     assert latest is not None and latest.source_name == "new"
-    before = await repository.latest(1001, issued_before=ISSUED + timedelta(minutes=30))
-    assert before is not None and before.source_name == "old"
-    assert await repository.latest(1001, issued_before=ISSUED) is None  # strictly before
 
 
 async def logs_fetches(repository: ForecastRepository) -> None:
@@ -135,14 +131,14 @@ async def drops_runs_past_retention(repository: ForecastRepository) -> None:
         )
     )
     assert await repository.delete_issued_before(ISSUED - timedelta(days=90)) == 1
-    latest = await repository.latest(1001, issued_before=ISSUED)
-    assert latest is None
+    latest = await repository.latest(1001)
+    assert latest is not None and latest.issued_at == ISSUED
     assert await repository.last_fetch(1001) is None
 
 
 CHECKS: list[Callable[[ForecastRepository], Awaitable[None]]] = [
     round_trips_a_forecast,
-    keeps_history_and_reads_by_issue_time,
+    reads_the_newest_run,
     logs_fetches,
     drops_runs_past_retention,
 ]

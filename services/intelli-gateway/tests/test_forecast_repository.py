@@ -2,8 +2,8 @@
 the same checks in tests/integration/test_postgres_forecast_repository.py).
 
 Invariant guarded: a saved forecast reads back equal (weather, per-array rows, PV-power-only
-runs, the fallback flag); history is kept and read by issue time (strictly before); the fetch
-log answers last attempt / last success / last failure; retention drops old runs and log rows.
+runs, the fallback flag); the newest run by issue time is the one read; the fetch log answers
+last attempt / last success / last failure; retention drops old runs and log rows.
 """
 
 from collections.abc import Awaitable, Callable

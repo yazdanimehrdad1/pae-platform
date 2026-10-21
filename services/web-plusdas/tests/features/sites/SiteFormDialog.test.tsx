@@ -44,3 +44,37 @@ describe('SiteFormDialog time zone', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'Europe/Berlin', name: 'Alpha Solar Farm' })));
   });
 });
+
+describe('SiteFormDialog coordinates', () => {
+  it('shows and sends the elevation with the coordinates', async () => {
+    const onSubmit = renderForm({ ...SITE, coordinates: { lat: 33.45, lng: -112.07, elevation_m: 331 } });
+    expect((screen.getByLabelText('Elevation (m, optional)') as HTMLInputElement).value).toBe('331');
+
+    fireEvent.change(screen.getByLabelText('Elevation (m, optional)'), { target: { value: '340' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      coordinates: { lat: 33.45, lng: -112.07, elevation_m: 340 },
+    })));
+  });
+
+  it('omits a blank elevation', async () => {
+    const onSubmit = renderForm({ ...SITE, coordinates: { lat: 33.45, lng: -112.07 } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      coordinates: { lat: 33.45, lng: -112.07 },
+    })));
+  });
+
+  it('refuses an elevation without coordinates', async () => {
+    const onSubmit = renderForm(SITE);
+
+    fireEvent.change(screen.getByLabelText('Elevation (m, optional)'), { target: { value: '300' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Needs latitude and longitude')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});

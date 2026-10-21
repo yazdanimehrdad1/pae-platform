@@ -233,21 +233,15 @@ class TestReads:
         with pytest.raises(InvalidRequestError):
             await service.get_forecast(SITE.site_id, aware, aware)
 
-    async def test_history_reads_what_was_known_then(self) -> None:
+    async def test_latest_is_the_newest_refresh(self) -> None:
         clock = Clock(FORECAST_NOW - timedelta(hours=2))
-        first = FakePvPowerSource(name="old", clock=clock)
-        service, repository = make_service([first], clock)
+        source = FakePvPowerSource(name="pv", clock=clock)
+        service, _ = make_service([source], clock)
         await service.refresh()
         clock.now = FORECAST_NOW
-        repository.forecasts.append(
-            await FakePvPowerSource(name="new", clock=clock).forecast(SITE, 48, 15)
-        )
+        await service.refresh()
         latest = await service.get_latest(SITE.site_id)
-        assert latest.source_name == "new"
-        then = await service.get_history(SITE.site_id, FORECAST_NOW - timedelta(minutes=1))
-        assert then.source_name == "old"
-        with pytest.raises(NotFoundError):
-            await service.get_history(SITE.site_id, FORECAST_NOW - timedelta(days=1))
+        assert latest.issued_at == FORECAST_NOW
 
     async def test_daily_summary_in_local_time(self) -> None:
         clock = Clock(datetime(2026, 6, 15, 7, 0, tzinfo=UTC))  # Phoenix midnight

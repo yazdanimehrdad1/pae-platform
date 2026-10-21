@@ -26,14 +26,25 @@ const formSchema = z.object({
   // Coordinates are optional (nullable in the contract): both blank means none.
   lat: z.string(),
   lng: z.string(),
+  // Optional, meters above sea level; the PV forecast uses it for solar position.
+  elevation_m: z.string(),
   // The site's local time: its reports' days and schedules, and how its times are shown.
   timezone: z.string().trim().min(1, "Required").refine(isTimeZone, "Choose a time zone from the list"),
 }).superRefine((values, ctx) => {
-  if (values.lat.trim() === "" && values.lng.trim() === "") return;
+  if (values.lat.trim() === "" && values.lng.trim() === "") {
+    if (values.elevation_m.trim() !== "") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["elevation_m"], message: "Needs latitude and longitude" });
+    }
+    return;
+  }
   for (const field of ["lat", "lng"] as const) {
     if (values[field].trim() === "" || Number.isNaN(Number(values[field]))) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "Enter a number, or leave both blank" });
     }
+  }
+  const elevation = values.elevation_m.trim();
+  if (elevation !== "" && (Number.isNaN(Number(elevation)) || Number(elevation) < -500 || Number(elevation) > 9000)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["elevation_m"], message: "Enter -500 to 9000, or leave blank" });
   }
 });
 
@@ -51,6 +62,7 @@ const emptyValues: FormValues = {
   zip_code: 0,
   lat: "",
   lng: "",
+  elevation_m: "",
   timezone: BROWSER_TIME_ZONE,
 };
 
@@ -67,6 +79,7 @@ function fromSite(site: SiteRecord): FormValues {
     zip_code: site.location?.zip_code ?? 0,
     lat: site.coordinates ? String(site.coordinates.lat) : "",
     lng: site.coordinates ? String(site.coordinates.lng) : "",
+    elevation_m: site.coordinates?.elevation_m != null ? String(site.coordinates.elevation_m) : "",
     timezone: site.timezone,
   };
 }
@@ -81,7 +94,11 @@ function toRequest(values: FormValues): SiteCreateRequest {
     location: { street: values.street, city: values.city, state: values.state, zip_code: values.zip_code },
     coordinates: values.lat.trim() === ""
       ? null
-      : { lat: Number(values.lat), lng: Number(values.lng) },
+      : {
+        lat: Number(values.lat),
+        lng: Number(values.lng),
+        ...(values.elevation_m.trim() !== "" ? { elevation_m: Number(values.elevation_m) } : {}),
+      },
     timezone: values.timezone.trim(),
   };
 }
@@ -178,7 +195,7 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label htmlFor="lat">Latitude</Label>
               <Input id="lat" type="number" step="any" {...register("lat")} />
@@ -188,6 +205,11 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
               <Label htmlFor="lng">Longitude</Label>
               <Input id="lng" type="number" step="any" {...register("lng")} />
               {errors.lng && <p className="text-xs text-destructive">{errors.lng.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="elevation_m">Elevation (m, optional)</Label>
+              <Input id="elevation_m" type="number" step="any" {...register("elevation_m")} />
+              {errors.elevation_m && <p className="text-xs text-destructive">{errors.elevation_m.message}</p>}
             </div>
           </div>
 
