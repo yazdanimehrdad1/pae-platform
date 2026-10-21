@@ -1,7 +1,6 @@
-"""PV forecast response bodies (the published contract). Built from the facade's models; the
+"""PV forecast response bodies (the published contract): AC power and the weather. The
 `provider` field names the source that produced the forecast."""
 
-from datetime import date as LocalDate
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -9,37 +8,27 @@ from pydantic import BaseModel, Field
 from intelli_gateway.schemas.solar_forecast import (
     INTERVAL_CONVENTION,
     UNITS,
-    DailySummary,
     ForecastHealth,
     PVForecast,
     RefreshResult,
-    WeatherForecast,
 )
 
 
 class ArrayIntervalResponse(BaseModel):
     array_id: int = Field(description="backend-ot device id of the PV array")
-    poa: float | None
-    cell_temp_c: float | None
-    pv_dc_kw: float | None
     pv_ac_kw: float
-    pv_energy_kwh: float
 
 
 class ForecastIntervalResponse(BaseModel):
     interval_start: datetime
     interval_end: datetime
-    pv_ac_kw: float
-    pv_energy_kwh: float
-    pv_dc_kw: float | None
-    ghi: float | None
-    dni: float | None
-    dhi: float | None
+    pv_ac_kw: float = Field(description="Site AC power: the sum of its arrays")
+    ghi: float | None = Field(description="Global horizontal irradiance")
     temp_air_c: float | None
     wind_speed_ms: float | None
     cloud_cover_pct: float | None
     arrays: list[ArrayIntervalResponse] = Field(
-        description="Per-array breakdown; empty when the source predicts the site total only"
+        description="AC power per PV device; empty when the source predicts the site total only"
     )
 
 
@@ -68,86 +57,18 @@ class PvForecastResponse(BaseModel):
                     interval_start=interval.interval_start,
                     interval_end=interval.interval_end,
                     pv_ac_kw=interval.pv_ac_kw,
-                    pv_energy_kwh=interval.pv_energy_kwh,
-                    pv_dc_kw=interval.pv_dc_kw,
                     ghi=interval.ghi,
-                    dni=interval.dni,
-                    dhi=interval.dhi,
                     temp_air_c=interval.temp_air_c,
                     wind_speed_ms=interval.wind_speed_ms,
                     cloud_cover_pct=interval.cloud_cover_pct,
                     arrays=[
-                        ArrayIntervalResponse(**array.model_dump()) for array in interval.arrays
+                        ArrayIntervalResponse(array_id=array.array_id, pv_ac_kw=array.pv_ac_kw)
+                        for array in interval.arrays
                     ],
                 )
                 for interval in forecast.intervals
             ],
         )
-
-
-class WeatherIntervalResponse(BaseModel):
-    interval_start: datetime
-    interval_end: datetime
-    ghi: float
-    dni: float
-    dhi: float
-    temp_air_c: float
-    wind_speed_ms: float
-    cloud_cover_pct: float | None
-    poa_by_array: dict[str, float] = Field(description="Plane-of-array irradiance per array id")
-
-
-class WeatherForecastResponse(BaseModel):
-    site_id: int
-    provider: str
-    issued_at: datetime
-    resolution_minutes: int
-    interval_convention: str = INTERVAL_CONVENTION
-    units: dict[str, str] = Field(default_factory=lambda: dict(UNITS))
-    intervals: list[WeatherIntervalResponse]
-
-    @classmethod
-    def of(cls, weather: WeatherForecast) -> "WeatherForecastResponse":
-        return cls(
-            site_id=weather.site_id,
-            provider=weather.provider_name,
-            issued_at=weather.issued_at,
-            resolution_minutes=weather.resolution_minutes,
-            intervals=[
-                WeatherIntervalResponse(
-                    interval_start=interval.interval_start,
-                    interval_end=interval.interval_end,
-                    ghi=interval.ghi,
-                    dni=interval.dni,
-                    dhi=interval.dhi,
-                    temp_air_c=interval.temp_air_c,
-                    wind_speed_ms=interval.wind_speed_ms,
-                    cloud_cover_pct=interval.cloud_cover_pct,
-                    poa_by_array={str(key): value for key, value in interval.poa_by_array.items()},
-                )
-                for interval in weather.intervals
-            ],
-        )
-
-
-class DailySummaryResponse(BaseModel):
-    site_id: int
-    date: LocalDate = Field(description="The site's local date")
-    timezone: str
-    provider: str
-    issued_at: datetime
-    energy_kwh: float
-    peak_kw: float
-    peak_at: datetime | None
-    first_production_at: datetime | None
-    last_production_at: datetime | None
-    complete: bool = Field(description="False when the forecast covers only part of the day")
-
-    @classmethod
-    def of(cls, summary: DailySummary) -> "DailySummaryResponse":
-        values = summary.model_dump()
-        values["provider"] = values.pop("source_name")
-        return cls(**values)
 
 
 class SiteForecastHealthResponse(BaseModel):

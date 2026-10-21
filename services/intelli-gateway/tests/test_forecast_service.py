@@ -8,7 +8,7 @@ summary uses the site's local day; raw weather is refused for PV-power sources; 
 the last attempt, the last success and staleness; retention drops old runs.
 """
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from forecast_fakes import FORECAST_NOW, SITE
@@ -88,8 +88,8 @@ class TestRefresh:
         (site,) = result.sites
         assert site.ok and site.source_name == "primary" and not site.fallback_used
         assert site.intervals == 48 * 4
-        stored = await repository.latest(SITE.site_id)
-        assert stored is not None and stored.source_name == "primary" and not stored.fallback_used
+        stored = repository.forecasts[-1]
+        assert stored.source_name == "primary" and not stored.fallback_used
         assert [(entry.source_name, entry.ok) for entry in repository.fetch_log] == [
             ("primary", True)
         ]
@@ -101,8 +101,8 @@ class TestRefresh:
         service, repository = make_service([primary, fallback], clock)
         (site,) = (await service.refresh()).sites
         assert site.ok and site.source_name == "backup" and site.fallback_used
-        stored = await repository.latest(SITE.site_id)
-        assert stored is not None and stored.fallback_used and stored.source_name == "backup"
+        stored = repository.forecasts[-1]
+        assert stored.fallback_used and stored.source_name == "backup"
         assert [(e.source_name, e.ok, e.fallback_used) for e in repository.fetch_log] == [
             ("primary", False, False),
             ("backup", True, True),
@@ -179,22 +179,23 @@ class TestReads:
 
     async def test_nothing_stored_yet(self) -> None:
         service, _ = make_service([FakePvPowerSource()])
+        start = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
         with pytest.raises(NotFoundError):
-            await service.get_latest(SITE.site_id)
+            await service.get_as_forecast(SITE.site_id, start, start + timedelta(hours=1))
 
-    async def test_window_and_hourly_resample(self) -> None:
+    async def test_hourly_resample(self) -> None:
         service = await self.refreshed()
         start = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
-        hourly = await service.get_forecast(
+        hourly = await service.get_as_forecast(
             SITE.site_id, start, start + timedelta(hours=6), resolution_minutes=60
         )
         assert hourly.resolution_minutes == 60
         assert [i.interval_start.hour for i in hourly.intervals] == [12, 13, 14, 15, 16, 17]
         # FakePvPowerSource: half of 5000 kW from 08:00 to 16:00 UTC.
-        assert hourly.intervals[0].pv_ac_kw == 2500 and hourly.intervals[0].pv_energy_kwh == 2500
+        assert hourly.intervals[0].pv_ac_kw == 2500
         assert hourly.intervals[4].pv_ac_kw == 0
 
-    def test_resample_means_power_and_sums_energy(self) -> None:
+    def test_resample_averages_power_and_weather(self) -> None:
         start = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
         forecast = PVForecast.model_validate(
             {
@@ -208,68 +209,64 @@ class TestReads:
                         "interval_start": start + timedelta(minutes=15 * k),
                         "interval_end": start + timedelta(minutes=15 * (k + 1)),
                         "pv_ac_kw": kw,
-                        "pv_energy_kwh": kw / 4,
+                        "cloud_cover_pct": 10 * (k + 1),
                     }
                     for k, kw in enumerate([100, 200, 300, 400])
                 ],
             }
         )
         (hour,) = resample(forecast, 60).intervals
-        assert hour.pv_ac_kw == 250 and hour.pv_energy_kwh == 250
+        assert hour.pv_ac_kw == 250 and hour.cloud_cover_pct == 25
         assert hour.ghi is None  # no weather stays no weather
 
     async def test_resolution_must_be_a_multiple(self) -> None:
         service = await self.refreshed()
+        start = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
         for resolution in (10, 20):
             with pytest.raises(InvalidRequestError):
-                await service.get_forecast(SITE.site_id, resolution_minutes=resolution)
+                await service.get_as_forecast(
+                    SITE.site_id, start, start + timedelta(hours=2), resolution_minutes=resolution
+                )
 
-    async def test_window_needs_offsets_and_order(self) -> None:
+    async def test_as_forecast_series_spans_past_runs_and_the_future(self) -> None:
+        clock = Clock(datetime(2026, 6, 15, 8, 0, tzinfo=UTC))
+        repository = InMemoryForecastRepository()
+        early, _ = make_service([FakePvPowerSource("early", clock)], clock, repository)
+        await early.refresh()
+        clock.now = datetime(2026, 6, 15, 10, 0, tzinfo=UTC)
+        late, _ = make_service([FakePvPowerSource("late", clock)], clock, repository)
+        await late.refresh()
+
+        series = await late.get_as_forecast(
+            SITE.site_id,
+            datetime(2026, 6, 15, 8, 0, tzinfo=UTC),
+            datetime(2026, 6, 16, 8, 0, tzinfo=UTC),  # 22 h past the latest refresh
+            resolution_minutes=60,
+        )
+        assert series.resolution_minutes == 60 and series.source_name == "late"
+        assert len(series.intervals) == 24
+        assert series.intervals[0].pv_ac_kw == 2500  # 08:00, from the early run
+
+    async def test_as_forecast_window_rules(self) -> None:
         service = await self.refreshed()
-        naive = datetime(2026, 6, 15, 12, 0)
+        start = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
         with pytest.raises(InvalidRequestError):
-            await service.get_forecast(SITE.site_id, naive, None)
-        aware = naive.replace(tzinfo=UTC)
-        with pytest.raises(InvalidRequestError):
-            await service.get_forecast(SITE.site_id, aware, aware)
+            await service.get_as_forecast(SITE.site_id, start.replace(tzinfo=None), start)
+        with pytest.raises(InvalidRequestError, match="11 days"):
+            await service.get_as_forecast(SITE.site_id, start, start + timedelta(days=12))
+        with pytest.raises(NotFoundError):
+            await service.get_as_forecast(
+                SITE.site_id, start - timedelta(days=3), start - timedelta(days=2)
+            )
 
-    async def test_latest_is_the_newest_refresh(self) -> None:
-        clock = Clock(FORECAST_NOW - timedelta(hours=2))
-        source = FakePvPowerSource(name="pv", clock=clock)
-        service, _ = make_service([source], clock)
-        await service.refresh()
-        clock.now = FORECAST_NOW
-        await service.refresh()
-        latest = await service.get_latest(SITE.site_id)
-        assert latest.issued_at == FORECAST_NOW
-
-    async def test_daily_summary_in_local_time(self) -> None:
-        clock = Clock(datetime(2026, 6, 15, 7, 0, tzinfo=UTC))  # Phoenix midnight
-        service, _ = make_service([FakePvPowerSource(clock=clock)], clock)
-        await service.refresh()
-        summary = await service.get_daily_summary(SITE.site_id, date(2026, 6, 15))
-        assert summary.timezone == "America/Phoenix"
-        assert summary.complete
-        # 08:00-16:00 UTC at 2500 kW = 8 h -> 20 MWh; Phoenix is UTC-7.
-        assert summary.energy_kwh == pytest.approx(20_000)
-        assert summary.peak_kw == 2500
-        assert summary.first_production_at == datetime(2026, 6, 15, 8, 0, tzinfo=UTC)
-        assert summary.last_production_at == datetime(2026, 6, 15, 16, 0, tzinfo=UTC)
-        partial = await service.get_daily_summary(SITE.site_id, date(2026, 6, 17))
-        assert not partial.complete
-
-    async def test_raw_weather_from_a_weather_source(self) -> None:
+    async def test_weather_comes_with_a_weather_source(self) -> None:
         clock = Clock()
         service = await self.refreshed(weather_source("wx", clock))
-        weather = await service.get_raw_weather(SITE.site_id)
-        assert weather.provider_name == "wx"
-        noon = next(i for i in weather.intervals if i.interval_start.hour == 19)
-        assert noon.ghi > 0 and 7 in noon.poa_by_array
-
-    async def test_raw_weather_refused_for_a_pv_power_source(self) -> None:
-        service = await self.refreshed()
-        with pytest.raises(NotFoundError, match="no weather"):
-            await service.get_raw_weather(SITE.site_id)
+        start = datetime(2026, 6, 15, 18, 0, tzinfo=UTC)
+        series = await service.get_as_forecast(SITE.site_id, start, start + timedelta(hours=2))
+        noon = series.intervals[4]  # 19:00, solar noon in Phoenix
+        assert noon.ghi is not None and noon.ghi > 0 and noon.temp_air_c == 20.0
+        assert noon.pv_ac_kw > 0 and noon.arrays[0].pv_ac_kw == noon.pv_ac_kw
 
 
 class TestHealth:

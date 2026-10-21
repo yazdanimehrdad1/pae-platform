@@ -191,7 +191,6 @@ class FakePvPowerSource:
                     interval_start=start,
                     interval_end=start + step,
                     pv_ac_kw=kw,
-                    pv_energy_kwh=kw * resolution_minutes / 60,
                 )
             )
         return PVForecast(
@@ -218,17 +217,40 @@ class InMemoryForecastRepository:
         self.fetch_log: list[FetchLogEntry] = []
 
     async def save(self, forecast: PVForecast) -> None:
-        self.forecasts.append(forecast)
+        # Same pruning as Postgres: older runs lose the intervals the new run supersedes.
+        kept: list[PVForecast] = []
+        for run in self.forecasts:
+            if run.site_id == forecast.site_id and run.issued_at <= forecast.issued_at:
+                intervals = tuple(
+                    interval
+                    for interval in run.intervals
+                    if interval.interval_start < forecast.issued_at
+                )
+                if not intervals:
+                    continue
+                run = run.model_copy(update={"intervals": intervals})
+            kept.append(run)
+        self.forecasts = [*kept, forecast]
 
-    async def latest(self, site_id: int) -> PVForecast | None:
-        candidates = [
-            (index, forecast)
-            for index, forecast in enumerate(self.forecasts)
-            if forecast.site_id == site_id
-        ]
-        if not candidates:
+    async def as_forecast(self, site_id: int, start: datetime, end: datetime) -> PVForecast | None:
+        # Per interval start: (issued_at, save order, run, interval) of the newest covering run.
+        chosen: dict[datetime, tuple[datetime, int, PVForecast, PVInterval]] = {}
+        for order, run in enumerate(self.forecasts):
+            if run.site_id != site_id:
+                continue
+            for interval in run.intervals:
+                begins = interval.interval_start
+                if not (start <= begins < end) or run.issued_at > begins:
+                    continue
+                current = chosen.get(begins)
+                if current is None or (run.issued_at, order) > current[:2]:
+                    chosen[begins] = (run.issued_at, order, run, interval)
+        if not chosen:
             return None
-        return max(candidates, key=lambda item: (item[1].issued_at, item[0]))[1]
+        newest = max(chosen.values(), key=lambda item: item[:2])[2]
+        return newest.model_copy(
+            update={"intervals": tuple(chosen[begins][3] for begins in sorted(chosen))}
+        )
 
     async def log_fetch(self, entry: FetchLogEntry) -> None:
         self.fetch_log.append(entry)

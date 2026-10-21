@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bitSelectionId, decodeBit, decodeEnum, functionSelectionId, isBitfieldPoint, isEnumPoint, parseFunctionSelectionId, parseSelectionId, sortedBits,
+  bitSelectionId, decodeBit, decodeEnum, forecastSelectionId, functionSelectionId, isBitfieldPoint, isEnumPoint,
+  parseForecastSelectionId, parseFunctionSelectionId, parseSelectionId, sortedBits,
 } from '@/shared/lib/discretePoints';
 
 describe('discrete point detection', () => {
@@ -59,5 +60,22 @@ describe('function selection ids', () => {
     expect(parseFunctionSelectionId('fn:')).toBeNull();
     expect(parseSelectionId('12:bit3')).toEqual({ pointId: '12', bit: 3 });
     expect(parseSelectionId('fn:7:device-trend')).toEqual({ pointId: 'fn:7:device-trend' });
+  });
+});
+
+describe('forecast selections', () => {
+  it('round-trips site and per-device forecast ids', () => {
+    expect(forecastSelectionId('pv_ac_kw')).toBe('fc:site:pv_ac_kw');
+    expect(forecastSelectionId('poa', 4)).toBe('fc:4:poa');
+    expect(parseForecastSelectionId('fc:site:ghi')).toEqual({ variable: 'ghi', deviceId: undefined });
+    expect(parseForecastSelectionId('fc:4:cell_temp_c')).toEqual({ variable: 'cell_temp_c', deviceId: '4' });
+  });
+
+  it('never reads a point, bit or function id as a forecast, nor a forecast as a function or bit', () => {
+    for (const id of ['12', '12:bit3', 'fn:energy', 'fn:2:soc-band', 'fc:', 'fc:x:pv_ac_kw', 'fc:site:']) {
+      expect(parseForecastSelectionId(id)).toBeNull();
+    }
+    expect(parseFunctionSelectionId('fc:site:pv_ac_kw')).toBeNull();
+    expect(parseSelectionId('fc:4:pv_ac_kw').bit).toBeUndefined();
   });
 });

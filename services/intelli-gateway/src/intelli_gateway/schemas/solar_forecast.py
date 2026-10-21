@@ -4,32 +4,29 @@ own format.
 
 Conventions (one set, converted inside each source):
 - Times are timezone-aware and UTC. An interval is [interval_start, interval_end).
-- Every value is the mean over its interval, except energy (kWh), which is the sum.
-- Irradiance W/m2, temperature degC, wind m/s, power kW, energy kWh, cloud cover percent.
+- Every value is the mean over its interval.
+- Irradiance W/m2, temperature degC, wind m/s, power kW, cloud cover percent.
+- Stored and served: AC power (site and per array) and the weather (GHI, air temperature, wind,
+  cloud cover). DNI, DHI and plane-of-array irradiance are only the PV model's inputs.
 - Azimuth: degrees clockwise from north (180 = south, 90 = east, 270 = west). Tilt: degrees
   from horizontal (0 = flat).
 """
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Self
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+# The stored and served fields: AC power and the weather behind it.
 UNITS: dict[str, str] = {
+    "pv_ac_kw": "kW",
     "ghi": "W/m2",
-    "dni": "W/m2",
-    "dhi": "W/m2",
-    "poa": "W/m2",
     "temp_air_c": "degC",
-    "cell_temp_c": "degC",
     "wind_speed_ms": "m/s",
     "cloud_cover_pct": "%",
-    "pv_dc_kw": "kW",
-    "pv_ac_kw": "kW",
-    "pv_energy_kwh": "kWh",
 }
-INTERVAL_CONVENTION = "mean over [interval_start, interval_end); energy summed; times UTC"
+INTERVAL_CONVENTION = "mean over [interval_start, interval_end); times UTC"
 
 
 def _utc(moment: datetime) -> datetime:
@@ -131,25 +128,17 @@ class WeatherProviderCapabilities(_Frozen):
 
 class PVArrayInterval(_Frozen):
     array_id: int
-    poa: float | None = None
-    cell_temp_c: float | None = None
-    pv_dc_kw: float | None = None
     pv_ac_kw: float = Field(ge=0)
-    pv_energy_kwh: float = Field(ge=0)
 
 
 class PVInterval(_Interval):
-    """Site totals for one interval. Weather fields are None when the source has no weather."""
+    """Site AC power for one interval, and its weather (None when the source has no weather)."""
 
+    pv_ac_kw: float = Field(ge=0)
     ghi: float | None = None
-    dni: float | None = None
-    dhi: float | None = None
     temp_air_c: float | None = None
     wind_speed_ms: float | None = None
     cloud_cover_pct: float | None = None
-    pv_dc_kw: float | None = None
-    pv_ac_kw: float = Field(ge=0)
-    pv_energy_kwh: float = Field(ge=0)
     # Per-array breakdown; empty when the source only predicts the site total.
     arrays: tuple[PVArrayInterval, ...] = ()
 
@@ -176,21 +165,6 @@ class SourceCapabilities(_Frozen):
 
 
 # --- results of the facade -------------------------------------------------------------------
-
-
-class DailySummary(_Frozen):
-    site_id: int
-    date: date  # the site's local date
-    timezone: str
-    source_name: str
-    issued_at: AwareDatetime
-    energy_kwh: float
-    peak_kw: float
-    peak_at: AwareDatetime | None  # start of the interval with the peak; None if no production
-    first_production_at: AwareDatetime | None
-    last_production_at: AwareDatetime | None
-    # False when the stored forecast covers only part of the day.
-    complete: bool
 
 
 class FetchLogEntry(_Frozen):

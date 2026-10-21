@@ -1,9 +1,11 @@
 # Same-origin API calls (no CORS)
 
-The browser only ever calls the APIs on **its own origin**: backend-ot under `/api`, and the
-powerflow simulator (the Simulation page) under `/powerflow-api`. Something on that origin
-forwards them server-side (`/powerflow-api/x` becomes powerflow's `/api/x`), so the browser never
-makes a cross-origin request and neither backend needs CORS configuration (neither has any).
+The browser only ever calls the APIs on **its own origin**: backend-ot under `/api`, the
+powerflow simulator (the Simulation page) under `/powerflow-api`, and intelli-gateway (the PV
+forecast in the Historian) under `/intelli-gateway-api`. Something on that origin forwards them
+server-side (`/powerflow-api/x` becomes powerflow's `/api/x`, `/intelli-gateway-api/x`
+intelli-gateway's `/api/x`), so the browser never makes a cross-origin request and no backend
+needs CORS configuration (none has any).
 
 | Where | Serves the SPA | Forwards `/api/*` to backend-ot |
 |---|---|---|
@@ -22,6 +24,14 @@ web-plusdas.dev.override.yaml); standalone `make up` `http://host.docker.interna
 
 The SPA's base for it is `getRuntimeConfig().powerflowBaseUrl` (`APP_POWERFLOW_BASE_URL`,
 default `/powerflow-api`), used only through `powerflowClient` in `src/api/client.ts`.
+
+| Where | Forwards `/intelli-gateway-api/*` to intelli-gateway's `/api/*` |
+|---|---|
+| Container | nginx `proxy_pass ${INTELLI_GATEWAY_UPSTREAM}/api/` — dev stack `http://intelli-gateway:8000`, standalone `http://host.docker.internal:8030` (`WEB_PLUSDAS_INTELLI_GATEWAY_UPSTREAM`) |
+| Dev server (`make run`) | Vite proxy with a path rewrite, target `WEB_PLUSDAS_DEV_INTELLI_GATEWAY_TARGET` (default `http://localhost:8030`) |
+
+The SPA's base for it is `getRuntimeConfig().intelliGatewayBaseUrl` (`APP_INTELLI_GATEWAY_BASE_URL`,
+default `/intelli-gateway-api`), used only through `intelliGatewayClient` in `src/api/client.ts`.
 
 ## Rules
 

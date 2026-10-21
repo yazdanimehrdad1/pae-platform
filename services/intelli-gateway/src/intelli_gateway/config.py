@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     forecast_fetch_interval_minutes: int = Field(
         default=15, ge=0, alias="FORECAST_FETCH_INTERVAL_MINUTES"
     )
-    forecast_retention_days: int = Field(default=90, ge=1, alias="FORECAST_RETENTION_DAYS")
+    forecast_retention_days: int = Field(default=7, ge=1, alias="FORECAST_RETENTION_DAYS")
 
     # Open-Meteo (services/open_meteo/). Hosted free API: non-commercial use only. Point the URL
     # at https://customer-api.open-meteo.com (with a key) or a self-hosted server for production.

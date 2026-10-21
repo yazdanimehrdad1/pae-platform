@@ -8,7 +8,9 @@ describe('getRuntimeConfig', () => {
   });
 
   it('defaults the API bases to same-origin paths when /config.js set nothing', () => {
-    expect(getRuntimeConfig()).toEqual({ apiBaseUrl: '/api', powerflowBaseUrl: '/powerflow-api' });
+    expect(getRuntimeConfig()).toEqual({
+      apiBaseUrl: '/api', powerflowBaseUrl: '/powerflow-api', intelliGatewayBaseUrl: '/intelli-gateway-api',
+    });
   });
 
   it('uses the value /config.js injected at container start', () => {
@@ -26,5 +28,18 @@ describe('getRuntimeConfig', () => {
     expect(getRuntimeConfig().powerflowBaseUrl).toBe('/sim/api');
     window.__APP_CONFIG__ = { powerflowBaseUrl: '' };
     expect(getRuntimeConfig().powerflowBaseUrl).toBe('/powerflow-api');
+  });
+});
+
+describe('getRuntimeConfig intelli-gateway base', () => {
+  afterEach(() => {
+    delete window.__APP_CONFIG__;
+  });
+
+  it('uses the injected base, falling back to /intelli-gateway-api when empty', () => {
+    window.__APP_CONFIG__ = { intelliGatewayBaseUrl: '/gw/api' };
+    expect(getRuntimeConfig().intelliGatewayBaseUrl).toBe('/gw/api');
+    window.__APP_CONFIG__ = { intelliGatewayBaseUrl: '' };
+    expect(getRuntimeConfig().intelliGatewayBaseUrl).toBe('/intelli-gateway-api');
   });
 });

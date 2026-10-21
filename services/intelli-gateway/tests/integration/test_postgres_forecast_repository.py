@@ -2,14 +2,15 @@
 contract, plus the migrations.
 
 Invariant guarded: every migration applies from zero and a second run applies nothing; the
-Postgres repository passes the same contract as the in-memory one; deleting a run removes its
-intervals (ON DELETE CASCADE).
+Postgres repository passes the same contract as the in-memory one; saving prunes the rows a
+newer run supersedes, so storage is one forecast per interval and array (not one per refresh);
+deleting a run removes its intervals (ON DELETE CASCADE).
 """
 
 from collections.abc import Awaitable, Callable
 
 import pytest
-from forecast_repository_contract import CHECKS, ISSUED, forecast
+from forecast_repository_contract import CHECKS, ISSUED, STEP, forecast
 from sqlalchemy import text
 
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
@@ -54,3 +55,24 @@ async def test_retention_cascades_to_intervals(
     finally:
         await engine.dispose()
     assert count == 0
+
+
+async def test_pruning_keeps_one_row_per_interval_and_array(
+    repository: PostgresForecastRepository, database_url: str
+) -> None:
+    for index in range(10):
+        await repository.save(forecast(issued_at=ISSUED + index * STEP, intervals=12))
+    engine = create_database_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(text("SELECT count(*) FROM forecast_intervals"))
+            ).scalar_one()
+            runs = (
+                await connection.execute(text("SELECT count(*) FROM forecast_runs"))
+            ).scalar_one()
+    finally:
+        await engine.dispose()
+    # site row + 2 arrays per interval: 9 superseded runs keep 1 interval, the newest 12.
+    assert rows == (9 + 12) * 3
+    assert runs == 10

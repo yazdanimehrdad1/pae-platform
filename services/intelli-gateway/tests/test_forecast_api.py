@@ -1,13 +1,10 @@
 """The PV forecast endpoints, end to end over fakes (no real provider, no network).
 
-Invariant guarded: routes only serialize what ForecastService returns, with ISO timestamps,
+Invariant guarded: the three routes (series, refresh, health) only serialize what
+ForecastService returns: AC power per site and PV device plus the weather, with ISO timestamps,
 units, provider and interval convention; site access is enforced (403), refresh needs the admin
-role; nothing stored is 404; a bad resolution is 422; ?format=csv returns CSV.
+role; nothing stored is 404; a missing or reversed window is 422; the removed routes are gone.
 """
-
-import csv
-import io
-from datetime import UTC, datetime
 
 import httpx
 from fakes import ScriptedLLMClient, make_settings
@@ -21,11 +18,9 @@ from intelli_gateway.fake_data.forecast import (
 )
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.schemas.api_models.forecast import (
-    DailySummaryResponse,
     ForecastHealthResponse,
     PvForecastResponse,
     RefreshResponse,
-    WeatherForecastResponse,
 )
 from intelli_gateway.schemas.solar_forecast import INTERVAL_CONVENTION, UNITS
 from intelli_gateway.solar_forecast.pv_model import PvlibPvModel
@@ -85,70 +80,70 @@ class TestRefreshEndpoint:
         assert response.status_code == 404
 
 
-class TestReadEndpoints:
+class TestSeriesEndpoint:
+    PARAMS = {"start": "2026-06-15T10:00:00Z", "end": "2026-06-16T10:00:00Z"}
+
     async def test_nothing_stored_is_404(self) -> None:
         async with make_client() as client:
-            response = await client.get(f"{BASE}/latest")
+            response = await client.get(f"{BASE}/series", params=self.PARAMS)
         assert response.status_code == 404
 
-    async def test_latest_carries_units_provider_and_convention(self) -> None:
+    async def test_ac_power_and_weather_with_units_provider_and_convention(self) -> None:
         async with make_client() as client:
             await refreshed(client)
-            response = await client.get(f"{BASE}/latest")
+            response = await client.get(f"{BASE}/series", params=self.PARAMS)
         assert response.status_code == 200
+        raw_interval = response.json()["intervals"][0]
+        assert set(raw_interval) == {
+            "interval_start",
+            "interval_end",
+            "pv_ac_kw",
+            "ghi",
+            "temp_air_c",
+            "wind_speed_ms",
+            "cloud_cover_pct",
+            "arrays",
+        }
+        assert set(raw_interval["arrays"][0]) == {"array_id", "pv_ac_kw"}
         body = PvForecastResponse.model_validate(response.json())
         assert body.provider == "fake_weather" and body.source_kind == "weather_model"
         assert body.units == UNITS and body.interval_convention == INTERVAL_CONVENTION
-        assert body.intervals[0].interval_start.tzinfo is not None
-        assert (
-            response.json()["intervals"][0]["interval_start"].endswith("Z")
-            or "+00:00" in (response.json()["intervals"][0]["interval_start"])
-        )
+        assert body.resolution_minutes == 15
+        # fixed_now is 10:07: the 10:00 interval began before the forecast was issued.
+        assert body.intervals[0].interval_start.isoformat().startswith("2026-06-15T10:15")
         assert body.intervals[0].arrays[0].array_id == SITE.arrays[0].array_id
 
-    async def test_window_resolution_and_csv(self) -> None:
-        start = datetime(2026, 6, 15, 18, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 15, 21, 0, tzinfo=UTC)
-        params = {"start": start.isoformat(), "end": end.isoformat(), "resolution": 60}
+    async def test_window_is_required_and_ordered(self) -> None:
         async with make_client() as client:
             await refreshed(client)
-            response = await client.get(BASE, params=params)
-            as_csv = await client.get(BASE, params={**params, "format": "csv"})
-            bad = await client.get(BASE, params={"resolution": 20})
-        body = PvForecastResponse.model_validate(response.json())
-        assert body.resolution_minutes == 60
-        assert [interval.interval_start for interval in body.intervals] == [
-            datetime(2026, 6, 15, hour, 0, tzinfo=UTC) for hour in (18, 19, 20)
-        ]
-        assert as_csv.status_code == 200
-        assert as_csv.headers["content-type"].startswith("text/csv")
-        rows = list(csv.DictReader(io.StringIO(as_csv.text)))
-        assert len(rows) == 3 and float(rows[1]["pv_ac_kw"]) == body.intervals[1].pv_ac_kw
-        assert bad.status_code == 422
-
-    async def test_summary_and_raw(self) -> None:
-        async with make_client() as client:
-            await refreshed(client)
-            summary = await client.get(f"{BASE}/summary", params={"date": "2026-06-15"})
-            raw = await client.get(f"{BASE}/raw")
-        day = DailySummaryResponse.model_validate(summary.json())
-        assert day.provider == "fake_weather" and day.energy_kwh > 0 and day.peak_kw > 0
-        weather = WeatherForecastResponse.model_validate(raw.json())
-        assert weather.provider == "fake_weather" and weather.units == UNITS
-
-    async def test_raw_is_404_for_a_pv_power_source(self) -> None:
-        async with make_client([FakePvPowerSource(clock=fixed_now)]) as client:
-            await refreshed(client)
-            response = await client.get(f"{BASE}/raw")
-        assert response.status_code == 404
-        assert "no weather" in response.json()["detail"]
+            missing_end = await client.get(f"{BASE}/series", params={"start": self.PARAMS["start"]})
+            reversed_window = await client.get(
+                f"{BASE}/series", params={"start": self.PARAMS["end"], "end": self.PARAMS["start"]}
+            )
+        assert missing_end.status_code == 422
+        assert reversed_window.status_code == 422
 
     async def test_site_access_is_enforced(self) -> None:
         async with make_client() as client:
             await refreshed(client)
-            for path in ("", "/latest", "/summary?date=2026-06-15", "/raw"):
-                response = await client.get(f"{BASE}{path}", headers={"X-Site-Ids": "1"})
-                assert response.status_code == 403, path
+            response = await client.get(
+                f"{BASE}/series", params=self.PARAMS, headers={"X-Site-Ids": "1"}
+            )
+        assert response.status_code == 403
+
+    async def test_pv_power_source_has_no_weather(self) -> None:
+        async with make_client([FakePvPowerSource(clock=fixed_now)]) as client:
+            await refreshed(client)
+            response = await client.get(f"{BASE}/series", params=self.PARAMS)
+        body = PvForecastResponse.model_validate(response.json())
+        assert body.source_kind == "pv_power"
+        assert all(interval.ghi is None and interval.arrays == [] for interval in body.intervals)
+
+    async def test_removed_routes_are_gone(self) -> None:
+        async with make_client() as client:
+            await refreshed(client)
+            for path in ("", "/latest", "/summary?date=2026-06-15", "/raw", "/history"):
+                assert (await client.get(f"{BASE}{path}")).status_code == 404, path
 
 
 class TestHealthEndpoint:

@@ -103,6 +103,11 @@ tools, and gives a hint about the likely issue and the checks to make.
   0.1.0 -> 0.2.0 (additive).
 - **Swap path:** a weather API = provider file + registry entry + config; a PV-power API (Solcast,
   Solargis) = source file + registry entry + config. Fallbacks via `FORECAST_FALLBACK_SOURCES`.
+- **Simplified (2026-10-21):** three endpoints remain (`/forecast/series`, `/forecast/refresh`,
+  `/forecast/health`); only AC power (site + per PV device) and GHI, air temperature, wind and
+  cloud cover are stored and served (migration 002 drops the rest); each refresh prunes the older
+  runs' rows it supersedes (one forecast per interval); retention 7 days. Cloud cover now comes
+  hourly from Open-Meteo on the same request.
 - **Tests:** shared provider/source contract suites, the repository contract (in memory and
   Postgres), PV model, facade, endpoints. `make test-integration` is now the Postgres suite;
   the real-Claude test moved to `make test-llm`.

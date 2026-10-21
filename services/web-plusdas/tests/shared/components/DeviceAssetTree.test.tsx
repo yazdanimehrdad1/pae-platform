@@ -203,3 +203,62 @@ describe('DeviceAssetTree', () => {
     });
   });
 });
+
+describe('DeviceAssetTree PV forecast (site_level)', () => {
+  const pvEntry: DevicePointsEntry = {
+    deviceId: 4, deviceName: 'pv1', deviceType: 'PV',
+    groups: { standardized: [], virtual: [], native: [point(9, 'W', 'NATIVE')] },
+    points: [point(9, 'W', 'NATIVE')],
+  };
+  const pvArray = {
+    device_id: 4, site_id: 1001, device_name: 'pv1', device_type: 'PV' as const,
+    tilt_deg: 25, azimuth_deg: 180, dc_capacity_kw: 6500, ac_capacity_kw: 5000,
+    system_loss_pct: 14, temp_coefficient_pct_per_c: -0.35,
+    created_at: '2026-10-20T00:00:00Z', updated_at: '2026-10-20T00:00:00Z',
+  };
+
+  function renderForecastTree(arrays = [pvArray]) {
+    vi.spyOn(devicesApi, 'getBySiteWithPoints').mockResolvedValue([entry, pvEntry]);
+    vi.spyOn(devicesApi, 'getSitePvArrays').mockResolvedValue(arrays);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    const onSelect = vi.fn();
+    render(<DeviceAssetTree siteId="1001" siteName="Site" selectedPoints={[]} onSelect={onSelect} includeForecast />, { wrapper });
+    return { onSelect };
+  }
+
+  it('lists the site AC power, the AC power of each PV device and the weather under site_level', async () => {
+    const { onSelect } = renderForecastTree();
+    fireEvent.click(await screen.findByText('site_level'));
+    fireEvent.click(screen.getByText('PV forecast'));
+    const rows = Array.from(screen.getByTestId('pv-forecast').querySelectorAll('[data-selection-id]'))
+      .map(row => row.getAttribute('data-selection-id'));
+    expect(rows).toEqual([
+      'fc:site:pv_ac_kw', 'fc:4:pv_ac_kw', 'fc:site:ghi', 'fc:site:temp_air_c', 'fc:site:wind_speed_ms', 'fc:site:cloud_cover_pct',
+    ]);
+
+    fireEvent.click(screen.getByText('PV AC power'));
+    expect(onSelect).toHaveBeenLastCalledWith(['fc:site:pv_ac_kw'], { 'fc:site:pv_ac_kw': 'Forecast · PV AC power' });
+    fireEvent.click(screen.getByText('pv1 · AC power'));
+    expect(onSelect).toHaveBeenLastCalledWith(['fc:4:pv_ac_kw'], { 'fc:4:pv_ac_kw': 'Forecast · pv1 · AC power' });
+  });
+
+  it('has no site_level folder when the site has no PV arrays', async () => {
+    renderForecastTree([]);
+    expect(await screen.findByText('pv1')).toBeTruthy();
+    expect(screen.queryByText('site_level')).toBeNull();
+  });
+
+  it('reveals a selected per-device forecast series', async () => {
+    vi.spyOn(devicesApi, 'getBySiteWithPoints').mockResolvedValue([entry, pvEntry]);
+    vi.spyOn(devicesApi, 'getSitePvArrays').mockResolvedValue([pvArray]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    render(
+      <DeviceAssetTree siteId="1001" siteName="Site" selectedPoints={['fc:4:pv_ac_kw']} onSelect={vi.fn()} includeForecast
+        revealRequest={{ selectionId: 'fc:4:pv_ac_kw', requestId: 1 }} />,
+      { wrapper },
+    );
+    expect(await screen.findByText('pv1 · AC power')).toBeTruthy();
+  });
+});

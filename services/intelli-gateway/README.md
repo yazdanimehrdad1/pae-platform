@@ -40,7 +40,7 @@ Point guides are keyed per site device: (site_id, device_id, point name).
 | `lookup_fault` | one state, alarm bit or vendor fault code: causes, checks, safety note |
 | `get_device_script` | a device's IM script (register mapping) |
 | `search_experience_notes` | past incidents, by keyword, point or device |
-| `get_pv_forecast` | the stored PV forecast, hourly from now: kW, kWh and the weather behind it (when `FORECAST_ENABLED`) |
+| `get_pv_forecast` | the stored PV forecast, hourly from now: AC kW and the weather behind it (when `FORECAST_ENABLED`) |
 
 The fake sites are built to be diagnosable:
 - **Sunfield (site 1):** INV2's cabinet runs hot. Late morning to evening it derates to 1500 kW, its alarm word sets OVER_TEMP, and an over-temperature alarm is raised each day. There is also a past WS1 comms loss.
@@ -86,15 +86,12 @@ Conversations live in memory and are lost on restart.
 | `GET /api/v1/sites` | The sites the caller can access. |
 | `GET /api/v1/tools` | The tool specs Claude sees. It mirrors MCP `list_tools` and is meant for debugging. |
 | `GET /api/healthz` | Liveness check. |
-| `GET /api/v1/sites/{site_id}/forecast` | The latest PV forecast over `start`/`end` (ISO 8601 with offset), `resolution` (minutes), `format=json\|csv`. |
-| `GET /api/v1/sites/{site_id}/forecast/latest` | The latest PV forecast in full. |
-| `GET /api/v1/sites/{site_id}/forecast/summary?date=` | Energy, peak and first/last production for one local day. |
-| `GET /api/v1/sites/{site_id}/forecast/raw` | The weather behind the latest forecast (404 for PV-power-only sources). |
+| `GET /api/v1/sites/{site_id}/forecast/series?start=&end=` | The PV forecast over a window: per 15-minute interval the site's AC kW, each PV device's AC kW, and the weather (GHI, air temperature, wind, cloud cover). Each interval comes from the newest forecast issued at or before its start (past = what was forecast then, future = latest). Used by the web-plusdas Historian. |
 | `GET /api/v1/forecast/health` | Active provider, fallbacks, last attempt and success per site. |
 | `POST /api/v1/forecast/refresh` | Fetch new forecasts now (`?site_id=` for one site). Needs the `admin` role. |
 
 Forecast responses carry `provider`, `units` and `interval_convention` (values are means over
-`[interval_start, interval_end)`, energy summed, times UTC).
+`[interval_start, interval_end)`, times UTC).
 
 **Auth placeholder.** The service reads the dev headers `X-User-Id`, `X-Roles` and
 `X-Site-Ids` (comma-separated site ids). With no headers, it falls back to a dev user who can

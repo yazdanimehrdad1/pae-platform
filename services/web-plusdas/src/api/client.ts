@@ -2,9 +2,11 @@ import type { ApiError } from './types/errors';
 import { getRuntimeConfig } from '@/shared/config/runtime';
 
 // Same-origin API bases from runtime config, never build-time values: backend-ot at `/api`,
-// the powerflow simulator at `/powerflow-api` (nginx/Vite forward it to powerflow's /api).
+// the powerflow simulator at `/powerflow-api` (nginx/Vite forward it to powerflow's /api), and
+// intelli-gateway at `/intelli-gateway-api` (forwarded to its /api; the PV forecast).
 export const BASE_URL = getRuntimeConfig().apiBaseUrl;
 export const POWERFLOW_BASE_URL = getRuntimeConfig().powerflowBaseUrl;
+export const INTELLI_GATEWAY_BASE_URL = getRuntimeConfig().intelliGatewayBaseUrl;
 
 async function send(baseUrl: string, path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -49,6 +51,7 @@ export function createClient(baseUrl: string) {
 
 export const client = createClient(BASE_URL);
 export const powerflowClient = createClient(POWERFLOW_BASE_URL);
+export const intelliGatewayClient = createClient(INTELLI_GATEWAY_BASE_URL);
 
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong'): string {
   if (error && typeof error === 'object' && 'detail' in error) {

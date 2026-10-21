@@ -65,6 +65,27 @@ export function parseFunctionSelectionId(selectionId: string): FunctionSelection
   return { name: match[2], deviceId: match[1], seriesIndex: match[3] ? Number(match[3]) : 0 };
 }
 
+// A selection can also be a PV forecast series (intelli-gateway): "fc:site:<variable>" for the
+// site total or site weather, "fc:<deviceId>:<variable>" for one PV device. parseSelectionId and
+// parseFunctionSelectionId leave these alone, so they never match a point or a function.
+const FORECAST_SELECTION = /^fc:(site|\d+):([a-z][a-z0-9_]*)$/;
+
+export interface ForecastSelection {
+  variable: string;
+  // The PV device; undefined for a site-level series.
+  deviceId?: string;
+}
+
+export function forecastSelectionId(variable: string, deviceId?: string | number): string {
+  return `fc:${deviceId === undefined ? 'site' : deviceId}:${variable}`;
+}
+
+export function parseForecastSelectionId(selectionId: string): ForecastSelection | null {
+  const match = FORECAST_SELECTION.exec(selectionId);
+  if (!match) return null;
+  return { variable: match[2], deviceId: match[1] === 'site' ? undefined : match[1] };
+}
+
 export function decodeBit(rawValue: number, bit: number): 0 | 1 {
   // BigInt keeps bits above 31 correct, where JS bitwise operators would wrap.
   return Number((BigInt(Math.round(rawValue)) >> BigInt(bit)) & 1n) as 0 | 1;

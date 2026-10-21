@@ -1,13 +1,14 @@
 // Generate the API types in src/api/generated/ from the published OpenAPI contracts:
-// backend-ot (backend-ot.ts, imported as `@contracts/backend-ot`) and the powerflow simulator
-// (powerflow.ts, imported as `@contracts/powerflow`).
+// backend-ot (backend-ot.ts, imported as `@contracts/backend-ot`), the powerflow simulator
+// (powerflow.ts, `@contracts/powerflow`) and intelli-gateway (intelli-gateway.ts,
+// `@contracts/intelli-gateway`, the PV forecast).
 //
 //   node scripts/api-types.mjs           write the files (`make api-types`)
 //   node scripts/api-types.mjs --check   fail if a committed file is stale (`make test`)
 //
 // CONTRACTS is the ONE place this service points at contracts/. When this service is extracted
 // into its own repo and contracts/ becomes a published package, change it here (or set
-// BACKEND_OT_OPENAPI / POWERFLOW_OPENAPI) and nothing in src/ changes.
+// BACKEND_OT_OPENAPI / POWERFLOW_OPENAPI / INTELLI_GATEWAY_OPENAPI) and nothing in src/ changes.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -22,6 +23,11 @@ const CONTRACTS = [
   {
     name: "powerflow",
     contract: process.env.POWERFLOW_OPENAPI ?? "../../contracts/openapi/powerflow.openapi.json",
+  },
+  {
+    name: "intelli-gateway",
+    contract:
+      process.env.INTELLI_GATEWAY_OPENAPI ?? "../../contracts/openapi/intelli-gateway.openapi.json",
   },
 ];
 

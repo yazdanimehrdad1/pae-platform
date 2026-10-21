@@ -148,6 +148,10 @@ export const devicesApi = {
   resetScanRanges: (siteId: string, deviceId: number): Promise<DeviceScanRanges> =>
     request<DeviceScanRanges>(`/device-points/site/${siteId}/device/${deviceId}/scan-ranges`, { method: 'DELETE' }),
 
+  /** The PV arrays of the site's active PV/INVERTER devices (what the PV forecast covers). */
+  getSitePvArrays: (siteId: string): Promise<PvArrayConfig[]> =>
+    client.get(`/sites/${siteId}/pv-arrays`),
+
   /** The device's PV array config; null when it has none (404 NotFoundError). */
   getPvArray: async (siteId: string, deviceId: number): Promise<PvArrayConfig | null> => {
     try {

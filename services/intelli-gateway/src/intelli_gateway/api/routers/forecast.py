@@ -1,13 +1,9 @@
 """PV forecast endpoints. Thin: check access, call ForecastService, serialize. No provider,
 pvlib or business logic here."""
 
-import csv
-import io
-from datetime import date, datetime
-from typing import Literal
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import Response
 
 from intelli_gateway.api.dependencies import (
     get_forecast_service,
@@ -16,64 +12,17 @@ from intelli_gateway.api.dependencies import (
     require_site_access,
 )
 from intelli_gateway.schemas.api_models.forecast import (
-    DailySummaryResponse,
     ForecastHealthResponse,
     PvForecastResponse,
     RefreshResponse,
-    WeatherForecastResponse,
 )
 from intelli_gateway.schemas.api_models.responses import ErrorResponse
 from intelli_gateway.schemas.context import RequestContext
-from intelli_gateway.schemas.solar_forecast import PVForecast
 from intelli_gateway.solar_forecast.service import ForecastService
 
 router = APIRouter(prefix="/v1", tags=["forecast"])
 
 REFRESH_ROLE = "admin"
-SITE_ERRORS: dict[int | str, dict[str, object]] = {
-    403: {"model": ErrorResponse},
-    404: {"model": ErrorResponse, "description": "No forecast stored for the site"},
-    422: {"model": ErrorResponse},
-}
-CSV_COLUMNS = (
-    "interval_start",
-    "interval_end",
-    "pv_ac_kw",
-    "pv_energy_kwh",
-    "pv_dc_kw",
-    "ghi",
-    "dni",
-    "dhi",
-    "temp_air_c",
-    "wind_speed_ms",
-    "cloud_cover_pct",
-)
-
-Resolution = Query(None, ge=1, description="Minutes; a multiple of the stored resolution")
-OutputFormat = Literal["json", "csv"]
-
-
-def _csv(forecast: PVForecast) -> Response:
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(CSV_COLUMNS)
-    for interval in forecast.intervals:
-        values = interval.model_dump()
-        writer.writerow(
-            [
-                value.isoformat() if isinstance(value, datetime) else value
-                for value in (values[column] for column in CSV_COLUMNS)
-            ]
-        )
-    return Response(
-        content=buffer.getvalue(),
-        media_type="text/csv",
-        headers={"X-Forecast-Provider": forecast.source_name},
-    )
-
-
-def _respond(forecast: PVForecast, output: OutputFormat) -> PvForecastResponse | Response:
-    return _csv(forecast) if output == "csv" else PvForecastResponse.of(forecast)
 
 
 @router.get(
@@ -112,65 +61,24 @@ async def refresh_forecast(
 
 
 @router.get(
-    "/sites/{site_id}/forecast",
+    "/sites/{site_id}/forecast/series",
     response_model=PvForecastResponse,
-    summary="The latest PV forecast of a site over a window",
-    responses={**SITE_ERRORS, 200: {"content": {"text/csv": {}}}},
+    summary="The PV forecast over a window: AC power and weather (past: as forecast then)",
+    responses={
+        403: {"model": ErrorResponse},
+        404: {"model": ErrorResponse, "description": "No forecast stored for the window"},
+        422: {"model": ErrorResponse},
+    },
 )
-async def get_forecast(
+async def get_forecast_series(
     site_id: int,
-    start: datetime | None = Query(None, description="ISO 8601 with offset; omit = from the start"),
-    end: datetime | None = Query(None, description="ISO 8601 with offset; omit = to the end"),
-    resolution: int | None = Resolution,
-    output: OutputFormat = Query("json", alias="format"),
-    ctx: RequestContext = Depends(get_request_context),
-    service: ForecastService = Depends(get_forecast_service),
-) -> PvForecastResponse | Response:
-    require_site_access(ctx, site_id)
-    return _respond(await service.get_forecast(site_id, start, end, resolution), output)
-
-
-@router.get(
-    "/sites/{site_id}/forecast/latest",
-    response_model=PvForecastResponse,
-    summary="The latest PV forecast of a site, in full",
-    responses=SITE_ERRORS,
-)
-async def get_latest_forecast(
-    site_id: int,
+    start: datetime = Query(..., description="ISO 8601 with offset"),
+    end: datetime = Query(..., description="ISO 8601 with offset; may be in the future"),
     ctx: RequestContext = Depends(get_request_context),
     service: ForecastService = Depends(get_forecast_service),
 ) -> PvForecastResponse:
+    """Each 15-minute interval comes from the newest forecast issued at or before its start, so
+    past intervals show what was predicted just before them (compare with actual output) and
+    future ones the latest forecast. For charting next to measurements."""
     require_site_access(ctx, site_id)
-    return PvForecastResponse.of(await service.get_latest(site_id))
-
-
-@router.get(
-    "/sites/{site_id}/forecast/summary",
-    response_model=DailySummaryResponse,
-    summary="Forecast energy, peak and first/last production for one local day",
-    responses=SITE_ERRORS,
-)
-async def get_forecast_summary(
-    site_id: int,
-    day: date = Query(..., alias="date", description="The site's local date, YYYY-MM-DD"),
-    ctx: RequestContext = Depends(get_request_context),
-    service: ForecastService = Depends(get_forecast_service),
-) -> DailySummaryResponse:
-    require_site_access(ctx, site_id)
-    return DailySummaryResponse.of(await service.get_daily_summary(site_id, day))
-
-
-@router.get(
-    "/sites/{site_id}/forecast/raw",
-    response_model=WeatherForecastResponse,
-    summary="The weather behind the latest PV forecast (404 for PV-power-only sources)",
-    responses=SITE_ERRORS,
-)
-async def get_raw_weather(
-    site_id: int,
-    ctx: RequestContext = Depends(get_request_context),
-    service: ForecastService = Depends(get_forecast_service),
-) -> WeatherForecastResponse:
-    require_site_access(ctx, site_id)
-    return WeatherForecastResponse.of(await service.get_raw_weather(site_id))
+    return PvForecastResponse.of(await service.get_as_forecast(site_id, start, end))

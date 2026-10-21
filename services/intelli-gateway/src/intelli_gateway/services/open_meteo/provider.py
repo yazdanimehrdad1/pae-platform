@@ -10,6 +10,8 @@ URL, parameters, field names, units and conventions.
 - Azimuth: Open-Meteo uses 0 = south, -90 = east, 90 = west; ours is clockwise from north
   (180 = south), so open_meteo = ours - 180.
 - Wind arrives in km/h and is converted to m/s.
+- Cloud cover has no 15-minute series: the same request also asks for it hourly, and each
+  15-minute interval takes the value of the hour it starts in.
 - One request per distinct (tilt, azimuth) plane, for global_tilted_irradiance (POA).
 - Retries (tenacity, exponential backoff) on transport errors, 429 and 5xx. Every failure is
   raised as ProviderError.
@@ -153,12 +155,24 @@ class OpenMeteoProvider:
                 for plane in other_planes
             ),
         )
-        base_series = responses[0]
+        series_by_plane = [_series(response, series_key) for response in responses]
         gti_by_plane = {
-            plane: _gti_by_end(series) for plane, series in zip(planes, responses, strict=True)
+            plane: _gti_by_end(series)
+            for plane, series in zip(planes, series_by_plane, strict=True)
         }
+        # Hourly cloud cover, sent along with a 15-minute base request (None for hourly data,
+        # whose own series carries it).
+        cloud_by_hour = _cloud_by_hour(responses[0]) if series_key == "minutely_15" else None
         horizon_end = issued_at + timedelta(hours=horizon_hours)
-        intervals = _intervals(base_series, step, site.arrays, gti_by_plane, issued_at, horizon_end)
+        intervals = _intervals(
+            series_by_plane[0],
+            step,
+            site.arrays,
+            gti_by_plane,
+            issued_at,
+            horizon_end,
+            cloud_by_hour,
+        )
         if not intervals:
             raise ProviderError("open_meteo returned no usable intervals for the horizon")
         return WeatherForecast(
@@ -191,7 +205,7 @@ class OpenMeteoProvider:
 
     async def _request(
         self, site: SiteConfig, series_key: str, horizon_hours: int, plane: Plane, base: bool
-    ) -> OpenMeteoSeries:
+    ) -> OpenMeteoForecastResponse:
         tilt_deg, azimuth_deg = plane
         variables = (
             (*BASE_VARIABLES, "global_tilted_irradiance") if base else ("global_tilted_irradiance",)
@@ -208,17 +222,15 @@ class OpenMeteoProvider:
             "azimuth": to_open_meteo_azimuth(azimuth_deg),
             series_key: ",".join(variables),
         }
+        if base and series_key == "minutely_15":
+            params["hourly"] = "cloud_cover"
         if site.location.elevation_m is not None:
             params["elevation"] = site.location.elevation_m
         body = await self._get(params)
         try:
-            response = OpenMeteoForecastResponse.model_validate_json(body)
+            return OpenMeteoForecastResponse.model_validate_json(body)
         except ValidationError as error:
             raise ProviderError("open_meteo returned an unexpected payload") from error
-        series = response.minutely_15 if series_key == "minutely_15" else response.hourly
-        if series is None:
-            raise ProviderError(f"open_meteo response has no {series_key} block")
-        return series
 
     async def _get(self, params: dict[str, str | int | float]) -> bytes:
         if self._api_key is not None:
@@ -266,6 +278,25 @@ def _parse_time(stamp: str) -> datetime:
     return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
 
 
+def _series(response: OpenMeteoForecastResponse, series_key: str) -> OpenMeteoSeries:
+    series = response.minutely_15 if series_key == "minutely_15" else response.hourly
+    if series is None:
+        raise ProviderError(f"open_meteo response has no {series_key} block")
+    return series
+
+
+def _cloud_by_hour(response: OpenMeteoForecastResponse) -> dict[datetime, float]:
+    """Hourly cloud cover by its hour (Open-Meteo stamps it at the hour)."""
+    hourly = response.hourly
+    if hourly is None or hourly.cloud_cover is None:
+        return {}
+    return {
+        _parse_time(stamp): value
+        for stamp, value in zip(hourly.time, hourly.cloud_cover, strict=False)
+        if value is not None
+    }
+
+
 def _gti_by_end(series: OpenMeteoSeries) -> dict[datetime, float]:
     values = series.global_tilted_irradiance or []
     return {
@@ -288,6 +319,7 @@ def _intervals(
     gti_by_plane: dict[Plane, dict[datetime, float]],
     issued_at: datetime,
     horizon_end: datetime,
+    cloud_by_hour: dict[datetime, float] | None,
 ) -> list[WeatherInterval]:
     intervals: list[WeatherInterval] = []
     for index, stamp in enumerate(series.time):
@@ -316,7 +348,11 @@ def _intervals(
                 dhi=max(dhi, 0.0),
                 temp_air_c=temp,
                 wind_speed_ms=max(wind_kmh, 0.0) / KMH_PER_MS,
-                cloud_cover_pct=_at(series.cloud_cover, index),
+                cloud_cover_pct=(
+                    _at(series.cloud_cover, index)
+                    if cloud_by_hour is None
+                    else cloud_by_hour.get(start.replace(minute=0, second=0, microsecond=0))
+                ),
                 poa_by_array=poa_by_array,
             )
         )

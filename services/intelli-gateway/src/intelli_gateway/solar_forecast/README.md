@@ -1,8 +1,11 @@
 # PV forecast
 
 Per-site PV power forecasts: 15-minute intervals, 72 hours ahead by default, refreshed every
-15 minutes and stored in this service's Postgres (each refresh a new run, kept until
-retention; reads use the newest). The weather/irradiance source is
+15 minutes and stored in this service's Postgres. Only AC power (site and per PV device) and the
+weather (GHI, air temperature, wind, cloud cover) are stored and served. Each refresh supersedes
+(deletes) the older forecasts for the intervals it covers, so each interval keeps one forecast, the
+one current when it began: about one row per interval and device, kept 7 days. The
+weather/irradiance source is
 replaceable. If Open-Meteo goes away, you add one source and change config. The endpoints, the
 PV model, storage and the facade stay as they are.
 
@@ -48,18 +51,18 @@ resolution_minutes) -> PVForecast`. There are two kinds:
 ## Normalized data (`schemas/solar_forecast.py`)
 
 - **Times:** timezone-aware, stored in UTC. An interval is `[interval_start, interval_end)`.
-- **Values:** the mean over the interval; energy (kWh) is the sum.
-- **Units:** irradiance W/m², temperatures °C, wind m/s, power kW, energy kWh, cloud %.
+- **Values:** the mean over the interval.
+- **Units:** irradiance W/m², temperature °C, wind m/s, power kW, cloud %.
 - **Azimuth:** degrees clockwise from north (180 = south, 90 = east). **Tilt:** degrees from
   horizontal. Each provider converts to its own convention.
 - `SiteConfig`: site id, name, IANA timezone, `ForecastLocation` (lat, lon, elevation) and
   `PvArrayConfig`s. One array per PV/INVERTER device in backend-ot, with tilt, azimuth, DC kW,
   AC kW, system loss % and temperature coefficient %/°C.
-- `WeatherForecast` / `WeatherInterval`: GHI, DNI, DHI, air temperature, wind, optional cloud
-  cover, optional POA per array.
-- `PVForecast` / `PVInterval`: site totals (`pv_ac_kw`, `pv_energy_kwh`, optional `pv_dc_kw`),
-  the weather fields (None for `pv_power` sources) and the per-array breakdown (empty when the
-  source predicts the site total only).
+- `WeatherForecast` / `WeatherInterval` (the PV model's input, never stored): GHI, DNI, DHI, air
+  temperature, wind, optional cloud cover, optional POA per array.
+- `PVForecast` / `PVInterval` (stored and served): site `pv_ac_kw`, the weather fields `ghi`,
+  `temp_air_c`, `wind_speed_ms`, `cloud_cover_pct` (None for `pv_power` sources) and `arrays`, the
+  AC kW per PV device (empty when the source predicts the site total only).
 
 ## PV model (`pv_model.py`, PVWatts-style)
 
@@ -68,8 +71,9 @@ For each array and interval:
 - POA from the provider, or pvlib Hay-Davies transposition when it's missing;
 - SAPM cell temperature (open rack, glass/polymer);
 - `DC = dc_kW · POA/1000 · (1 + γ·(T_cell − 25))`;
-- `AC = DC · (1 − losses)`, clipped at `ac_kW`; zero at night, never negative;
-- `kWh = kW · minutes/60`.
+- `AC = DC · (1 − losses)`, clipped at `ac_kW`; zero at night, never negative.
+
+Only the AC power leaves the model; POA, cell temperature and DC are intermediate.
 
 The model sits behind `interfaces/pv_model.py`, so it can be swapped too.
 
@@ -83,7 +87,7 @@ The model sits behind `interfaces/pv_model.py`, so it can be swapped too.
 | `FORECAST_HORIZON_HOURS` | `72` | Hours ahead |
 | `FORECAST_RESOLUTION_MINUTES` | `15` | `15` or `60` |
 | `FORECAST_FETCH_INTERVAL_MINUTES` | `15` | Refresh period; `0` = no job (only `POST /api/v1/forecast/refresh`) |
-| `FORECAST_RETENTION_DAYS` | `90` | Runs issued earlier are deleted |
+| `FORECAST_RETENTION_DAYS` | `7` | Runs issued earlier are deleted |
 | `OPEN_METEO_BASE_URL` | `https://api.open-meteo.com` | Hosted, commercial (`https://customer-api.open-meteo.com`) or self-hosted |
 | `OPEN_METEO_API_KEY` | unset | Sent as `apikey` when set |
 | `OPEN_METEO_TIMEOUT_S` / `_RETRIES` / `_MAX_CALLS_PER_MINUTE` | `15` / `3` / `500` | Per request, attempts, rate limit (the free tier allows 600/min and 10,000/day) |

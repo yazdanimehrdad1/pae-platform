@@ -27,9 +27,9 @@ def build_forecast_tools(
     @tool(
         name="get_pv_forecast",
         description="""
-Get this site's PV production forecast, hour by hour from now: AC power (kW) and energy (kWh),
-with the weather behind it when the source provides it (global horizontal irradiance W/m2, air
-temperature degC, wind m/s, cloud cover %). Use it to anticipate PV output, explain expected
+Get this site's PV production forecast, hour by hour from now: AC power (kW), with the weather
+behind it when the source provides it (global horizontal irradiance W/m2, air temperature degC,
+wind m/s, cloud cover %). Use it to anticipate PV output, explain expected
 derating or clipping, or compare a live reading with what was forecast.
 """,
         input_model=PvForecastInput,
@@ -40,7 +40,7 @@ derating or clipping, or compare a live reading with what was forecast.
         # Whole hours, starting with the one running now.
         start = clock().replace(minute=0, second=0, microsecond=0)
         try:
-            result = await forecast.get_forecast(
+            result = await forecast.get_as_forecast(
                 ctx.site_id, start, start + timedelta(hours=args.hours), resolution_minutes=60
             )
         except NotFoundError as error:
@@ -53,7 +53,6 @@ derating or clipping, or compare a live reading with what was forecast.
             {
                 "start": interval.interval_start.isoformat(),
                 "pv_ac_kw": _round(interval.pv_ac_kw),
-                "pv_energy_kwh": _round(interval.pv_energy_kwh),
                 "ghi": _round(interval.ghi),
                 "temp_air_c": _round(interval.temp_air_c),
                 "wind_speed_ms": _round(interval.wind_speed_ms),

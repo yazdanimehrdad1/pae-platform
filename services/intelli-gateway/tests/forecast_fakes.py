@@ -84,12 +84,20 @@ def open_meteo_payload(request: httpx.Request) -> dict[str, object]:
         columns[name][-4:] = [None] * 4
     block: dict[str, object] = {"time": [time.strftime("%Y-%m-%dT%H:%M") for time in times]}
     block.update({name: columns[name] for name in variables})
-    return {
+    payload: dict[str, object] = {
         "latitude": float(params["latitude"]),
         "longitude": float(params["longitude"]),
         "utc_offset_seconds": 0,
         series_key: block,
     }
+    if series_key == "minutely_15" and "hourly" in params:
+        # Cloud cover comes hourly only, stamped at the hour: 2 % per hour of the day here.
+        hours = [start + timedelta(hours=index) for index in range(days * 24)]
+        payload["hourly"] = {
+            "time": [hour.strftime("%Y-%m-%dT%H:%M") for hour in hours],
+            "cloud_cover": [float(2 * hour.hour) for hour in hours],
+        }
+    return payload
 
 
 def open_meteo_provider(

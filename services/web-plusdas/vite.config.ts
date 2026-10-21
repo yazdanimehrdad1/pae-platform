@@ -25,6 +25,12 @@ export default defineConfig(({ mode: _mode }) => ({
         changeOrigin: true,
         rewrite: (requestPath) => requestPath.replace(/^\/powerflow-api/, '/api'),
       },
+      // intelli-gateway (the PV forecast): /intelli-gateway-api/x -> its /api/x.
+      '/intelli-gateway-api': {
+        target: process.env.WEB_PLUSDAS_DEV_INTELLI_GATEWAY_TARGET ?? 'http://localhost:8030',
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/intelli-gateway-api/, '/api'),
+      },
     },
   },
   plugins: [
@@ -37,6 +43,7 @@ export default defineConfig(({ mode: _mode }) => ({
       // path for API types; on extraction it can point at a published contracts package.
       "@contracts/backend-ot": path.resolve(__dirname, "./src/api/generated/backend-ot.ts"),
       "@contracts/powerflow": path.resolve(__dirname, "./src/api/generated/powerflow.ts"),
+      "@contracts/intelli-gateway": path.resolve(__dirname, "./src/api/generated/intelli-gateway.ts"),
     },
   },
   // Unit tests (`make test`): tests/ mirrors src/ (tests/api/sld.test.ts tests src/api/sld.ts) and

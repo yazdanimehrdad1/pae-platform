@@ -7,7 +7,6 @@ For each array and interval:
 3. Cell temperature: pvlib SAPM, open rack, glass/polymer modules.
 4. DC = dc_capacity_kw * POA / 1000 * (1 + gamma * (T_cell - 25)).
 5. AC = DC * (1 - system losses), clipped at ac_capacity_kw; zero at night, never negative.
-6. Energy kWh = AC kW * resolution / 60.
 
 Knows nothing about any provider: it only reads WeatherForecast.
 """
@@ -36,7 +35,6 @@ class PvlibPvModel:
         intervals = weather.intervals
         if not intervals:
             return []
-        hours = weather.resolution_minutes / 60.0
         midpoints = pd.DatetimeIndex(
             [
                 interval.interval_start + (interval.interval_end - interval.interval_start) / 2
@@ -79,14 +77,7 @@ class PvlibPvModel:
             ac_kw = np.clip(after_losses, 0.0, array.ac_capacity_kw)
             per_array.append(
                 [
-                    PVArrayInterval(
-                        array_id=array.array_id,
-                        poa=float(poa[index]),
-                        cell_temp_c=float(np.asarray(cell_temp)[index]),
-                        pv_dc_kw=float(dc_kw[index]),
-                        pv_ac_kw=float(ac_kw[index]),
-                        pv_energy_kwh=float(ac_kw[index]) * hours,
-                    )
+                    PVArrayInterval(array_id=array.array_id, pv_ac_kw=float(ac_kw[index]))
                     for index in range(len(intervals))
                 ]
             )
@@ -98,15 +89,11 @@ class PvlibPvModel:
                 PVInterval(
                     interval_start=interval.interval_start,
                     interval_end=interval.interval_end,
+                    pv_ac_kw=sum(item.pv_ac_kw for item in arrays),
                     ghi=interval.ghi,
-                    dni=interval.dni,
-                    dhi=interval.dhi,
                     temp_air_c=interval.temp_air_c,
                     wind_speed_ms=interval.wind_speed_ms,
                     cloud_cover_pct=interval.cloud_cover_pct,
-                    pv_dc_kw=sum(item.pv_dc_kw or 0.0 for item in arrays),
-                    pv_ac_kw=sum(item.pv_ac_kw for item in arrays),
-                    pv_energy_kwh=sum(item.pv_energy_kwh for item in arrays),
                     arrays=arrays,
                 )
             )

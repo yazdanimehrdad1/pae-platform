@@ -4,8 +4,9 @@ Invariant guarded: a WeatherProvider returns a WeatherForecast for the asked sit
 explicit, contiguous intervals of the asked resolution inside the horizon, SI values, POA only
 for the site's arrays, and raises ProviderError for every failure (HTTP error, bad payload,
 timeout, unsupported request). A PvForecastSource returns a PVForecast of its own name and kind,
-with non-negative, clipped power, energy = power x duration, and weather exactly when it says it
-provides weather. A new source is added to CASES here and must pass unchanged.
+with non-negative AC power clipped at the site's AC capacity (the sum of its arrays), and weather
+exactly when it says it provides weather. A new source is added to CASES here and must pass
+unchanged.
 """
 
 from collections.abc import Awaitable, Callable
@@ -179,10 +180,8 @@ def check_pv_forecast(forecast: PVForecast, source: PvForecastSource, site: Site
     assert forecast.fallback_used is False  # only the facade sets it
     check_intervals(forecast, RESOLUTION, HORIZON_HOURS)
     array_ids = {array.array_id for array in site.arrays}
-    hours = RESOLUTION / 60
     for interval in forecast.intervals:
         assert 0 <= interval.pv_ac_kw <= site.ac_capacity_kw + 1e-6
-        assert interval.pv_energy_kwh == pytest.approx(interval.pv_ac_kw * hours)
         assert {array.array_id for array in interval.arrays} <= array_ids
         if interval.arrays:
             assert interval.pv_ac_kw == pytest.approx(sum(a.pv_ac_kw for a in interval.arrays))

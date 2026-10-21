@@ -10,14 +10,12 @@ import math
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from datetime import UTC, datetime, timedelta
 
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.interfaces.site_config_source import SiteConfigSource
 from intelli_gateway.schemas.solar_forecast import (
-    DailySummary,
     FetchLogEntry,
     ForecastHealth,
     PVArrayInterval,
@@ -28,9 +26,6 @@ from intelli_gateway.schemas.solar_forecast import (
     SiteForecastHealth,
     SiteRefreshResult,
     SourceCapabilities,
-    SourceKind,
-    WeatherForecast,
-    WeatherInterval,
 )
 from intelli_gateway.utils.exceptions import (
     ConfigurationError,
@@ -43,6 +38,8 @@ from intelli_gateway.utils.exceptions import (
 logger = logging.getLogger(__name__)
 
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+# The as-forecast read spans at most this (a 7-day history plus the 72-hour horizon fits).
+MAX_AS_FORECAST_WINDOW = timedelta(days=11)
 
 
 @dataclass(frozen=True)
@@ -188,91 +185,26 @@ class ForecastService:
 
     # --- reads -----------------------------------------------------------------------------
 
-    async def get_latest(self, site_id: int) -> PVForecast:
-        return await self._stored(site_id)
-
-    async def get_forecast(
+    async def get_as_forecast(
         self,
         site_id: int,
-        start: datetime | None = None,
-        end: datetime | None = None,
+        start: datetime,
+        end: datetime,
         resolution_minutes: int | None = None,
     ) -> PVForecast:
-        """The latest forecast's intervals overlapping [start, end) (open ends: the whole
-        forecast), resampled to resolution_minutes: kW and W/m2 are averaged, kWh summed."""
+        """One continuous series over [start, end): each interval as forecast just before it
+        began (the newest run issued at or before its start), so the past can be compared with
+        actual output and the future is the latest forecast. resolution_minutes (a multiple of
+        the stored one) averages it into coarser intervals."""
         _check_window(start, end)
-        return _window(await self._stored(site_id), start, end, resolution_minutes)
-
-    async def get_daily_summary(self, site_id: int, day: date) -> DailySummary:
-        """Energy, peak and first/last production for one local day of the site."""
-        forecast = await self._stored(site_id)
-        site = await self._sites.get_site(site_id)
-        timezone = site.timezone if site is not None else "UTC"
-        try:
-            zone = ZoneInfo(timezone)
-        except ZoneInfoNotFoundError:
-            zone, timezone = ZoneInfo("UTC"), "UTC"
-        day_start = datetime.combine(day, time(), tzinfo=zone).astimezone(UTC)
-        day_end = datetime.combine(day + timedelta(days=1), time(), tzinfo=zone).astimezone(UTC)
-        inside = [
-            interval
-            for interval in forecast.intervals
-            if interval.interval_start >= day_start and interval.interval_end <= day_end
-        ]
-        producing = [interval for interval in inside if interval.pv_ac_kw > 0]
-        peak = max(inside, key=lambda interval: interval.pv_ac_kw, default=None)
-        covered = sum(
-            ((interval.interval_end - interval.interval_start) for interval in inside),
-            timedelta(),
-        )
-        return DailySummary(
-            site_id=site_id,
-            date=day,
-            timezone=timezone,
-            source_name=forecast.source_name,
-            issued_at=forecast.issued_at,
-            energy_kwh=sum(interval.pv_energy_kwh for interval in inside),
-            peak_kw=peak.pv_ac_kw if peak is not None else 0.0,
-            peak_at=peak.interval_start if peak is not None and peak.pv_ac_kw > 0 else None,
-            first_production_at=producing[0].interval_start if producing else None,
-            last_production_at=producing[-1].interval_end if producing else None,
-            complete=covered >= day_end - day_start,
-        )
-
-    async def get_raw_weather(self, site_id: int) -> WeatherForecast:
-        """The weather behind the latest forecast. 404 when its source predicts PV power only."""
-        forecast = await self._stored(site_id)
-        if forecast.source_kind is SourceKind.PV_POWER or any(
-            _missing_weather(interval) for interval in forecast.intervals
-        ):
-            raise NotFoundError(
-                f"the latest forecast of site {site_id} comes from {forecast.source_name}, "
-                "which provides no weather data"
+        if end - start > MAX_AS_FORECAST_WINDOW:
+            raise InvalidRequestError(
+                f"the window may span at most {MAX_AS_FORECAST_WINDOW.days} days"
             )
-        return WeatherForecast(
-            site_id=forecast.site_id,
-            provider_name=forecast.source_name,
-            issued_at=forecast.issued_at,
-            resolution_minutes=forecast.resolution_minutes,
-            intervals=tuple(
-                WeatherInterval(
-                    interval_start=interval.interval_start,
-                    interval_end=interval.interval_end,
-                    ghi=interval.ghi or 0.0,
-                    dni=interval.dni or 0.0,
-                    dhi=interval.dhi or 0.0,
-                    temp_air_c=interval.temp_air_c or 0.0,
-                    wind_speed_ms=interval.wind_speed_ms or 0.0,
-                    cloud_cover_pct=interval.cloud_cover_pct,
-                    poa_by_array={
-                        array.array_id: array.poa
-                        for array in interval.arrays
-                        if array.poa is not None
-                    },
-                )
-                for interval in forecast.intervals
-            ),
-        )
+        forecast = await self._repository.as_forecast(site_id, start, end)
+        if forecast is None:
+            raise NotFoundError(f"no forecast stored for site {site_id} in that window")
+        return resample(forecast, resolution_minutes or forecast.resolution_minutes)
 
     async def list_sites(self) -> list[SiteConfig]:
         sites = await self._sites.list_sites()
@@ -315,50 +247,15 @@ class ForecastService:
             await source.aclose()
         await self._repository.aclose()
 
-    async def _stored(self, site_id: int) -> PVForecast:
-        forecast = await self._repository.latest(site_id)
-        if forecast is None:
-            raise NotFoundError(f"no forecast stored for site {site_id} yet")
-        return forecast
-
 
 # --- pure helpers -------------------------------------------------------------------------
 
 
-def _missing_weather(interval: PVInterval) -> bool:
-    return any(
-        value is None
-        for value in (
-            interval.ghi,
-            interval.dni,
-            interval.dhi,
-            interval.temp_air_c,
-            interval.wind_speed_ms,
-        )
-    )
-
-
-def _check_window(start: datetime | None, end: datetime | None) -> None:
-    if (start is not None and start.tzinfo is None) or (end is not None and end.tzinfo is None):
+def _check_window(start: datetime, end: datetime) -> None:
+    if start.tzinfo is None or end.tzinfo is None:
         raise InvalidRequestError("start and end must carry a timezone offset")
-    if start is not None and end is not None and end <= start:
+    if end <= start:
         raise InvalidRequestError("end must be after start")
-
-
-def _window(
-    forecast: PVForecast,
-    start: datetime | None,
-    end: datetime | None,
-    resolution_minutes: int | None,
-) -> PVForecast:
-    inside = tuple(
-        interval
-        for interval in forecast.intervals
-        if (start is None or interval.interval_end > start)
-        and (end is None or interval.interval_start < end)
-    )
-    windowed = forecast.model_copy(update={"intervals": inside})
-    return resample(windowed, resolution_minutes or forecast.resolution_minutes)
 
 
 def _mean(values: Sequence[float | None]) -> float | None:
@@ -367,9 +264,8 @@ def _mean(values: Sequence[float | None]) -> float | None:
 
 
 def resample(forecast: PVForecast, resolution_minutes: int) -> PVForecast:
-    """Coarser intervals, aligned to the UTC clock: means for kW, W/m2, degC and m/s; sums for
-    kWh. The target must be a whole multiple of the stored resolution. A bucket at the edge of
-    the forecast covers only the intervals it has (its kWh is not scaled up)."""
+    """Coarser intervals, aligned to the UTC clock: every value is the mean of the intervals
+    in the bucket. The target must be a whole multiple of the stored resolution."""
     stored = forecast.resolution_minutes
     if resolution_minutes == stored:
         return forecast
@@ -393,23 +289,15 @@ def resample(forecast: PVForecast, resolution_minutes: int) -> PVForecast:
             PVInterval(
                 interval_start=bucket_start,
                 interval_end=bucket_start + step,
+                pv_ac_kw=_mean([member.pv_ac_kw for member in members]) or 0.0,
                 ghi=_mean([member.ghi for member in members]),
-                dni=_mean([member.dni for member in members]),
-                dhi=_mean([member.dhi for member in members]),
                 temp_air_c=_mean([member.temp_air_c for member in members]),
                 wind_speed_ms=_mean([member.wind_speed_ms for member in members]),
                 cloud_cover_pct=_mean([member.cloud_cover_pct for member in members]),
-                pv_dc_kw=_mean([member.pv_dc_kw for member in members]),
-                pv_ac_kw=_mean([member.pv_ac_kw for member in members]) or 0.0,
-                pv_energy_kwh=sum(member.pv_energy_kwh for member in members),
                 arrays=tuple(
                     PVArrayInterval(
                         array_id=array_id,
-                        poa=_mean([item.poa for item in items]),
-                        cell_temp_c=_mean([item.cell_temp_c for item in items]),
-                        pv_dc_kw=_mean([item.pv_dc_kw for item in items]),
                         pv_ac_kw=_mean([item.pv_ac_kw for item in items]) or 0.0,
-                        pv_energy_kwh=sum(item.pv_energy_kwh for item in items),
                     )
                     for array_id, items in sorted(arrays_by_id.items())
                 ),

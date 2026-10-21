@@ -124,6 +124,22 @@ class TestNormalization:
         long = await open_meteo_provider().fetch_forecast(SITE, 384, 15)
         assert all(interval.ghi is not None for interval in long.intervals)
 
+    async def test_15_minute_intervals_take_cloud_cover_from_their_hour(self) -> None:
+        seen: list[httpx.Request] = []
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json=open_meteo_payload(request))
+
+        weather = await open_meteo_provider(handle).fetch_forecast(TWO_PLANE_SITE, 6, 15)
+        base = [r for r in seen if "shortwave_radiation" in r.url.params["minutely_15"]]
+        assert [r.url.params.get("hourly") for r in base] == ["cloud_cover"]
+        assert len(seen) == 2  # still one request per plane: cloud cover rides on the base one
+        by_start = {interval.interval_start: interval for interval in weather.intervals}
+        for minute in (15, 30, 45):
+            assert by_start[FORECAST_NOW.replace(minute=minute)].cloud_cover_pct == 20.0  # 10:xx
+        assert by_start[FORECAST_NOW.replace(hour=11, minute=0)].cloud_cover_pct == 22.0
+
     async def test_hourly_series_carries_cloud_cover(self) -> None:
         weather = await open_meteo_provider().fetch_forecast(SITE, 24, 60)
         assert weather.intervals[0].interval_end - weather.intervals[0].interval_start == (
