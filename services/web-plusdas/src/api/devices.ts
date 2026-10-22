@@ -17,6 +17,7 @@ import type {
   DevicePoint,
   DevicePointCreateRequest,
   DevicePointUpdateRequest,
+  StandardizedPointLinkRequest,
   VirtualPointCreateRequest,
   VirtualPointUpdateRequest,
 } from './types/devicePoints';
@@ -201,4 +202,12 @@ export const devicesApi = {
 
   updateVirtualPoint: (siteId: string, deviceId: number, pointId: number, payload: VirtualPointUpdateRequest): Promise<DevicePoint> =>
     client.put(`/device-points/site/${siteId}/device/${deviceId}/virtual/${pointId}`, payload),
+
+  /** Make a STANDARDIZED point show a NATIVE point's readings (x scale_factor, in unit); replaces any link. */
+  linkPoint: (siteId: string, deviceId: number, pointId: number, payload: StandardizedPointLinkRequest): Promise<DevicePoint> =>
+    client.put(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/link`, payload),
+
+  /** Unlink a STANDARDIZED point: it is an empty placeholder again. */
+  unlinkPoint: (siteId: string, deviceId: number, pointId: number): Promise<DevicePoint> =>
+    request<DevicePoint>(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/link`, { method: 'DELETE' }),
 };

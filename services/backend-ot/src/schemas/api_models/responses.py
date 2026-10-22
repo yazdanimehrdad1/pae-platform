@@ -155,6 +155,13 @@ class DevicePointResponse(BaseModel):
     virtual_definition: VirtualPointDefinition | None = Field(
         None, description="VIRTUAL points only: how the value is computed from other points"
     )
+    source_point_id: int | None = Field(
+        None,
+        description=(
+            "STANDARDIZED points only: the NATIVE point on the same device whose readings this point "
+            "shows (times scale_factor, in unit). Set with PUT .../{point_id}/link; null means unlinked"
+        ),
+    )
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {

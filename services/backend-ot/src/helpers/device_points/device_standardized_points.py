@@ -81,6 +81,14 @@ _STANDARDIZED_POINTS: dict[str, DeviceStandardizedPoints] = {
             StandardizedPointTemplate(name="IED_STATUS", address=2, point_class="BINARY"),
         ],
     ),
+    "METER": DeviceStandardizedPoints(
+        device_type="METER",
+        points=[
+            StandardizedPointTemplate(name="METER_ACTIVE_POWER", address=0),
+            StandardizedPointTemplate(name="METER_REACTIVE_POWER", address=1),
+            StandardizedPointTemplate(name="METER_STATUS", address=2, point_class="BINARY"),
+        ],
+    ),
 }
 
 

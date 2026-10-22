@@ -16,6 +16,8 @@ Mapping (one backend-ot device per point-standard device of the site):
                                VA -> kVA, Wh -> kWh, V -> kV: scale / 1000), enum/bit labels, holding
                                table, big-endian msw-first. Unserved ("no") rows always read 0: skipped.
     topology                -> the site (no profile) and its single line diagram
+    standardized points     -> linked to the device's served register: active power to W (the
+                               load's IED_ACTIVE_POWER too), a BESS's state of charge to SoC
 
 The site is the shipped default; edits made to it in powerflow's database aren't seen.
 """
@@ -36,7 +38,11 @@ from schemas.api_models import (
     SldDeviceLink,
     SldNode,
 )
-from schemas.api_models.requests import DeviceCreateRequest, DevicePointCreateRequest
+from schemas.api_models.requests import (
+    DeviceCreateRequest,
+    DevicePointCreateRequest,
+    StandardizedPointLinkRequest,
+)
 from schemas.api_models.single_line_diagram import SldRole
 from schemas.api_models.types import DeviceType, PointClass, register_size
 from schemas.tests_models import (
@@ -48,6 +54,7 @@ from schemas.tests_models import (
     PowerflowSitesContract,
     SeedData,
     SeedDevice,
+    SeedPointLink,
 )
 from schemas.tests_models.powerflow_contract import (
     PowerflowBess,
@@ -113,6 +120,16 @@ METER_ROLES: dict[SldRole, str] = {
 BESS_ROLES: dict[SldRole, str] = {"soc": "SoC", "power": "W", "mode": "InvSt"}
 PV_ROLES: dict[SldRole, str] = {"power": "W"}
 ASSET_ROLES: dict[AssetKind, dict[SldRole, str]] = {"bess": BESS_ROLES, "pv": PV_ROLES}
+
+# Each device kind's STANDARDIZED point -> (its served register, the standardized unit). The
+# registers are stored in kW / % already (see engineering_unit), so they scale by 1.
+POINT_LINKS: dict[PowerflowDeviceKind, dict[str, tuple[str, str]]] = {
+    "load": {"IED_ACTIVE_POWER": ("W", "kW")},
+    "bess": {"BESS_ACTIVE_POWER": ("W", "kW"), "BESS_STATE_OF_CHARGE": ("SoC", "%")},
+    "pv": {"PV_ACTIVE_POWER": ("W", "kW")},
+    "poi_meter": {"METER_ACTIVE_POWER": ("W", "kW")},
+    "feeder_meter": {"METER_ACTIVE_POWER": ("W", "kW")},
+}
 
 
 def default_contract_path(parts: tuple[str, str]) -> Path:
@@ -183,6 +200,21 @@ def build_point(register: PowerflowRegister, base: int) -> DevicePointCreateRequ
         point_class=point_kind,
         severity="LOW" if point_kind == "ALARM" else None,
     )
+
+
+def build_point_links(site_key: str, site: PowerflowSite, point_id: PointIdResolver) -> list[SeedPointLink]:
+    """The site's standardized point links, one per POINT_LINKS entry of each device."""
+    return [
+        SeedPointLink(
+            device_name=device_name(site_key, device),
+            point_name=point,
+            link=StandardizedPointLinkRequest(
+                source_point_id=point_id(device_name(site_key, device), source), unit=unit, scale_factor=1.0
+            ),
+        )
+        for device in site.devices
+        for point, (source, unit) in POINT_LINKS.get(device.kind, {}).items()
+    ]
 
 
 def _capacity(site: PowerflowSite) -> str:
@@ -392,6 +424,7 @@ def build_seed(site_key: str, registers: PowerflowRegistersContract,
         sites=[site_request],
         devices=devices,
         device_points=points,
+        point_links=lambda point_id: build_point_links(site_key, site, point_id),
         site_slds=lambda point_id, device_id: {
             site_request.name: build_sld(site_key, site, point_id, device_id)
         },

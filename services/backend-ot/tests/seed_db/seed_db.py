@@ -32,6 +32,7 @@ from helpers.device_points.device_standardized_points import (  # noqa: E402
 from helpers.device_points.scan_range_computation import (  # noqa: E402
     compute_device_scan_ranges,
 )
+from helpers.device_points.standardized_point_links import apply_point_link  # noqa: E402
 from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
@@ -194,6 +195,19 @@ async def seed(data: SeedData | None = None) -> None:
                 continue
             session.add(new_virtual_point(device.site_id, device.device_id, seed_point.point))
             logger.info("Created virtual point '%s.%s'", device.name, seed_point.point.name)
+        await session.flush()
+
+        # STANDARDIZED point links, with the link endpoint's own check: only where the point has
+        # none, so a link changed through the API survives a re-seed.
+        for seed_link in data.point_links(lambda device_name, point_name: point_ids[(device_name, point_name)]):
+            point = await session.get(DevicePoint, point_ids[(seed_link.device_name, seed_link.point_name)])
+            source = await session.get(DevicePoint, seed_link.link.source_point_id)
+            assert point is not None and source is not None
+            if point.source_point_id is not None:
+                logger.info("Point already linked '%s.%s'", seed_link.device_name, point.name)
+                continue
+            apply_point_link(point, source, seed_link.link)
+            logger.info("Linked '%s.%s' to '%s'", seed_link.device_name, point.name, source.name)
         await session.flush()
 
         # ------------------------------------------------------------------ #

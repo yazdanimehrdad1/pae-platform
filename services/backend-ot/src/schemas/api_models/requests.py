@@ -318,6 +318,16 @@ class VirtualPointUpdateRequest(BaseModel):
     )
 
 
+class StandardizedPointLinkRequest(BaseModel):
+    """Link a STANDARDIZED point to the NATIVE point on its device whose readings it shows."""
+    source_point_id: int = Field(..., description="An active NATIVE point on the same device")
+    unit: str | None = Field(None, max_length=50, description="Unit of the standardized point's values, e.g. 'kW'")
+    scale_factor: float = Field(
+        1.0,
+        description="Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)",
+    )
+
+
 class CacheSetRequest(BaseModel):
     """Request model for setting a value in the cache."""
     key: str = Field(..., description="Cache key")

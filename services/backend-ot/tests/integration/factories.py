@@ -24,9 +24,11 @@ from schemas.api_models import (
     Location,
     SiteCreateRequest,
     SiteResponse,
+    StandardizedPointLinkRequest,
     VirtualPointCreateRequest,
 )
 from schemas.api_models.alarms import AlarmDefinitionCreateRequest, AlarmDefinitionResponse
+from schemas.tests_models import LinkedBess
 
 DEVICE_POINT_LIST = TypeAdapter(list[DevicePointResponse])
 
@@ -40,9 +42,9 @@ _SITE_DEFAULTS = SiteCreateRequest(
     coordinates=Coordinates(lat=36.74, lng=-119.78),
 )
 
-# METER has no standardized-point templates, so a new device starts with no points.
+# RTAC has no standardized-point templates, so a new device starts with no points.
 _DEVICE_DEFAULTS = DeviceCreateRequest(
-    name="meter-1", type="METER", host="10.0.0.10", port=502, read_from_aggregator=False
+    name="rtac-1", type="RTAC", host="10.0.0.10", port=502, read_from_aggregator=False
 )
 
 _POINT_DEFAULTS = DevicePointCreateRequest(
@@ -143,3 +145,50 @@ async def create_alarm(
     )
     assert response.status_code == 201, response.text
     return AlarmDefinitionResponse.model_validate(response.json())
+
+
+
+def link_url(site_id: int, device_id: int, point_id: int) -> str:
+    return f"/api/device-points/site/{site_id}/device/{device_id}/{point_id}/link"
+
+
+async def link_point(
+    client: AsyncClient, point: DevicePointResponse, request: StandardizedPointLinkRequest
+) -> DevicePointResponse:
+    response = await client.put(
+        link_url(point.site_id, point.device_id, point.id), json=request.model_dump(mode="json")
+    )
+    assert response.status_code == 200, response.text
+    return DevicePointResponse.model_validate(response.json())
+
+
+async def standardized_points_by_name(client: AsyncClient, site_id: int, device_id: int) -> dict[str, DevicePointResponse]:
+    response = await client.get(
+        f"/api/device-points/site/{site_id}/device/{device_id}", params={"category": "STANDARDIZED"}
+    )
+    assert response.status_code == 200, response.text
+    return {point.name: point for point in DEVICE_POINT_LIST.validate_python(response.json())}
+
+
+async def create_linked_bess(client: AsyncClient, linked: bool = True) -> LinkedBess:
+    """A BESS with W (in W) and SoC (in %); unless linked=False, BESS_ACTIVE_POWER is linked to W
+    (W -> kW) and BESS_STATE_OF_CHARGE to SoC."""
+    site = await create_site(client)
+    device = await create_device(client, site.site_id, name="bess-1", type="BESS")
+    power, soc = await upsert_points(client, site.site_id, device.device_id, [
+        point_request(name="W", address=100, unit="W"),
+        point_request(name="SoC", address=110, unit="%"),
+    ])
+    standardized = await standardized_points_by_name(client, site.site_id, device.device_id)
+    active_power, state_of_charge = standardized["BESS_ACTIVE_POWER"], standardized["BESS_STATE_OF_CHARGE"]
+    if linked:
+        active_power = await link_point(
+            client, active_power, StandardizedPointLinkRequest(source_point_id=power.id, unit="kW", scale_factor=0.001)
+        )
+        state_of_charge = await link_point(
+            client, state_of_charge, StandardizedPointLinkRequest(source_point_id=soc.id, unit="%")
+        )
+    return LinkedBess(
+        site_id=site.site_id, device_id=device.device_id, power=power, soc=soc,
+        active_power=active_power, state_of_charge=state_of_charge,
+    )

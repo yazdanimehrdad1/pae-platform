@@ -533,6 +533,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device-points/site/{site_id}/device/{device_id}/{point_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link a standardized point to a real point
+         * @description Make a STANDARDIZED point show the readings of an active NATIVE point on the same device:
+         *     reads return the source's stored readings x scale_factor, in unit. Replaces any existing link.
+         *     Between power units the scale must convert them (W -> kW: 0.001), else 400.
+         */
+        put: operations["link_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_put"];
+        post?: never;
+        /**
+         * Unlink a standardized point
+         * @description Unlink a STANDARDIZED point: it is an empty placeholder again (no source, unit or scale).
+         */
+        delete: operations["unlink_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device-points/site/{site_id}/device/{device_id}/{point_id}/restore": {
         parameters: {
             query?: never;
@@ -2298,6 +2324,11 @@ export interface components {
              * @description Point size
              */
             size: number;
+            /**
+             * Source Point Id
+             * @description STANDARDIZED points only: the NATIVE point on the same device whose readings this point shows (times scale_factor, in unit). Set with PUT .../{point_id}/link; null means unlinked
+             */
+            source_point_id?: number | null;
             /**
              * Unit
              * @description Unit
@@ -4424,6 +4455,28 @@ export interface components {
             sld_revision: number;
         };
         /**
+         * StandardizedPointLinkRequest
+         * @description Link a STANDARDIZED point to the NATIVE point on its device whose readings it shows.
+         */
+        StandardizedPointLinkRequest: {
+            /**
+             * Scale Factor
+             * @description Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)
+             * @default 1
+             */
+            scale_factor: number;
+            /**
+             * Source Point Id
+             * @description An active NATIVE point on the same device
+             */
+            source_point_id: number;
+            /**
+             * Unit
+             * @description Unit of the standardized point's values, e.g. 'kW'
+             */
+            unit?: string | null;
+        };
+        /**
          * TextBlock
          * @description A paragraph with variables filled in: the site's ({site_name}, {window_start}, ...), and any
          *     device's or point's on the site ({device:12.name}, {point:34.max}). See reports/text_variables.py.
@@ -5696,6 +5749,76 @@ export interface operations {
                 "application/json": components["schemas"]["DevicePointUpdateRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardizedPointLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

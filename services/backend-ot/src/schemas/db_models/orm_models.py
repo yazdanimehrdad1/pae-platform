@@ -522,6 +522,14 @@ class DevicePoint(Base):
         comment="VIRTUAL points only: the condition or calculation its values are computed from, on read"
     )
 
+    # STANDARDIZED points only; set through PUT .../{point_id}/link (helpers.device_points.standardized_point_links).
+    source_point_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("device_points.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="STANDARDIZED points only: the NATIVE point on the same device whose readings it shows"
+    )
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

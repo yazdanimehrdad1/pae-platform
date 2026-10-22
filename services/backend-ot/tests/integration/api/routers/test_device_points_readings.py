@@ -4,6 +4,7 @@ Integration tests for /api/device-point-readings.
 Guards the read side of stored readings against a real database: latest-per-point,
 timeseries ordering (newest first) and limits, time-window filtering, enum translation,
 virtual points computed on read from their inputs' stored readings (never stored themselves),
+linked STANDARDIZED points returning their source's readings x scale_factor in their own unit,
 display-timezone rendering, and the query validation rules (both at the endpoint and in
 the global validate_time_range middleware).
 """
@@ -16,6 +17,7 @@ from httpx import AsyncClient
 
 from integration.factories import (
     create_device,
+    create_linked_bess,
     create_site,
     create_virtual_point,
     insert_reading,
@@ -499,3 +501,99 @@ class TestChartSamplingParams:
                 timeseries_url(site_id, device_id), params=window_params(timedelta(days=1), max_points=bad)
             )
             assert response.status_code == 422
+
+
+# --- Linked STANDARDIZED points (source_point_id, set through .../link) -----------------------
+
+
+class TestLinkedStandardizedPoints:
+    async def test_latest_is_the_sources_newest_reading_scaled_into_its_unit(self, client, db):
+        bess = await create_linked_bess(client)
+        for minute, watts in enumerate([1500.0, 2500.0]):
+            await insert_reading(db, bess.power, BASE_TIME + timedelta(minutes=minute), watts, watts)
+        await insert_reading(db, bess.soc, BASE_TIME, 64.0, 64.0)
+
+        latest = await get_latest(client, latest_url(bess.site_id, bess.device_id))
+
+        power = latest.readings[str(bess.active_power.id)]
+        assert (power.name, power.unit, power.value) == ("BESS_ACTIVE_POWER", "kW", 2.5)
+        assert power.time == BASE_TIME + timedelta(minutes=1)
+        assert latest.readings[str(bess.state_of_charge.id)].value == 64.0
+        assert latest.readings[str(bess.power.id)].value == 2500.0  # the source itself is unchanged
+
+    async def test_latest_of_only_the_linked_point(self, client, db):
+        bess = await create_linked_bess(client)
+        await insert_reading(db, bess.power, BASE_TIME, 4000.0, 4000.0)
+        latest = await get_latest(
+            client, latest_url(bess.site_id, bess.device_id), point_ids=str(bess.active_power.id)
+        )
+        assert list(latest.readings) == [str(bess.active_power.id)]
+        assert latest.readings[str(bess.active_power.id)].value == 4.0
+
+    async def test_timeseries_is_the_sources_newest_first_scaled_with_limit_and_window(self, client, db):
+        bess = await create_linked_bess(client)
+        for minute, watts in enumerate([1000.0, 2000.0, 3000.0]):
+            await insert_reading(db, bess.power, BASE_TIME + timedelta(minutes=minute), watts, watts)
+        url = timeseries_url(bess.site_id, bess.device_id)
+
+        everything = await get_timeseries(client, url)
+        series = everything.readings[str(bess.active_power.id)]
+        assert (series.unit, [entry.value for entry in series.timeseries]) == ("kW", [3.0, 2.0, 1.0])
+        assert [entry.value for entry in everything.readings[str(bess.power.id)].timeseries] == [3000.0, 2000.0, 1000.0]
+
+        limited = await get_timeseries(client, url, point_ids=str(bess.active_power.id), limit=2)
+        assert list(limited.readings) == [str(bess.active_power.id)]
+        assert [entry.value for entry in limited.readings[str(bess.active_power.id)].timeseries] == [3.0, 2.0]
+
+        window = await get_timeseries(
+            client, url, point_ids=str(bess.active_power.id),
+            start_time=(BASE_TIME + timedelta(seconds=30)).isoformat(),
+            end_time=(BASE_TIME + timedelta(minutes=5)).isoformat(),
+        )
+        assert [entry.value for entry in window.readings[str(bess.active_power.id)].timeseries] == [3.0, 2.0]
+
+    async def test_rows_stored_under_a_linked_point_are_ignored(self, client, db):
+        bess = await create_linked_bess(client)
+        await insert_reading(db, bess.power, BASE_TIME, 1000.0, 1000.0)
+        await insert_reading(db, bess.active_power, BASE_TIME + timedelta(minutes=1), 999.0, 999.0)
+        timeseries = await get_timeseries(
+            client, timeseries_url(bess.site_id, bess.device_id), point_ids=str(bess.active_power.id)
+        )
+        assert [entry.value for entry in timeseries.readings[str(bess.active_power.id)].timeseries] == [1.0]
+
+    async def test_an_unlinked_standardized_point_reads_as_before(self, client, db):
+        bess = await create_linked_bess(client, linked=False)
+        await insert_reading(db, bess.power, BASE_TIME, 1000.0, 1000.0)
+        latest = await get_latest(client, latest_url(bess.site_id, bess.device_id))
+        reading = latest.readings[str(bess.active_power.id)]
+        assert (reading.value, reading.time, reading.unit) == (None, None, None)
+        timeseries = await get_timeseries(client, timeseries_url(bess.site_id, bess.device_id))
+        assert str(bess.active_power.id) not in timeseries.readings
+
+    async def test_a_chart_beyond_three_days_reduces_the_source_and_scales_it(self, client, db):
+        bess = await create_linked_bess(client)
+        samples = every(STEP, 60_480, value=lambda index: float(index % 50) * 1000)
+        await insert_readings(db, bess.power, samples)
+        result = await get_timeseries(
+            client,
+            timeseries_url(bess.site_id, bess.device_id),
+            point_ids=str(bess.active_power.id),
+            **window_params(timedelta(days=7), max_points=2000),
+        )
+        series = result.readings[str(bess.active_power.id)]
+        assert 0 < series.count <= 2000
+        stored = dict(samples)
+        assert all((stored[sample.time] or 0.0) / 1000 == sample.value for sample in series.timeseries)
+
+    async def test_a_chart_up_to_three_days_returns_every_source_reading_scaled(self, client, db):
+        bess = await create_linked_bess(client)
+        samples = [*every(STEP, 3, value=lambda index: 1000.0 * (index + 1)), (BASE_TIME + timedelta(minutes=10), 7000.0)]
+        await insert_readings(db, bess.power, samples)
+        result = await get_timeseries(
+            client,
+            timeseries_url(bess.site_id, bess.device_id),
+            point_ids=str(bess.active_power.id),
+            **window_params(timedelta(hours=1), max_points=2000),
+        )
+        timeseries = result.readings[str(bess.active_power.id)].timeseries
+        assert [sample.value for sample in timeseries] == [7.0, None, 3.0, 2.0, 1.0]  # with its gap marker

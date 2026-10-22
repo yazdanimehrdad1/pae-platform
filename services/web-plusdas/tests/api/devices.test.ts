@@ -107,6 +107,29 @@ describe('devicesApi virtual points', () => {
   });
 });
 
+describe('devicesApi standardized point links', () => {
+  it('links through PUT .../{point_id}/link with the request body', async () => {
+    const fetchMock = stubFetch(200, { ...pvDevice.points.native[0], id: 57, category: 'STANDARDIZED', source_point_id: 4 });
+
+    const point = await devicesApi.linkPoint('1001', 1, 57, { source_point_id: 4, unit: 'kW', scale_factor: 0.001 });
+
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://web.test').pathname).toBe('/api/device-points/site/1001/device/1/57/link');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ source_point_id: 4, unit: 'kW', scale_factor: 0.001 });
+    expect(point.source_point_id).toBe(4);
+  });
+
+  it('unlinks through DELETE on the same path and returns the point', async () => {
+    const fetchMock = stubFetch(200, { ...pvDevice.points.native[0], id: 57, category: 'STANDARDIZED', source_point_id: null });
+
+    const point = await devicesApi.unlinkPoint('1001', 1, 57);
+
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://web.test').pathname).toBe('/api/device-points/site/1001/device/1/57/link');
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+    expect(point.source_point_id).toBeNull();
+  });
+});
+
 describe('devicesApi.getBySite', () => {
   it('maps devices to the UI model', async () => {
     stubFetch(200, [pvDevice]);

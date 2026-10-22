@@ -15,6 +15,7 @@ from schemas.api_models.requests import (
     DevicePointCreateRequest,
     PvArrayConfigUpsertRequest,
     SiteCreateRequest,
+    StandardizedPointLinkRequest,
     VirtualPointCreateRequest,
 )
 from schemas.api_models.single_line_diagram import SiteSld
@@ -39,6 +40,14 @@ class SeedVirtualPoint(BaseModel):
     point: VirtualPointCreateRequest
 
 
+class SeedPointLink(BaseModel):
+    """A STANDARDIZED point to link (device and point by name); its source id is resolved first."""
+
+    device_name: str = Field(..., min_length=1)
+    point_name: str = Field(..., min_length=1)
+    link: StandardizedPointLinkRequest
+
+
 class SeedAlarm(BaseModel):
     """A user alarm to seed on a site (by name); its point/device ids are resolved first."""
 
@@ -47,6 +56,10 @@ class SeedAlarm(BaseModel):
 
 
 def _no_virtual_points(_point_id: PointIdResolver) -> list[SeedVirtualPoint]:
+    return []
+
+
+def _no_point_links(_point_id: PointIdResolver) -> list[SeedPointLink]:
     return []
 
 
@@ -60,7 +73,8 @@ def _no_slds(_point_id: PointIdResolver, _device_id: DeviceIdResolver) -> dict[s
 
 class SeedData(BaseModel):
     """One seed: its sites, devices (with their NATIVE points, keyed by device name), and the
-    parts that reference ids, built once those exist (virtual points, user alarms, SLDs)."""
+    parts that reference ids, built once those exist (virtual points, standardized point links,
+    user alarms, SLDs)."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -68,6 +82,7 @@ class SeedData(BaseModel):
     devices: list[SeedDevice]
     device_points: dict[str, list[DevicePointCreateRequest]]
     virtual_points: Callable[[PointIdResolver], list[SeedVirtualPoint]] = _no_virtual_points
+    point_links: Callable[[PointIdResolver], list[SeedPointLink]] = _no_point_links
     user_alarms: Callable[[PointIdResolver, DeviceIdResolver], list[SeedAlarm]] = _no_alarms
     site_slds: Callable[[PointIdResolver, DeviceIdResolver], dict[str, SiteSld]] = _no_slds
     # PV array configs, keyed by device name (PV or INVERTER devices only).

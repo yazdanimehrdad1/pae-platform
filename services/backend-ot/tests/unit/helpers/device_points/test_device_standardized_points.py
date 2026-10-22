@@ -15,7 +15,7 @@ from schemas.api_models.types import SUPPORTED_DEVICE_TYPES
 
 class TestStandardizedPointsRegistry:
     # Valid device types that intentionally have no standardized-point templates yet.
-    NO_TEMPLATE_YET = {"METER", "RTAC"}
+    NO_TEMPLATE_YET = {"RTAC"}
 
     def test_every_device_type_has_templates_or_is_explicitly_exempt(self):
         for device_type in SUPPORTED_DEVICE_TYPES:
@@ -52,3 +52,14 @@ class TestStandardizedPointClass:
             "BESS_STATUS": "BINARY",
         }
         assert all(point.severity is None for point in points)
+
+
+class TestMeterTemplate:
+    def test_meter_gets_active_and_reactive_power_and_status(self):
+        points = generate_standardized_points("METER", device_id=1, site_id=1001)
+        assert [(point.name, point.address, point.point_class) for point in points] == [
+            ("METER_ACTIVE_POWER", 0, "ANALOG"),
+            ("METER_REACTIVE_POWER", 1, "ANALOG"),
+            ("METER_STATUS", 2, "BINARY"),
+        ]
+        assert all(point.category == "STANDARDIZED" for point in points)

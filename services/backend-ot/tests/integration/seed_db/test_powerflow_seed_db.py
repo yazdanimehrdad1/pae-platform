@@ -3,8 +3,9 @@ Integration tests for the powerflow dev seed (`seed_db.py powerflow <site>`).
 
 Invariant guarded: seeding powerflow's 2bess_1pv site creates its site (no profile), its nine
 devices with their served points and scan ranges, and its single line diagram whose links all
-resolve; the seeded devices carry the same STANDARDIZED points as API-created ones; reseeding
-adds nothing; the PV inverter gets its PV array config and the site its dev
+resolve; the seeded devices carry the same STANDARDIZED points as API-created ones, linked to
+their served registers as the link endpoint would (a link changed through the API survives a
+reseed); reseeding adds nothing; the PV inverter gets its PV array config and the site its dev
 location; and it coexists with the mock-modbus site (devices are matched within their site).
 """
 
@@ -12,13 +13,14 @@ from pydantic import TypeAdapter
 from seed_db.seed_db import powerflow_seed_data, seed
 
 from helpers.sites.sld import sld_link_errors
-from integration.factories import create_device, create_site
+from integration.factories import create_device, create_site, link_url, standardized_points_by_name
 from schemas.api_models import (
     DevicePointResponse,
     DeviceWithPoints,
     PvArrayConfigResponse,
     SiteResponse,
     SiteSldResponse,
+    StandardizedPointLinkRequest,
 )
 
 SITE_LIST = TypeAdapter(list[SiteResponse])
@@ -47,6 +49,11 @@ async def standardized_points(client, device: DeviceWithPoints) -> list[DevicePo
     )
     assert response.status_code == 200, response.text
     return POINT_LIST.validate_python(response.json())
+
+
+def unlinked(point: DevicePointResponse) -> DevicePointResponse:
+    """The point as created, before the seed's link set its source, unit and scale."""
+    return point.model_copy(update={"source_point_id": None, "unit": None, "scale_factor": None})
 
 
 def point_shape(point: DevicePointResponse) -> tuple[object, ...]:
@@ -90,8 +97,38 @@ class TestPowerflowSeed:
         for index, seeded in enumerate(await devices_of(client, site)):
             via_api = await create_device(client, api_site.site_id, name=f"api-{index}", type=seeded.type)
             expected = sorted(map(point_shape, await standardized_points(client, via_api)))
-            actual = sorted(map(point_shape, await standardized_points(client, seeded)))
+            actual = sorted(point_shape(unlinked(point)) for point in await standardized_points(client, seeded))
             assert actual == expected, seeded.name
+
+    async def test_standardized_points_are_linked_to_their_registers(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        await seed(data)
+        site = await site_named(client, data.sites[0].name)
+        devices = {device.name: device for device in await devices_of(client, site)}
+        ids = {(name, point.name): point.id for name, device in devices.items() for point in device.points.native}
+        links = data.point_links(lambda device, point: ids[(device, point)])
+        assert len(links) == 10
+        for link in links:
+            device = devices[link.device_name]
+            point = (await standardized_points_by_name(client, site.site_id, device.device_id))[link.point_name]
+            assert (point.source_point_id, point.unit, point.scale_factor) == (
+                link.link.source_point_id, link.link.unit, link.link.scale_factor
+            ), f"{link.device_name}.{link.point_name}"
+
+    async def test_reseeding_keeps_a_link_changed_through_the_api(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        await seed(data)
+        site = await site_named(client, data.sites[0].name)
+        bess = next(device for device in await devices_of(client, site) if device.name == "2bess_1pv-bess1")
+        point = (await standardized_points_by_name(client, site.site_id, bess.device_id))["BESS_STATE_OF_CHARGE"]
+        response = await client.put(
+            link_url(site.site_id, bess.device_id, point.id),
+            json=StandardizedPointLinkRequest(source_point_id=point.source_point_id or 0, unit="pct").model_dump(mode="json"),
+        )
+        assert response.status_code == 200, response.text
+        await seed(powerflow_seed_data(POWERFLOW_SITE))
+        relinked = (await standardized_points_by_name(client, site.site_id, bess.device_id))["BESS_STATE_OF_CHARGE"]
+        assert relinked.unit == "pct"  # the API's change, not the seed's "%"
 
     async def test_sld_links_resolve(self, client):
         data = powerflow_seed_data(POWERFLOW_SITE)

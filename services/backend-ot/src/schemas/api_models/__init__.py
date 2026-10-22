@@ -16,6 +16,7 @@ from schemas.api_models.requests import (
     SiteCreateRequest,
     SiteSldUpsertRequest,
     SiteUpdateRequest,
+    StandardizedPointLinkRequest,
     VirtualPointCreateRequest,
     VirtualPointUpdateRequest,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "DeviceUpdate",
     "SiteCreateRequest",
     "SiteUpdateRequest",
+    "StandardizedPointLinkRequest",
     "PollingConfig",
     "PvArrayConfigResponse",
     "PvArrayConfigUpsertRequest",

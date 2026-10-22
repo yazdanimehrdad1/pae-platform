@@ -1,8 +1,10 @@
 """Readings of device points, keyed by device_point_id.
 
-NATIVE (and STANDARDIZED) points are read from device_points_readings. VIRTUAL points are computed
-on read from their inputs' stored readings (helpers.virtual_points.resolve); nothing is stored
-for them, and any stored rows under a virtual point's id are ignored.
+NATIVE (and unlinked STANDARDIZED) points are read from device_points_readings. VIRTUAL points are
+computed on read from their inputs' stored readings (helpers.virtual_points.resolve); nothing is
+stored for them, and any stored rows under a virtual point's id are ignored. A linked STANDARDIZED
+point (source_point_id, set through PUT .../link) returns its source's stored readings under its
+own id and metadata, each value x its scale_factor.
 
 A chart's request (max_points) is sampled by helpers.sampling: every reading of a window up to
 3 days, plot values beyond, with gap markers either way (README.md there).
@@ -57,6 +59,11 @@ async def get_latest_readings_by_point_ids(
     derived_value=None. If point_ids is provided, only those points are returned.
     """
     readings = await _select_latest(point_ids, site_id=site_id, device_id=device_id)
+    linked_points = await get_linked_points_by_ids(point_ids, site_id=site_id, device_id=device_id)
+    if linked_points:
+        source_latest = await _select_latest(_source_ids(linked_points))
+        linked = {reading.device_point_id: reading for reading in _linked_readings(source_latest, linked_points)}
+        readings = [linked.get(reading.device_point_id, reading) for reading in readings]
     virtual_points = await get_virtual_points_by_ids(point_ids, site_id=site_id, device_id=device_id)
     if virtual_points:
         computed = await _computed_latest(virtual_points)
@@ -107,19 +114,26 @@ async def get_timeseries_by_point_ids(
     If point_ids is empty, returns readings for all points belonging to device_id/site_id.
     """
     virtual_points = await get_virtual_points_by_ids(point_ids, site_id=site_id, device_id=device_id)
-    virtual_ids = {point.id for point in virtual_points}
-    stored_ids = [point_id for point_id in point_ids if point_id not in virtual_ids]
+    linked_points = await get_linked_points_by_ids(point_ids, site_id=site_id, device_id=device_id)
+    computed_ids = {point.id for point in virtual_points + linked_points}
+    stored_ids = [point_id for point_id in point_ids if point_id not in computed_ids]
     if max_points is not None and start_time is not None and end_time is not None:
         return await _chart_timeseries(
-            point_ids, stored_ids, virtual_points, site_id, device_id, start_time, end_time, max_points
+            point_ids, stored_ids, virtual_points, linked_points, site_id, device_id, start_time, end_time, max_points
         )
 
     readings: list[PointReading] = []
     if stored_ids or not point_ids:
         readings = await _select_timeseries(
             stored_ids, site_id=site_id, device_id=device_id, start_time=start_time,
-            end_time=end_time, limit=limit, exclude_point_ids=virtual_ids,
+            end_time=end_time, limit=limit, exclude_point_ids=computed_ids,
         )
+    if linked_points:
+        source_readings = await _select_timeseries(
+            _source_ids(linked_points), start_time=start_time, end_time=end_time, limit=limit
+        )
+        readings += _linked_readings(source_readings, linked_points)
+        readings.sort(key=_by_point_newest_first)
     if virtual_points:
         readings += await _computed_timeseries(virtual_points, start_time, end_time, limit)
         readings.sort(key=_by_point_newest_first)
@@ -130,30 +144,26 @@ async def _chart_timeseries(
     point_ids: list[int],
     stored_ids: list[int],
     virtual_points: list[DevicePoint],
+    linked_points: list[DevicePoint],
     site_id: int | None,
     device_id: int | None,
     start_time: datetime,
     end_time: datetime,
     max_points: int,
 ) -> list[PointReading]:
-    """get_timeseries_by_point_ids for a chart: stored readings reduced in Postgres when the
-    window takes plot values, virtual points computed in full and then sampled."""
+    """get_timeseries_by_point_ids for a chart: stored readings (a linked point's are its
+    source's) reduced in Postgres when the window takes plot values, virtual points computed in
+    full and then sampled."""
     max_gap = default_max_gap()
-    virtual_ids = {point.id for point in virtual_points}
+    computed_ids = {point.id for point in virtual_points + linked_points}
     readings: list[PointReading] = []
     if stored_ids or not point_ids:
-        if use_plot_values(start_time, end_time, max_points):
-            conditions = _reading_conditions(stored_ids, site_id, device_id, start_time, end_time, virtual_ids)
-            statement = plot_values_statement(_POINT_COLUMNS, conditions, start_time, end_time, max_points, max_gap)
-            async with get_session() as session:
-                result = await session.execute(statement)
-                readings = [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
-        else:
-            stored = await _select_timeseries(
-                stored_ids, site_id=site_id, device_id=device_id, start_time=start_time,
-                end_time=end_time, limit=None, exclude_point_ids=virtual_ids,
-            )
-            readings = sample_readings(stored, start_time, end_time, max_points, max_gap)
+        readings = await _chart_stored(stored_ids, site_id, device_id, start_time, end_time, max_points, computed_ids)
+    if linked_points:
+        source_readings = await _chart_stored(
+            _source_ids(linked_points), None, None, start_time, end_time, max_points, ()
+        )
+        readings += _linked_readings(source_readings, linked_points)
     if virtual_points:
         computed = await _computed_timeseries(virtual_points, start_time, end_time, None)
         readings += sample_readings(computed, start_time, end_time, max_points, max_gap)
@@ -175,6 +185,79 @@ async def get_virtual_points_by_ids(
     async with get_session() as session:
         result = await session.execute(select(DevicePoint).where(and_(*conditions)))
         return list(result.scalars().all())
+
+
+async def _chart_stored(
+    point_ids: list[int],
+    site_id: int | None,
+    device_id: int | None,
+    start_time: datetime,
+    end_time: datetime,
+    max_points: int,
+    exclude_point_ids: Collection[int],
+) -> list[PointReading]:
+    """Stored readings for a chart: plot values reduced in Postgres, or every reading sampled."""
+    max_gap = default_max_gap()
+    if use_plot_values(start_time, end_time, max_points):
+        conditions = _reading_conditions(point_ids, site_id, device_id, start_time, end_time, exclude_point_ids)
+        statement = plot_values_statement(_POINT_COLUMNS, conditions, start_time, end_time, max_points, max_gap)
+        async with get_session() as session:
+            result = await session.execute(statement)
+            return [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
+    stored = await _select_timeseries(
+        point_ids, site_id=site_id, device_id=device_id, start_time=start_time,
+        end_time=end_time, limit=None, exclude_point_ids=exclude_point_ids,
+    )
+    return sample_readings(stored, start_time, end_time, max_points, max_gap)
+
+
+async def get_linked_points_by_ids(
+    point_ids: list[int], site_id: int | None = None, device_id: int | None = None
+) -> list[DevicePoint]:
+    """The linked STANDARDIZED points among `point_ids` (all of the device's or site's when empty)."""
+    conditions = [DevicePoint.category == "STANDARDIZED", DevicePoint.source_point_id.is_not(None)]
+    if point_ids:
+        conditions.append(DevicePoint.id.in_(point_ids))
+    if device_id is not None:
+        conditions.append(DevicePoint.device_id == device_id)
+    if site_id is not None:
+        conditions.append(DevicePoint.site_id == site_id)
+    async with get_session() as session:
+        result = await session.execute(select(DevicePoint).where(and_(*conditions)))
+        return list(result.scalars().all())
+
+
+def _source_ids(linked_points: list[DevicePoint]) -> list[int]:
+    return sorted({point.source_point_id for point in linked_points if point.source_point_id is not None})
+
+
+def _linked_readings(source_readings: list[PointReading], linked_points: list[DevicePoint]) -> list[PointReading]:
+    """Each source reading as a reading of every point linked to it: the linked point's id and
+    metadata, the value x its scale_factor. A gap marker (value None) stays a gap marker."""
+    by_source: dict[int, list[DevicePoint]] = {}
+    for point in linked_points:
+        if point.source_point_id is not None:
+            by_source.setdefault(point.source_point_id, []).append(point)
+    readings: list[PointReading] = []
+    for reading in source_readings:
+        for point in by_source.get(reading.device_point_id, []):
+            scale = point.scale_factor if point.scale_factor is not None else 1.0
+            readings.append(PointReading(
+                device_point_id=point.id,
+                register_address=point.address,
+                name=point.name,
+                data_type=point.data_type,
+                size=point.size,
+                unit=point.unit,
+                scale_factor=point.scale_factor,
+                bitfield_detail=point.bitfield_detail,
+                enum_detail=point.enum_detail,
+                point_class=point.point_class,
+                severity=point.severity,
+                timestamp=reading.timestamp,
+                derived_value=reading.derived_value * scale if reading.derived_value is not None else None,
+            ))
+    return readings
 
 
 def _by_point_newest_first(reading: PointReading) -> tuple[int, float]:

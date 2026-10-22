@@ -35,7 +35,7 @@ class TestCreateDevice:
         assert response.status_code == 201
         device = DeviceWithPoints.model_validate(response.json())
         assert device.site_id == site.site_id
-        assert device.type == "METER"
+        assert device.type == "RTAC"
         assert device.protocol == "Modbus"
         assert device.modbus_address_mode == "zero_based"
         assert device.points == DevicePointsCategoryGrouped()

@@ -1920,6 +1920,18 @@
             "title": "Size",
             "type": "integer"
           },
+          "source_point_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "STANDARDIZED points only: the NATIVE point on the same device whose readings this point shows (times scale_factor, in unit). Set with PUT .../{point_id}/link; null means unlinked",
+            "title": "Source Point Id"
+          },
           "unit": {
             "anyOf": [
               {
@@ -6831,6 +6843,40 @@
         "title": "SldValuesResponse",
         "type": "object"
       },
+      "StandardizedPointLinkRequest": {
+        "description": "Link a STANDARDIZED point to the NATIVE point on its device whose readings it shows.",
+        "properties": {
+          "scale_factor": {
+            "default": 1.0,
+            "description": "Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)",
+            "title": "Scale Factor",
+            "type": "number"
+          },
+          "source_point_id": {
+            "description": "An active NATIVE point on the same device",
+            "title": "Source Point Id",
+            "type": "integer"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit of the standardized point's values, e.g. 'kW'",
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "source_point_id"
+        ],
+        "title": "StandardizedPointLinkRequest",
+        "type": "object"
+      },
       "TextBlock": {
         "additionalProperties": false,
         "description": "A paragraph with variables filled in: the site's ({site_name}, {window_start}, ...), and any\ndevice's or point's on the site ({device:12.name}, {point:34.max}). See reports/text_variables.py.",
@@ -9451,6 +9497,138 @@
           }
         },
         "summary": "Update a device point",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/{point_id}/link": {
+      "delete": {
+        "description": "Unlink a STANDARDIZED point: it is an empty placeholder again (no source, unit or scale).",
+        "operationId": "unlink_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink a standardized point",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      },
+      "put": {
+        "description": "Make a STANDARDIZED point show the readings of an active NATIVE point on the same device:\nreads return the source's stored readings x scale_factor, in unit. Replaces any existing link.\nBetween power units the scale must convert them (W -> kW: 0.001), else 400.",
+        "operationId": "link_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "title": "Point Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandardizedPointLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link a standardized point to a real point",
         "tags": [
           "device-points",
           "device-points"

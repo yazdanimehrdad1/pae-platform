@@ -26,6 +26,8 @@ import { pvArrayKey, savePvArray, useDevicePvArray } from "@/features/sites/hook
 import { DevicePointsGrid } from "@/features/devices/DevicePointsGrid";
 import { VirtualPointDialog } from "@/features/devices/virtual/VirtualPointDialog";
 import { VirtualPointsList } from "@/features/devices/virtual/VirtualPointsList";
+import { PointLinkDialog } from "@/features/devices/standardized/PointLinkDialog";
+import { StandardizedPointsList } from "@/features/devices/standardized/StandardizedPointsList";
 
 type ScanRangeKind = 'holding' | 'input' | 'coils';
 const SCAN_RANGE_KINDS: ScanRangeKind[] = ['holding', 'input', 'coils'];
@@ -99,6 +101,10 @@ export default function DeviceDetails() {
   const registerPoints = activePoints.filter(p => p.category !== 'VIRTUAL');
   const virtualPoints = activePoints.filter(p => p.category === 'VIRTUAL');
   const [virtualDialog, setVirtualDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
+  // A standardized point shows the readings of a NATIVE point on this device once linked to it.
+  const standardizedPoints = activePoints.filter(p => p.category === 'STANDARDIZED');
+  const nativePoints = activePoints.filter(p => p.category === 'NATIVE');
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
   const deletedPoints = allPoints.filter(p => p.deleted_at);
 
   const invalidatePoints = () => {
@@ -147,6 +153,15 @@ export default function DeviceDetails() {
       toast({ title: "Point restored" });
     },
     onError: (error) => toast({ title: "Failed to restore point", description: getErrorMessage(error), variant: "destructive" }),
+  });
+
+  const unlinkPointMutation = useMutation({
+    mutationFn: (point: DevicePoint) => devicesApi.unlinkPoint(selectedSite.id, deviceIdNum, point.id),
+    onSuccess: (point) => {
+      invalidatePoints();
+      toast({ title: `${point.name} unlinked` });
+    },
+    onError: (error) => toast({ title: "Failed to unlink point", description: getErrorMessage(error), variant: "destructive" }),
   });
 
   const closeDeletePointDialog = (open: boolean) => {
@@ -568,6 +583,16 @@ export default function DeviceDetails() {
                   onRequestDelete={(p) => setDeletingPoint(p)}
                 />
                 <div className="mt-6 space-y-2">
+                  <h3 className="text-sm font-semibold">Standardized points ({standardizedPoints.length})</h3>
+                  <StandardizedPointsList
+                    points={standardizedPoints}
+                    sources={nativePoints}
+                    disabled={!liveDevice || unlinkPointMutation.isPending}
+                    onLink={(p) => setLinkDialog({ open: true, point: p })}
+                    onUnlink={(p) => unlinkPointMutation.mutate(p)}
+                  />
+                </div>
+                <div className="mt-6 space-y-2">
                   <h3 className="text-sm font-semibold">Virtual points ({virtualPoints.length})</h3>
                   <VirtualPointsList
                     siteId={selectedSite?.id}
@@ -629,6 +654,17 @@ export default function DeviceDetails() {
           siteId={selectedSite.id}
           deviceId={deviceIdNum}
           point={virtualDialog.point}
+        />
+      )}
+
+      {selectedSite?.id && Number.isFinite(deviceIdNum) && (
+        <PointLinkDialog
+          open={linkDialog.open}
+          onOpenChange={(open) => setLinkDialog(previous => ({ ...previous, open }))}
+          siteId={selectedSite.id}
+          deviceId={deviceIdNum}
+          point={linkDialog.point}
+          sources={nativePoints}
         />
       )}
 
