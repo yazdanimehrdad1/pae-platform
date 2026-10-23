@@ -10,11 +10,15 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
   backend-ot/        Modbus poller + historian API (FastAPI, Postgres, Redis)
   mock-modbus/       DEV-ONLY Modbus TCP simulator standing in for the site devices
   web-plusdas/       the UI: Vite + React SPA served by nginx, /api proxied same-origin to backend-ot
-                     and /powerflow-api to powerflow (the Simulation page)
+                     /powerflow-api to powerflow (the Simulation page) and /intelli-gateway-api
+                     to intelli-gateway (the PV forecast in the Historian)
   powerflow/         microgrid power flow simulator (pandapower) for EMS development: setpoints in,
                      measurements out; sites in its own Postgres (the only store), via the API
   mobile-plusdas/    Expo / React Native phone app (iOS + Android): bare-bones: lists backend-ot's
                      sites (alarms, push, reports, AI later); not containerized
+  intelli-gateway/   AI helper for site engineers: Claude answers questions about a site through
+                     read-only tools (tool-use loop, MCP-ready tool layer); also the PV forecast
+                     (replaceable weather source, Open-Meteo now), stored in its own Postgres
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
@@ -34,8 +38,9 @@ TODO_MONOREPO_TASKS.md  open monorepo work (debt, deferred CI/deploy, hardening)
   It depends only on `contracts/` and its own files, nothing outside it imports from it, and
   nothing is hoisted to the root: no root package.json, no npm/pnpm/yarn workspace, no Turbo/Nx.
   The root coordinates it only through the Makefile and `deploy/compose/`. The browser calls the
-  APIs same-origin: `/api` (backend-ot) and `/powerflow-api` (powerflow, forwarded to its `/api`)
-  (no CORS, no absolute URLs, no build-time env). See its CLAUDE.md.
+  APIs same-origin: `/api` (backend-ot), `/powerflow-api` (powerflow) and `/intelli-gateway-api`
+  (intelli-gateway), the last two forwarded to their `/api` (no CORS, no absolute URLs, no
+  build-time env). See its CLAUDE.md.
 - **`services/mock-modbus` is DEV-ONLY.** It is allowed only in its own directory, `deploy/compose/` and
   backend-ot's dev seed/tests. Never put it in a production manifest.
 - **Deployment is out of scope** (CI/CD, k8s, ArgoCD). Don't edit `services/*/.github/`,
@@ -77,6 +82,7 @@ the root, and `make -C services/<svc> help` in each service.
 | optimizer (reserved) | 8010 |
 | powerflow | 8020 (http), 5436 (postgres), 1502 (modbus; 502 in the container) |
 | mobile-plusdas | 8081 (Expo Metro dev server, `make -C services/mobile-plusdas run`; no container) |
+| intelli-gateway | 8030 (http), 5437 (postgres) |
 
 ## Contracts
 Rules and the contract list are in `contracts/README.md`. For a change that alters what a service

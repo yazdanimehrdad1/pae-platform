@@ -1,0 +1,54 @@
+# Throwaway stack for integration tests. Run it via `make test-integration`, never by hand
+# against the dev stack: postgres here lives in tmpfs, publishes no host port, and is destroyed
+# after every run, so tests can truncate freely.
+#
+# The Makefile passes a per-worktree project name (-p intelli-gateway-test-<worktree>), so
+# parallel worktrees each get their own isolated stack.
+
+services:
+  intelli-gateway-postgres-test:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=intelli_gateway_test
+      - POSTGRES_USER=intelli_gateway_test
+      - POSTGRES_PASSWORD=intelli_gateway_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelli_gateway_test -d intelli_gateway_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    # Same Python as the app image; uv installs exactly what uv.lock pins (incl. dev group).
+    image: ghcr.io/astral-sh/uv:0.11.15-python3.11-trixie-slim
+    working_dir: /repo/services/intelli-gateway
+    volumes:
+      - .:/repo/services/intelli-gateway
+      # The contract tests read contracts/ (the only shared directory).
+      - ../../contracts:/repo/contracts:ro
+      - uv-cache:/root/.cache/uv
+    environment:
+      # Venv lives outside the bind mount so the host's .venv is never overwritten.
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
+      - UV_LINK_MODE=copy
+      - INTELLI_GATEWAY_TEST_DATABASE_URL=postgresql+asyncpg://intelli_gateway_test:intelli_gateway_test@intelli-gateway-postgres-test:5432/intelli_gateway_test
+      # tests/integration/conftest.py refuses to truncate unless this is set.
+      - INTEGRATION_DB_RESET_ALLOWED=1
+      - PYTEST_TARGET=${PYTEST_TARGET:-tests/integration}
+    depends_on:
+      intelli-gateway-postgres-test:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - >-
+        uv sync --frozen --quiet &&
+        uv run --frozen pytest $$PYTEST_TARGET -v --color=yes -rfE
+
+volumes:
+  # External so `compose down` never removes it; `make test-integration` creates it if missing.
+  uv-cache:
+    name: intelli-gateway-uv-cache
+    external: true

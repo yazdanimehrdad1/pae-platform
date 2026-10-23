@@ -40,6 +40,9 @@ export type BessSetpointRequest = Schemas['BessSetpointRequest'];
 export type PvSetpointRequest = Schemas['PvSetpointRequest'];
 export type SetpointResult = Schemas['SetpointResult'];
 export type BessMode = NonNullable<BessSetpointRequest['mode']>;
+// Runtime battery overrides: SOC now, and round-trip efficiency (null = the site config's).
+export type BessBatteryRequest = Schemas['BessBatteryRequest'];
+export type BessBatteryState = Schemas['BessBatteryState'];
 
 // Injected conditions (breakers, faults, alarm resets, comm loss, grid events) and event scenarios
 export type ConditionsReport = Schemas['ConditionsReport'];
@@ -71,6 +74,15 @@ export type ExpectedPoint = Schemas['ExpectedPoint'];
 export type EventScenarioSummary = Schemas['EventScenarioSummary'];
 export type EventScenarioCategory = Schemas['EventScenarioCategory'];
 export type ScenarioStatus = Schemas['ScenarioStatus'];
+
+// Auto dispatch: every BESS cycles between its SOC limits on its own (no setpoints needed)
+export type AutoDispatchRequest = Schemas['AutoDispatchRequest'];
+export type AutoDispatchReport = Schemas['AutoDispatchReport'];
+export type AutoDispatchBess = Schemas['AutoDispatchBess'];
+export type AutoDispatchDirection = Schemas['AutoDispatchDirection'];
+export type AutoDispatchPhase = Schemas['AutoDispatchPhase'];
+// Site-wide defaults, or one BESS's overrides (every field optional; omitted = fall back).
+export type AutoDispatchBessSettings = Schemas['AutoDispatchBessSettings'];
 
 // Measurements: the native snapshot, and the PAE point-standard device view
 export type Snapshot = Schemas['Snapshot'];

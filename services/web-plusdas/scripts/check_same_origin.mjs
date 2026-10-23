@@ -1,5 +1,6 @@
 // Integration check for a RUNNING web-plusdas container: the SPA is served with the right
-// cache headers, /api reaches backend-ot and /powerflow-api reaches powerflow on the same origin.
+// cache headers, /api reaches backend-ot, /powerflow-api powerflow and /intelli-gateway-api
+// intelli-gateway on the same origin.
 // Node stdlib only (fetch).
 //
 // Usage: node scripts/check_same_origin.mjs [--url http://localhost:5173]
@@ -63,6 +64,11 @@ async function main() {
   const powerflowJson = (powerflow.response.headers.get("content-type") ?? "").includes("application/json");
   check(`/powerflow-api/health reaches powerflow through ${baseUrl}`,
     powerflow.response.status === 200 && powerflowJson, `status ${powerflow.response.status}`);
+
+  const gateway = await get("/intelli-gateway-api/healthz");
+  const gatewayJson = (gateway.response.headers.get("content-type") ?? "").includes("application/json");
+  check(`/intelli-gateway-api/healthz reaches intelli-gateway through ${baseUrl}`,
+    gateway.response.status === 200 && gatewayJson, `status ${gateway.response.status}`);
 
   console.log(failures.length ? `RESULT: ${failures.length} check(s) failed` : "RESULT: same-origin OK");
   return failures.length ? 1 : 0;

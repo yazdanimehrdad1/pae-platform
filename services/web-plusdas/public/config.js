@@ -4,4 +4,5 @@
 window.__APP_CONFIG__ = {
   apiBaseUrl: "/api",
   powerflowBaseUrl: "/powerflow-api",
+  intelliGatewayBaseUrl: "/intelli-gateway-api",
 };

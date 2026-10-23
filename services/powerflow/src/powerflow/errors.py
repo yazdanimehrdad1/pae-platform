@@ -72,3 +72,7 @@ class ConditionError(PowerflowError):
 
 class PointStandardError(PowerflowError):
     """The point-standard CSVs are invalid, or a site doesn't fit the Modbus register layout."""
+
+
+class AutoDispatchError(PowerflowError):
+    """Auto dispatch settings don't fit the site, e.g. an SOC window outside a battery's band."""

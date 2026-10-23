@@ -4,12 +4,15 @@ import { Loader2 } from "lucide-react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { powerflowApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
-import type { ProfileFolder } from "@/api/types/powerflow";
+import type { ProfileFolder, RunState, SiteConfig } from "@/api/types/powerflow";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { powerflowKeys, useProfiles } from "../hooks/usePowerflow";
+import { useSiteEdits } from "../hooks/useSiteEdits";
 import { downsample, parseCsv } from "../lib/csv";
+import { ProfileSelection } from "./profiles/ProfileSelection";
 
 const CHART_POINTS = 400;
 const PREVIEW_ROWS = 8;
@@ -80,9 +83,18 @@ function ProfileView({ folder, scenario }: { folder: ProfileFolder; scenario: st
   );
 }
 
-// The profile scenarios (CSV time series) the sites can follow. View only.
-export function ProfilesPanel() {
+interface Props {
+  siteName: string;
+  config: SiteConfig;
+  isActive: boolean;
+  runState: RunState | undefined;
+}
+
+// The profile scenarios (CSV time series): choose which one each load and PV of the selected
+// site follows, and preview any of them. A scenario button says which assets use it.
+export function ProfilesPanel({ siteName, config, isActive, runState }: Props) {
   const profiles = useProfiles();
+  const siteEdits = useSiteEdits(config);
   const [selected, setSelected] = useState<{ folder: ProfileFolder; scenario: string } | null>(null);
 
   if (profiles.isLoading) return <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />;
@@ -92,31 +104,79 @@ export function ProfilesPanel() {
     { folder: "load", title: "Load scenarios", scenarios: profiles.data?.load ?? [] },
     { folder: "pv", title: "PV scenarios", scenarios: profiles.data?.pv ?? [] },
   ];
+  // The assets of the stored site that follow each scenario.
+  const assets: Record<ProfileFolder, { id: string; label: string; scenario: string }[]> = {
+    load: (config.loads ?? []).map((load) => ({ id: load.id, label: load.name ?? load.id, scenario: load.profile.scenario })),
+    pv: (config.pv ?? []).map((pv) => ({ id: pv.id, label: pv.name ?? pv.id, scenario: pv.availability.scenario })),
+  };
+  const assignScenario = (folder: ProfileFolder, id: string, scenario: string) =>
+    siteEdits.setEdits((current) => {
+      const key = folder === "load" ? "loadProfiles" : "pvProfiles";
+      return { ...current, [key]: { ...current[key], [id]: { ...current[key][id], scenario } } };
+    });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profiles</CardTitle>
-        <CardDescription>Time series the loads and PV follow. Pick a scenario for a site under Site settings.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {groups.map((group) => (
-          <div key={group.folder} className="space-y-2">
-            <p className="text-sm font-semibold text-foreground">{group.title}</p>
-            <div className="flex flex-wrap gap-2">
-              {group.scenarios.map((scenario) => {
-                const active = selected?.folder === group.folder && selected.scenario === scenario;
-                return (
-                  <Button key={scenario} size="sm" variant={active ? "default" : "outline"} onClick={() => setSelected({ folder: group.folder, scenario })}>
-                    {scenario}
-                  </Button>
-                );
-              })}
+    <div className="space-y-4">
+      <ProfileSelection
+        siteName={siteName}
+        config={config}
+        isActive={isActive}
+        runState={runState}
+        loadScenarios={profiles.data?.load ?? []}
+        pvScenarios={profiles.data?.pv ?? []}
+        siteEdits={siteEdits}
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Profiles</CardTitle>
+          <CardDescription>The time series the loads and PV can follow. Click one to preview it.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {groups.map((group) => (
+            <div key={group.folder} className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">{group.title}</p>
+              <div className="flex flex-wrap gap-2">
+                {group.scenarios.map((scenario) => {
+                  const previewed = selected?.folder === group.folder && selected.scenario === scenario;
+                  const usedBy = assets[group.folder].filter((asset) => asset.scenario === scenario);
+                  return (
+                    <Button
+                      key={scenario}
+                      size="sm"
+                      variant={previewed ? "default" : "outline"}
+                      className="gap-2"
+                      data-profile-scenario={`${group.folder}/${scenario}`}
+                      onClick={() => setSelected({ folder: group.folder, scenario })}
+                    >
+                      {scenario}
+                      {usedBy.length > 0 && (
+                        <Badge variant="secondary" className="font-normal">
+                          in use: {usedBy.map((asset) => asset.id).join(", ")}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-        {selected && <ProfileView folder={selected.folder} scenario={selected.scenario} />}
-      </CardContent>
-    </Card>
+          ))}
+          {selected && (
+            <div className="flex flex-wrap gap-2">
+              {assets[selected.folder].map((asset) => (
+                <Button
+                  key={asset.id}
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => assignScenario(selected.folder, asset.id, selected.scenario)}
+                >
+                  Use for {asset.label}
+                </Button>
+              ))}
+            </div>
+          )}
+          {selected && <ProfileView folder={selected.folder} scenario={selected.scenario} />}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

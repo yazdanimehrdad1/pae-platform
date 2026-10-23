@@ -3,4 +3,5 @@
 window.__APP_CONFIG__ = {
   apiBaseUrl: "${APP_API_BASE_URL}",
   powerflowBaseUrl: "${APP_POWERFLOW_BASE_URL}",
+  intelliGatewayBaseUrl: "${APP_INTELLI_GATEWAY_BASE_URL}",
 };

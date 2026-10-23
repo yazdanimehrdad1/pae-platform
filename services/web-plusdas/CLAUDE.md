@@ -39,8 +39,9 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
   for a test that needs a DOM; setup in `tests/setup.ts`. `tests/` is typechecked and linted but not
   shipped (`.dockerignore`). No Docker. `make test-integration` runs `scripts/check_same_origin.mjs`
   against the **running** container (SPA fallback, cache headers, `/config.js`, `/api/healthz` +
-  `/api/sites` through the web origin, plus `/powerflow-api/health`). It needs the dev stack up.
-- API types: `make api-types` regenerates `src/api/generated/{backend-ot,powerflow}.ts` after a
+  `/api/sites` through the web origin, plus `/powerflow-api/health` and `/intelli-gateway-api/healthz`).
+  It needs the dev stack up.
+- API types: `make api-types` regenerates `src/api/generated/{backend-ot,powerflow,intelli-gateway}.ts` after a
   contract changes (`make test` fails until you do). Then fix whatever `make typecheck` reports.
 - Dev server: `make run` (Vite on http://localhost:**5174**, `/api` proxied to
   `WEB_PLUSDAS_DEV_API_TARGET`, default `http://localhost:8000` = the dev stack's backend-ot).
@@ -89,7 +90,8 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
   `public/config.js` (dev default), and to `.env.example`.
 - **API calls are same-origin only:** backend-ot at `/api/...` (`client`) and the powerflow
   simulator at `/powerflow-api/...` (`powerflowClient`, forwarded to powerflow's `/api`; the
-  Simulation page). Never an absolute URL, never CORS. Never put a trailing slash on an API path
+  Simulation page), and intelli-gateway at `/intelli-gateway-api/...` (`intelliGatewayClient`,
+  forwarded to its `/api`; the PV forecast in the Historian). Never an absolute URL, never CORS. Never put a trailing slash on an API path
   (backend-ot 307s it).
 - A new **streaming** route needs its own nginx location with `proxy_buffering off` (like
   `/api/modbus-live-stream-raw-registers/`).

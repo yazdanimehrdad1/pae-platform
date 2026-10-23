@@ -2,6 +2,27 @@
 // Do not edit: run `make api-types`. Import it as `@contracts/backend-ot`.
 
 export interface paths {
+    "/api/alarms/active-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active alarms across all sites, by severity
+         * @description How many alarm events are active (raised, not cleared) right now: fault and warning totals
+         *     over every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator.
+         */
+        get: operations["get_active_summary_api_alarms_active_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/alarms/site/{site_id}/definitions": {
         parameters: {
             query?: never;
@@ -512,6 +533,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device-points/site/{site_id}/device/{device_id}/{point_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link a standardized point to a real point
+         * @description Make a STANDARDIZED point show the readings of an active NATIVE point on the same device:
+         *     reads return the source's stored readings x scale_factor, in unit. Replaces any existing link.
+         *     Between power units the scale must convert them (W -> kW: 0.001), else 400.
+         */
+        put: operations["link_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_put"];
+        post?: never;
+        /**
+         * Unlink a standardized point
+         * @description Unlink a STANDARDIZED point: it is an empty placeholder again (no source, unit or scale).
+         */
+        delete: operations["unlink_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device-points/site/{site_id}/device/{device_id}/{point_id}/restore": {
         parameters: {
             query?: never;
@@ -564,6 +611,35 @@ export interface paths {
         post?: never;
         /** Soft- or hard-delete a device */
         delete: operations["delete_existing_device_api_devices_site__site_id__devices__device_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/devices/site/{site_id}/devices/{device_id}/pv-array": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a PV or inverter device's PV array config
+         * @description 404 if the device isn't in the site or has no config; 400 if it isn't a PV or INVERTER device.
+         */
+        get: operations["get_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_get"];
+        /**
+         * Create or replace a PV or inverter device's PV array config
+         * @description Replaces every field (omitted optional fields take their defaults). 404 if the device isn't
+         *     in the site; 400 if it isn't a PV or INVERTER device.
+         */
+        put: operations["put_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_put"];
+        post?: never;
+        /**
+         * Delete a PV or inverter device's PV array config
+         * @description Returns the deleted config. 404 if the device isn't in the site or has no config.
+         */
+        delete: operations["delete_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1226,6 +1302,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/pv-arrays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the PV array configs of a site's devices
+         * @description One entry per active PV or INVERTER device that has a PV array config (orientation,
+         *     DC/AC ratings, losses, temperature coefficient). Empty if none is configured; 404 if the
+         *     site doesn't exist.
+         */
+        get: operations["get_site_pv_arrays_endpoint_api_sites__site_id__pv_arrays_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{site_id}/restore": {
         parameters: {
             query?: never;
@@ -1296,6 +1394,27 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActiveAlarmsSummaryResponse
+         * @description Active alarms across every site: what an app-wide indicator (the sidebar bell) shows.
+         */
+        ActiveAlarmsSummaryResponse: {
+            /**
+             * Fault Count
+             * @description Active fault events across all sites
+             */
+            fault_count: number;
+            /**
+             * Sites
+             * @description Only sites with at least one active event, by site_id
+             */
+            sites: components["schemas"]["SiteActiveAlarms"][];
+            /**
+             * Warning Count
+             * @description Active warning events across all sites
+             */
+            warning_count: number;
+        };
         /**
          * ActivePointAlarm
          * @description An ALARM-class point whose latest reading is set.
@@ -1832,6 +1951,11 @@ export interface components {
          */
         Coordinates: {
             /**
+             * Elevation M
+             * @description Elevation above sea level, meters; omit if unknown
+             */
+            elevation_m?: number | null;
+            /**
              * Lat
              * @description Latitude
              */
@@ -2200,6 +2324,11 @@ export interface components {
              * @description Point size
              */
             size: number;
+            /**
+             * Source Point Id
+             * @description STANDARDIZED points only: the NATIVE point on the same device whose readings this point shows (times scale_factor, in unit). Set with PUT .../{point_id}/link; null means unlinked
+             */
+            source_point_id?: number | null;
             /**
              * Unit
              * @description Unit
@@ -3095,6 +3224,101 @@ export interface components {
             unit?: string | null;
         };
         /**
+         * PvArrayConfigResponse
+         * @description The PV array behind a PV or INVERTER device.
+         */
+        PvArrayConfigResponse: {
+            /**
+             * Ac Capacity Kw
+             * @description AC limit of the inverter(s) feeding this array, kW
+             */
+            ac_capacity_kw: number;
+            /**
+             * Azimuth Deg
+             * @description Direction the modules face, degrees clockwise from north (180 = south)
+             */
+            azimuth_deg: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Dc Capacity Kw
+             * @description DC nameplate of the array, kW (kWp)
+             */
+            dc_capacity_kw: number;
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /**
+             * Device Type
+             * @enum {string}
+             */
+            device_type: "BESS" | "ES" | "INVERTER" | "PV" | "GENERATOR" | "LOADBANK" | "RELAY" | "IED" | "METER" | "RTAC";
+            /** Site Id */
+            site_id: number;
+            /**
+             * System Loss Pct
+             * @description Lumped system losses, percent
+             */
+            system_loss_pct: number;
+            /**
+             * Temp Coefficient Pct Per C
+             * @description Module power temperature coefficient, percent per degC
+             */
+            temp_coefficient_pct_per_c: number;
+            /**
+             * Tilt Deg
+             * @description Module tilt from horizontal, degrees (0 = flat)
+             */
+            tilt_deg: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * PvArrayConfigUpsertRequest
+         * @description The PV array behind a PV or INVERTER device: orientation, ratings and losses.
+         */
+        PvArrayConfigUpsertRequest: {
+            /**
+             * Ac Capacity Kw
+             * @description AC limit of the inverter(s) feeding this array, kW
+             */
+            ac_capacity_kw: number;
+            /**
+             * Azimuth Deg
+             * @description Direction the modules face, degrees clockwise from north (180 = south)
+             */
+            azimuth_deg: number;
+            /**
+             * Dc Capacity Kw
+             * @description DC nameplate of the array, kW (kWp)
+             */
+            dc_capacity_kw: number;
+            /**
+             * System Loss Pct
+             * @description Lumped system losses (soiling, wiring, mismatch, inverter), percent
+             * @default 14
+             */
+            system_loss_pct: number;
+            /**
+             * Temp Coefficient Pct Per C
+             * @description Module power temperature coefficient, percent per degC (negative)
+             * @default -0.35
+             */
+            temp_coefficient_pct_per_c: number;
+            /**
+             * Tilt Deg
+             * @description Module tilt from horizontal, degrees (0 = flat)
+             */
+            tilt_deg: number;
+        };
+        /**
          * RegisterRange
          * @description A single Modbus read window.
          */
@@ -3547,6 +3771,18 @@ export interface components {
              * @enum {string}
              */
             kind: "rolling";
+        };
+        /**
+         * SiteActiveAlarms
+         * @description One site's active alarms (raised, not cleared), by severity.
+         */
+        SiteActiveAlarms: {
+            /** Fault Count */
+            fault_count: number;
+            /** Site Id */
+            site_id: number;
+            /** Warning Count */
+            warning_count: number;
         };
         /**
          * SiteComprehensiveResponse
@@ -4219,6 +4455,28 @@ export interface components {
             sld_revision: number;
         };
         /**
+         * StandardizedPointLinkRequest
+         * @description Link a STANDARDIZED point to the NATIVE point on its device whose readings it shows.
+         */
+        StandardizedPointLinkRequest: {
+            /**
+             * Scale Factor
+             * @description Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)
+             * @default 1
+             */
+            scale_factor: number;
+            /**
+             * Source Point Id
+             * @description An active NATIVE point on the same device
+             */
+            source_point_id: number;
+            /**
+             * Unit
+             * @description Unit of the standardized point's values, e.g. 'kW'
+             */
+            unit?: string | null;
+        };
+        /**
          * TextBlock
          * @description A paragraph with variables filled in: the site's ({site_name}, {window_start}, ...), and any
          *     device's or point's on the site ({device:12.name}, {point:34.max}). See reports/text_variables.py.
@@ -4617,6 +4875,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_active_summary_api_alarms_active_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveAlarmsSummaryResponse"];
+                };
+            };
+        };
+    };
     list_definitions_api_alarms_site__site_id__definitions_get: {
         parameters: {
             query?: {
@@ -5492,6 +5770,76 @@ export interface operations {
             };
         };
     };
+    link_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardizedPointLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_standardized_point_api_device_points_site__site_id__device__device_id___point_id__link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicePointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restore_point_api_device_points_site__site_id__device__device_id___point_id__restore_post: {
         parameters: {
             query?: never;
@@ -5689,6 +6037,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PvArrayConfigUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_device_pv_array_endpoint_api_devices_site__site_id__devices__device_id__pv_array_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7112,6 +7560,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteHealthResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_pv_arrays_endpoint_api_sites__site_id__pv_arrays_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PvArrayConfigResponse"][];
                 };
             };
             /** @description Validation Error */

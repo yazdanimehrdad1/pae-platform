@@ -9,12 +9,15 @@ import type {
   DeviceScanRanges,
   PingResult,
   PointGroup,
+  PvArrayConfig,
+  PvArrayConfigRequest,
 } from './types/devices';
 import { POINT_GROUP_ORDER } from './types/devices';
 import type {
   DevicePoint,
   DevicePointCreateRequest,
   DevicePointUpdateRequest,
+  StandardizedPointLinkRequest,
   VirtualPointCreateRequest,
   VirtualPointUpdateRequest,
 } from './types/devicePoints';
@@ -72,6 +75,9 @@ function toDevice(device: DeviceRecord): Device {
     } : undefined,
   };
 }
+
+const pvArrayPath = (siteId: string, deviceId: number) =>
+  `/devices/site/${siteId}/devices/${deviceId}/pv-array`;
 
 export const devicesApi = {
   getBySite: async (siteId: string): Promise<Device[]> => {
@@ -143,6 +149,28 @@ export const devicesApi = {
   resetScanRanges: (siteId: string, deviceId: number): Promise<DeviceScanRanges> =>
     request<DeviceScanRanges>(`/device-points/site/${siteId}/device/${deviceId}/scan-ranges`, { method: 'DELETE' }),
 
+  /** The PV arrays of the site's active PV/INVERTER devices (what the PV forecast covers). */
+  getSitePvArrays: (siteId: string): Promise<PvArrayConfig[]> =>
+    client.get(`/sites/${siteId}/pv-arrays`),
+
+  /** The device's PV array config; null when it has none (404 NotFoundError). */
+  getPvArray: async (siteId: string, deviceId: number): Promise<PvArrayConfig | null> => {
+    try {
+      return await client.get<PvArrayConfig>(pvArrayPath(siteId, deviceId));
+    } catch (error: unknown) {
+      const detail = (error as { detail?: { error?: string } })?.detail;
+      if (detail && typeof detail === 'object' && detail.error === 'NotFoundError') return null;
+      throw error;
+    }
+  },
+
+  /** Create or replace the device's PV array config (PV and INVERTER devices only). */
+  putPvArray: (siteId: string, deviceId: number, payload: PvArrayConfigRequest): Promise<PvArrayConfig> =>
+    client.put(pvArrayPath(siteId, deviceId), payload),
+
+  deletePvArray: (siteId: string, deviceId: number): Promise<void> =>
+    client.delete(pvArrayPath(siteId, deviceId)),
+
   getPoints: (siteId: string, deviceId: number, opts?: { include_deleted?: boolean }): Promise<DevicePoint[]> => {
     const params = new URLSearchParams();
     if (opts?.include_deleted) params.set('include_deleted', 'true');
@@ -174,4 +202,12 @@ export const devicesApi = {
 
   updateVirtualPoint: (siteId: string, deviceId: number, pointId: number, payload: VirtualPointUpdateRequest): Promise<DevicePoint> =>
     client.put(`/device-points/site/${siteId}/device/${deviceId}/virtual/${pointId}`, payload),
+
+  /** Make a STANDARDIZED point show a NATIVE point's readings (x scale_factor, in unit); replaces any link. */
+  linkPoint: (siteId: string, deviceId: number, pointId: number, payload: StandardizedPointLinkRequest): Promise<DevicePoint> =>
+    client.put(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/link`, payload),
+
+  /** Unlink a STANDARDIZED point: it is an empty placeholder again. */
+  unlinkPoint: (siteId: string, deviceId: number, pointId: number): Promise<DevicePoint> =>
+    request<DevicePoint>(`/device-points/site/${siteId}/device/${deviceId}/${pointId}/link`, { method: 'DELETE' }),
 };

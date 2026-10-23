@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { alarmsApi } from '@/api';
+import type { ActiveAlarmsSummaryRecord } from '@/api/types/alarms';
 import { AppSidebar } from '@/app/layout/AppSidebar';
 
 const role = vi.hoisted(() => ({ current: 'engineer' }));
@@ -17,14 +20,30 @@ function navTitles(): string[] {
     .filter((title) => title !== '');
 }
 
+const NOTHING_ACTIVE: ActiveAlarmsSummaryRecord = { fault_count: 0, warning_count: 0, sites: [] };
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue(NOTHING_ACTIVE);
+});
+
+function renderSidebar() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <AppSidebar />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+const alarmsLink = () => screen.getByRole('link', { name: 'System alarms' });
+
 describe('AppSidebar', () => {
   it('lists Simulation between AI Tasks and Optimization for engineers', () => {
     role.current = 'engineer';
-    render(
-      <MemoryRouter>
-        <AppSidebar />
-      </MemoryRouter>,
-    );
+    renderSidebar();
     const titles = navTitles();
     const simulation = titles.indexOf('Simulation');
     expect(simulation).toBeGreaterThan(-1);
@@ -34,11 +53,7 @@ describe('AppSidebar', () => {
 
   it('opens Simulation in this tab, and in a new tab only from its own button', () => {
     role.current = 'engineer';
-    render(
-      <MemoryRouter>
-        <AppSidebar />
-      </MemoryRouter>,
-    );
+    renderSidebar();
     const simulation = screen.getByRole('link', { name: 'Simulation' });
     expect(simulation.getAttribute('href')).toBe('/simulation');
     expect(simulation.getAttribute('target')).toBeNull();
@@ -51,11 +66,7 @@ describe('AppSidebar', () => {
 
   it('lists Optimization between Simulation and Notes, linking to its page', () => {
     role.current = 'engineer';
-    render(
-      <MemoryRouter>
-        <AppSidebar />
-      </MemoryRouter>,
-    );
+    renderSidebar();
     const titles = navTitles();
     const optimization = titles.indexOf('Optimization');
     expect(titles[optimization - 1]).toBe('Simulation');
@@ -65,21 +76,47 @@ describe('AppSidebar', () => {
 
   it('hides Optimization from monitors', () => {
     role.current = 'monitor';
-    render(
-      <MemoryRouter>
-        <AppSidebar />
-      </MemoryRouter>,
-    );
+    renderSidebar();
     expect(navTitles()).not.toContain('Optimization');
   });
 
   it('hides Simulation from monitors', () => {
     role.current = 'monitor';
-    render(
-      <MemoryRouter>
-        <AppSidebar />
-      </MemoryRouter>,
-    );
+    renderSidebar();
     expect(navTitles()).not.toContain('Simulation');
+  });
+
+  describe('System alarms bell', () => {
+    it('stays plain while nothing is active', async () => {
+      renderSidebar();
+      await waitFor(() => expect(alarmsApi.getActiveSummary).toHaveBeenCalled());
+      expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('none');
+      expect(alarmsLink().getAttribute('title')).toBeNull();
+      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).not.toMatch(/text-alarm-/);
+    });
+
+    it('rings red while any site has an active fault, even with warnings', async () => {
+      vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue({
+        fault_count: 1,
+        warning_count: 2,
+        sites: [{ site_id: 1, fault_count: 1, warning_count: 0 }, { site_id: 2, fault_count: 0, warning_count: 2 }],
+      });
+      renderSidebar();
+      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('fault'));
+      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-fault/);
+      expect(alarmsLink().getAttribute('title')).toBe('1 fault, 2 warnings active');
+    });
+
+    it('rings amber while only warnings are active', async () => {
+      vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue({
+        fault_count: 0,
+        warning_count: 1,
+        sites: [{ site_id: 2, fault_count: 0, warning_count: 1 }],
+      });
+      renderSidebar();
+      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('warning'));
+      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-warning/);
+      expect(alarmsLink().getAttribute('title')).toBe('1 warning active');
+    });
   });
 });

@@ -13,9 +13,10 @@ from helpers.alarms.definitions import (
     list_alarm_definitions,
     update_alarm,
 )
-from helpers.alarms.events import get_alarm_snapshot, query_alarm_events
+from helpers.alarms.events import get_active_alarm_summary, get_alarm_snapshot, query_alarm_events
 from logger import get_logger
 from schemas.api_models.alarms import (
+    ActiveAlarmsSummaryResponse,
     AlarmDefinitionCreateRequest,
     AlarmDefinitionResponse,
     AlarmDefinitionUpdateRequest,
@@ -40,6 +41,20 @@ def _alarm_error(e: Exception) -> NoReturn:
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred"
     ) from e
+
+
+@router.get(
+    "/active-summary",
+    response_model=ActiveAlarmsSummaryResponse,
+    summary="Active alarms across all sites, by severity",
+)
+async def get_active_summary() -> ActiveAlarmsSummaryResponse:
+    """How many alarm events are active (raised, not cleared) right now: fault and warning totals
+    over every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator."""
+    try:
+        return await get_active_alarm_summary()
+    except Exception as e:
+        _alarm_error(e)
 
 
 @router.get(

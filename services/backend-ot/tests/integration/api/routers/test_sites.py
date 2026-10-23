@@ -5,7 +5,8 @@ Guards site CRUD against a real database: name uniqueness, the soft-delete / res
 lifecycle (which cascades to devices and points), the guard rails on hard delete, and the
 site's single line diagram (stored per site, saved with optimistic locking), the rule
 that a profile belongs to at most one site, and site health (which ALARM points are set, filtered
-by severity and device).
+by severity and device), and the site's PV arrays (one per configured active PV or INVERTER
+device).
 """
 
 from datetime import UTC, datetime
@@ -21,6 +22,9 @@ from integration.factories import (
     upsert_points,
 )
 from schemas.api_models import (
+    Coordinates,
+    PvArrayConfigResponse,
+    PvArrayConfigUpsertRequest,
     SiteComprehensiveResponse,
     SiteDeleteResponse,
     SiteHealthResponse,
@@ -700,3 +704,55 @@ class TestSiteHealth:
         response = await client.get("/api/sites/999999/health")
         assert response.status_code == 404
         assert ApiErrorResponse.model_validate(response.json()).detail.error == "NotFoundError"
+
+
+PV_ARRAY_LIST = TypeAdapter(list[PvArrayConfigResponse])
+
+
+async def put_pv_array(client, site_id: int, device_id: int, dc_capacity_kw: float) -> None:
+    config = PvArrayConfigUpsertRequest(
+        tilt_deg=20, azimuth_deg=180, dc_capacity_kw=dc_capacity_kw, ac_capacity_kw=dc_capacity_kw * 0.8
+    )
+    response = await client.put(
+        f"/api/devices/site/{site_id}/devices/{device_id}/pv-array",
+        json=config.model_dump(mode="json"),
+    )
+    assert response.status_code == 200, response.text
+
+
+class TestSitePvArrays:
+    async def test_lists_the_configured_arrays_of_active_devices(self, client):
+        site = await create_site(client)
+        other = await create_site(client, name="Other Site")
+        pv_1 = await create_device(client, site.site_id, name="pv-1", type="PV")
+        inverter_2 = await create_device(client, site.site_id, name="inv-2", type="INVERTER")
+        await create_device(client, site.site_id, name="pv-unconfigured", type="PV")
+        removed = await create_device(client, site.site_id, name="pv-removed", type="PV")
+        elsewhere = await create_device(client, other.site_id, name="pv-1", type="PV")
+        for device, dc_kw in ((pv_1, 100), (inverter_2, 200), (removed, 300)):
+            await put_pv_array(client, site.site_id, device.device_id, dc_kw)
+        await put_pv_array(client, other.site_id, elsewhere.device_id, 400)
+        soft_delete = await client.delete(f"/api/devices/site/{site.site_id}/devices/{removed.device_id}")
+        assert soft_delete.status_code == 200
+
+        response = await client.get(f"/api/sites/{site.site_id}/pv-arrays")
+        assert response.status_code == 200
+        arrays = PV_ARRAY_LIST.validate_python(response.json())
+        assert [(array.device_id, array.dc_capacity_kw) for array in arrays] == [
+            (pv_1.device_id, 100), (inverter_2.device_id, 200)
+        ]
+
+    async def test_site_without_arrays_is_empty(self, client):
+        site = await create_site(client)
+        response = await client.get(f"/api/sites/{site.site_id}/pv-arrays")
+        assert response.status_code == 200
+        assert PV_ARRAY_LIST.validate_python(response.json()) == []
+
+    async def test_unknown_site_is_404(self, client):
+        assert (await client.get("/api/sites/9999/pv-arrays")).status_code == 404
+
+    async def test_coordinates_keep_the_elevation(self, client):
+        coordinates = Coordinates(lat=33.45, lng=-112.07, elevation_m=331)
+        site = await create_site(client, coordinates=coordinates)
+        fetched = SiteResponse.model_validate((await client.get(f"/api/sites/{site.site_id}")).json())
+        assert fetched.coordinates == coordinates

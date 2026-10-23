@@ -32,6 +32,7 @@ from helpers.device_points.device_standardized_points import (  # noqa: E402
 from helpers.device_points.scan_range_computation import (  # noqa: E402
     compute_device_scan_ranges,
 )
+from helpers.device_points.standardized_point_links import apply_point_link  # noqa: E402
 from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
@@ -39,6 +40,7 @@ from schemas.db_models.orm_models import (  # noqa: E402
     AlarmDefinition,
     Device,
     DevicePoint,
+    PvArrayConfigRecord,
     Site,
     SiteSldRecord,
 )
@@ -93,6 +95,8 @@ async def seed(data: SeedData | None = None) -> None:
             else:
                 site.profile = site_request.profile  # keep older dev DBs in step with the seed
                 site.timezone = site_request.timezone
+                if site.coordinates is None and site_request.coordinates is not None:
+                    site.coordinates = site_request.coordinates.model_dump(exclude_none=True)
                 logger.info("Site already exists '%s' (id=%s)", site.name, site.id)
             site_by_name[site.name] = site
 
@@ -193,6 +197,19 @@ async def seed(data: SeedData | None = None) -> None:
             logger.info("Created virtual point '%s.%s'", device.name, seed_point.point.name)
         await session.flush()
 
+        # STANDARDIZED point links, with the link endpoint's own check: only where the point has
+        # none, so a link changed through the API survives a re-seed.
+        for seed_link in data.point_links(lambda device_name, point_name: point_ids[(device_name, point_name)]):
+            point = await session.get(DevicePoint, point_ids[(seed_link.device_name, seed_link.point_name)])
+            source = await session.get(DevicePoint, seed_link.link.source_point_id)
+            assert point is not None and source is not None
+            if point.source_point_id is not None:
+                logger.info("Point already linked '%s.%s'", seed_link.device_name, point.name)
+                continue
+            apply_point_link(point, source, seed_link.link)
+            logger.info("Linked '%s.%s' to '%s'", seed_link.device_name, point.name, source.name)
+        await session.flush()
+
         # ------------------------------------------------------------------ #
         # 4. Recompute scan_ranges from each device's active NATIVE points    #
         # ------------------------------------------------------------------ #
@@ -263,10 +280,22 @@ async def seed(data: SeedData | None = None) -> None:
             session.add(SiteSldRecord(site_id=site.id, document=sld))
             logger.info("Created single line diagram for '%s'", site.name)
 
+        # ------------------------------------------------------------------ #
+        # 8. PV array configs: only where the device has none, so edits       #
+        #    saved through the API survive a re-seed                          #
+        # ------------------------------------------------------------------ #
+        for device_name, pv_array in data.pv_arrays.items():
+            device = device_by_name[device_name]
+            if await session.get(PvArrayConfigRecord, device.device_id) is not None:
+                logger.info("PV array config already exists for '%s'", device.name)
+                continue
+            session.add(PvArrayConfigRecord(device_id=device.device_id, **pv_array.model_dump()))
+            logger.info("Created PV array config for '%s'", device.name)
+
         seeded_site_ids = [site.id for site in site_by_name.values()]
         await session.commit()
 
-    # 8. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
+    # 9. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
     for site_id in seeded_site_ids:
         await sync_site_profile_alarms(site_id)
     logger.info("Seeding complete.")

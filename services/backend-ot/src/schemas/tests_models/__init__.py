@@ -22,6 +22,7 @@ from schemas.tests_models.api_responses import (
     ReadinessResponse,
     RedisHealthResponse,
 )
+from schemas.tests_models.linked_points import LinkedBess
 from schemas.tests_models.mock_modbus_contract import (
     MockModbusContract,
     MockModbusDevice,
@@ -39,6 +40,7 @@ from schemas.tests_models.seed_models import (
     SeedAlarm,
     SeedData,
     SeedDevice,
+    SeedPointLink,
     SeedVirtualPoint,
 )
 
@@ -57,6 +59,7 @@ __all__ = [
     "DbHealthResponse",
     "DbServerInfo",
     "DeviceIdResolver",
+    "LinkedBess",
     "MockModbusContract",
     "MockModbusDevice",
     "MockModbusRegister",
@@ -71,5 +74,6 @@ __all__ = [
     "SeedAlarm",
     "SeedData",
     "SeedDevice",
+    "SeedPointLink",
     "SeedVirtualPoint",
 ]

@@ -8,9 +8,11 @@ import { siteFunctionsApi } from "@/api/siteFunctions";
 import { POINT_GROUP_ORDER, type DevicePointsEntry, type PointGroup } from "@/api/types/devices";
 import type { DevicePoint } from "@/api/types/devicePoints";
 import type { SiteEndpointInfo } from "@/api/types/siteFunctions";
+import { DEVICE_FORECAST_VARIABLES, SITE_FORECAST_VARIABLES } from "@/api/types/forecast";
 import { toast } from "@/shared/hooks/use-toast";
 import {
-  bitSelectionId, functionSelectionId, isBitfieldPoint, isEnumPoint, parseFunctionSelectionId, parseSelectionId, sortedBits,
+  bitSelectionId, forecastSelectionId, functionSelectionId, isBitfieldPoint, isEnumPoint, parseForecastSelectionId,
+  parseFunctionSelectionId, parseSelectionId, sortedBits,
 } from "@/shared/lib/discretePoints";
 
 const POINT_GROUP_LABELS: Record<PointGroup, string> = {
@@ -21,6 +23,16 @@ const POINT_GROUP_LABELS: Record<PointGroup, string> = {
 
 const SITE_FUNCTIONS_NODE = "site-functions";
 const deviceFunctionsNode = (deviceId: number) => `${deviceId}:functions`;
+// Site-level data (the same folder on every site): the PV forecast, site total and per PV device.
+const SITE_LEVEL_NODE = "site_level";
+const PV_FORECAST_NODE = "site_level:pv-forecast";
+
+function forecastLabel(variable: string, deviceName?: string): string {
+  if (deviceName === undefined) {
+    return `Forecast · ${SITE_FORECAST_VARIABLES[variable as keyof typeof SITE_FORECAST_VARIABLES] ?? variable}`;
+  }
+  return `Forecast · ${deviceName} · ${DEVICE_FORECAST_VARIABLES[variable as keyof typeof DEVICE_FORECAST_VARIABLES] ?? variable}`;
+}
 
 // The site's series functions to list in one place: under the site (deviceType null) the site and
 // common ones; under a device the device ones with no device_types or listing that device's type.
@@ -40,6 +52,13 @@ function resolveSelectionLabels(devices: DevicePointsEntry[], selectionIds: stri
   devices.forEach(device => device.points.forEach(point => pointsById.set(String(point.id), { point, deviceName: device.deviceName })));
   const resolved: Record<string, string> = {};
   selectionIds.forEach(selectionId => {
+    const forecast = parseForecastSelectionId(selectionId);
+    if (forecast) {
+      if (forecast.deviceId === undefined) { resolved[selectionId] = forecastLabel(forecast.variable); return; }
+      const deviceName = devices.find(device => String(device.deviceId) === forecast.deviceId)?.deviceName;
+      if (deviceName) resolved[selectionId] = forecastLabel(forecast.variable, deviceName);
+      return;
+    }
     const fn = parseFunctionSelectionId(selectionId);
     if (fn) {
       const deviceName = devices.find(device => String(device.deviceId) === fn.deviceId)?.deviceName;
@@ -66,6 +85,10 @@ function TypeBadge({ label }: { label: string }) {
 // The tree nodes to expand so a selection's row is visible: device, category folder, and for a
 // bit, its bitfield point. Null when the point isn't on this site.
 function nodePathTo(devices: DevicePointsEntry[], selectionId: string): string[] | null {
+  const forecast = parseForecastSelectionId(selectionId);
+  if (forecast) {
+    return [SITE_LEVEL_NODE, PV_FORECAST_NODE];
+  }
   const fn = parseFunctionSelectionId(selectionId);
   if (fn) {
     if (fn.deviceId === undefined) return [SITE_FUNCTIONS_NODE];
@@ -92,7 +115,7 @@ export interface RevealRequest {
 
 const REVEAL_HIGHLIGHT_MS = 2000;
 
-export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, onResolveLabels, pointIdsToResolve, maxPoints = 5, expandBitfields = false, includeFunctions = false, revealRequest }: {
+export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, onResolveLabels, pointIdsToResolve, maxPoints = 5, expandBitfields = false, includeFunctions = false, includeForecast = false, revealRequest }: {
   siteId: string | null;
   siteName: string;
   selectedPoints: string[];
@@ -105,6 +128,9 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
   // Also list the series functions of the site's profile: site ones in a "Site functions" folder,
   // device ones in a "Functions" folder of each device they apply to.
   includeFunctions?: boolean;
+  // Also list the PV forecast (intelli-gateway) in a "site_level" folder: the site total and
+  // weather, and one subfolder per PV device with a PV array.
+  includeForecast?: boolean;
   revealRequest?: RevealRequest | null;
 }) {
   const [siteExpanded, setSiteExpanded] = useState(true);
@@ -124,6 +150,12 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
     enabled: !!siteId && includeFunctions,
   });
   const siteFunctions = functionsFor(functions, null);
+
+  const { data: pvArrays = [] } = useQuery({
+    queryKey: ['site-pv-arrays', siteId],
+    queryFn: () => devicesApi.getSitePvArrays(siteId!),
+    enabled: !!siteId && includeForecast,
+  });
 
   useEffect(() => {
     if (!revealRequest || devices.length === 0) return;
@@ -264,6 +296,15 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
     );
   };
 
+  const renderForecast = (variable: string, label: string, indent: number, deviceId?: number) =>
+    renderSelectableRow(forecastSelectionId(variable, deviceId), label, indent, {
+      badge: "forecast", title: "PV forecast (intelli-gateway), 15-minute intervals",
+    });
+
+  // The site's AC power first, then each PV device's, then the weather.
+  const [siteAcPower, ...siteWeather] = Object.entries(SITE_FORECAST_VARIABLES);
+  const [deviceAcVariable, deviceAcLabel] = Object.entries(DEVICE_FORECAST_VARIABLES)[0];
+
   const renderFunction = (endpoint: SiteEndpointInfo, indent: number, deviceId?: number) =>
     renderSelectableRow(functionSelectionId(endpoint.name, deviceId), endpoint.name, indent, { badge: "fn", title: endpoint.summary });
 
@@ -304,6 +345,22 @@ export function DeviceAssetTree({ siteId, siteName, selectedPoints, onSelect, on
             SITE_FUNCTIONS_NODE, "Site functions", siteFunctions.length, 24, "site-functions",
             () => siteFunctions.map(endpoint => renderFunction(endpoint, 44)),
             false,
+          )}
+
+          {siteExpanded && includeForecast && pvArrays.length > 0 && renderFolder(
+            SITE_LEVEL_NODE, "site_level", 1, 24, "site-level",
+            () => renderFolder(
+              PV_FORECAST_NODE, "PV forecast", 1 + pvArrays.length + siteWeather.length, 44, "pv-forecast",
+              () => (
+                <>
+                  {renderForecast(siteAcPower[0], siteAcPower[1], 64)}
+                  {pvArrays.map(array =>
+                    renderForecast(deviceAcVariable, `${array.device_name} · ${deviceAcLabel}`, 64, array.device_id),
+                  )}
+                  {siteWeather.map(([variable, label]) => renderForecast(variable, label, 64))}
+                </>
+              ),
+            ),
           )}
 
           {siteExpanded && devices.map(device => {

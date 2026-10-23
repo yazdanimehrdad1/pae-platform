@@ -15,16 +15,19 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { ArrowLeft, Activity, Info, Radio, Pencil, Plus, Trash2, RotateCcw, Save, Database } from "lucide-react";
-import type { Device, DeviceCreateRequest, DeviceScanRanges } from "@/api/types/devices";
+import type { Device, DeviceCreateRequest, DeviceScanRanges, PvArrayConfigRequest } from "@/api/types/devices";
 import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from "@/api/types/devicePoints";
 import { devicesApi } from "@/api/devices";
 import type { PingResult } from "@/api/types/devices";
 import { getErrorMessage } from "@/api/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { DeviceFormDialog } from "@/features/sites/DeviceFormDialog";
+import { pvArrayKey, savePvArray, useDevicePvArray } from "@/features/sites/hooks/useDevicePvArray";
 import { DevicePointsGrid } from "@/features/devices/DevicePointsGrid";
 import { VirtualPointDialog } from "@/features/devices/virtual/VirtualPointDialog";
 import { VirtualPointsList } from "@/features/devices/virtual/VirtualPointsList";
+import { PointLinkDialog } from "@/features/devices/standardized/PointLinkDialog";
+import { StandardizedPointsList } from "@/features/devices/standardized/StandardizedPointsList";
 
 type ScanRangeKind = 'holding' | 'input' | 'coils';
 const SCAN_RANGE_KINDS: ScanRangeKind[] = ['holding', 'input', 'coils'];
@@ -65,6 +68,18 @@ export default function DeviceDetails() {
     : (device?.points.length ?? 0);
 
   const [editDeviceOpen, setEditDeviceOpen] = useState(false);
+  const { data: pvArray } = useDevicePvArray(selectedSite?.id, liveDevice, editDeviceOpen);
+  const saveDevice = async (payload: DeviceCreateRequest, pvArrayRequest: PvArrayConfigRequest | null) => {
+    await updateDeviceMutation.mutateAsync(payload);
+    try {
+      await savePvArray(selectedSite.id, deviceIdNum, pvArrayRequest, pvArray);
+    } catch (error) {
+      toast({ title: "Device saved, but its PV array was not", description: getErrorMessage(error), variant: "destructive" });
+      throw error;
+    } finally {
+      queryClient.invalidateQueries({ queryKey: pvArrayKey(selectedSite.id, deviceIdNum) });
+    }
+  };
   const updateDeviceMutation = useMutation({
     mutationFn: (payload: DeviceCreateRequest) => devicesApi.update(selectedSite.id, deviceIdNum, payload),
     onSuccess: () => {
@@ -86,6 +101,10 @@ export default function DeviceDetails() {
   const registerPoints = activePoints.filter(p => p.category !== 'VIRTUAL');
   const virtualPoints = activePoints.filter(p => p.category === 'VIRTUAL');
   const [virtualDialog, setVirtualDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
+  // A standardized point shows the readings of a NATIVE point on this device once linked to it.
+  const standardizedPoints = activePoints.filter(p => p.category === 'STANDARDIZED');
+  const nativePoints = activePoints.filter(p => p.category === 'NATIVE');
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
   const deletedPoints = allPoints.filter(p => p.deleted_at);
 
   const invalidatePoints = () => {
@@ -134,6 +153,15 @@ export default function DeviceDetails() {
       toast({ title: "Point restored" });
     },
     onError: (error) => toast({ title: "Failed to restore point", description: getErrorMessage(error), variant: "destructive" }),
+  });
+
+  const unlinkPointMutation = useMutation({
+    mutationFn: (point: DevicePoint) => devicesApi.unlinkPoint(selectedSite.id, deviceIdNum, point.id),
+    onSuccess: (point) => {
+      invalidatePoints();
+      toast({ title: `${point.name} unlinked` });
+    },
+    onError: (error) => toast({ title: "Failed to unlink point", description: getErrorMessage(error), variant: "destructive" }),
   });
 
   const closeDeletePointDialog = (open: boolean) => {
@@ -555,6 +583,16 @@ export default function DeviceDetails() {
                   onRequestDelete={(p) => setDeletingPoint(p)}
                 />
                 <div className="mt-6 space-y-2">
+                  <h3 className="text-sm font-semibold">Standardized points ({standardizedPoints.length})</h3>
+                  <StandardizedPointsList
+                    points={standardizedPoints}
+                    sources={nativePoints}
+                    disabled={!liveDevice || unlinkPointMutation.isPending}
+                    onLink={(p) => setLinkDialog({ open: true, point: p })}
+                    onUnlink={(p) => unlinkPointMutation.mutate(p)}
+                  />
+                </div>
+                <div className="mt-6 space-y-2">
                   <h3 className="text-sm font-semibold">Virtual points ({virtualPoints.length})</h3>
                   <VirtualPointsList
                     siteId={selectedSite?.id}
@@ -619,11 +657,23 @@ export default function DeviceDetails() {
         />
       )}
 
+      {selectedSite?.id && Number.isFinite(deviceIdNum) && (
+        <PointLinkDialog
+          open={linkDialog.open}
+          onOpenChange={(open) => setLinkDialog(previous => ({ ...previous, open }))}
+          siteId={selectedSite.id}
+          deviceId={deviceIdNum}
+          point={linkDialog.point}
+          sources={nativePoints}
+        />
+      )}
+
       <DeviceFormDialog
         open={editDeviceOpen}
         onOpenChange={setEditDeviceOpen}
         device={liveDevice}
-        onSubmit={async (payload) => { await updateDeviceMutation.mutateAsync(payload); }}
+        pvArray={pvArray}
+        onSubmit={saveDevice}
       />
 
       <AlertDialog open={deletingPoint !== null} onOpenChange={closeDeletePointDialog}>

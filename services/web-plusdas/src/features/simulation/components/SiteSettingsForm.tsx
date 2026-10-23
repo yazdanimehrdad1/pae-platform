@@ -1,18 +1,15 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { Save } from "lucide-react";
-import { powerflowApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { RunState, SiteConfig } from "@/api/types/powerflow";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "@/shared/hooks/use-toast";
-import { useProfiles, useRefreshPowerflow } from "../hooks/usePowerflow";
-import { applySiteEdits, editsFromConfig, hasChanges, type ProfileChoice, type SiteEdits } from "../lib/siteEdits";
+import { useProfiles, useSaveSite } from "../hooks/usePowerflow";
+import { useSiteEdits } from "../hooks/useSiteEdits";
+import { applySiteEdits, type SiteEdits } from "../lib/siteEdits";
+import { ProfileRow } from "./profiles/ProfileRow";
 
 interface Props {
   siteName: string;
@@ -44,72 +41,16 @@ function NumberField({
   );
 }
 
-function ProfileRow({
-  label,
-  choice,
-  scenarios,
-  onChange,
-}: {
-  label: string;
-  choice: ProfileChoice;
-  scenarios: string[];
-  onChange: (choice: ProfileChoice) => void;
-}) {
-  return (
-    <div className="grid grid-cols-[1fr_14rem_7rem] items-end gap-3">
-      <p className="text-sm text-foreground pb-2">{label}</p>
-      <div className="space-y-1">
-        <Label>Scenario</Label>
-        <Select value={choice.scenario} onValueChange={(scenario) => onChange({ ...choice, scenario })}>
-          <SelectTrigger aria-label={`${label} scenario`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {scenarios.map((scenario) => (
-              <SelectItem key={scenario} value={scenario}>
-                {scenario}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <Label>Scale</Label>
-        <Input
-          type="number"
-          min={0}
-          step={0.1}
-          value={choice.scale}
-          aria-label={`${label} scale`}
-          onChange={(event) => onChange({ ...choice, scale: Number(event.target.value) })}
-        />
-      </div>
-    </div>
-  );
-}
-
 // Edits the selection fields of a stored site (simulation settings, profile scenarios, Modbus
 // on/off) and saves the full config back. Assets, ratings and topology aren't editable here.
 export function SiteSettingsForm({ siteName, config, isActive, runState }: Props) {
-  const refresh = useRefreshPowerflow();
   const profiles = useProfiles();
-  const [edits, setEdits] = useState<SiteEdits>(() => editsFromConfig(config));
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const { edits, setEdits, reset, dirty } = useSiteEdits(config);
   const setSimulation = (patch: Partial<SiteEdits["simulation"]>) =>
     setEdits((current) => ({ ...current, simulation: { ...current.simulation, ...patch } }));
 
-  const save = useMutation({
-    mutationFn: () => powerflowApi.saveSite(siteName, applySiteEdits(config, edits)),
-    onSuccess: () => {
-      setSaveError(null);
-      refresh();
-      toast({
-        title: `Saved ${siteName}`,
-        description: isActive ? "The active site was reloaded and the simulation reset." : undefined,
-      });
-    },
-    onError: (error) => setSaveError(getErrorMessage(error, "Saving the site failed")),
-  });
+  const save = useSaveSite(siteName, isActive);
+  const saveError = save.isError ? getErrorMessage(save.error, "Saving the site failed") : null;
 
   const blocked = isActive && runState !== undefined && runState !== "stopped";
   const loadScenarios = profiles.data?.load ?? [];
@@ -216,10 +157,10 @@ export function SiteSettingsForm({ siteName, config, isActive, runState }: Props
           </p>
         )}
         <div className="flex gap-2">
-          <Button className="gap-2" disabled={!hasChanges(config, edits) || blocked || save.isPending} onClick={() => save.mutate()}>
+          <Button className="gap-2" disabled={!dirty || blocked || save.isPending} onClick={() => save.mutate({ config: applySiteEdits(config, edits) })}>
             <Save className="w-4 h-4" /> {save.isPending ? "Saving..." : "Save"}
           </Button>
-          <Button variant="outline" disabled={save.isPending} onClick={() => setEdits(editsFromConfig(config))}>
+          <Button variant="outline" disabled={save.isPending} onClick={reset}>
             Discard changes
           </Button>
         </div>

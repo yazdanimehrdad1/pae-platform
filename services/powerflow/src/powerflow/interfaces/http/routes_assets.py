@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
+from powerflow.core.battery import BessBatteryRequest, BessBatteryState
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest, SetpointResult
 from powerflow.interfaces.base import AdapterContext
 from powerflow.interfaces.http.dependencies import get_context
@@ -44,7 +45,10 @@ async def get_bess(
         next((item for item in latest.bess if item.id == asset_id), None) if latest else None
     )
     return BessAssetResponse(
-        config=asset.config, setpoint=context.setpoints.bess(asset_id), measurement=measurement
+        config=asset.config,
+        setpoint=context.setpoints.bess(asset_id),
+        battery=context.engine.battery(asset_id),
+        measurement=measurement,
     )
 
 
@@ -59,6 +63,22 @@ async def put_bess_setpoint(
     asset_id: str, request: BessSetpointRequest, context: AdapterContext = Depends(get_context)
 ) -> SetpointResult:
     return context.setpoints.write_bess(asset_id, request)
+
+
+@router.put(
+    "/assets/bess/{asset_id}/battery",
+    response_model=BessBatteryState,
+    responses=NOT_FOUND,
+    summary="Set a BESS's SOC now and/or its round-trip efficiency",
+    description="Partial update: omitted fields keep their value. `soc_pct` sets the SOC at once "
+    "(clamped to the battery's band). `round_trip_efficiency_pct` holds until the next activate "
+    "or reset, which return every BESS to 100 %; null = the site config's efficiency. Works in "
+    "any run state, also while auto dispatch drives the BESS.",
+)
+async def put_bess_battery(
+    asset_id: str, request: BessBatteryRequest, context: AdapterContext = Depends(get_context)
+) -> BessBatteryState:
+    return context.engine.set_battery(asset_id, request)
 
 
 @router.get("/assets/pv/{asset_id}", response_model=PvAssetResponse, responses=NOT_FOUND)

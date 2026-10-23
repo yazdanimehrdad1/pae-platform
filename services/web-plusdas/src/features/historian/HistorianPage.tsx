@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,12 @@ import { usePointCatalog } from "./hooks/usePointCatalog";
 import { DEFAULT_DISCRETE_MODE, type DiscreteModeId } from "./components/discrete/discreteModes";
 import { DiscreteModeToggle } from "./components/discrete/DiscreteModeToggle";
 import { AutoRefreshToggle } from "./components/AutoRefreshToggle";
+import { AxisGroupedLegend } from "./components/AxisGroupedLegend";
+import { AxisScaleToggle } from "./components/AxisScaleToggle";
+import { assignAxes, axisWidth, DEFAULT_AXIS_SCALE, UNIT_AXIS_COLORS, valueRange, type AxisScale } from "./lib/axes";
+import { useTheme } from "@/shared/components/theme-provider";
+import { parseForecastSelectionId, parseFunctionSelectionId, parseSelectionId } from "@/shared/lib/discretePoints";
+import { FORECAST_AHEAD_HOURS, PRESET_MS, type ForecastAheadHours } from "./lib/timeWindows";
 import { RefreshReadingsButton } from "./components/RefreshReadingsButton";
 import { StateLanes } from "./components/discrete/StateLanes";
 import { buildStepLayout, renderStepSeries, STATE_AXIS_WIDTH } from "./components/discrete/stepSeries";
@@ -37,90 +43,8 @@ import { sitesApi } from "@/api";
 import { TimeZoneToggle } from "@/shared/components/TimeZoneToggle";
 import { useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { fromZonedInput, toZonedInput } from "@/shared/lib/zonedTime";
-
-
-const FALLBACK_COLORS = [
-  "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#3B82F6",
-  "#F97316", "#06B6D4", "#84CC16", "#EC4899", "#6366F1",
-];
-
-function getColorForPoint(pointName: string): { color: string; type: string } | null {
-  const pointPart = pointName.includes(' - ') ? pointName.split(' - ')[1].toLowerCase() : pointName.toLowerCase();
-  const fullName = pointName.toLowerCase();
-
-  if (pointPart.includes('real power') || pointPart.includes('kw') || pointPart.includes('mw') || fullName.includes('real power')) return { color: "#22C55E", type: "real-power" };
-  if (pointPart.includes('reactive power') || pointPart.includes('kvar') || pointPart.includes('mvar') || fullName.includes('reactive power')) return { color: "#4B5563", type: "reactive-power" };
-  if (pointPart.includes('apparent power') || pointPart.includes('kva') || pointPart.includes('mva') || fullName.includes('apparent power')) return { color: "#3B82F6", type: "apparent-power" };
-  if (pointPart.includes('temperature') || pointPart.includes('temp') || fullName.includes('temperature')) return { color: "#F97316", type: "temperature" };
-
-  if (pointPart.includes('voltage') || fullName.includes('voltage')) {
-    const lp = pointPart.toLowerCase();
-    if (lp.includes('voltage va') || (lp.includes('voltage') && lp.includes(' va'))) return { color: "#B91C1C", type: "voltage-va" };
-    if (lp.includes('voltage vb') || (lp.includes('voltage') && lp.includes(' vb'))) return { color: "#DC2626", type: "voltage-vb" };
-    if (lp.includes('voltage vc') || (lp.includes('voltage') && lp.includes(' vc'))) return { color: "#FCA5A5", type: "voltage-vc" };
-    return { color: "#B91C1C", type: "voltage" };
-  }
-
-  if (pointPart.includes('current') || fullName.includes('current')) {
-    const lp = pointPart.toLowerCase();
-    if (lp.includes('current ia') || (lp.includes('current') && lp.includes(' ia'))) return { color: "#6D28D9", type: "current-ia" };
-    if (lp.includes('current ib') || (lp.includes('current') && lp.includes(' ib'))) return { color: "#8B5CF6", type: "current-ib" };
-    if (lp.includes('current ic') || (lp.includes('current') && lp.includes(' ic'))) return { color: "#C4B5FD", type: "current-ic" };
-    return { color: "#6D28D9", type: "current" };
-  }
-
-  return null;
-}
-
-function getColorsForPoints(selectedPoints: string[]): string[] {
-  const colors: (string | null)[] = [];
-  const usedColors = new Set<string>();
-  const fallbackPool = [...FALLBACK_COLORS];
-
-  selectedPoints.forEach(point => {
-    const colorInfo = getColorForPoint(point);
-    if (colorInfo && !usedColors.has(colorInfo.color)) {
-      colors.push(colorInfo.color);
-      usedColors.add(colorInfo.color);
-    } else {
-      colors.push(null);
-    }
-  });
-
-  colors.forEach((color, index) => {
-    if (!color) {
-      let found = false;
-      for (const candidateColor of fallbackPool) {
-        if (!usedColors.has(candidateColor)) {
-          colors[index] = candidateColor;
-          usedColors.add(candidateColor);
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        let attempts = 0;
-        let uniqueColor: string;
-        do {
-          const hash = selectedPoints[index].split('').reduce((acc, char) => acc + char.charCodeAt(0), index + attempts);
-          const hue = (hash * 137.508) % 360;
-          uniqueColor = `hsl(${hue}, 70%, 50%)`;
-          attempts++;
-        } while (usedColors.has(uniqueColor) && attempts < 100);
-        colors[index] = uniqueColor;
-        usedColors.add(uniqueColor);
-      }
-    }
-  });
-
-  return colors as string[];
-}
-
-const PRESET_MS: Record<TimeRange, number> = {
-  '1H': 3_600_000, '6H': 6 * 3_600_000, '12H': 12 * 3_600_000,
-  '1D': 24 * 3_600_000, '2D': 48 * 3_600_000, '3D': 72 * 3_600_000,
-  '1W': 7 * 24 * 3_600_000, '1M': 30 * 24 * 3_600_000, '3M': 90 * 24 * 3_600_000,
-};
+import { SeriesStylePopover } from "./components/SeriesStylePopover";
+import { DASH_ARRAY, pruneSeriesStyles, resolveSeriesStyles, type SeriesStyle } from "./lib/seriesStyles";
 
 const PRESET_LABELS: [TimeRange | 'custom', string][] = [
   ['1H', 'Last 1H'], ['6H', 'Last 6H'], ['12H', 'Last 12H'],
@@ -138,7 +62,6 @@ function formatTimestamp(ts: number, spanMs: number, timeZone: string): string {
 }
 
 const CHART_MARGIN = { top: 5, right: 40, left: 0, bottom: 5 };
-const Y_AXIS_WIDTH = 60;
 
 type StepLayout = ReturnType<typeof buildStepLayout>;
 
@@ -174,11 +97,19 @@ function TrendTooltip({ active, label, payload, lines, analogKeys, pointLabels, 
   );
 }
 
-function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
+function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecastAheadHours, scale, onScaleChange, styles, onStylesChange, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
   selectedPoints: string[];
   timeWindow: TimeWindow;
   timeZone: string;
   autoRefresh: boolean;
+  /** How far past now a preset window's PV forecast reaches (0 = up to now). */
+  forecastAheadHours: number;
+  /** How the analog lines share vertical axes; saved on the trend. */
+  scale: AxisScale;
+  onScaleChange: (scale: AxisScale) => void;
+  /** What the user changed in each line's colour, style and width; saved on the trend. */
+  styles: Record<string, SeriesStyle> | undefined;
+  onStylesChange: (styles: Record<string, SeriesStyle> | undefined) => void;
   pointLabels: Record<string, string>;
   siteId: string | null;
   discreteMode: DiscreteModeId;
@@ -192,7 +123,7 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
   const viewWindow: TimeWindow = zoomRange
     ? { startTime: new Date(zoomRange.start).toISOString(), endTime: new Date(zoomRange.end).toISOString() }
     : timeWindow;
-  const { data, lines, functionSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow, { autoRefresh });
+  const { data, lines, functionSeries, forecastSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow, { autoRefresh, forecastAheadHours });
   const { pointsById } = usePointCatalog(siteId);
   const spanMs = 'preset' in timeWindow
     ? PRESET_MS[timeWindow.preset]
@@ -203,12 +134,12 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
   const [dragEnd, setDragEnd] = useState<{ x: number; timestamp: number } | null>(null);
 
   const chartData: ChartRow[] = data;
-  const pointColors = getColorsForPoints(selectedPoints);
-  const colorByKey = new Map(selectedPoints.map((key, index) => [key, pointColors[index]]));
+  const styleByKey = resolveSeriesStyles(selectedPoints, styles);
+  const colorByKey = new Map([...styleByKey].map(([key, style]) => [key, style.color]));
 
   // Enum points and bitfield bits are drawn by the chosen discrete renderer; the rest are analog lines.
   const discreteSeries = selectedPoints
-    .map(key => describeDiscreteSeries(key, pointsById, chartData, { name: pointLabels[key] ?? key, color: colorByKey.get(key) }, functionSeries))
+    .map(key => describeDiscreteSeries(key, pointsById, chartData, { name: pointLabels[key] ?? key, ...styleByKey.get(key) }, functionSeries))
     .filter(Boolean);
   const discreteKeys = new Set(discreteSeries.map(series => series.key));
   const analogKeys = selectedPoints.filter(key => !discreteKeys.has(key));
@@ -223,9 +154,32 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
   const displayData = stepLayout ? stepLayout.addPlotValues(zoomedRows) : zoomedRows;
   const formatTime = (timestamp: number) => formatTimestamp(timestamp, spanMs, timeZone);
 
+  // Each analog line's axis: per unit by default, so a 1-10 signal isn't flattened by a 1000-5000 one.
+  const unitOf = (key: string): string | null => {
+    if (parseFunctionSelectionId(key)) return functionSeries.get(key)?.unit ?? null;
+    if (parseForecastSelectionId(key)) return forecastSeries.get(key)?.unit ?? null;
+    return pointsById.get(parseSelectionId(key).pointId)?.point.unit ?? null;
+  };
+  const { theme } = useTheme();
+  const { axes, axisOf } = assignAxes(
+    analogKeys.map(key => ({ key, unit: unitOf(key), label: pointLabels[key] ?? key, color: colorByKey.get(key) })),
+    scale,
+    UNIT_AXIS_COLORS[theme],
+  );
+  // Each axis as wide as its numbers (and its label), so the label sits next to its ticks.
+  // Memoised: a 3-day line is ~26k samples, and dragging to zoom re-renders on every mouse move.
+  const axesSignature = axes.map(axis => `${axis.id}:${axis.keys.join(",")}:${axis.label !== ""}`).join("|");
+  const widthOf = useMemo(
+    () => new Map(axes.map(axis => [axis.id, axisWidth(valueRange(lines, axis.keys), axis.label !== "")])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lines, axesSignature],
+  );
+  const sideWidth = (side: "left" | "right") =>
+    axes.filter(axis => axis.side === side).reduce((total, axis) => total + (widthOf.get(axis.id) ?? 0), 0);
+
   // Horizontal extent of the plot area, so the lanes line up with the chart and drag maps to time.
-  const plotLeft = CHART_MARGIN.left + (analogKeys.length > 0 ? Y_AXIS_WIDTH : 0);
-  const plotRight = CHART_MARGIN.right + (stepLayout ? STATE_AXIS_WIDTH : 0);
+  const plotLeft = CHART_MARGIN.left + sideWidth("left");
+  const plotRight = CHART_MARGIN.right + sideWidth("right") + (stepLayout ? STATE_AXIS_WIDTH : 0);
 
   const getTimestampFromX = (x: number, containerWidth: number): number => {
     if (!chartData.length) return 0;
@@ -272,9 +226,11 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
 
   return (
     <div className="space-y-2">
-      {(discreteSeries.length > 0 || zoomRange || isFetching) && (
+      {selectedPoints.length > 0 && (
         <div className="flex items-center justify-end gap-4">
           {isFetching && <span className="text-xs text-muted-foreground">Updating...</span>}
+          <SeriesStylePopover keys={selectedPoints} labels={pointLabels} resolved={styleByKey} styles={styles} onChange={onStylesChange} />
+          {analogKeys.length > 1 && <AxisScaleToggle scale={scale} onChange={onScaleChange} />}
           {discreteSeries.length > 0 && <DiscreteModeToggle mode={discreteMode} onChange={onDiscreteModeChange} />}
           {zoomRange && (
             <Button variant="outline" size="sm" onClick={() => setZoomRange(null)} className="gap-2">
@@ -303,21 +259,55 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, pointLa
               <LineChart data={displayData} margin={CHART_MARGIN}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                 <XAxis dataKey="timestamp" type="number" scale="time" domain={domain} allowDataOverflow tick={{ fontSize: 11 }} tickFormatter={formatTime} />
-                <YAxis tick={{ fontSize: 12 }} width={Y_AXIS_WIDTH} hide={analogKeys.length === 0} />
+                {axes.length === 0 && <YAxis width={0} hide />}
+                {axes.map(axis => (
+                  <YAxis
+                    key={axis.id}
+                    yAxisId={axis.id}
+                    orientation={axis.side}
+                    width={widthOf.get(axis.id)}
+                    stroke={axis.color}
+                    tick={{ fontSize: 12, fill: axis.color }}
+                    label={axis.label ? {
+                      value: axis.label, angle: -90, fontSize: 11, fill: axis.color,
+                      // offset 8: the rotated label's middle, half of its strip, so the outer one isn't clipped
+                      position: axis.side === "left" ? "insideLeft" : "insideRight", offset: 8, style: { textAnchor: "middle" },
+                    } : undefined}
+                  />
+                ))}
                 <RechartsTooltip
                   content={<TrendTooltip lines={lines} analogKeys={analogKeys} pointLabels={pointLabels} colorByKey={colorByKey} formatTime={formatTime} stepLayout={stepLayout} />}
                 />
-                <Legend
-                  wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
-                  iconType="line"
-                  formatter={(value) => <span title="Show in Trends panel">{value.includes(' - ') ? value.replace(' - ', '-') : value}</span>}
-                  onClick={(entry) => { const key = stepLayout?.selectionKey(entry.dataKey) ?? entry.dataKey; if (typeof key === 'string') onRevealPoint(key); }}
-                />
-                {analogKeys.map(point => (
+                {scale === "per-unit" ? (
+                  <Legend
+                    content={(
+                      <AxisGroupedLegend
+                        axes={axes}
+                        axisOf={axisOf}
+                        onSelect={dataKey => onRevealPoint(stepLayout?.selectionKey(dataKey) ?? dataKey)}
+                        styleOf={dataKey => styleByKey.get(stepLayout?.selectionKey(dataKey) ?? dataKey)}
+                      />
+                    )}
+                  />
+                ) : (
+                  <Legend
+                    wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
+                    iconType="plainline"
+                    formatter={(value) => <span title="Show in Trends panel">{value.includes(' - ') ? value.replace(' - ', '-') : value}</span>}
+                    onClick={(entry) => { const key = stepLayout?.selectionKey(entry.dataKey) ?? entry.dataKey; if (typeof key === 'string') onRevealPoint(key); }}
+                  />
+                )}
+                {analogKeys.map(point => {
                   // Each line draws its own samples (every reading up to 3 days, plot values beyond),
                   // breaking only at its own gap markers. Linear and unanimated: up to ~26k points a line.
-                  <Line key={point} data={lines[point]} type="linear" isAnimationActive={false} dataKey={point} stroke={colorByKey.get(point)} strokeWidth={2} dot={false} name={pointLabels[point] ?? point} />
-                ))}
+                  // A PV forecast value is the mean of its 15-minute interval: drawn as a step (dashed
+                  // by default), so it never blends into (or resamples) the seconds-level points next to it.
+                  const isForecast = parseForecastSelectionId(point) !== null;
+                  const style = styleByKey.get(point);
+                  return (
+                    <Line key={point} yAxisId={axisOf.get(point)} data={lines[point]} type={isForecast ? "stepAfter" : "linear"} isAnimationActive={false} dataKey={point} stroke={style.color} strokeWidth={style.width} strokeDasharray={DASH_ARRAY[style.dash]} dot={false} name={pointLabels[point] ?? point} />
+                  );
+                })}
                 {stepLayout && renderStepSeries(stepLayout)}
               </LineChart>
             </ResponsiveContainer>
@@ -400,6 +390,16 @@ export default function Historian() {
   const [timeRange, setTimeRange] = useState<TimeRange | 'custom'>('1H');
   // Off by default: the charts refresh only on Refresh, or every minute while this is on.
   const [autoRefresh, setAutoRefresh] = useState(false);
+  // How far past now the PV forecast runs on a preset window (the "Forecast ahead" select).
+  const [forecastAhead, setForecastAhead] = useState<ForecastAheadHours>(0);
+  // A trend's axis choice is saved with the trend (localStorage, like its points).
+  const scaleOf = (trendId: string | null): AxisScale => trends.find(trend => trend.id === trendId)?.scale ?? DEFAULT_AXIS_SCALE;
+  const setTrendScale = (trendId: string | null, scale: AxisScale) =>
+    setTrends(previous => previous.map(trend => (trend.id === trendId ? { ...trend, scale } : trend)));
+  // So are its signal styles.
+  const stylesOf = (trendId: string | null) => trends.find(trend => trend.id === trendId)?.styles;
+  const setTrendStyles = (trendId: string | null, styles: Record<string, SeriesStyle> | undefined) =>
+    setTrends(previous => previous.map(trend => (trend.id === trendId ? { ...trend, styles } : trend)));
   // A custom range is kept as UTC instants; the inputs show and take it in the display zone.
   const [customStart, setCustomStart] = useState<string>(() => new Date(Date.now() - 3_600_000).toISOString());
   const [customEnd, setCustomEnd] = useState<string>(() => new Date().toISOString());
@@ -429,7 +429,7 @@ export default function Historian() {
   useEffect(() => {
     if (!selectedSiteId) return;
     if (previousSiteIdRef.current && previousSiteIdRef.current !== selectedSiteId) {
-      setTrends(prev => prev.map(t => ({ ...t, points: [] })));
+      setTrends(prev => prev.map(t => ({ ...t, points: [], styles: undefined })));
       setPointLabels({});
     }
     previousSiteIdRef.current = selectedSiteId;
@@ -498,7 +498,7 @@ export default function Historian() {
 
   const updateCurrentTrendPoints = (points: string[], labels: Record<string, string>) => {
     setPointLabels(prev => ({ ...prev, ...labels }));
-    setTrends(prev => prev.map(trend => trend.id === currentTrendId ? { ...trend, points } : trend));
+    setTrends(prev => prev.map(trend => trend.id === currentTrendId ? { ...trend, points, styles: pruneSeriesStyles(trend.styles, points) } : trend));
   };
 
   const handleResolveLabels = (labels: Record<string, string>) => {
@@ -576,7 +576,7 @@ export default function Historian() {
   const handleClearTrendPoints = (trendId: string) => {
     const trend = trends.find(t => t.id === trendId);
     if (trend) {
-      setTrends(prev => prev.map(t => t.id === trendId ? { ...t, points: [] } : t));
+      setTrends(prev => prev.map(t => t.id === trendId ? { ...t, points: [], styles: undefined } : t));
       toast({ title: "Points Cleared", description: `All points have been removed from "${trend.name}".` });
     }
   };
@@ -709,6 +709,7 @@ export default function Historian() {
                   pointIdsToResolve={trends.flatMap(t => t.points)}
                   expandBitfields
                   includeFunctions
+                  includeForecast
                   revealRequest={revealRequest}
                 />
               </section>
@@ -823,6 +824,17 @@ export default function Historian() {
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <ZoomIn className="w-3 h-3" /><span>Drag to zoom</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="forecast-ahead" className="text-xs text-muted-foreground">Forecast ahead</Label>
+                          <Select value={String(forecastAhead)} onValueChange={value => setForecastAhead(Number(value) as ForecastAheadHours)}>
+                            <SelectTrigger id="forecast-ahead" className="h-8 w-[90px] text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {FORECAST_AHEAD_HOURS.map(hours => (
+                                <SelectItem key={hours} value={String(hours)}>{hours === 0 ? "None" : `+${hours} h`}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <TimeZoneToggle siteTimeZone={siteTimeZone} display={display} onDisplayChange={setDisplay} />
                       </div>
                     </div>
@@ -840,25 +852,25 @@ export default function Historian() {
                               </Select>
                             )}
                           </div>
-                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(topTrendId)} onScaleChange={scale => setTrendScale(topTrendId, scale)} styles={stylesOf(topTrendId)} onStylesChange={styles => setTrendStyles(topTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
                         <div ref={middleTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} styles={stylesOf(middleTrendId)} onStylesChange={styles => setTrendStyles(middleTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
                         <div ref={bottomTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} styles={stylesOf(bottomTrendId)} onStylesChange={styles => setTrendStyles(bottomTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
                         <div ref={fourthTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} styles={stylesOf(fourthTrendId)} onStylesChange={styles => setTrendStyles(fourthTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
                         </div>
                       )}
                     </div>

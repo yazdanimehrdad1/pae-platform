@@ -66,7 +66,10 @@ provider first, with its contract regenerated (the gap table is in that folder's
 
 ## Next service
 
-- **First new Python service (optimizer or powerflow; ports 8010 / 8020 reserved).** Scaffold it
-  with the `new-service` skill, so it doubles as the convention's real test. A Python consumer
-  of backend-ot's contract will need a typed-client generator, which needs the user's OK on a
-  dependency. See the typed-client rule in `contracts/README.md`.
+- **intelli-gateway: engineer knowledge in Postgres.** Site data now comes from backend-ot
+  (`services/backend_ot/`, strict models with a drift test against backend-ot's contract). With
+  `USE_FAKE_DATA=false` the knowledge store (point guides, notes, manuals, IM scripts) is empty
+  until its Postgres store and an authoring API exist.
+- **backend-ot point classes in the powerflow seed.** `tests/seed_db/powerflow_seed.py` marks
+  every bitfield as an ALARM point, so mode words like `DERMode` show up as active alarms
+  (intelli-gateway's agent has to explain them away). Classify mode/status bitfields as BINARY.

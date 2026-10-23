@@ -9,6 +9,30 @@ const readings = (series: Record<string, Array<[string, number | null]>>) => (({
   ])),
 }) as unknown as BackendPointReadings).readings;
 
+describe('a seconds-level point next to a 15-minute forecast', () => {
+  it('keeps every reading of the point and only the forecast samples of the forecast', () => {
+    const start = Date.parse('2026-10-21T12:00:00Z');
+    const point = {
+      id: 7, name: 'pv1-W', data_type: 'float32', count: 0,
+      timeseries: Array.from({ length: 900 }, (_, index) => ({ time: new Date(start + index * 1000).toISOString(), value: index })),
+    };
+    const forecast = {
+      id: 0, name: 'forecast', data_type: 'float32', count: 0,
+      timeseries: [
+        { time: '2026-10-21T12:00:00Z', value: 1000 },
+        { time: '2026-10-21T12:15:00Z', value: 1000 },
+      ],
+    };
+    const maps = [{ '7': point }, { 'fc:site:pv_ac_kw': forecast }];
+    const lines = buildLineSeries(maps, ['7', 'fc:site:pv_ac_kw']);
+    expect(lines['7']).toHaveLength(900); // every second kept
+    expect(lines['fc:site:pv_ac_kw']).toHaveLength(2);
+    const rows = buildChartRows(maps, ['7', 'fc:site:pv_ac_kw']);
+    expect(rows.filter(row => row['7'] !== undefined)).toHaveLength(900);
+    expect(rows.filter(row => row['fc:site:pv_ac_kw'] !== undefined)).toHaveLength(2);
+  });
+});
+
 describe('buildChartRows', () => {
   it('gives each bit selection its own 0/1 column from one fetched point', () => {
     const rows = buildChartRows(

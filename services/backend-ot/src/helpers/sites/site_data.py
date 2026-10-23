@@ -73,7 +73,7 @@ async def get_complete_site_data_with_points(site_id: int) -> SiteComprehensiveR
 def _build_coordinates_and_location(site):
     coordinates = None
     if site.coordinates:
-        coordinates = Coordinates(lat=site.coordinates["lat"], lng=site.coordinates["lng"])
+        coordinates = Coordinates.model_validate(site.coordinates)
     location = None
     if site.location:
         location = Location(**site.location)

@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from powerflow.conditions import FaultCause
 from powerflow.core.engine import Engine
+from powerflow.errors import InvalidStateError
 from powerflow.models import bess as bess_model
 from powerflow.models import pv as pv_model
 
@@ -121,7 +122,14 @@ class SetpointService:
         return self._engine.reset_alarms(asset_id) if alarm_reset else None
 
     def write_bess(self, asset_id: str, request: BessSetpointRequest) -> SetpointResult:
+        """InvalidStateError while auto dispatch drives this BESS (an alarm reset still goes; a BESS
+        excluded from auto dispatch takes setpoints as usual)."""
         params = self._engine.runtime.bess_asset(asset_id).params
+        writes_setpoint = any(
+            value is not None for value in (request.p_kw, request.q_kvar, request.mode)
+        )
+        if writes_setpoint and self._engine.auto_dispatch_drives(asset_id):
+            raise InvalidStateError("auto dispatch is on; turn it off to write BESS setpoints")
         current = self._engine.setpoints.bess(asset_id)
         p_kw = request.p_kw if request.p_kw is not None else current.p_kw
         q_kvar = request.q_kvar if request.q_kvar is not None else current.q_kvar

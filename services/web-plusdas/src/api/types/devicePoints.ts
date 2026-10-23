@@ -11,6 +11,9 @@ export type DevicePointSeverity = NonNullable<Schemas['DevicePointCreateRequest'
 export type DevicePointCreateRequest = Schemas['DevicePointCreateRequest'];
 export type DevicePointUpdateRequest = Schemas['DevicePointUpdateRequest'];
 
+// Standardized points: linked to a NATIVE point on their device through PUT/DELETE .../{point_id}/link.
+export type StandardizedPointLinkRequest = Schemas['StandardizedPointLinkRequest'];
+
 // Virtual points: created and updated through their own routes, with a condition or calculation.
 export type VirtualPointCreateRequest = Schemas['VirtualPointCreateRequest'];
 export type VirtualPointUpdateRequest = Schemas['VirtualPointUpdateRequest'];

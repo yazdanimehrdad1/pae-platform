@@ -38,7 +38,7 @@ from powerflow.storage.postgres import (
 
 # The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
 # (see contracts/README.md).
-API_VERSION = "0.3.0"
+API_VERSION = "0.5.0"
 DESCRIPTION = """\
 Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,
 quasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,

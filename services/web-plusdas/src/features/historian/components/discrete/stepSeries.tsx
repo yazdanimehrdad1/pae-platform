@@ -1,6 +1,7 @@
 import { Line, YAxis } from "recharts";
 import type { ChartRow } from "../../types";
 import { stateLabel, type DiscreteSeries } from "../../lib/discreteSeries";
+import { DASH_ARRAY } from "../../lib/seriesStyles";
 
 // Discrete-trend renderer: enum points and bitfield bits as step lines on the main chart, on a
 // right-hand state axis. Each series gets its own band of levels (one level per state) stacked
@@ -93,7 +94,8 @@ export function renderStepSeries(layout: StepLayout) {
         type="stepAfter"
         dataKey={plotKey(entry.key)}
         stroke={entry.color}
-        strokeWidth={2}
+        strokeWidth={entry.width ?? 2}
+        strokeDasharray={entry.dash ? DASH_ARRAY[entry.dash] : undefined}
         dot={false}
         connectNulls
         isAnimationActive={false}

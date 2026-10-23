@@ -46,6 +46,9 @@ export type DeviceCreateRequest = Schemas['DeviceCreateRequest'];
 export type DeviceUpdateRequest = Schemas['DeviceUpdate'];
 export type DeviceDeleteResponse = Schemas['DeviceDeleteResponse'];
 export type PingResult = Schemas['DeviceHealthStatus'];
+// The PV array behind a PV or INVERTER device (what the PV forecast reads).
+export type PvArrayConfig = Schemas['PvArrayConfigResponse'];
+export type PvArrayConfigRequest = Schemas['PvArrayConfigUpsertRequest'];
 
 // Point categories in the order the asset tree lists them.
 export const POINT_GROUP_ORDER = ['standardized', 'virtual', 'native'] as const;

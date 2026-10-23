@@ -7,6 +7,9 @@ soft/hard delete and restore, and that the device's scan ranges are recomputed f
 NATIVE points after each write, unless a manual override locked them. Virtual points: created
 and updated only through the /virtual routes (never bulk or the generic PUT), their inputs checked
 (same site, active, not virtual, a bitfield for bit tests), their storage derived from the kind.
+Standardized point links: set and cleared only through .../{point_id}/link, only from a STANDARDIZED
+point to an active NATIVE point on its device with a scale that converts power units; kept by id
+across renames, cleared when the source is hard-deleted.
 """
 
 import asyncpg
@@ -16,9 +19,12 @@ from httpx import AsyncClient
 from integration.factories import (
     DEVICE_POINT_LIST,
     create_device,
+    create_linked_bess,
     create_site,
     create_virtual_point,
+    link_url,
     point_request,
+    standardized_points_by_name,
     upsert_points,
 )
 from schemas.api_models import (
@@ -26,9 +32,11 @@ from schemas.api_models import (
     DevicePointsBulkRequest,
     DevicePointUpdateRequest,
     DeviceScanRanges,
+    DeviceUpdate,
     DeviceWithPoints,
     LatestResponse,
     RegisterRange,
+    StandardizedPointLinkRequest,
     VirtualCalculationDefinition,
     VirtualCase,
     VirtualCondition,
@@ -543,3 +551,132 @@ class TestVirtualPointsStayOffTheRegisterRoutes:
             await db.execute(
                 "UPDATE device_points SET virtual_definition = '{}'::jsonb WHERE id = $1", power_a.id
             )
+
+
+# --- Standardized point links (PUT/DELETE .../{point_id}/link) --------------------------------
+
+POWER_LINK = StandardizedPointLinkRequest(source_point_id=0, unit="kW", scale_factor=0.001)
+
+
+async def put_link(client: AsyncClient, point: DevicePointResponse, request: StandardizedPointLinkRequest):
+    return await client.put(link_url(point.site_id, point.device_id, point.id), json=request.model_dump(mode="json"))
+
+
+def error_message(response) -> str:
+    detail = ApiErrorResponse.model_validate(response.json()).detail
+    assert isinstance(detail, ApiErrorDetail)
+    return detail.message
+
+
+async def stored_link(client: AsyncClient, point: DevicePointResponse) -> tuple[int | None, str | None, float | None]:
+    stored = (await standardized_points_by_name(client, point.site_id, point.device_id))[point.name]
+    return stored.source_point_id, stored.unit, stored.scale_factor
+
+
+class TestLinkStandardizedPoint:
+    async def test_link_sets_source_unit_and_scale(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        response = await put_link(client, bess.active_power, POWER_LINK.model_copy(update={"source_point_id": bess.power.id}))
+        assert response.status_code == 200, response.text
+        linked = DevicePointResponse.model_validate(response.json())
+        assert (linked.id, linked.source_point_id, linked.unit, linked.scale_factor) == (
+            bess.active_power.id, bess.power.id, "kW", 0.001
+        )
+        assert await stored_link(client, bess.active_power) == (bess.power.id, "kW", 0.001)
+
+    async def test_a_new_link_replaces_the_old_one(self, client):
+        bess = await create_linked_bess(client)
+        response = await put_link(client, bess.active_power, StandardizedPointLinkRequest(source_point_id=bess.soc.id, unit="%"))
+        assert response.status_code == 200, response.text
+        assert await stored_link(client, bess.active_power) == (bess.soc.id, "%", 1.0)
+
+    async def test_renaming_the_device_or_the_source_keeps_the_link(self, client):
+        bess = await create_linked_bess(client)
+        response = await client.put(
+            f"/api/devices/site/{bess.site_id}/devices/{bess.device_id}",
+            json=DeviceUpdate(name="bess-north").model_dump(mode="json", exclude_unset=True),
+        )
+        assert response.status_code == 200, response.text
+        response = await client.put(
+            f"{points_url(bess.site_id, bess.device_id)}/{bess.power.id}",
+            json=DevicePointUpdateRequest(name="W_total").model_dump(mode="json", exclude_unset=True),
+        )
+        assert response.status_code == 200, response.text
+        assert await stored_link(client, bess.active_power) == (bess.power.id, "kW", 0.001)
+
+    async def test_hard_deleting_the_source_clears_the_link(self, client):
+        bess = await create_linked_bess(client)
+        response = await client.delete(
+            points_url(bess.site_id, bess.device_id),
+            params={"point_ids": [bess.power.id], "mode": "hard", "confirm": True},
+        )
+        assert response.status_code == 200, response.text
+        source, _, _ = await stored_link(client, bess.active_power)
+        assert source is None
+
+    async def test_unlink_clears_source_unit_and_scale(self, client):
+        bess = await create_linked_bess(client)
+        point = bess.active_power
+        response = await client.delete(link_url(point.site_id, point.device_id, point.id))
+        assert response.status_code == 200, response.text
+        unlinked = DevicePointResponse.model_validate(response.json())
+        assert (unlinked.source_point_id, unlinked.unit, unlinked.scale_factor) == (None, None, None)
+        assert await stored_link(client, point) == (None, None, None)
+
+
+class TestLinkErrors:
+    async def test_unknown_point_or_device_is_404(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        body = POWER_LINK.model_copy(update={"source_point_id": bess.power.id}).model_dump(mode="json")
+        for url in (link_url(bess.site_id, bess.device_id, 99999), link_url(bess.site_id, 99999, bess.active_power.id)):
+            assert (await client.put(url, json=body)).status_code == 404, url
+            assert (await client.delete(url)).status_code == 404, url
+
+    async def test_a_point_of_another_device_is_404(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        other = await create_device(client, bess.site_id, name="bess-2", type="BESS")
+        body = POWER_LINK.model_copy(update={"source_point_id": bess.power.id}).model_dump(mode="json")
+        response = await client.put(link_url(bess.site_id, other.device_id, bess.active_power.id), json=body)
+        assert response.status_code == 404
+
+    async def test_linking_a_native_point_is_400(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        response = await put_link(client, bess.soc, StandardizedPointLinkRequest(source_point_id=bess.power.id))
+        assert response.status_code == 400
+        assert "only STANDARDIZED" in error_message(response)
+        response = await client.delete(link_url(bess.site_id, bess.device_id, bess.soc.id))
+        assert response.status_code == 400
+
+    async def test_a_source_on_another_device_is_400(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        other = await create_device(client, bess.site_id, name="bess-2", type="BESS")
+        (other_power,) = await upsert_points(client, bess.site_id, other.device_id, [point_request(name="W", unit="W")])
+        response = await put_link(client, bess.active_power, POWER_LINK.model_copy(update={"source_point_id": other_power.id}))
+        assert response.status_code == 400
+        assert "not on device" in error_message(response)
+
+    async def test_a_standardized_virtual_deleted_or_missing_source_is_400(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        virtual = await create_virtual_point(client, bess.site_id, bess.device_id, VirtualPointCreateRequest(
+            name="V", definition=VirtualCalculationDefinition(kind="calculation", function="sum", inputs=[bess.power.id]),
+        ))
+        response = await client.delete(points_url(bess.site_id, bess.device_id), params={"point_ids": [bess.soc.id]})
+        assert response.status_code == 200, response.text
+        for source_id in (bess.state_of_charge.id, virtual.id, bess.soc.id, 99999):
+            response = await put_link(client, bess.active_power, StandardizedPointLinkRequest(source_point_id=source_id))
+            assert response.status_code == 400, source_id
+        assert await stored_link(client, bess.active_power) == (None, None, None)
+
+    async def test_a_scale_that_does_not_convert_the_power_unit_is_400(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        wrong = POWER_LINK.model_copy(update={"source_point_id": bess.power.id, "scale_factor": 1.0})
+        response = await put_link(client, bess.active_power, wrong)
+        assert response.status_code == 400
+        assert error_message(response) == "scale_factor 1 doesn't turn W into kW (expected 0.001)"
+
+    async def test_a_non_integer_source_point_id_is_422(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        point = bess.active_power
+        body = POWER_LINK.model_dump(mode="json") | {"source_point_id": "W"}
+        response = await client.put(link_url(point.site_id, point.device_id, point.id), json=body)
+        assert response.status_code == 422

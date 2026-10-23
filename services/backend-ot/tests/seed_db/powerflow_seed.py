@@ -12,9 +12,12 @@ Mapping (one backend-ot device per point-standard device of the site):
     powerflow Modbus server -> host "powerflow" (compose DNS), port 502, unit id 1, direct
                                reads (not the aggregator), zero-based addresses
     served register         -> NATIVE point: address = device base + offset, the standard name,
-    (yes / calc)               data type, scale, SI unit, enum/bit labels, holding table,
-                               big-endian msw-first. Unserved ("no") rows always read 0: skipped.
+    (yes / calc)               data type, scale and unit in engineering units (W -> kW, var -> kvar,
+                               VA -> kVA, Wh -> kWh, V -> kV: scale / 1000), enum/bit labels, holding
+                               table, big-endian msw-first. Unserved ("no") rows always read 0: skipped.
     topology                -> the site (no profile) and its single line diagram
+    standardized points     -> linked to the device's served register: active power to W (the
+                               load's IED_ACTIVE_POWER too), a BESS's state of charge to SoC
 
 The site is the shipped default; edits made to it in powerflow's database aren't seen.
 """
@@ -25,7 +28,9 @@ from pathlib import Path
 from typing import Literal
 
 from schemas.api_models import (
+    Coordinates,
     Location,
+    PvArrayConfigUpsertRequest,
     SiteCreateRequest,
     SiteSld,
     SldBus,
@@ -33,7 +38,11 @@ from schemas.api_models import (
     SldDeviceLink,
     SldNode,
 )
-from schemas.api_models.requests import DeviceCreateRequest, DevicePointCreateRequest
+from schemas.api_models.requests import (
+    DeviceCreateRequest,
+    DevicePointCreateRequest,
+    StandardizedPointLinkRequest,
+)
 from schemas.api_models.single_line_diagram import SldRole
 from schemas.api_models.types import DeviceType, PointClass, register_size
 from schemas.tests_models import (
@@ -45,6 +54,7 @@ from schemas.tests_models import (
     PowerflowSitesContract,
     SeedData,
     SeedDevice,
+    SeedPointLink,
 )
 from schemas.tests_models.powerflow_contract import (
     PowerflowBess,
@@ -85,6 +95,23 @@ KIND_LABELS: dict[PowerflowDeviceKind, str] = {
     "poi_meter": "POI meter",
     "feeder_meter": "feeder meter",
 }
+# powerflow sites have no real location. The PV forecast needs one, so every simulated site sits
+# at the same sunny dev location, and every PV array gets the same plausible fixed-tilt layout.
+DEV_SITE_COORDINATES = Coordinates(lat=33.45, lng=-112.07, elevation_m=331.0)  # Phoenix, AZ
+DEV_SITE_TIMEZONE = "America/Phoenix"
+DEV_PV_TILT_DEG = 25.0
+DEV_PV_AZIMUTH_DEG = 180.0  # south
+DEV_PV_SYSTEM_LOSS_PCT = 14.0
+DEV_PV_TEMP_COEFFICIENT_PCT_PER_C = -0.35
+
+# powerflow's SI register units -> the platform's engineering units (value / KILO).
+KILO = 1000.0
+KILO_UNITS: dict[str, str] = {
+    "W": "kW", "var": "kvar", "VA": "kVA",
+    "Wh": "kWh", "varh": "kvarh", "VAh": "kVAh",
+    "V": "kV",
+}
+
 AssetKind = Literal["bess", "pv", "load"]
 METER_ROLES: dict[SldRole, str] = {
     "vab": "PhVphAB", "vbc": "PhVphBC", "vca": "PhVphCA",
@@ -93,6 +120,16 @@ METER_ROLES: dict[SldRole, str] = {
 BESS_ROLES: dict[SldRole, str] = {"soc": "SoC", "power": "W", "mode": "InvSt"}
 PV_ROLES: dict[SldRole, str] = {"power": "W"}
 ASSET_ROLES: dict[AssetKind, dict[SldRole, str]] = {"bess": BESS_ROLES, "pv": PV_ROLES}
+
+# Each device kind's STANDARDIZED point -> (its served register, the standardized unit). The
+# registers are stored in kW / % already (see engineering_unit), so they scale by 1.
+POINT_LINKS: dict[PowerflowDeviceKind, dict[str, tuple[str, str]]] = {
+    "load": {"IED_ACTIVE_POWER": ("W", "kW")},
+    "bess": {"BESS_ACTIVE_POWER": ("W", "kW"), "BESS_STATE_OF_CHARGE": ("SoC", "%")},
+    "pv": {"PV_ACTIVE_POWER": ("W", "kW")},
+    "poi_meter": {"METER_ACTIVE_POWER": ("W", "kW")},
+    "feeder_meter": {"METER_ACTIVE_POWER": ("W", "kW")},
+}
 
 
 def default_contract_path(parts: tuple[str, str]) -> Path:
@@ -137,16 +174,25 @@ def point_class(register: PowerflowRegister) -> PointClass:
     return "ANALOG"
 
 
+def engineering_unit(register: PowerflowRegister) -> tuple[float, str | None]:
+    """The register's scale and unit in the platform's engineering units (kW, kvar, kVA, kWh,
+    kvarh, kVAh, kV; everything else as published). powerflow publishes SI (W, var, V, ...)."""
+    if register.unit in KILO_UNITS:
+        return round(register.scale / KILO, 12), KILO_UNITS[register.unit]
+    return register.scale, register.unit or None
+
+
 def build_point(register: PowerflowRegister, base: int) -> DevicePointCreateRequest:
     point_kind = point_class(register)
+    scale_factor, unit = engineering_unit(register)
     return DevicePointCreateRequest(
         address=base + register.offset,
         name=register.point,
         poll_kind="holding",
         data_type=register.data_type,
         size=register_size(register.data_type),
-        scale_factor=register.scale,
-        unit=register.unit or None,
+        scale_factor=scale_factor,
+        unit=unit,
         byte_order="big-endian",
         word_order="msw_first",
         enum_detail=register.enum_detail,
@@ -154,6 +200,21 @@ def build_point(register: PowerflowRegister, base: int) -> DevicePointCreateRequ
         point_class=point_kind,
         severity="LOW" if point_kind == "ALARM" else None,
     )
+
+
+def build_point_links(site_key: str, site: PowerflowSite, point_id: PointIdResolver) -> list[SeedPointLink]:
+    """The site's standardized point links, one per POINT_LINKS entry of each device."""
+    return [
+        SeedPointLink(
+            device_name=device_name(site_key, device),
+            point_name=point,
+            link=StandardizedPointLinkRequest(
+                source_point_id=point_id(device_name(site_key, device), source), unit=unit, scale_factor=1.0
+            ),
+        )
+        for device in site.devices
+        for point, (source, unit) in POINT_LINKS.get(device.kind, {}).items()
+    ]
 
 
 def _capacity(site: PowerflowSite) -> str:
@@ -179,7 +240,21 @@ def build_site(site_key: str, site: PowerflowSite) -> SiteCreateRequest:
             f"{site.display_name}. Simulated by powerflow (site {site_key}); seeded from "
             "contracts/powerflow/sites.json and contracts/modbus/powerflow.registers.json"
         ),
+        coordinates=DEV_SITE_COORDINATES,
         profile=None,
+        timezone=DEV_SITE_TIMEZONE,
+    )
+
+
+def build_pv_array(pv: PowerflowPv) -> PvArrayConfigUpsertRequest:
+    """The PV array of a simulated PV inverter: its DC and AC ratings, dev-default orientation."""
+    return PvArrayConfigUpsertRequest(
+        tilt_deg=DEV_PV_TILT_DEG,
+        azimuth_deg=DEV_PV_AZIMUTH_DEG,
+        dc_capacity_kw=pv.dc_kwp,
+        ac_capacity_kw=pv.p_max_kw,
+        system_loss_pct=DEV_PV_SYSTEM_LOSS_PCT,
+        temp_coefficient_pct_per_c=DEV_PV_TEMP_COEFFICIENT_PCT_PER_C,
     )
 
 
@@ -336,6 +411,7 @@ def build_seed(site_key: str, registers: PowerflowRegistersContract,
     site = sites.sites[site_key]
     site_request = build_site(site_key, site)
     devices = [build_device(site_key, device, registers, site_request.name) for device in site.devices]
+    pv_by_id = {pv.id: pv for pv in site.pv}
     points = {
         device_name(site_key, device): [
             build_point(register, device.base)
@@ -348,8 +424,14 @@ def build_seed(site_key: str, registers: PowerflowRegistersContract,
         sites=[site_request],
         devices=devices,
         device_points=points,
+        point_links=lambda point_id: build_point_links(site_key, site, point_id),
         site_slds=lambda point_id, device_id: {
             site_request.name: build_sld(site_key, site, point_id, device_id)
+        },
+        pv_arrays={
+            device_name(site_key, device): build_pv_array(pv_by_id[device.asset_id])
+            for device in site.devices
+            if device.kind == "pv"
         },
     )
 

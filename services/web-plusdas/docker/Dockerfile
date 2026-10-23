@@ -5,8 +5,8 @@
 #
 # One image for every environment: nothing environment-specific is baked into the bundle.
 # At container start nginx renders docker/nginx/default.conf.template (API_UPSTREAM,
-# POWERFLOW_UPSTREAM) and 40-app-config.sh writes /config.js (APP_API_BASE_URL,
-# APP_POWERFLOW_BASE_URL). See .env.example.
+# POWERFLOW_UPSTREAM, INTELLI_GATEWAY_UPSTREAM) and 40-app-config.sh writes /config.js
+# (APP_API_BASE_URL, APP_POWERFLOW_BASE_URL, APP_INTELLI_GATEWAY_BASE_URL). See .env.example.
 
 # ---- build: node + npm ci from package-lock.json -------------------------------------------
 FROM node:24-alpine AS builder
@@ -25,12 +25,14 @@ COPY docker/config.js.template /etc/nginx/app/config.js.template
 COPY --chmod=755 docker/40-app-config.sh /docker-entrypoint.d/40-app-config.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Standalone defaults; compose overrides them (dev stack: http://backend-ot:8000 and
-# http://powerflow:8000).
+# Standalone defaults; compose overrides them (dev stack: http://backend-ot:8000,
+# http://powerflow:8000 and http://intelli-gateway:8000).
 ENV API_UPSTREAM=http://host.docker.internal:8000 \
     POWERFLOW_UPSTREAM=http://host.docker.internal:8020 \
+    INTELLI_GATEWAY_UPSTREAM=http://host.docker.internal:8030 \
     APP_API_BASE_URL=/api \
-    APP_POWERFLOW_BASE_URL=/powerflow-api
+    APP_POWERFLOW_BASE_URL=/powerflow-api \
+    APP_INTELLI_GATEWAY_BASE_URL=/intelli-gateway-api
 
 EXPOSE 80
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \

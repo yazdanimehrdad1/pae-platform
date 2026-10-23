@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DeviceRecord } from '@/api/types/devices';
+import type { DeviceRecord, PvArrayConfig, PvArrayConfigRequest } from '@/api/types/devices';
 import type { VirtualPointCreateRequest } from '@/api/types/devicePoints';
 import { devicesApi } from '@/api/devices';
 
@@ -107,6 +107,29 @@ describe('devicesApi virtual points', () => {
   });
 });
 
+describe('devicesApi standardized point links', () => {
+  it('links through PUT .../{point_id}/link with the request body', async () => {
+    const fetchMock = stubFetch(200, { ...pvDevice.points.native[0], id: 57, category: 'STANDARDIZED', source_point_id: 4 });
+
+    const point = await devicesApi.linkPoint('1001', 1, 57, { source_point_id: 4, unit: 'kW', scale_factor: 0.001 });
+
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://web.test').pathname).toBe('/api/device-points/site/1001/device/1/57/link');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ source_point_id: 4, unit: 'kW', scale_factor: 0.001 });
+    expect(point.source_point_id).toBe(4);
+  });
+
+  it('unlinks through DELETE on the same path and returns the point', async () => {
+    const fetchMock = stubFetch(200, { ...pvDevice.points.native[0], id: 57, category: 'STANDARDIZED', source_point_id: null });
+
+    const point = await devicesApi.unlinkPoint('1001', 1, 57);
+
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://web.test').pathname).toBe('/api/device-points/site/1001/device/1/57/link');
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+    expect(point.source_point_id).toBeNull();
+  });
+});
+
 describe('devicesApi.getBySite', () => {
   it('maps devices to the UI model', async () => {
     stubFetch(200, [pvDevice]);
@@ -134,5 +157,52 @@ describe('devicesApi.getBySite', () => {
     stubFetch(500, { detail: 'database unavailable' });
 
     await expect(devicesApi.getBySite('1001')).rejects.toEqual({ detail: 'database unavailable' });
+  });
+});
+
+const PV_ARRAY: PvArrayConfig = {
+  device_id: 4, site_id: 1001, device_name: '2bess_1pv-pv1', device_type: 'PV',
+  tilt_deg: 25, azimuth_deg: 180, dc_capacity_kw: 6500, ac_capacity_kw: 5000,
+  system_loss_pct: 14, temp_coefficient_pct_per_c: -0.35,
+  created_at: '2026-10-20T00:00:00Z', updated_at: '2026-10-20T00:00:00Z',
+};
+
+describe('devicesApi PV array', () => {
+  it('reads the device PV array', async () => {
+    const fetchMock = stubFetch(200, PV_ARRAY);
+
+    await expect(devicesApi.getPvArray('1001', 4)).resolves.toEqual(PV_ARRAY);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/devices/site/1001/devices/4/pv-array');
+  });
+
+  it('treats a NotFoundError 404 as no PV array', async () => {
+    stubFetch(404, { detail: { error: 'NotFoundError', message: 'Device 4 has no PV array config' } });
+
+    await expect(devicesApi.getPvArray('1001', 4)).resolves.toBeNull();
+  });
+
+  it('rethrows a wrong-type 400', async () => {
+    stubFetch(400, { detail: { error: 'ValidationError', message: 'Device 4 is a METER device' } });
+
+    await expect(devicesApi.getPvArray('1001', 4)).rejects.toMatchObject({ detail: { error: 'ValidationError' } });
+  });
+
+  it('saves with PUT and deletes with DELETE on the same path', async () => {
+    const request: PvArrayConfigRequest = {
+      tilt_deg: 10, azimuth_deg: 90, dc_capacity_kw: 100, ac_capacity_kw: 80,
+      system_loss_pct: 14, temp_coefficient_pct_per_c: -0.35,
+    };
+    const fetchMock = stubFetch(200, PV_ARRAY);
+
+    await devicesApi.putPvArray('1001', 4, request);
+    await devicesApi.deletePvArray('1001', 4);
+
+    const [putUrl, putInit] = fetchMock.mock.calls[0];
+    expect(putUrl).toBe('/api/devices/site/1001/devices/4/pv-array');
+    expect(putInit.method).toBe('PUT');
+    expect(JSON.parse(putInit.body)).toEqual(request);
+    const [deleteUrl, deleteInit] = fetchMock.mock.calls[1];
+    expect(deleteUrl).toBe('/api/devices/site/1001/devices/4/pv-array');
+    expect(deleteInit.method).toBe('DELETE');
   });
 });

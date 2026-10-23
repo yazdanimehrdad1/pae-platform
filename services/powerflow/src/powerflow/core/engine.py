@@ -19,11 +19,13 @@ import contextlib
 import logging
 import threading
 import time
+import zlib
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 
+import numpy as np
 from pydantic import BaseModel, Field
 
 from powerflow.conditions import (
@@ -46,6 +48,19 @@ from powerflow.conditions.scenario import (
     schedule,
     validate_scenario,
 )
+from powerflow.core.auto_dispatch import (
+    AutoDispatchBess,
+    AutoDispatchBessSettings,
+    AutoDispatchReport,
+    AutoDispatchRequest,
+    resolve,
+)
+from powerflow.core.battery import (
+    DEFAULT_ROUND_TRIP_PCT,
+    BessBatteryRequest,
+    BessBatteryState,
+    with_round_trip,
+)
 from powerflow.core.runtime import SiteRuntime, load_load_profile, load_pv_profile
 from powerflow.core.snapshot import Snapshot
 from powerflow.core.state_store import ConditionStore, SetpointStore, StateStore
@@ -63,6 +78,14 @@ from powerflow.errors import (
     NotFoundError,
     NotInTestModeError,
 )
+from powerflow.models.auto_dispatch import (
+    AutoDispatchBessState,
+    AutoDispatchSettings,
+    advance,
+)
+from powerflow.models.auto_dispatch import initial_state as initial_auto_dispatch_state
+from powerflow.models.bess import BessParams, clamp_static
+from powerflow.models.common import clamp
 from powerflow.network.solver import SolverFactory
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ProfileFolder, ProfileStore
@@ -106,6 +129,15 @@ class EngineStatus(BaseModel):
     scheduled_start: datetime | None = Field(description="When a SCHEDULED run starts.")
 
 
+@dataclass(frozen=True)
+class AutoDispatchRun:
+    """Auto dispatch while on: the request as sent, and per included BESS its settings and state."""
+
+    request: AutoDispatchRequest
+    settings: dict[str, AutoDispatchSettings]
+    states: dict[str, AutoDispatchBessState]
+
+
 class Engine:
     def __init__(
         self,
@@ -130,7 +162,10 @@ class Engine:
         self.setpoints = SetpointStore(default_setpoints(runtime))
         self.conditions = ConditionStore(initial_conditions(runtime.config))
         self._scenarios: list[ScenarioRun] = []  # in start order; they can overlap
+        self._auto_dispatch: AutoDispatchRun | None = None  # None = off
         self._state: SimulationState = initial_state(runtime, wall_clock())
+        self._round_trip_pct: dict[str, float | None] = {}  # None = the site config's
+        self._apply_default_efficiency(runtime)
         self._speed = runtime.config.simulation.speed
         self._fresh = True  # nothing computed since construction/reset/new config
         self._scheduled_start: datetime | None = None
@@ -231,6 +266,129 @@ class Engine:
         set stay."""
         await asyncio.to_thread(self._stop_scenario_sync, name)
         return self.active_conditions()
+
+    # -- auto dispatch ---------------------------------------------------------------------
+
+    @property
+    def auto_dispatch_enabled(self) -> bool:
+        return self._auto_dispatch is not None
+
+    def auto_dispatch_drives(self, asset_id: str) -> bool:
+        """Whether auto dispatch is on and this BESS is included (its setpoints are auto's)."""
+        run = self._auto_dispatch
+        return run is not None and asset_id in run.settings
+
+    def auto_dispatch_status(self) -> AutoDispatchReport:
+        run = self._auto_dispatch
+        if run is None:
+            return AutoDispatchReport(
+                enabled=False,
+                power_pct=None,
+                defaults=AutoDispatchBessSettings(),
+                bess_overrides={},
+                bess=[],
+            )
+        simulation = self._runtime.config.simulation
+        now = sim_time_at(self._state.origin, simulation.step_s, self._state.step_index)
+        rows: list[AutoDispatchBess] = []
+        for asset_id, asset in self._runtime.bess.items():
+            settings, state = run.settings.get(asset_id), run.states.get(asset_id)
+            resting_until_s = state.resting_until_s if state is not None else None
+            rest_remaining_s = (
+                max(resting_until_s - now.timestamp(), 0.0) if resting_until_s is not None else None
+            )
+            rows.append(
+                AutoDispatchBess(
+                    asset_id=asset_id,
+                    included=settings is not None,
+                    phase=state.phase if state is not None else None,
+                    direction=state.direction if state is not None else None,
+                    soc_pct=self._state.bess[asset_id].soc_pct,
+                    soc_min_pct=asset.params.soc_min_pct,
+                    soc_max_pct=asset.params.soc_max_pct,
+                    soc_low_pct=settings.soc_low_pct if settings else None,
+                    soc_high_pct=settings.soc_high_pct if settings else None,
+                    discharge_pct=settings.discharge_pct if settings else None,
+                    charge_pct=settings.charge_pct if settings else None,
+                    rest_s=settings.rest_s if settings else None,
+                    rest_remaining_s=rest_remaining_s,
+                    p_noise_std_pct=settings.p_noise_std_pct if settings else None,
+                    ramp_kw_per_s=settings.ramp_kw_per_s if settings else None,
+                    q_kvar=settings.q_kvar if settings else None,
+                )
+            )
+        return AutoDispatchReport(
+            enabled=True,
+            power_pct=run.request.power_pct,
+            defaults=run.request.defaults,
+            bess_overrides=run.request.bess,
+            bess=rows,
+        )
+
+    def set_auto_dispatch(self, request: AutoDispatchRequest) -> AutoDispatchReport:
+        """Turn auto dispatch on (each included BESS cycles inside its SOC window from the next
+        step) or off, or change its settings. Works in any run state. A BESS that stays included
+        keeps its direction and rest; one that leaves auto dispatch (excluded, or turned off)
+        goes back to idle. UnknownAssetError for an override of no BESS; AutoDispatchError for a
+        window that doesn't fit its battery. While a BESS is driven, SetpointService rejects its
+        writes."""
+        for asset_id in request.bess:
+            self._runtime.bess_asset(asset_id)
+        settings: dict[str, AutoDispatchSettings] = {}
+        if request.enabled:
+            for asset_id, asset in self._runtime.bess.items():
+                override = request.bess.get(asset_id)
+                resolved = resolve(
+                    asset_id, asset.params, request.defaults, override, request.power_pct
+                )
+                if resolved is not None:
+                    settings[asset_id] = resolved
+        with self._compute_lock:
+            current = self._auto_dispatch
+            previous_states = current.states if current is not None else {}
+            idle = default_setpoints(self._runtime).bess
+            for asset_id in previous_states:
+                if asset_id not in settings:
+                    self.setpoints.set_bess(asset_id, idle[asset_id])
+            if not request.enabled:
+                self._auto_dispatch = None
+                return self.auto_dispatch_status()
+            states = {
+                asset_id: previous_states.get(asset_id)
+                or initial_auto_dispatch_state(resolved, self._state.bess[asset_id].soc_pct)
+                for asset_id, resolved in settings.items()
+            }
+            self._auto_dispatch = AutoDispatchRun(request, settings, states)
+            return self.auto_dispatch_status()
+
+    # -- battery overrides -----------------------------------------------------------------
+
+    def battery(self, asset_id: str) -> BessBatteryState:
+        """A BESS's SOC and the efficiency in effect. UnknownAssetError for no such BESS."""
+        asset = self._runtime.bess_asset(asset_id)
+        return BessBatteryState(
+            asset_id=asset_id,
+            soc_pct=self._state.bess[asset_id].soc_pct,
+            round_trip_efficiency_pct=self._round_trip_pct.get(asset_id),
+            eta_charge=asset.params.eta_charge,
+            eta_discharge=asset.params.eta_discharge,
+        )
+
+    def set_battery(self, asset_id: str, request: BessBatteryRequest) -> BessBatteryState:
+        """Set the SOC now (clamped to the battery's band) and/or the round-trip efficiency
+        (an explicit null = the site config's). Works in any run state, auto dispatch too."""
+        asset = self._runtime.bess_asset(asset_id)
+        with self._compute_lock:
+            if "round_trip_efficiency_pct" in request.model_fields_set:
+                round_trip_pct = request.round_trip_efficiency_pct
+                self._round_trip_pct[asset_id] = round_trip_pct
+                asset.params = with_round_trip(BessParams.from_config(asset.config), round_trip_pct)
+            if request.soc_pct is not None:
+                soc_pct = clamp(request.soc_pct, asset.params.soc_min_pct, asset.params.soc_max_pct)
+                bess = dict(self._state.bess)
+                bess[asset_id] = replace(bess[asset_id], soc_pct=soc_pct)
+                self._state = replace(self._state, bess=bess)
+        return self.battery(asset_id)
 
     # -- control ---------------------------------------------------------------------------
 
@@ -434,6 +592,42 @@ class Engine:
                 lambda current, change=change: apply_change(current, change, published_step, clock)
             )
 
+    def _apply_auto_dispatch(self, step_index: int) -> None:
+        """Advance each driven BESS to `step_index` and write its setpoint (under the compute
+        lock). Noise draws are keyed on (seed, step, BESS), so a run is reproducible."""
+        run = self._auto_dispatch
+        if run is None:
+            return
+        simulation = self._runtime.config.simulation
+        dt_s = (step_index - self._state.step_index) * simulation.step_s
+        t_s = sim_time_at(self._state.origin, simulation.step_s, step_index).timestamp()
+        states: dict[str, AutoDispatchBessState] = {}
+        for asset_id, settings in run.settings.items():
+            params = self._runtime.bess[asset_id].params
+            stream = zlib.crc32(asset_id.encode())
+            rng = np.random.default_rng((simulation.seed, step_index, stream))
+            state, setpoint = advance(
+                params,
+                settings,
+                run.states[asset_id],
+                self._state.bess[asset_id].soc_pct,
+                t_s,
+                dt_s,
+                float(rng.standard_normal()),
+            )
+            p_kw, q_kvar, _ = clamp_static(params, setpoint.p_kw, setpoint.q_kvar)
+            states[asset_id] = replace(state, p_cmd_kw=p_kw)
+            self.setpoints.set_bess(asset_id, replace(setpoint, p_kw=p_kw, q_kvar=q_kvar))
+        self._auto_dispatch = replace(run, states=states)
+
+    def _apply_default_efficiency(self, runtime: SiteRuntime) -> None:
+        """Every BESS of `runtime` at the default round trip (on activate and reset)."""
+        self._round_trip_pct = dict.fromkeys(runtime.bess, DEFAULT_ROUND_TRIP_PCT)
+        for asset in runtime.bess.values():
+            asset.params = with_round_trip(
+                BessParams.from_config(asset.config), DEFAULT_ROUND_TRIP_PCT
+            )
+
     def _fault_clock(self) -> FaultClock:
         simulation = self._runtime.config.simulation
         return FaultClock(seed=simulation.seed, step_s=simulation.step_s)
@@ -444,6 +638,7 @@ class Engine:
             self._play_scenario(step_index)
             # Auto-restore faults due by this step go (so the report shows them gone too).
             self.conditions.update(lambda current: expire_faults(current, step_index))
+            self._apply_auto_dispatch(step_index)
             outcome = simulate_step(
                 self._runtime,
                 self._state,
@@ -470,12 +665,14 @@ class Engine:
         with self._compute_lock:
             self._runtime = runtime
             self._state = initial_state(runtime, self._wall_clock())
+            self._apply_default_efficiency(runtime)
             self._speed = runtime.config.simulation.speed
             self._fresh = True
             self.store.clear(runtime.config.simulation.history_size)
             self.setpoints.replace_all(default_setpoints(runtime))
             self.conditions.replace_all(initial_conditions(runtime.config))
             self._scenarios = []
+            self._auto_dispatch = None
             self._overrun_count = 0
             self._nonconverged_count = 0
             self._last_step_duration_s = None

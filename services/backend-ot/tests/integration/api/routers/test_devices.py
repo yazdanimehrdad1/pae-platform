@@ -2,7 +2,8 @@
 Integration tests for /api/devices.
 
 Guards device CRUD against a real database: site scoping, per-site name uniqueness,
-standardized-point generation on create, and the soft-delete / restore lifecycle.
+standardized-point generation on create, the soft-delete / restore lifecycle, and the PV array
+config of a PV or INVERTER device (one per device, replaced whole, gone with the device).
 """
 
 from pydantic import TypeAdapter
@@ -13,7 +14,10 @@ from schemas.api_models import (
     DevicePointsCategoryGrouped,
     DeviceUpdate,
     DeviceWithPoints,
+    PvArrayConfigResponse,
+    PvArrayConfigUpsertRequest,
 )
+from schemas.tests_models import ApiErrorDetail, ApiErrorResponse
 
 DEVICE_LIST = TypeAdapter(list[DeviceWithPoints])
 
@@ -31,7 +35,7 @@ class TestCreateDevice:
         assert response.status_code == 201
         device = DeviceWithPoints.model_validate(response.json())
         assert device.site_id == site.site_id
-        assert device.type == "METER"
+        assert device.type == "RTAC"
         assert device.protocol == "Modbus"
         assert device.modbus_address_mode == "zero_based"
         assert device.points == DevicePointsCategoryGrouped()
@@ -178,3 +182,121 @@ class TestDeleteAndRestoreDevice:
         site = await create_site(client)
         response = await client.delete(f"{devices_url(site.site_id)}/9999")
         assert response.status_code == 404
+
+
+PV_ARRAY = PvArrayConfigUpsertRequest(
+    tilt_deg=25, azimuth_deg=180, dc_capacity_kw=6500, ac_capacity_kw=5000
+)
+
+
+def pv_array_url(site_id: int, device_id: int) -> str:
+    return f"{devices_url(site_id)}/{device_id}/pv-array"
+
+
+class TestPvArrayConfig:
+    async def test_put_creates_then_get_returns_it_with_defaults(self, client):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="pv-1", type="PV")
+        response = await client.put(
+            pv_array_url(site.site_id, device.device_id),
+            json=PV_ARRAY.model_dump(mode="json", exclude_unset=True),
+        )
+        assert response.status_code == 200, response.text
+        saved = PvArrayConfigResponse.model_validate(response.json())
+        assert (saved.device_id, saved.site_id, saved.device_name, saved.device_type) == (
+            device.device_id, site.site_id, "pv-1", "PV"
+        )
+        assert (saved.tilt_deg, saved.azimuth_deg, saved.dc_capacity_kw, saved.ac_capacity_kw) == (
+            25, 180, 6500, 5000
+        )
+        assert (saved.system_loss_pct, saved.temp_coefficient_pct_per_c) == (14.0, -0.35)
+
+        fetched = await client.get(pv_array_url(site.site_id, device.device_id))
+        assert fetched.status_code == 200
+        assert PvArrayConfigResponse.model_validate(fetched.json()) == saved
+
+    async def test_put_again_replaces_every_field(self, client):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="inv-1", type="INVERTER")
+        url = pv_array_url(site.site_id, device.device_id)
+        first = await client.put(
+            url, json=PV_ARRAY.model_copy(update={"system_loss_pct": 10}).model_dump(mode="json")
+        )
+        assert first.status_code == 200
+        replacement = PvArrayConfigUpsertRequest(
+            tilt_deg=10, azimuth_deg=90, dc_capacity_kw=100, ac_capacity_kw=80
+        )
+        second = await client.put(url, json=replacement.model_dump(mode="json", exclude_unset=True))
+        assert second.status_code == 200
+        saved = PvArrayConfigResponse.model_validate(second.json())
+        assert (saved.tilt_deg, saved.azimuth_deg, saved.dc_capacity_kw, saved.ac_capacity_kw) == (
+            10, 90, 100, 80
+        )
+        assert saved.system_loss_pct == 14.0  # omitted -> default, not the previous 10
+        assert saved.created_at == PvArrayConfigResponse.model_validate(first.json()).created_at
+        assert saved.updated_at >= saved.created_at
+
+    async def test_wrong_device_type_is_400(self, client):
+        site = await create_site(client)
+        meter = await create_device(client, site.site_id)
+        response = await client.put(
+            pv_array_url(site.site_id, meter.device_id), json=PV_ARRAY.model_dump(mode="json")
+        )
+        assert response.status_code == 400
+        error = ApiErrorResponse.model_validate(response.json())
+        assert isinstance(error.detail, ApiErrorDetail)
+        assert error.detail.error == "ValidationError"
+
+    async def test_device_of_another_site_is_404(self, client):
+        site = await create_site(client)
+        other = await create_site(client, name="Other Site")
+        device = await create_device(client, site.site_id, name="pv-1", type="PV")
+        response = await client.put(
+            pv_array_url(other.site_id, device.device_id), json=PV_ARRAY.model_dump(mode="json")
+        )
+        assert response.status_code == 404
+
+    async def test_get_without_config_is_404(self, client):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="pv-1", type="PV")
+        assert (await client.get(pv_array_url(site.site_id, device.device_id))).status_code == 404
+
+    async def test_out_of_range_values_are_422(self, client):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="pv-1", type="PV")
+        url = pv_array_url(site.site_id, device.device_id)
+        valid = PV_ARRAY.model_dump(mode="json")
+        for bad in (
+            {"tilt_deg": 91},
+            {"azimuth_deg": 360},
+            {"dc_capacity_kw": 0},
+            {"system_loss_pct": 100},
+            {"temp_coefficient_pct_per_c": 0.1},
+            {"unknown": 1},
+        ):
+            response = await client.put(url, json=valid | bad)
+            assert response.status_code == 422, bad
+
+    async def test_delete_returns_it_then_404(self, client):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="pv-1", type="PV")
+        url = pv_array_url(site.site_id, device.device_id)
+        await client.put(url, json=PV_ARRAY.model_dump(mode="json"))
+        deleted = await client.delete(url)
+        assert deleted.status_code == 200
+        assert PvArrayConfigResponse.model_validate(deleted.json()).device_id == device.device_id
+        assert (await client.get(url)).status_code == 404
+        assert (await client.delete(url)).status_code == 404
+
+    async def test_hard_deleting_the_device_deletes_its_config(self, client, db):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="pv-1", type="PV")
+        await client.put(
+            pv_array_url(site.site_id, device.device_id), json=PV_ARRAY.model_dump(mode="json")
+        )
+        response = await client.delete(
+            f"{devices_url(site.site_id)}/{device.device_id}",
+            params={"mode": "hard", "confirm": "true"},
+        )
+        assert response.status_code == 200, response.text
+        assert await db.fetchval("SELECT count(*) FROM pv_array_configs") == 0

@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from powerflow.core.battery import BessBatteryState
 from powerflow.core.engine import RunState
 from powerflow.core.setpoints import BessSetpointState, PvSetpointState
 from powerflow.core.snapshot import (
@@ -52,6 +53,7 @@ class AssetsResponse(BaseModel):
 class BessAssetResponse(BaseModel):
     config: BessConfig
     setpoint: BessSetpointState
+    battery: BessBatteryState = Field(description="SOC and the efficiency in effect.")
     measurement: BessMeasurement | None = Field(description="null before the first step.")
 
 

@@ -2,6 +2,7 @@ import type { PointTimeseries } from '@/api/types/historian';
 import { decodeEnum, isEnumPoint, parseSelectionId } from '@/shared/lib/discretePoints';
 import type { CatalogPoint } from '../hooks/usePointCatalog';
 import type { ChartRow } from '../types';
+import type { LineDash, LineWidth } from './seriesStyles';
 
 // A trended enum point or bitfield bit, with every state it can show, in plotting order.
 // Both discrete renderers (state lanes, step lines) draw from this.
@@ -15,8 +16,13 @@ export interface DiscreteSeries {
   kind: 'enum' | 'bit';
   name: string;
   color: string;
+  /** The step renderer's line style and width (state lanes use only the colour). */
+  dash?: LineDash;
+  width?: LineWidth;
   states: DiscreteState[];
 }
+
+type SeriesDisplay = Pick<DiscreteSeries, 'name' | 'color' | 'dash' | 'width'>;
 
 const BIT_STATES: DiscreteState[] = [{ value: 0, label: 'off' }, { value: 1, label: 'on' }];
 
@@ -27,7 +33,7 @@ export function describeDiscreteSeries(
   selectionId: string,
   pointsById: Map<string, CatalogPoint>,
   rows: ChartRow[],
-  display: { name: string; color: string },
+  display: SeriesDisplay,
   functionSeries: Map<string, PointTimeseries> = new Map(),
 ): DiscreteSeries | null {
   const series = functionSeries.get(selectionId);
@@ -49,7 +55,7 @@ function describeEnum(
   selectionId: string,
   enumDetail: Record<string, string> | null | undefined,
   rows: ChartRow[],
-  display: { name: string; color: string },
+  display: SeriesDisplay,
 ): DiscreteSeries {
   const values = new Set(Object.keys(enumDetail ?? {}).map(Number).filter(Number.isFinite));
   for (const row of rows) if (row[selectionId] != null) values.add(Math.round(row[selectionId]));

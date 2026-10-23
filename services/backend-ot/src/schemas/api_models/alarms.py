@@ -204,3 +204,21 @@ class AlarmSnapshotResponse(BaseModel):
     log: list[AlarmLogEntry] = Field(
         ..., description=f"Raises and clears within the last {RECENT_WINDOW_HOURS} h, newest first"
     )
+
+
+class SiteActiveAlarms(BaseModel):
+    """One site's active alarms (raised, not cleared), by severity."""
+
+    site_id: int
+    fault_count: int
+    warning_count: int
+
+
+class ActiveAlarmsSummaryResponse(BaseModel):
+    """Active alarms across every site: what an app-wide indicator (the sidebar bell) shows."""
+
+    fault_count: int = Field(..., description="Active fault events across all sites")
+    warning_count: int = Field(..., description="Active warning events across all sites")
+    sites: list[SiteActiveAlarms] = Field(
+        ..., description="Only sites with at least one active event, by site_id"
+    )

@@ -9,11 +9,14 @@ export interface RuntimeConfig {
   apiBaseUrl: string;
   /** Base for the powerflow simulator's API (nginx forwards it to powerflow's /api). Same-origin. */
   powerflowBaseUrl: string;
+  /** Base for intelli-gateway's API (the PV forecast; nginx forwards it to its /api). Same-origin. */
+  intelliGatewayBaseUrl: string;
 }
 
 const DEFAULTS: RuntimeConfig = {
   apiBaseUrl: '/api',
   powerflowBaseUrl: '/powerflow-api',
+  intelliGatewayBaseUrl: '/intelli-gateway-api',
 };
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -22,5 +25,6 @@ export function getRuntimeConfig(): RuntimeConfig {
     // An empty value (unset env var at container start) falls back to the default.
     apiBaseUrl: injected?.apiBaseUrl || DEFAULTS.apiBaseUrl,
     powerflowBaseUrl: injected?.powerflowBaseUrl || DEFAULTS.powerflowBaseUrl,
+    intelliGatewayBaseUrl: injected?.intelliGatewayBaseUrl || DEFAULTS.intelliGatewayBaseUrl,
   };
 }

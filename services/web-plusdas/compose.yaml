@@ -25,6 +25,9 @@ services:
       # Where nginx forwards /powerflow-api/* (the Simulation page): powerflow's published host
       # port standalone; the dev stack overrides it to the `powerflow` service name.
       - POWERFLOW_UPSTREAM=${WEB_PLUSDAS_POWERFLOW_UPSTREAM:-http://host.docker.internal:8020}
+      # Where nginx forwards /intelli-gateway-api/* (the PV forecast): intelli-gateway's published
+      # host port standalone; the dev stack overrides it to the `intelli-gateway` service name.
+      - INTELLI_GATEWAY_UPSTREAM=${WEB_PLUSDAS_INTELLI_GATEWAY_UPSTREAM:-http://host.docker.internal:8030}
     extra_hosts:
       # Docker Desktop provides host.docker.internal; this makes it resolve on Linux too.
       - "host.docker.internal:host-gateway"

@@ -1,6 +1,10 @@
 import type {
   AssetsResponse,
+  AutoDispatchReport,
+  AutoDispatchRequest,
   BessAssetResponse,
+  BessBatteryRequest,
+  BessBatteryState,
   BessSetpointRequest,
   ConditionChange,
   ConditionsReport,
@@ -59,12 +63,21 @@ export const powerflowApi = {
   deleteEventScenario: (siteName: string, name: string) =>
     api.delete(`${site(siteName)}/event-scenarios/${encodeURIComponent(name)}`),
 
+  // -- auto dispatch ---------------------------------------------------------------------------
+  // On: each included BESS cycles inside its SOC window at discharge_pct / charge_pct % of its
+  // rating (site-wide defaults, per-BESS overrides), and its setpoint writes are refused (409). Off: back to idle.
+  // A reset turns it off.
+  getAutoDispatch: () => api.get<AutoDispatchReport>('/sim/auto-dispatch'),
+  setAutoDispatch: (request: AutoDispatchRequest) => api.put<AutoDispatchReport>('/sim/auto-dispatch', request),
+
   // -- sites -----------------------------------------------------------------------------------
   listSites: () => api.get<SiteList>('/sites'),
   getSite: (name: string) => api.get<SiteConfig>(site(name)),
   // Replaces the whole stored config (the active site needs the simulation stopped).
   saveSite: (name: string, config: SiteConfig) => api.put<SiteConfig>(site(name), config),
   deleteSite: (name: string) => api.delete(site(name)),
+  // The config the engine is simulating now (the active site as loaded).
+  getActiveConfig: () => api.get<SiteConfig>('/config'),
   // Loads a stored site into the engine (simulation must be stopped) and restarts the interfaces.
   activateSite: (name: string) => api.post<SiteConfig>(`${site(name)}/activate`, {}),
 
@@ -92,6 +105,10 @@ export const powerflowApi = {
   getPv: (id: string) => api.get<PvAssetResponse>(`/assets/pv/${encodeURIComponent(id)}`),
   setBess: (id: string, request: BessSetpointRequest) =>
     api.put<SetpointResult>(`/assets/bess/${encodeURIComponent(id)}/setpoint`, request),
+  // Set the SOC now and/or the round-trip efficiency (null = the site config's; every BESS is back
+  // at 100 % after an activate or reset). Allowed while auto dispatch drives the BESS.
+  setBessBattery: (id: string, request: BessBatteryRequest) =>
+    api.put<BessBatteryState>(`/assets/bess/${encodeURIComponent(id)}/battery`, request),
   setPv: (id: string, request: PvSetpointRequest) =>
     api.put<SetpointResult>(`/assets/pv/${encodeURIComponent(id)}/setpoint`, request),
   // Alarm reset (AlmRst = 1): clears the asset's latched faults; a cause still injected stays.

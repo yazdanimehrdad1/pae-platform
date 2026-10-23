@@ -1,4 +1,5 @@
 import type {
+  ActiveAlarmsSummaryRecord,
   AlarmDefinitionCreateRequest,
   AlarmDefinitionRecord,
   AlarmDefinitionUpdateRequest,
@@ -10,6 +11,9 @@ import { client, request } from './client';
 
 // System alarms of a site (backend-ot evaluates them; the UI shows and configures them).
 export const alarmsApi = {
+  /** Active fault and warning counts over every site (the sidebar bell). */
+  getActiveSummary: (): Promise<ActiveAlarmsSummaryRecord> => client.get('/alarms/active-summary'),
+
   /** Server time, the site's alarms, active events plus those cleared in the last 6 h, and their log. */
   getSnapshot: (siteId: string): Promise<AlarmSnapshotRecord> =>
     client.get(`/alarms/site/${siteId}/snapshot`),

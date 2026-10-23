@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "6f1f5c4e-8a53-4c1e-9f44-70f0f10e0001",
-    "name": "powerflow 0.3.0",
+    "name": "powerflow 0.5.0",
     "description": "Grid-connected microgrid power flow simulator (pandapower, balanced positive sequence,\nquasi-static). The EMS writes setpoints; every step the simulator applies the asset limits,\nsolves the network and publishes a measurement snapshot.\n\n**Sign conventions**\n- BESS / PV P and Q: generator convention. P > 0 injects (BESS discharging, PV producing),\n  P < 0 is a charging BESS. Q > 0 injects vars.\n- Load P and Q: P > 0 consumes, Q > 0 consumes vars (lagging).\n- POI: P > 0 exports to the utility, P < 0 imports. The same for Q.\n- Transformers: P/Q > 0 flows toward the grid (LV → HV).\n- pf = |P|/S, signed with Q in the element's own convention.\n\n**Units:** kW, kvar, kVA, kWh, kV (line-to-line), pu where noted, s.\n\n**Points:** `<asset_type>.<asset_id>.<point>`, listed at GET /api/points.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -371,6 +371,62 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"bess1_trip\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "auto dispatch",
+      "item": [
+        {
+          "name": "Auto dispatch now: on or off, its settings and each BESS's phase",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/auto-dispatch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "auto-dispatch"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Turn auto dispatch on or off, or change its settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/sim/auto-dispatch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sim",
+                "auto-dispatch"
+              ]
+            },
+            "description": "On: each included BESS discharges at power_pct % of its rating down to its window's low edge, rests (rest_s), charges up to the high edge, rests, and repeats, with optional power noise, an extra ramp limit, a start direction and a fixed Q. `defaults` apply to every BESS and `bess` overrides them per BESS id (a field left out falls back). Setpoint writes to a driven BESS are 409 meanwhile (an alarm reset still goes); an excluded one takes them. Off, or excluded: the BESS goes back to idle. Works in any run state; a reset turns it off.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"power_pct\": 50,\n  \"defaults\": {\n    \"soc_low_pct\": 20,\n    \"soc_high_pct\": 80,\n    \"rest_s\": 300\n  },\n  \"bess\": {\n    \"bess1\": {\n      \"discharge_pct\": 80,\n      \"p_noise_std_pct\": 5,\n      \"ramp_kw_per_s\": 50\n    }\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -919,6 +975,47 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"p_kw\": 1500,\n  \"q_kvar\": 0,\n  \"mode\": \"pq\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Set a BESS's SOC now and/or its round-trip efficiency",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/bess/:asset_id/battery",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "bess",
+                ":asset_id",
+                "battery"
+              ],
+              "variable": [
+                {
+                  "key": "asset_id",
+                  "value": "bess1"
+                }
+              ]
+            },
+            "description": "Partial update: omitted fields keep their value. `soc_pct` sets the SOC at once (clamped to the battery's band). `round_trip_efficiency_pct` holds until the next activate or reset, which return every BESS to 100 %; null = the site config's efficiency. Works in any run state, also while auto dispatch drives the BESS.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"soc_pct\": 20,\n  \"round_trip_efficiency_pct\": 90\n}",
               "options": {
                 "raw": {
                   "language": "json"

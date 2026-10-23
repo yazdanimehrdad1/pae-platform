@@ -60,7 +60,8 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
 - Several seeds can coexist: the seeder matches devices and points within their site.
 - The seeder writes rows directly, not through the API, so **anything `create_device` (or another
   create path) does must be mirrored in `tests/seed_db/seed_db.py`**. Today that's the
-  STANDARDIZED points (`generate_standardized_points`). `tests/integration/seed_db/` fails if a
+  STANDARDIZED points (`generate_standardized_points`) and their links to real points
+  (`apply_point_link`, the check behind `PUT .../{point_id}/link`). `tests/integration/seed_db/` fails if a
   seeded device differs from one created through the API.
 
 ## The feature comes first; tests prove it

@@ -40,6 +40,9 @@ class Coordinates(BaseModel):
     """Coordinates model for site location."""
     lat: float = Field(..., description="Latitude")
     lng: float = Field(..., description="Longitude")
+    elevation_m: float | None = Field(
+        None, ge=-500, le=9000, description="Elevation above sea level, meters; omit if unknown"
+    )
 
 
 class Location(BaseModel):
@@ -315,6 +318,16 @@ class VirtualPointUpdateRequest(BaseModel):
     )
 
 
+class StandardizedPointLinkRequest(BaseModel):
+    """Link a STANDARDIZED point to the NATIVE point on its device whose readings it shows."""
+    source_point_id: int = Field(..., description="An active NATIVE point on the same device")
+    unit: str | None = Field(None, max_length=50, description="Unit of the standardized point's values, e.g. 'kW'")
+    scale_factor: float = Field(
+        1.0,
+        description="Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)",
+    )
+
+
 class CacheSetRequest(BaseModel):
     """Request model for setting a value in the cache."""
     key: str = Field(..., description="Cache key")
@@ -332,4 +345,23 @@ class SiteSldUpsertRequest(BaseModel):
         None,
         ge=1,
         description="The revision being replaced, as last read (409 if it is no longer current). Omit to create the site's first diagram",
+    )
+
+
+class PvArrayConfigUpsertRequest(BaseModel):
+    """The PV array behind a PV or INVERTER device: orientation, ratings and losses."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tilt_deg: float = Field(..., ge=0, le=90, description="Module tilt from horizontal, degrees (0 = flat)")
+    azimuth_deg: float = Field(
+        ..., ge=0, lt=360, description="Direction the modules face, degrees clockwise from north (180 = south)"
+    )
+    dc_capacity_kw: float = Field(..., gt=0, description="DC nameplate of the array, kW (kWp)")
+    ac_capacity_kw: float = Field(..., gt=0, description="AC limit of the inverter(s) feeding this array, kW")
+    system_loss_pct: float = Field(
+        14.0, ge=0, lt=100, description="Lumped system losses (soiling, wiring, mismatch, inverter), percent"
+    )
+    temp_coefficient_pct_per_c: float = Field(
+        -0.35, ge=-2, le=0, description="Module power temperature coefficient, percent per degC (negative)"
     )

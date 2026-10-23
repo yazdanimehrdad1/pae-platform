@@ -8,11 +8,13 @@ from api.controllers.devices import get_device_by_id
 from db.devices import lock_device_scan_ranges, reset_device_scan_ranges
 from helpers.device_points import (
     bulk_upsert_device_points,
+    clear_point_link,
     create_virtual_point,
     delete_device_points,
     get_deleted_device_points,
     get_device_points,
     restore_device_point,
+    set_point_link,
     update_device_point,
     update_virtual_point,
 )
@@ -22,6 +24,7 @@ from schemas.api_models.requests import (
     DevicePointsBulkRequest,
     DevicePointUpdateRequest,
     DeviceScanRanges,
+    StandardizedPointLinkRequest,
     VirtualPointCreateRequest,
     VirtualPointUpdateRequest,
 )
@@ -214,6 +217,53 @@ async def update_virtual_point_for_device(
     try:
         await get_device_by_id(site_id, device_id)
         point = await update_virtual_point(site_id, device_id, point_id, body)
+        return DevicePointResponse.model_validate(point, from_attributes=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _point_error(e)
+
+
+@router.put(
+    "/site/{site_id}/device/{device_id}/{point_id}/link",
+    response_model=DevicePointResponse,
+    summary="Link a standardized point to a real point",
+)
+async def link_standardized_point(
+    site_id: int,
+    device_id: int,
+    point_id: int,
+    body: StandardizedPointLinkRequest,
+) -> DevicePointResponse:
+    """
+    Make a STANDARDIZED point show the readings of an active NATIVE point on the same device:
+    reads return the source's stored readings x scale_factor, in unit. Replaces any existing link.
+    Between power units the scale must convert them (W -> kW: 0.001), else 400.
+    """
+    try:
+        await get_device_by_id(site_id, device_id)
+        point = await set_point_link(site_id, device_id, point_id, body)
+        return DevicePointResponse.model_validate(point, from_attributes=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _point_error(e)
+
+
+@router.delete(
+    "/site/{site_id}/device/{device_id}/{point_id}/link",
+    response_model=DevicePointResponse,
+    summary="Unlink a standardized point",
+)
+async def unlink_standardized_point(
+    site_id: int,
+    device_id: int,
+    point_id: int,
+) -> DevicePointResponse:
+    """Unlink a STANDARDIZED point: it is an empty placeholder again (no source, unit or scale)."""
+    try:
+        await get_device_by_id(site_id, device_id)
+        point = await clear_point_link(site_id, device_id, point_id)
         return DevicePointResponse.model_validate(point, from_attributes=True)
     except HTTPException:
         raise

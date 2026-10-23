@@ -10,6 +10,7 @@ from helpers.device_points.device_points_crud import (
     update_device_point,
 )
 from helpers.device_points.scan_range_computation import compute_device_scan_ranges
+from helpers.device_points.standardized_point_links import clear_point_link, set_point_link
 from helpers.device_points.virtual_points import (
     create_virtual_point,
     update_virtual_point,
@@ -28,4 +29,6 @@ __all__ = [
     "DevicePointData",
     "create_virtual_point",
     "update_virtual_point",
+    "set_point_link",
+    "clear_point_link",
 ]

@@ -12,12 +12,19 @@ from api.controllers.devices import (
     restore_device,
     update_device,
 )
+from api.controllers.pv_arrays import (
+    delete_device_pv_array,
+    get_device_pv_array,
+    put_device_pv_array,
+)
 from logger import get_logger
 from schemas.api_models import (
     DeviceCreateRequest,
     DeviceDeleteResponse,
     DeviceUpdate,
     DeviceWithPoints,
+    PvArrayConfigResponse,
+    PvArrayConfigUpsertRequest,
 )
 from utils.exceptions import AppError
 
@@ -146,6 +153,66 @@ async def restore_existing_device(site_id: int, device_id: int) -> DeviceWithPoi
     """Restore a soft-deleted device and all its soft-deleted points under the same device_id."""
     try:
         return await restore_device(device_id, site_id=site_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.get(
+    "/site/{site_id}/devices/{device_id}/pv-array",
+    response_model=PvArrayConfigResponse,
+    summary="Get a PV or inverter device's PV array config",
+)
+async def get_device_pv_array_endpoint(site_id: int, device_id: int) -> PvArrayConfigResponse:
+    """404 if the device isn't in the site or has no config; 400 if it isn't a PV or INVERTER device."""
+    try:
+        return await get_device_pv_array(site_id, device_id)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.put(
+    "/site/{site_id}/devices/{device_id}/pv-array",
+    response_model=PvArrayConfigResponse,
+    summary="Create or replace a PV or inverter device's PV array config",
+)
+async def put_device_pv_array_endpoint(
+    site_id: int, device_id: int, config: PvArrayConfigUpsertRequest
+) -> PvArrayConfigResponse:
+    """Replaces every field (omitted optional fields take their defaults). 404 if the device isn't
+    in the site; 400 if it isn't a PV or INVERTER device."""
+    try:
+        return await put_device_pv_array(site_id, device_id, config)
+    except AppError as e:
+        detail = {"error": type(e).__name__, "message": e.message}
+        if e.payload:
+            detail.update(e.payload)
+        raise HTTPException(status_code=e.http_status_code, detail=detail) from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred") from e
+
+
+@router.delete(
+    "/site/{site_id}/devices/{device_id}/pv-array",
+    response_model=PvArrayConfigResponse,
+    summary="Delete a PV or inverter device's PV array config",
+)
+async def delete_device_pv_array_endpoint(site_id: int, device_id: int) -> PvArrayConfigResponse:
+    """Returns the deleted config. 404 if the device isn't in the site or has no config."""
+    try:
+        return await delete_device_pv_array(site_id, device_id)
     except AppError as e:
         detail = {"error": type(e).__name__, "message": e.message}
         if e.payload:

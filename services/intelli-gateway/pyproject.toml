@@ -1,0 +1,67 @@
+[project]
+name = "intelli-gateway"
+version = "0.1.0"
+description = "AI helper for site engineers: Claude answers questions about a generation site using read-only tools"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "anthropic>=1.14.0",
+    "tenacity>=9.2.1",
+    "httpx>=0.25",
+    "tzdata>=2026.5",
+    "asyncpg>=0.32.0",
+    "pvlib>=0.16.1",
+    "sqlalchemy[asyncio]>=2.1.5",
+]
+
+# PEP 735 dependency group: `uv sync` installs it by default; never shipped in the image.
+[dependency-groups]
+dev = [
+    "httpx>=0.25",  # in-process test requests (ASGITransport)
+    "pyright>=1.1.414",
+    "pytest>=8.0",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16",
+]
+
+# Not an installable package: code runs from src/ via pythonpath / PYTHONPATH / --app-dir.
+[tool.uv]
+package = false
+# Copy instead of hardlinking from the uv cache: hardlinks fail on OneDrive-synced folders.
+link-mode = "copy"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Same rule set as every other Python service.
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["B008"]  # FastAPI Depends()/Query() in argument defaults
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+extraPaths = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+# Everything but the HTTP layer, the fake data and the knowledge text is checked strictly: the
+# agent loop and the tool layer carry the safety rules.
+strict = [
+    "src/intelli_gateway/agent",
+    "src/intelli_gateway/config.py",
+    "src/intelli_gateway/interfaces",
+    "src/intelli_gateway/schemas",
+    "src/intelli_gateway/services",
+    "src/intelli_gateway/tools",
+    "src/intelli_gateway/utils",
+]
+venvPath = "."
+venv = ".venv"

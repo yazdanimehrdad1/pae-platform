@@ -110,7 +110,7 @@ class Site(Base):
     coordinates: Mapped[dict[str, float] | None] = mapped_column(
         JSON,
         nullable=True,
-        comment="Geographic coordinates as JSON: {lat: float, lng: float}"
+        comment="Geographic coordinates as JSON: {lat: float, lng: float, elevation_m?: float}"
     )
 
     profile: Mapped[str | None] = mapped_column(
@@ -522,6 +522,14 @@ class DevicePoint(Base):
         comment="VIRTUAL points only: the condition or calculation its values are computed from, on read"
     )
 
+    # STANDARDIZED points only; set through PUT .../{point_id}/link (helpers.device_points.standardized_point_links).
+    source_point_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("device_points.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="STANDARDIZED points only: the NATIVE point on the same device whose readings it shows"
+    )
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -624,6 +632,27 @@ class SiteSldRecord(Base):
 
     def __repr__(self) -> str:
         return f"<SiteSldRecord(site_id={self.site_id}, revision={self.revision})>"
+
+
+class PvArrayConfigRecord(Base):
+    """The PV array behind a PV or INVERTER device: orientation, ratings and losses."""
+
+    __tablename__ = "pv_array_configs"
+
+    device_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("devices.device_id", ondelete="CASCADE"), primary_key=True
+    )
+    tilt_deg: Mapped[float] = mapped_column(Float, nullable=False)
+    azimuth_deg: Mapped[float] = mapped_column(Float, nullable=False)
+    dc_capacity_kw: Mapped[float] = mapped_column(Float, nullable=False)
+    ac_capacity_kw: Mapped[float] = mapped_column(Float, nullable=False)
+    system_loss_pct: Mapped[float] = mapped_column(Float, nullable=False, server_default="14")
+    temp_coefficient_pct_per_c: Mapped[float] = mapped_column(Float, nullable=False, server_default="-0.35")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<PvArrayConfigRecord(device_id={self.device_id})>"
 
 
 class ReportTemplate(Base):

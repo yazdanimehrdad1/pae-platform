@@ -4,29 +4,43 @@ Invariant guarded: every point-standard device of a powerflow default site
 (`contracts/powerflow/sites.json`) becomes one seeded device that reads powerflow's Modbus
 server directly (host powerflow, port 502, unit 1, zero-based), and every register it serves
 (`contracts/modbus/powerflow.registers.json`, powerflow_server yes/calc) becomes one NATIVE point
-at base + offset with the contract's type, scale, unit and labels; unserved registers are not
-seeded. The site's single line diagram validates and links only points the seed creates. The
+at base + offset with the contract's type and labels, its scale and unit converted to engineering
+units (kW, kvar, kVA, kWh, kV; others as published); unserved registers are not
+seeded. The site's single line diagram validates and links only points the seed creates.
+Its standardized point links (load, BESS, PV, meters) join a template point to a served register
+of the same device, with a scale that converts the register's stored unit.
+Every PV device gets a PV array config with the contract's DC/AC ratings, and the site has a
+location (coordinates with elevation) so it can be forecast. The
 committed contracts are read as static fixtures (no DB/network).
 """
 
 import pytest
 from seed_db.powerflow_seed import (
     DEVICE_TYPES,
+    KILO_UNITS,
     POWERFLOW_HOST,
     REGISTERS_CONTRACT,
     SITES_CONTRACT,
     build_seed,
     default_contract_path,
     device_name,
+    engineering_unit,
     load_registers,
     load_sites,
     site_display_name,
 )
 
 from helpers.device_points.address_overlap import NativePointRange, validate_no_register_overlap
+from helpers.device_points.device_standardized_points import generate_standardized_points
+from helpers.device_points.standardized_point_links import power_scale_error
 from schemas.api_models import SiteSld
 from schemas.api_models.types import register_size
-from schemas.tests_models import PowerflowRegistersContract, PowerflowSitesContract, SeedData
+from schemas.tests_models import (
+    PowerflowRegistersContract,
+    PowerflowSitesContract,
+    SeedData,
+    SeedPointLink,
+)
 
 SITE = "2bess_1pv"
 
@@ -108,8 +122,7 @@ class TestPoints:
                 assert point.address == ref.base + register.offset
                 assert point.data_type == register.data_type
                 assert point.size == register_size(register.data_type) == register.width
-                assert point.scale_factor == register.scale
-                assert point.unit == (register.unit or None)
+                assert (point.scale_factor, point.unit) == engineering_unit(register)
                 assert point.enum_detail == register.enum_detail
                 assert point.bitfield_detail == register.bitfield_detail
                 assert point.poll_kind == "holding" and point.word_order == "msw_first"
@@ -134,6 +147,24 @@ class TestPoints:
                     for point in points
                 ]
             )
+
+    def test_engineering_units(self, seed: SeedData) -> None:
+        """One raw count of a power/energy register is 1 kW/kvar/kVA/kWh; voltages read in kV."""
+        bess = {point.name: point for point in seed.device_points["2bess_1pv-bess1"]}
+        meter = {point.name: point for point in seed.device_points["2bess_1pv-poi_meter"]}
+        assert (bess["W"].unit, bess["W"].scale_factor) == ("kW", 1.0)
+        assert (bess["Var"].unit, bess["Var"].scale_factor) == ("kvar", 1.0)
+        assert (bess["VA"].unit, bess["VA"].scale_factor) == ("kVA", 1.0)
+        assert (bess["TotWhInj"].unit, bess["TotWhInj"].scale_factor) == ("kWh", 1.0)
+        assert (bess["TotVarhInj"].unit, bess["TotVarhInj"].scale_factor) == ("kvarh", 1.0)
+        assert (bess["LLV"].unit, bess["LLV"].scale_factor) == ("kV", 0.0001)  # 0.1 V counts
+        assert (meter["PPV"].unit, meter["PPV"].scale_factor) == ("kV", 0.001)  # 1 V counts
+        assert (meter["A"].unit, meter["A"].scale_factor) == ("A", 1.0)
+        assert (bess["Hz"].unit, bess["SoC"].unit) == ("Hz", "%")
+
+    def test_no_si_power_energy_or_voltage_units_remain(self, seed: SeedData) -> None:
+        units = {point.unit for points in seed.device_points.values() for point in points}
+        assert not units & set(KILO_UNITS)
 
     def test_classes(self, seed: SeedData) -> None:
         points = {point.name: point for point in seed.device_points["2bess_1pv-bess1"]}
@@ -174,3 +205,62 @@ def test_every_default_site_builds(site: str, registers, sites) -> None:
     assert len(seed.devices) == len(sites.sites[site].devices)
     (sld,) = seed.site_slds(lambda _device, _point: 1, lambda _device: 1).values()
     assert sld.nodes
+
+
+class TestPvArrays:
+    def test_every_pv_device_has_its_contract_ratings(self, seed: SeedData, sites) -> None:
+        site = sites.sites[SITE]
+        pv_devices = [device for device in site.devices if device.kind == "pv"]
+        assert pv_devices
+        assert set(seed.pv_arrays) == {device_name(SITE, device) for device in pv_devices}
+        pv_by_id = {pv.id: pv for pv in site.pv}
+        for device in pv_devices:
+            config = seed.pv_arrays[device_name(SITE, device)]
+            assert config.dc_capacity_kw == pv_by_id[device.asset_id].dc_kwp
+            assert config.ac_capacity_kw == pv_by_id[device.asset_id].p_max_kw
+
+    def test_pv_arrays_belong_to_pv_devices(self, seed: SeedData) -> None:
+        types = {seed_device.device.name: seed_device.device.type for seed_device in seed.devices}
+        assert all(types[name] == "PV" for name in seed.pv_arrays)
+
+    def test_site_has_a_location(self, seed: SeedData) -> None:
+        (site,) = seed.sites
+        assert site.coordinates is not None and site.coordinates.elevation_m is not None
+        assert site.timezone != "UTC"
+
+
+def resolve_links(seed: SeedData) -> list[tuple[SeedPointLink, tuple[str, str]]]:
+    """Each link with its source as (device name, point name), resolved through fake ids."""
+    names: dict[int, tuple[str, str]] = {}
+
+    def point_id(device: str, point: str) -> int:
+        names[len(names) + 1] = (device, point)
+        return len(names)
+
+    return [(link, names[link.link.source_point_id]) for link in seed.point_links(point_id)]
+
+
+class TestPointLinks:
+    def test_load_bess_pv_and_meters_are_linked(self, seed: SeedData) -> None:
+        assert sorted((link.device_name, link.point_name, source) for link, (_, source) in resolve_links(seed)) == sorted([
+            ("2bess_1pv-load1", "IED_ACTIVE_POWER", "W"),
+            ("2bess_1pv-bess1", "BESS_ACTIVE_POWER", "W"),
+            ("2bess_1pv-bess1", "BESS_STATE_OF_CHARGE", "SoC"),
+            ("2bess_1pv-bess2", "BESS_ACTIVE_POWER", "W"),
+            ("2bess_1pv-bess2", "BESS_STATE_OF_CHARGE", "SoC"),
+            ("2bess_1pv-pv1", "PV_ACTIVE_POWER", "W"),
+            ("2bess_1pv-poi_meter", "METER_ACTIVE_POWER", "W"),
+            ("2bess_1pv-m_bess1", "METER_ACTIVE_POWER", "W"),
+            ("2bess_1pv-m_bess2", "METER_ACTIVE_POWER", "W"),
+            ("2bess_1pv-m_pv1", "METER_ACTIVE_POWER", "W"),
+        ])
+
+    def test_each_link_joins_a_template_point_to_a_served_register_of_its_device(self, seed: SeedData) -> None:
+        types = {device.device.name: device.device.type for device in seed.devices}
+        native = {(name, point.name): point for name, points in seed.device_points.items() for point in points}
+        for link, (source_device, source_name) in resolve_links(seed):
+            template = {point.name for point in generate_standardized_points(types[link.device_name], 1, 1)}
+            assert link.point_name in template, link
+            assert source_device == link.device_name, link
+            source = native[(source_device, source_name)]
+            assert power_scale_error(source.unit, link.link.unit, link.link.scale_factor) is None, link

@@ -36,6 +36,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/bess/{asset_id}/battery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a BESS's SOC now and/or its round-trip efficiency
+         * @description Partial update: omitted fields keep their value. `soc_pct` sets the SOC at once (clamped to the battery's band). `round_trip_efficiency_pct` holds until the next activate or reset, which return every BESS to 100 %; null = the site config's efficiency. Works in any run state, also while auto dispatch drives the BESS.
+         */
+        put: operations["put_bess_battery_api_assets_bess__asset_id__battery_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/bess/{asset_id}/setpoint": {
         parameters: {
             query?: never;
@@ -378,6 +398,27 @@ export interface paths {
         /** One JSON Schema (site-config) */
         get: operations["get_schema_api_schemas__name__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim/auto-dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Auto dispatch now: on or off, its settings and each BESS's phase */
+        get: operations["get_auto_dispatch_api_sim_auto_dispatch_get"];
+        /**
+         * Turn auto dispatch on or off, or change its settings
+         * @description On: each included BESS discharges at power_pct % of its rating down to its window's low edge, rests (rest_s), charges up to the high edge, rests, and repeats, with optional power noise, an extra ramp limit, a start direction and a fixed Q. `defaults` apply to every BESS and `bess` overrides them per BESS id (a field left out falls back). Setpoint writes to a driven BESS are 409 meanwhile (an alarm reset still goes); an excluded one takes them. Off, or excluded: the BESS goes back to idle. Works in any run state; a reset turns it off.
+         */
+        put: operations["put_auto_dispatch_api_sim_auto_dispatch_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -820,6 +861,161 @@ export interface components {
             /** Pv */
             pv: components["schemas"]["PvConfig"][];
         };
+        /** AutoDispatchBess */
+        AutoDispatchBess: {
+            /** Asset Id */
+            asset_id: string;
+            /** Charge Pct */
+            charge_pct: number | null;
+            /** @description Where it goes (after the rest, if resting); null while excluded. */
+            direction: components["schemas"]["AutoDispatchDirection"] | null;
+            /**
+             * Discharge Pct
+             * @description Resolved; null while excluded.
+             */
+            discharge_pct: number | null;
+            /** Included */
+            included: boolean;
+            /** P Noise Std Pct */
+            p_noise_std_pct: number | null;
+            /** @description null while excluded. */
+            phase: components["schemas"]["AutoDispatchPhase"] | null;
+            /** Q Kvar */
+            q_kvar: number | null;
+            /** Ramp Kw Per S */
+            ramp_kw_per_s: number | null;
+            /**
+             * Rest Remaining S
+             * @description Sim seconds left while resting.
+             */
+            rest_remaining_s: number | null;
+            /** Rest S */
+            rest_s: number | null;
+            /** Soc High Pct */
+            soc_high_pct: number | null;
+            /**
+             * Soc Low Pct
+             * @description The window it cycles in; null while excluded.
+             */
+            soc_low_pct: number | null;
+            /** Soc Max Pct */
+            soc_max_pct: number;
+            /**
+             * Soc Min Pct
+             * @description The battery's band.
+             */
+            soc_min_pct: number;
+            /** Soc Pct */
+            soc_pct: number;
+        };
+        /**
+         * AutoDispatchBessSettings
+         * @description Settings for auto dispatch: as the site-wide defaults, or one BESS's overrides. Every field
+         *     is optional; an omitted one falls back (override → defaults → built-in).
+         */
+        AutoDispatchBessSettings: {
+            /**
+             * Charge Pct
+             * @description % of the charge rating to charge at; default the request's power_pct.
+             */
+            charge_pct?: number | null;
+            /**
+             * Discharge Pct
+             * @description % of the discharge rating to discharge at; default the request's power_pct.
+             */
+            discharge_pct?: number | null;
+            /**
+             * Included
+             * @description false: auto dispatch leaves the BESS alone, and it takes setpoints as usual. Default true.
+             */
+            included?: boolean | null;
+            /**
+             * P Noise Std Pct
+             * @description Gaussian noise on the target P, std in % of it (seeded per step); default 0.
+             */
+            p_noise_std_pct?: number | null;
+            /**
+             * Q Kvar
+             * @description Q held while cycling; default 0.
+             */
+            q_kvar?: number | null;
+            /**
+             * Ramp Kw Per S
+             * @description Max change of the command per sim second (the inverter's ramp still applies); default none.
+             */
+            ramp_kw_per_s?: number | null;
+            /**
+             * Rest S
+             * @description Idle at an edge for this long (sim s) before turning; default 0.
+             */
+            rest_s?: number | null;
+            /**
+             * Soc High Pct
+             * @description Window high edge; default the battery's soc_max_pct.
+             */
+            soc_high_pct?: number | null;
+            /**
+             * Soc Low Pct
+             * @description Window low edge; default the battery's soc_min_pct.
+             */
+            soc_low_pct?: number | null;
+            /** @description Default: discharge from above the middle of the window, else charge. */
+            start_direction?: components["schemas"]["AutoDispatchDirection"] | null;
+        };
+        /**
+         * AutoDispatchDirection
+         * @enum {string}
+         */
+        AutoDispatchDirection: "charge" | "discharge";
+        /**
+         * AutoDispatchPhase
+         * @enum {string}
+         */
+        AutoDispatchPhase: "charging" | "discharging" | "resting";
+        /** AutoDispatchReport */
+        AutoDispatchReport: {
+            /**
+             * Bess
+             * @description Every BESS while on; empty while off.
+             */
+            bess: components["schemas"]["AutoDispatchBess"][];
+            /**
+             * Bess Overrides
+             * @description As sent; empty while off.
+             */
+            bess_overrides: {
+                [key: string]: components["schemas"]["AutoDispatchBessSettings"];
+            };
+            /** @description As sent; empty while off. */
+            defaults: components["schemas"]["AutoDispatchBessSettings"];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Power Pct
+             * @description % of each BESS's rating; null while off.
+             */
+            power_pct: number | null;
+        };
+        /** AutoDispatchRequest */
+        AutoDispatchRequest: {
+            /**
+             * Bess
+             * @description Per BESS id: what differs from the defaults.
+             */
+            bess?: {
+                [key: string]: components["schemas"]["AutoDispatchBessSettings"];
+            };
+            /** @description For every BESS. */
+            defaults?: components["schemas"]["AutoDispatchBessSettings"];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Power Pct
+             * @description % of each BESS's discharge/charge rating to drive it at, where neither `defaults` nor its override sets discharge_pct / charge_pct.
+             * @default 50
+             */
+            power_pct: number;
+        };
         /** BatteryConfig */
         BatteryConfig: {
             /**
@@ -849,10 +1045,50 @@ export interface components {
         };
         /** BessAssetResponse */
         BessAssetResponse: {
+            /** @description SOC and the efficiency in effect. */
+            battery: components["schemas"]["BessBatteryState"];
             config: components["schemas"]["BessConfig"];
             /** @description null before the first step. */
             measurement: components["schemas"]["BessMeasurement"] | null;
             setpoint: components["schemas"]["BessSetpointState"];
+        };
+        /**
+         * BessBatteryRequest
+         * @description A partial update: a field left out keeps its value.
+         */
+        BessBatteryRequest: {
+            /**
+             * Round Trip Efficiency Pct
+             * @description Round-trip efficiency, split evenly over charge and discharge. null: the site config's efficiency.
+             */
+            round_trip_efficiency_pct?: number | null;
+            /**
+             * Soc Pct
+             * @description Set the SOC now (one shot), clamped to the battery's soc_min..soc_max.
+             */
+            soc_pct?: number | null;
+        };
+        /** BessBatteryState */
+        BessBatteryState: {
+            /** Asset Id */
+            asset_id: string;
+            /**
+             * Eta Charge
+             * @description In effect.
+             */
+            eta_charge: number;
+            /**
+             * Eta Discharge
+             * @description In effect.
+             */
+            eta_discharge: number;
+            /**
+             * Round Trip Efficiency Pct
+             * @description The override; null = the site config's efficiency.
+             */
+            round_trip_efficiency_pct: number | null;
+            /** Soc Pct */
+            soc_pct: number;
         };
         /** BessConfig */
         BessConfig: {
@@ -2788,6 +3024,50 @@ export interface operations {
             };
         };
     };
+    put_bess_battery_api_assets_bess__asset_id__battery_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BessBatteryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BessBatteryState"];
+                };
+            };
+            /** @description Unknown asset or point. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     put_bess_setpoint_api_assets_bess__asset_id__setpoint_put: {
         parameters: {
             query?: never;
@@ -3557,6 +3837,68 @@ export interface operations {
                 };
             };
             /** @description Invalid name or content. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_auto_dispatch_api_sim_auto_dispatch_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoDispatchReport"];
+                };
+            };
+        };
+    };
+    put_auto_dispatch_api_sim_auto_dispatch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoDispatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoDispatchReport"];
+                };
+            };
+            /** @description An override names no BESS of the active site. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid settings, e.g. an SOC window outside a battery's band. */
             422: {
                 headers: {
                     [name: string]: unknown;

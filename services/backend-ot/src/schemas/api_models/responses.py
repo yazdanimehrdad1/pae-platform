@@ -7,7 +7,7 @@ from pydantic import AliasChoices, BaseModel, Field
 
 from schemas.api_models.requests import Coordinates, DeviceScanRanges, Location
 from schemas.api_models.single_line_diagram import SiteSld
-from schemas.api_models.types import PointClass, Severity
+from schemas.api_models.types import DeviceType, PointClass, Severity
 from schemas.api_models.virtual_points import VirtualPointDefinition
 
 
@@ -155,6 +155,13 @@ class DevicePointResponse(BaseModel):
     virtual_definition: VirtualPointDefinition | None = Field(
         None, description="VIRTUAL points only: how the value is computed from other points"
     )
+    source_point_id: int | None = Field(
+        None,
+        description=(
+            "STANDARDIZED points only: the NATIVE point on the same device whose readings this point "
+            "shows (times scale_factor, in unit). Set with PUT .../{point_id}/link; null means unlinked"
+        ),
+    )
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {
@@ -264,3 +271,20 @@ class SiteSldResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     sld: SiteSld
+
+
+class PvArrayConfigResponse(BaseModel):
+    """The PV array behind a PV or INVERTER device."""
+
+    device_id: int
+    site_id: int
+    device_name: str
+    device_type: DeviceType
+    tilt_deg: float = Field(..., description="Module tilt from horizontal, degrees (0 = flat)")
+    azimuth_deg: float = Field(..., description="Direction the modules face, degrees clockwise from north (180 = south)")
+    dc_capacity_kw: float = Field(..., description="DC nameplate of the array, kW (kWp)")
+    ac_capacity_kw: float = Field(..., description="AC limit of the inverter(s) feeding this array, kW")
+    system_loss_pct: float = Field(..., description="Lumped system losses, percent")
+    temp_coefficient_pct_per_c: float = Field(..., description="Module power temperature coefficient, percent per degC")
+    created_at: datetime
+    updated_at: datetime

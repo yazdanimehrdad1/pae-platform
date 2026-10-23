@@ -16,9 +16,10 @@ import {
 import { toast } from "@/shared/hooks/use-toast";
 import { devicesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
-import type { DeviceCreateRequest, DeviceRecord } from "@/api/types/devices";
+import type { DeviceCreateRequest, DeviceRecord, PvArrayConfigRequest } from "@/api/types/devices";
 import { Plus, Pencil, Trash2, RotateCcw, AlertTriangle, ArrowLeft } from "lucide-react";
 import { DeviceFormDialog } from "./DeviceFormDialog";
+import { pvArrayKey, savePvArray, useDevicePvArray } from "./hooks/useDevicePvArray";
 
 export default function ManageDevicesPage() {
   const location = useLocation();
@@ -48,6 +49,7 @@ export default function ManageDevicesPage() {
   const [hardDeleteConfirmed, setHardDeleteConfirmed] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["site-devices"] });
+  const { data: editingPvArray } = useDevicePvArray(selectedSite?.id, editingDevice, formOpen);
 
   const createMutation = useMutation({
     mutationFn: (payload: DeviceCreateRequest) => devicesApi.create(selectedSite.id, payload),
@@ -99,11 +101,17 @@ export default function ManageDevicesPage() {
     setFormOpen(true);
   };
 
-  const handleFormSubmit = async (payload: DeviceCreateRequest) => {
-    if (editingDevice) {
-      await updateMutation.mutateAsync({ id: editingDevice.device_id, payload });
-    } else {
-      await createMutation.mutateAsync(payload);
+  const handleFormSubmit = async (payload: DeviceCreateRequest, pvArray: PvArrayConfigRequest | null) => {
+    const saved = editingDevice
+      ? await updateMutation.mutateAsync({ id: editingDevice.device_id, payload })
+      : await createMutation.mutateAsync(payload);
+    try {
+      await savePvArray(selectedSite.id, saved.device_id, pvArray, editingDevice ? editingPvArray : null);
+    } catch (error) {
+      toast({ title: "Device saved, but its PV array was not", description: getErrorMessage(error), variant: "destructive" });
+      throw error;
+    } finally {
+      queryClient.invalidateQueries({ queryKey: pvArrayKey(selectedSite.id, saved.device_id) });
     }
   };
 
@@ -267,7 +275,13 @@ export default function ManageDevicesPage() {
         </Tabs>
       </div>
 
-      <DeviceFormDialog open={formOpen} onOpenChange={setFormOpen} device={editingDevice} onSubmit={handleFormSubmit} />
+      <DeviceFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        device={editingDevice}
+        pvArray={editingDevice ? editingPvArray : null}
+        onSubmit={handleFormSubmit}
+      />
 
       <AlertDialog open={deletingDevice !== null} onOpenChange={closeDeleteDialog}>
         <AlertDialogContent>
