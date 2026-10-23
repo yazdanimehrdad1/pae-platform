@@ -15,6 +15,17 @@ describe('trend storage and the axis scale', () => {
     expect(loadTrendsFromStorage('user-1')).toEqual([{ id: 't1', name: 'Old', points: ['7'] }]);
   });
 
+  it('saves and loads the signal styles', () => {
+    const trend = { id: 't1', name: 'Styled', points: ['7', '9'], styles: { '7': { color: '#0000ff' }, '9': { color: '#ff0000', dash: 'dotted' as const, width: 3 as const } } };
+    saveTrendsToStorage('user-1', [trend]);
+    expect(loadTrendsFromStorage('user-1')).toEqual([trend]);
+  });
+
+  it('drops invalid styles', () => {
+    window.localStorage.setItem('historian_trends_user-1', JSON.stringify([{ id: 't1', name: 'Odd', points: ['7'], styles: { '7': { color: 'blue', dash: 'wavy' } } }]));
+    expect(loadTrendsFromStorage('user-1')).toEqual([{ id: 't1', name: 'Odd', points: ['7'] }]);
+  });
+
   it('drops a scale it does not know', () => {
     window.localStorage.setItem('historian_trends_user-1', JSON.stringify([{ id: 't1', name: 'Odd', points: [], scale: 'log' }]));
     expect(loadTrendsFromStorage('user-1')[0].scale).toBeUndefined();

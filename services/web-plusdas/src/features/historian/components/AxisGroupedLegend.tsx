@@ -1,16 +1,28 @@
 import type { Props as LegendContentProps } from "recharts/types/component/DefaultLegendContent";
 import { groupByAxis, type ChartAxis } from "../lib/axes";
+import { DASH_ARRAY, type ResolvedStyle } from "../lib/seriesStyles";
 
 interface AxisGroupedLegendProps extends LegendContentProps {
   axes: ChartAxis[];
   axisOf: Map<string, string>;
   /** Called with the clicked entry's data key. */
   onSelect: (dataKey: string) => void;
+  /** The line style drawn for an entry's data key (undefined: a solid 2 px line). */
+  styleOf: (dataKey: string) => ResolvedStyle | undefined;
+}
+
+// The entry's line as drawn, so a dotted or thin line reads as such in the legend too.
+function LineSwatch({ color, style }: { color?: string; style?: ResolvedStyle }) {
+  return (
+    <svg width="14" height="6" aria-hidden className="shrink-0">
+      <line x1="0" y1="3" x2="14" y2="3" stroke={color} strokeWidth={style?.width ?? 2} strokeDasharray={style ? DASH_ARRAY[style.dash] : undefined} />
+    </svg>
+  );
 }
 
 // Per unit, the axes show only their unit, so the legend says which points each one carries: one row
 // per axis, headed by its unit and side in the axis colour, then every point name in full.
-export function AxisGroupedLegend({ payload = [], axes, axisOf, onSelect }: AxisGroupedLegendProps) {
+export function AxisGroupedLegend({ payload = [], axes, axisOf, onSelect, styleOf }: AxisGroupedLegendProps) {
   const groups = groupByAxis(payload, entry => String(entry.dataKey), axes, axisOf);
   return (
     <div className="space-y-1 pt-5 text-xs">
@@ -31,7 +43,7 @@ export function AxisGroupedLegend({ payload = [], axes, axisOf, onSelect }: Axis
               onMouseDown={event => event.stopPropagation()}
               onClick={() => onSelect(String(entry.dataKey))}
             >
-              <span className="h-0.5 w-3.5 rounded-full" style={{ backgroundColor: entry.color }} />
+              <LineSwatch color={entry.color} style={styleOf(String(entry.dataKey))} />
               {String(entry.value).replace(" - ", "-")}
             </button>
           ))}
