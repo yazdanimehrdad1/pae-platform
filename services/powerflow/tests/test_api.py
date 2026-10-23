@@ -6,14 +6,16 @@ site made active, and its own copy of profiles/, so nothing writes the repo."""
 
 import asyncio
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import DEFAULT_ACTIVE_SITE, DEFAULT_SITE_LIST, site_config_dict
+from conftest import DEFAULT_ACTIVE_SITE, DEFAULT_SITE_LIST, PROFILES_DIR, site_config_dict
 from fastapi.testclient import TestClient
 
 from powerflow.app import create_app
+from powerflow.profiles import ProfileKind, load_profile_file
 from powerflow.settings import settings
 from powerflow.site_config import SiteConfig
 from powerflow.storage import InMemoryConfigRepository
@@ -335,6 +337,37 @@ class TestSites:
             == 200
         )
         assert len(client.get("/api/assets").json()["bess"]) == 1
+
+    def test_saving_new_profiles_changes_what_the_run_simulates(self, client: TestClient) -> None:
+        """The scenarios saved on the active site are the ones the next steps follow."""
+
+        def expected(folder: str, scenario: str, kind: ProfileKind, scale: float) -> float:
+            profile = load_profile_file(
+                PROFILES_DIR / folder / f"{scenario}.csv", kind, loop=True, scale=scale
+            )
+            return profile.value_at("p_kw", t_s)
+
+        before = step(client)
+        t_s = datetime.fromisoformat(before["sim_time"]).timestamp()
+        load_before = before["loads"][0]["p_kw"]
+        assert load_before == pytest.approx(
+            expected("load", "typical", ProfileKind.LOAD, 1.0), rel=0.05
+        )
+
+        site = site_config_dict(n_bess=2)
+        site["loads"][0]["profile"] = {"scenario": "low_demand"}
+        site["pv"][0]["availability"].update({"scenario": "overcast_low", "scale": 0.3})
+        assert client.put(f"/api/sites/{TEST_SITE}", json=site).status_code == 200
+
+        after = step(client)  # the save reset the run: the same step 1, at the same sim time
+        assert after["sim_time"] == before["sim_time"]
+        load_after = after["loads"][0]["p_kw"]
+        low_demand = expected("load", "low_demand", ProfileKind.LOAD, 1.0)
+        assert load_after == pytest.approx(low_demand, rel=0.05)  # 1 % noise
+        assert abs(load_after - load_before) > 0.1 * load_before
+        overcast = expected("pv", "overcast_low", ProfileKind.PV_AC, 0.3)
+        assert after["pv"][0]["p_available_kw"] == pytest.approx(overcast)
+        assert after["pv"][0]["p_available_kw"] != pytest.approx(before["pv"][0]["p_available_kw"])
 
     def test_active_site_is_protected_while_running(self, client: TestClient) -> None:
         client.post("/api/sim/start")

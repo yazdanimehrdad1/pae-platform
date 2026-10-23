@@ -148,7 +148,7 @@ const SimulationPage = () => {
         <TabsContent value="settings">
           {site.data && selected && (
             <SiteSettingsForm
-              key={`${selected}-${site.dataUpdatedAt}`}
+              key={selected}
               siteName={selected}
               config={site.data}
               isActive={selectedIsActive}
@@ -166,7 +166,9 @@ const SimulationPage = () => {
         </TabsContent>
 
         <TabsContent value="profiles">
-          <ProfilesPanel />
+          {site.data && selected && (
+            <ProfilesPanel siteName={selected} config={site.data} isActive={selectedIsActive} runState={runState} />
+          )}
         </TabsContent>
 
         <TabsContent value="modbus">
