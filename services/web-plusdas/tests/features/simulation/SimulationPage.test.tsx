@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { powerflowApi } from '@/api';
-import type { AutoDispatchBess, AutoDispatchReport, ConditionsReport, DevicesSnapshot, EngineStatus, FaultCauseInfo, SetpointResult } from '@/api/types/powerflow';
+import type { AutoDispatchBess, AutoDispatchReport, BessBatteryState, ConditionsReport, DevicesSnapshot, EngineStatus, FaultCauseInfo, SetpointResult } from '@/api/types/powerflow';
 import SimulationPage from '@/features/simulation/SimulationPage';
 import { REFERENCE_SITE } from './fixtures';
 
@@ -73,6 +73,14 @@ const CONDITIONS: ConditionsReport = {
   scenarios: [],
 };
 
+const BATTERY: BessBatteryState = {
+  asset_id: 'bess1',
+  soc_pct: 62.5,
+  round_trip_efficiency_pct: 100,
+  eta_charge: 1,
+  eta_discharge: 1,
+};
+
 const AUTO_DISPATCH_OFF: AutoDispatchReport = { enabled: false, power_pct: null, defaults: {}, bess_overrides: {}, bess: [] };
 
 const dispatchedBess = (asset_id: string, overrides: Partial<AutoDispatchBess> = {}): AutoDispatchBess => ({
@@ -85,6 +93,8 @@ const dispatchedBess = (asset_id: string, overrides: Partial<AutoDispatchBess> =
   soc_max_pct: 95,
   soc_low_pct: 20,
   soc_high_pct: 80,
+  discharge_pct: 50,
+  charge_pct: 50,
   rest_s: 0,
   rest_remaining_s: null,
   p_noise_std_pct: 0,
@@ -102,7 +112,8 @@ const AUTO_DISPATCH_ON: AutoDispatchReport = {
   bess: [
     dispatchedBess('bess1', { phase: 'resting', rest_remaining_s: 42 }),
     dispatchedBess('bess2', {
-      included: false, phase: null, direction: null, soc_low_pct: null, soc_high_pct: null, rest_s: null,
+      included: false, phase: null, direction: null, soc_low_pct: null, soc_high_pct: null, discharge_pct: null,
+      charge_pct: null, rest_s: null,
       p_noise_std_pct: null, q_kvar: null,
     }),
   ],
@@ -169,7 +180,12 @@ beforeEach(() => {
     },
   ]);
   vi.spyOn(powerflowApi, 'getSite').mockResolvedValue(REFERENCE_SITE);
-  vi.spyOn(powerflowApi, 'listProfiles').mockResolvedValue({ load: ['high_demand'], pv: ['clear_sky_high'] });
+  vi.spyOn(powerflowApi, 'listProfiles').mockResolvedValue({
+    load: ['high_demand', 'low_demand'],
+    pv: ['clear_sky_high', 'overcast_low'],
+  });
+  vi.spyOn(powerflowApi, 'getActiveConfig').mockResolvedValue(REFERENCE_SITE);
+  vi.spyOn(powerflowApi, 'getProfileCsv').mockResolvedValue(['timestamp,p_kw,q_kvar', '2026-06-21T00:00:00Z,1,0', ''].join('\n'));
   vi.spyOn(powerflowApi, 'getAssets').mockResolvedValue({
     bess: REFERENCE_SITE.bess ?? [],
     pv: REFERENCE_SITE.pv ?? [],
@@ -179,6 +195,7 @@ beforeEach(() => {
   vi.spyOn(powerflowApi, 'getBess').mockResolvedValue({
     config: REFERENCE_SITE.bess![0],
     setpoint: { p_kw: 0, q_kvar: 0, mode: 'idle' },
+    battery: BATTERY,
     measurement: null,
   });
   vi.spyOn(powerflowApi, 'getPv').mockResolvedValue({
@@ -188,8 +205,7 @@ beforeEach(() => {
   });
 });
 
-function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderPage(queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
     <QueryClientProvider client={queryClient}>
       <SimulationPage />
@@ -454,6 +470,8 @@ describe('SimulationPage', () => {
     fireEvent.change(screen.getByLabelText('Defaults SOC low %'), { target: { value: '20' } });
     fireEvent.change(screen.getByLabelText('Defaults Rest s'), { target: { value: '300' } });
     fireEvent.change(screen.getByLabelText('bess1 SOC high %'), { target: { value: '70' } });
+    fireEvent.change(screen.getByLabelText('bess1 Discharge %'), { target: { value: '80' } });
+    fireEvent.change(screen.getByLabelText('Defaults Charge %'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('switch', { name: 'Include bess2' }));
     expect((screen.getByLabelText('bess2 SOC low %') as HTMLInputElement).disabled).toBe(true);
     fireEvent.click(toggle);
@@ -461,8 +479,8 @@ describe('SimulationPage', () => {
       expect(setAutoDispatch).toHaveBeenCalledWith({
         enabled: true,
         power_pct: 50,
-        defaults: { soc_low_pct: 20, rest_s: 300 },
-        bess: { bess1: { soc_high_pct: 70 }, bess2: { included: false } },
+        defaults: { charge_pct: 30, soc_low_pct: 20, rest_s: 300 },
+        bess: { bess1: { discharge_pct: 80, soc_high_pct: 70 }, bess2: { included: false } },
       }),
     );
     const row = await findElement('[data-auto-dispatch-bess="bess1"]');
@@ -470,6 +488,89 @@ describe('SimulationPage', () => {
     expect(within(row).getByText(/42 s left/)).toBeTruthy();
     const excluded = await findElement('[data-auto-dispatch-bess="bess2"]');
     expect(within(excluded).getByText('manual setpoints')).toBeTruthy();
+  });
+
+  it('sets a BESS SOC and its round-trip efficiency from the Battery card', async () => {
+    const setBattery = vi.spyOn(powerflowApi, 'setBessBattery').mockResolvedValue(BATTERY);
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Scenarios');
+    const row = await findElement('[data-battery-bess="bess1"]');
+    expect(await within(row).findByText('62.5 %')).toBeTruthy();
+    expect((within(row).getByLabelText('bess1 round-trip efficiency %') as HTMLInputElement).value).toBe('100');
+    fireEvent.change(within(row).getByLabelText('bess1 set SOC %'), { target: { value: '10' } });
+    fireEvent.click(within(row).getByRole('button', { name: 'Set' }));
+    await waitFor(() => expect(setBattery).toHaveBeenCalledWith('bess1', { soc_pct: 10 }));
+    fireEvent.change(within(row).getByLabelText('bess1 round-trip efficiency %'), { target: { value: '90' } });
+    fireEvent.click(within(row).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(setBattery).toHaveBeenCalledWith('bess1', { round_trip_efficiency_pct: 90 }));
+    fireEvent.click(within(row).getByRole('button', { name: 'Use site config' }));
+    await waitFor(() => expect(setBattery).toHaveBeenCalledWith('bess1', { round_trip_efficiency_pct: null }));
+  });
+
+  it('shows which profile each load and PV is simulating and which scenarios are in use', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Profiles');
+    const selection = await findElement('[data-profile-selection]');
+    expect(await within(selection).findByText('simulating: high_demand')).toBeTruthy();
+    expect(within(selection).getByText('simulating: clear_sky_high')).toBeTruthy();
+    expect(within(selection).getByRole('combobox', { name: 'Load Site load scenario' }).textContent).toContain('high_demand');
+    const inUse = await findElement('[data-profile-scenario="load/high_demand"]');
+    expect(within(inUse).getByText('in use: load1')).toBeTruthy();
+    const unused = await findElement('[data-profile-scenario="load/low_demand"]');
+    expect(within(unused).queryByText(/in use/)).toBeNull();
+  });
+
+  it('stops, saves the picked profile and starts again while the active site runs', async () => {
+    const stop = vi.spyOn(powerflowApi, 'stop').mockResolvedValue({ ...STATUS, state: 'stopped' });
+    const save = vi.spyOn(powerflowApi, 'saveSite').mockResolvedValue(REFERENCE_SITE);
+    const start = vi.spyOn(powerflowApi, 'start').mockResolvedValue(STATUS);
+    renderPage();
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Profiles');
+    fireEvent.click(await findElement('[data-profile-scenario="load/low_demand"]'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use for Site load' }));
+    const selection = await findElement('[data-profile-selection]');
+    expect(within(selection).getByRole('combobox', { name: 'Load Site load scenario' }).textContent).toContain('low_demand');
+    fireEvent.click(within(selection).getByRole('button', { name: /Stop & save/ }));
+    await waitFor(() => expect(start).toHaveBeenCalled());
+    expect(stop).toHaveBeenCalled();
+    const [name, config] = save.mock.calls[0];
+    expect(name).toBe('2bess_1pv');
+    expect(config.loads?.[0].profile).toEqual({ ...REFERENCE_SITE.loads![0].profile, scenario: 'low_demand' });
+    expect(config.pv).toEqual(REFERENCE_SITE.pv);
+    expect(stop.mock.invocationCallOrder[0]).toBeLessThan(save.mock.invocationCallOrder[0]);
+    expect(save.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[0]);
+  });
+
+  it('keeps an unsaved profile pick when the site is fetched again', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const getSite = vi.spyOn(powerflowApi, 'getSite').mockImplementation(async () => structuredClone(REFERENCE_SITE));
+    renderPage(queryClient);
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Profiles');
+    fireEvent.click(await findElement('[data-profile-scenario="pv/overcast_low"]'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use for PV 1' }));
+    const calls = getSite.mock.calls.length;
+    await queryClient.invalidateQueries();
+    await waitFor(() => expect(getSite.mock.calls.length).toBeGreaterThan(calls));
+    const selection = await findElement('[data-profile-selection]');
+    expect(within(selection).getByRole('combobox', { name: 'PV PV 1 (ac_kw) scenario' }).textContent).toContain('overcast_low');
+    expect((within(selection).getByRole('button', { name: /Stop & save/ }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('keeps an unsaved Site settings edit when the site is fetched again', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const getSite = vi.spyOn(powerflowApi, 'getSite').mockImplementation(async () => structuredClone(REFERENCE_SITE));
+    renderPage(queryClient);
+    await screen.findByRole('heading', { name: 'Simulation' });
+    openTab('Site settings');
+    fireEvent.change(await screen.findByLabelText('Load Site load scale'), { target: { value: '0.5' } });
+    const calls = getSite.mock.calls.length;
+    await queryClient.invalidateQueries();
+    await waitFor(() => expect(getSite.mock.calls.length).toBeGreaterThan(calls));
+    expect((screen.getByLabelText('Load Site load scale') as HTMLInputElement).value).toBe('0.5');
   });
 
   it('locks the setpoint form only of a BESS that auto dispatch drives', async () => {

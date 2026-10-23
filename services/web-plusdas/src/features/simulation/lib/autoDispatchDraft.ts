@@ -8,7 +8,7 @@ import type {
 // The auto dispatch form: numbers are kept as typed text, and a blank field means "not set"
 // (an override falls back to the defaults, a default to powerflow's built-in value).
 
-export const SETTING_FIELDS = ["soc_low_pct", "soc_high_pct", "rest_s", "p_noise_std_pct", "ramp_kw_per_s", "q_kvar"] as const;
+export const SETTING_FIELDS = ["discharge_pct", "charge_pct", "soc_low_pct", "soc_high_pct", "rest_s", "p_noise_std_pct", "ramp_kw_per_s", "q_kvar"] as const;
 export type SettingField = (typeof SETTING_FIELDS)[number];
 
 export type StartChoice = "auto" | AutoDispatchDirection;
@@ -20,12 +20,13 @@ export interface SettingsDraft {
 }
 
 export interface AutoDispatchDraft {
-  powerPct: string;
   defaults: SettingsDraft;
   bess: Record<string, SettingsDraft>;
 }
 
+// powerflow's built-in share of the rating, where neither the defaults nor a BESS set one.
 export const DEFAULT_POWER_PCT = 50;
+const POWER_FIELDS: readonly SettingField[] = ["discharge_pct", "charge_pct"];
 
 function settingsDraft(settings: AutoDispatchBessSettings | undefined): SettingsDraft {
   const values = Object.fromEntries(
@@ -36,9 +37,15 @@ function settingsDraft(settings: AutoDispatchBessSettings | undefined): Settings
 
 /** The form as powerflow has it now (for every BESS of the site). */
 export function draftFromReport(report: AutoDispatchReport | undefined, bessIds: string[]): AutoDispatchDraft {
+  const defaults = settingsDraft(report?.defaults);
+  // A run started with a site-wide power_pct only: show it as the default shares.
+  if (report?.power_pct != null && report.power_pct !== DEFAULT_POWER_PCT) {
+    for (const field of POWER_FIELDS) {
+      if (defaults.values[field] === "") defaults.values[field] = String(report.power_pct);
+    }
+  }
   return {
-    powerPct: String(report?.power_pct ?? DEFAULT_POWER_PCT),
-    defaults: settingsDraft(report?.defaults),
+    defaults,
     bess: Object.fromEntries(bessIds.map((id) => [id, settingsDraft(report?.bess_overrides?.[id])])),
   };
 }
@@ -60,14 +67,19 @@ export function requestFromDraft(draft: AutoDispatchDraft, enabled: boolean): Au
       .map(([id, settings]) => [id, toSettings(settings, true)] as const)
       .filter(([, settings]) => Object.keys(settings).length > 0),
   );
-  return { enabled, power_pct: Number(draft.powerPct), defaults: toSettings(draft.defaults, false), bess };
+  return { enabled, power_pct: DEFAULT_POWER_PCT, defaults: toSettings(draft.defaults, false), bess };
 }
 
-/** Every typed number is a number, and the power is within (0, 100]. */
+function isFieldValid(field: SettingField, text: string): boolean {
+  if (text.trim() === "") return true;
+  const value = Number(text);
+  if (!Number.isFinite(value)) return false;
+  return !POWER_FIELDS.includes(field) || (value > 0 && value <= 100);
+}
+
+/** Every typed number is a number, and the discharge/charge shares are within (0, 100]. */
 export function isDraftValid(draft: AutoDispatchDraft): boolean {
-  const power = Number(draft.powerPct);
-  if (!Number.isFinite(power) || power <= 0 || power > 100) return false;
   return [draft.defaults, ...Object.values(draft.bess)].every((settings) =>
-    SETTING_FIELDS.every((field) => settings.values[field].trim() === "" || Number.isFinite(Number(settings.values[field]))),
+    SETTING_FIELDS.every((field) => isFieldValid(field, settings.values[field])),
   );
 }

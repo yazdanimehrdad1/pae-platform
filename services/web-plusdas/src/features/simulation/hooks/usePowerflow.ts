@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { powerflowApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
-import type { DeviceReadings, RunState } from "@/api/types/powerflow";
+import type { DeviceReadings, RunState, SiteConfig } from "@/api/types/powerflow";
 import { toast } from "@/shared/hooks/use-toast";
 
 // React Query keys and reads for the Simulation page. Everything powerflow-side lives under
@@ -11,6 +11,7 @@ export const powerflowKeys = {
   status: ["powerflow", "status"] as const,
   sites: ["powerflow", "sites"] as const,
   site: (name: string) => ["powerflow", "site", name] as const,
+  activeConfig: ["powerflow", "active-config"] as const,
   profiles: ["powerflow", "profiles"] as const,
   profileCsv: (folder: string, scenario: string) => ["powerflow", "profile", folder, scenario] as const,
   assets: ["powerflow", "assets"] as const,
@@ -18,6 +19,7 @@ export const powerflowKeys = {
   conditions: ["powerflow", "conditions"] as const,
   faultCauses: ["powerflow", "fault-causes"] as const,
   autoDispatch: ["powerflow", "auto-dispatch"] as const,
+  bessBattery: (ids: string[]) => ["powerflow", "bess-battery", ...ids] as const,
   devices: ["powerflow", "devices"] as const,
   deviceHistory: (device: string, points: string[]) => ["powerflow", "device-history", device, ...points] as const,
   snapshot: ["powerflow", "snapshot"] as const,
@@ -58,6 +60,41 @@ export function useRefreshPowerflow() {
   return () => queryClient.invalidateQueries({ queryKey: powerflowKeys.all });
 }
 
+/** The config the engine is simulating now: what the run really uses. */
+export function useActiveConfig(enabled = true) {
+  return useQuery({ queryKey: powerflowKeys.activeConfig, queryFn: powerflowApi.getActiveConfig, enabled, retry: false });
+}
+
+export interface SaveSiteVariables {
+  config: SiteConfig;
+  // The active site while it runs: powerflow refuses the save until the simulation is stopped.
+  stopFirst?: boolean;
+  // Start again after the save (which reloads and resets the active site).
+  restart?: boolean;
+}
+
+/** Save a stored site's full config. Saving the active site reloads it and resets the run. */
+export function useSaveSite(siteName: string, isActive: boolean) {
+  const refresh = useRefreshPowerflow();
+  return useMutation({
+    mutationFn: async ({ config, stopFirst, restart }: SaveSiteVariables) => {
+      if (stopFirst) await powerflowApi.stop();
+      const saved = await powerflowApi.saveSite(siteName, config);
+      if (restart) await powerflowApi.start();
+      return saved;
+    },
+    onSuccess: (_saved, { restart }) => {
+      refresh();
+      toast({
+        title: `Saved ${siteName}`,
+        description: isActive
+          ? `The active site was reloaded and the simulation reset${restart ? " and started again" : ""}.`
+          : "It takes effect when the site is activated.",
+      });
+    },
+  });
+}
+
 /** Activate a stored site; powerflow needs the simulation stopped, so stop it first. */
 export function useActivateSite(onDone?: (name: string) => void) {
   const refresh = useRefreshPowerflow();
@@ -93,6 +130,20 @@ export function useAutoDispatch(enabled = true) {
     queryKey: powerflowKeys.autoDispatch,
     queryFn: powerflowApi.getAutoDispatch,
     enabled,
+    refetchInterval: STATUS_POLL_MS,
+    retry: false,
+  });
+}
+
+/** Each BESS's SOC and efficiency in effect (polled while shown). */
+export function useBessBatteries(ids: string[], enabled = true) {
+  return useQuery({
+    queryKey: powerflowKeys.bessBattery(ids),
+    queryFn: async () => {
+      const assets = await Promise.all(ids.map((id) => powerflowApi.getBess(id)));
+      return assets.map((asset) => asset.battery);
+    },
+    enabled: enabled && ids.length > 0,
     refetchInterval: STATUS_POLL_MS,
     retry: false,
   });

@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAutoDispatch, usePowerflowCommand } from "../../hooks/usePowerflow";
 import {
+  DEFAULT_POWER_PCT,
   type AutoDispatchDraft,
   type SettingField,
   type SettingsDraft,
@@ -33,6 +33,8 @@ const START_LABELS: Record<StartChoice, string> = {
 };
 
 const COLUMNS: { field: SettingField; label: string }[] = [
+  { field: "discharge_pct", label: "Discharge %" },
+  { field: "charge_pct", label: "Charge %" },
   { field: "soc_low_pct", label: "SOC low %" },
   { field: "soc_high_pct", label: "SOC high %" },
   { field: "rest_s", label: "Rest s" },
@@ -132,6 +134,7 @@ export function AutoDispatchCard({ config, enabled }: Props) {
     const battery = (config.bess ?? []).find((bess) => bess.id === bessId)?.battery;
     if (field === "soc_low_pct") return bessId ? String(battery?.soc_min_pct ?? 5) : "battery min";
     if (field === "soc_high_pct") return bessId ? String(battery?.soc_max_pct ?? 95) : "battery max";
+    if (field === "discharge_pct" || field === "charge_pct") return String(DEFAULT_POWER_PCT);
     if (field === "ramp_kw_per_s") return "none";
     return "0";
   };
@@ -157,20 +160,11 @@ export function AutoDispatchCard({ config, enabled }: Props) {
         <Switch checked={isOn} disabled={disabled || !valid} aria-label="Auto dispatch" onCheckedChange={send} />
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-end gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="auto-dispatch-power">Power (% of each BESS's rating)</Label>
-            <Input
-              id="auto-dispatch-power"
-              type="number"
-              min={1}
-              max={100}
-              className="w-28"
-              value={draft.powerPct}
-              disabled={disabled}
-              onChange={(event) => update({ powerPct: event.target.value })}
-            />
-          </div>
+        <div className="flex items-end justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            Discharge % and Charge % are shares of each BESS's own rating (1–100). Blank uses the Defaults row, then{" "}
+            {DEFAULT_POWER_PCT} %.
+          </p>
           {isOn && (
             <Button size="sm" variant="outline" disabled={disabled || edited === null || !valid} onClick={() => send(true)}>
               Apply changes

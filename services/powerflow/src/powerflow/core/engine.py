@@ -55,6 +55,12 @@ from powerflow.core.auto_dispatch import (
     AutoDispatchRequest,
     resolve,
 )
+from powerflow.core.battery import (
+    DEFAULT_ROUND_TRIP_PCT,
+    BessBatteryRequest,
+    BessBatteryState,
+    with_round_trip,
+)
 from powerflow.core.runtime import SiteRuntime, load_load_profile, load_pv_profile
 from powerflow.core.snapshot import Snapshot
 from powerflow.core.state_store import ConditionStore, SetpointStore, StateStore
@@ -78,7 +84,8 @@ from powerflow.models.auto_dispatch import (
     advance,
 )
 from powerflow.models.auto_dispatch import initial_state as initial_auto_dispatch_state
-from powerflow.models.bess import clamp_static
+from powerflow.models.bess import BessParams, clamp_static
+from powerflow.models.common import clamp
 from powerflow.network.solver import SolverFactory
 from powerflow.site_config import SiteConfig
 from powerflow.storage import ProfileFolder, ProfileStore
@@ -157,6 +164,8 @@ class Engine:
         self._scenarios: list[ScenarioRun] = []  # in start order; they can overlap
         self._auto_dispatch: AutoDispatchRun | None = None  # None = off
         self._state: SimulationState = initial_state(runtime, wall_clock())
+        self._round_trip_pct: dict[str, float | None] = {}  # None = the site config's
+        self._apply_default_efficiency(runtime)
         self._speed = runtime.config.simulation.speed
         self._fresh = True  # nothing computed since construction/reset/new config
         self._scheduled_start: datetime | None = None
@@ -299,6 +308,8 @@ class Engine:
                     soc_max_pct=asset.params.soc_max_pct,
                     soc_low_pct=settings.soc_low_pct if settings else None,
                     soc_high_pct=settings.soc_high_pct if settings else None,
+                    discharge_pct=settings.discharge_pct if settings else None,
+                    charge_pct=settings.charge_pct if settings else None,
                     rest_s=settings.rest_s if settings else None,
                     rest_remaining_s=rest_remaining_s,
                     p_noise_std_pct=settings.p_noise_std_pct if settings else None,
@@ -327,7 +338,9 @@ class Engine:
         if request.enabled:
             for asset_id, asset in self._runtime.bess.items():
                 override = request.bess.get(asset_id)
-                resolved = resolve(asset_id, asset.params, request.defaults, override)
+                resolved = resolve(
+                    asset_id, asset.params, request.defaults, override, request.power_pct
+                )
                 if resolved is not None:
                     settings[asset_id] = resolved
         with self._compute_lock:
@@ -347,6 +360,35 @@ class Engine:
             }
             self._auto_dispatch = AutoDispatchRun(request, settings, states)
             return self.auto_dispatch_status()
+
+    # -- battery overrides -----------------------------------------------------------------
+
+    def battery(self, asset_id: str) -> BessBatteryState:
+        """A BESS's SOC and the efficiency in effect. UnknownAssetError for no such BESS."""
+        asset = self._runtime.bess_asset(asset_id)
+        return BessBatteryState(
+            asset_id=asset_id,
+            soc_pct=self._state.bess[asset_id].soc_pct,
+            round_trip_efficiency_pct=self._round_trip_pct.get(asset_id),
+            eta_charge=asset.params.eta_charge,
+            eta_discharge=asset.params.eta_discharge,
+        )
+
+    def set_battery(self, asset_id: str, request: BessBatteryRequest) -> BessBatteryState:
+        """Set the SOC now (clamped to the battery's band) and/or the round-trip efficiency
+        (an explicit null = the site config's). Works in any run state, auto dispatch too."""
+        asset = self._runtime.bess_asset(asset_id)
+        with self._compute_lock:
+            if "round_trip_efficiency_pct" in request.model_fields_set:
+                round_trip_pct = request.round_trip_efficiency_pct
+                self._round_trip_pct[asset_id] = round_trip_pct
+                asset.params = with_round_trip(BessParams.from_config(asset.config), round_trip_pct)
+            if request.soc_pct is not None:
+                soc_pct = clamp(request.soc_pct, asset.params.soc_min_pct, asset.params.soc_max_pct)
+                bess = dict(self._state.bess)
+                bess[asset_id] = replace(bess[asset_id], soc_pct=soc_pct)
+                self._state = replace(self._state, bess=bess)
+        return self.battery(asset_id)
 
     # -- control ---------------------------------------------------------------------------
 
@@ -571,13 +613,20 @@ class Engine:
                 self._state.bess[asset_id].soc_pct,
                 t_s,
                 dt_s,
-                run.request.power_pct,
                 float(rng.standard_normal()),
             )
             p_kw, q_kvar, _ = clamp_static(params, setpoint.p_kw, setpoint.q_kvar)
             states[asset_id] = replace(state, p_cmd_kw=p_kw)
             self.setpoints.set_bess(asset_id, replace(setpoint, p_kw=p_kw, q_kvar=q_kvar))
         self._auto_dispatch = replace(run, states=states)
+
+    def _apply_default_efficiency(self, runtime: SiteRuntime) -> None:
+        """Every BESS of `runtime` at the default round trip (on activate and reset)."""
+        self._round_trip_pct = dict.fromkeys(runtime.bess, DEFAULT_ROUND_TRIP_PCT)
+        for asset in runtime.bess.values():
+            asset.params = with_round_trip(
+                BessParams.from_config(asset.config), DEFAULT_ROUND_TRIP_PCT
+            )
 
     def _fault_clock(self) -> FaultClock:
         simulation = self._runtime.config.simulation
@@ -616,6 +665,7 @@ class Engine:
         with self._compute_lock:
             self._runtime = runtime
             self._state = initial_state(runtime, self._wall_clock())
+            self._apply_default_efficiency(runtime)
             self._speed = runtime.config.simulation.speed
             self._fresh = True
             self.store.clear(runtime.config.simulation.history_size)

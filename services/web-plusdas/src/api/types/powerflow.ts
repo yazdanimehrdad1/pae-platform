@@ -40,6 +40,9 @@ export type BessSetpointRequest = Schemas['BessSetpointRequest'];
 export type PvSetpointRequest = Schemas['PvSetpointRequest'];
 export type SetpointResult = Schemas['SetpointResult'];
 export type BessMode = NonNullable<BessSetpointRequest['mode']>;
+// Runtime battery overrides: SOC now, and round-trip efficiency (null = the site config's).
+export type BessBatteryRequest = Schemas['BessBatteryRequest'];
+export type BessBatteryState = Schemas['BessBatteryState'];
 
 // Injected conditions (breakers, faults, alarm resets, comm loss, grid events) and event scenarios
 export type ConditionsReport = Schemas['ConditionsReport'];

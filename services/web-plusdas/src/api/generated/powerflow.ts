@@ -36,6 +36,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/bess/{asset_id}/battery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a BESS's SOC now and/or its round-trip efficiency
+         * @description Partial update: omitted fields keep their value. `soc_pct` sets the SOC at once (clamped to the battery's band). `round_trip_efficiency_pct` holds until the next activate or reset, which return every BESS to 100 %; null = the site config's efficiency. Works in any run state, also while auto dispatch drives the BESS.
+         */
+        put: operations["put_bess_battery_api_assets_bess__asset_id__battery_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/bess/{asset_id}/setpoint": {
         parameters: {
             query?: never;
@@ -845,8 +865,15 @@ export interface components {
         AutoDispatchBess: {
             /** Asset Id */
             asset_id: string;
+            /** Charge Pct */
+            charge_pct: number | null;
             /** @description Where it goes (after the rest, if resting); null while excluded. */
             direction: components["schemas"]["AutoDispatchDirection"] | null;
+            /**
+             * Discharge Pct
+             * @description Resolved; null while excluded.
+             */
+            discharge_pct: number | null;
             /** Included */
             included: boolean;
             /** P Noise Std Pct */
@@ -887,6 +914,16 @@ export interface components {
          *     is optional; an omitted one falls back (override → defaults → built-in).
          */
         AutoDispatchBessSettings: {
+            /**
+             * Charge Pct
+             * @description % of the charge rating to charge at; default the request's power_pct.
+             */
+            charge_pct?: number | null;
+            /**
+             * Discharge Pct
+             * @description % of the discharge rating to discharge at; default the request's power_pct.
+             */
+            discharge_pct?: number | null;
             /**
              * Included
              * @description false: auto dispatch leaves the BESS alone, and it takes setpoints as usual. Default true.
@@ -974,7 +1011,7 @@ export interface components {
             enabled: boolean;
             /**
              * Power Pct
-             * @description % of each BESS's discharge/charge rating to drive it at.
+             * @description % of each BESS's discharge/charge rating to drive it at, where neither `defaults` nor its override sets discharge_pct / charge_pct.
              * @default 50
              */
             power_pct: number;
@@ -1008,10 +1045,50 @@ export interface components {
         };
         /** BessAssetResponse */
         BessAssetResponse: {
+            /** @description SOC and the efficiency in effect. */
+            battery: components["schemas"]["BessBatteryState"];
             config: components["schemas"]["BessConfig"];
             /** @description null before the first step. */
             measurement: components["schemas"]["BessMeasurement"] | null;
             setpoint: components["schemas"]["BessSetpointState"];
+        };
+        /**
+         * BessBatteryRequest
+         * @description A partial update: a field left out keeps its value.
+         */
+        BessBatteryRequest: {
+            /**
+             * Round Trip Efficiency Pct
+             * @description Round-trip efficiency, split evenly over charge and discharge. null: the site config's efficiency.
+             */
+            round_trip_efficiency_pct?: number | null;
+            /**
+             * Soc Pct
+             * @description Set the SOC now (one shot), clamped to the battery's soc_min..soc_max.
+             */
+            soc_pct?: number | null;
+        };
+        /** BessBatteryState */
+        BessBatteryState: {
+            /** Asset Id */
+            asset_id: string;
+            /**
+             * Eta Charge
+             * @description In effect.
+             */
+            eta_charge: number;
+            /**
+             * Eta Discharge
+             * @description In effect.
+             */
+            eta_discharge: number;
+            /**
+             * Round Trip Efficiency Pct
+             * @description The override; null = the site config's efficiency.
+             */
+            round_trip_efficiency_pct: number | null;
+            /** Soc Pct */
+            soc_pct: number;
         };
         /** BessConfig */
         BessConfig: {
@@ -2925,6 +3002,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BessAssetResponse"];
+                };
+            };
+            /** @description Unknown asset or point. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_bess_battery_api_assets_bess__asset_id__battery_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BessBatteryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BessBatteryState"];
                 };
             };
             /** @description Unknown asset or point. */

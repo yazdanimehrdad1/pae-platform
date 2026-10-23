@@ -1,8 +1,8 @@
 """Auto dispatch: cycle a BESS inside an SOC window without an EMS. Pure Python.
 
-A BESS discharges at a share of its discharge rating until SOC reaches the window's low edge,
-then charges at the same share of its charge rating up to the high edge, and so on. The direction
-only flips at an edge (hysteresis). Per BESS, it can:
+A BESS discharges at `discharge_pct` % of its discharge rating until SOC reaches the window's
+low edge, then charges at `charge_pct` % of its charge rating up to the high edge, and so on.
+The direction only flips at an edge (hysteresis). Per BESS, it can:
 - rest at an edge (P = 0) for `rest_s` of sim time before turning;
 - add Gaussian noise to the target power (std in % of it, never past the rating);
 - ramp its command at most `ramp_kw_per_s` (the inverter's own ramp still applies after);
@@ -39,6 +39,8 @@ class AutoDispatchSettings:
 
     soc_low_pct: float
     soc_high_pct: float
+    discharge_pct: float
+    charge_pct: float
     rest_s: float = 0.0
     p_noise_std_pct: float = 0.0
     ramp_kw_per_s: float | None = None
@@ -78,7 +80,6 @@ def advance(
     soc_pct: float,
     t_s: float,
     dt_s: float,
-    power_pct: float,
     noise_draw: float,
 ) -> tuple[AutoDispatchBessState, BessSetpoint]:
     """One step: turn (and maybe rest) at an edge, then the commanded P for a step of dt_s
@@ -98,11 +99,10 @@ def advance(
     if resting_until_s is not None:
         target_kw = 0.0
     else:
-        rating = (
-            params.p_discharge_max_kw
-            if direction is AutoDispatchDirection.DISCHARGE
-            else params.p_charge_max_kw
-        )
+        if direction is AutoDispatchDirection.DISCHARGE:
+            rating, power_pct = params.p_discharge_max_kw, settings.discharge_pct
+        else:
+            rating, power_pct = params.p_charge_max_kw, settings.charge_pct
         magnitude = (
             rating * power_pct / 100.0 * (1.0 + noise_draw * settings.p_noise_std_pct / 100.0)
         )

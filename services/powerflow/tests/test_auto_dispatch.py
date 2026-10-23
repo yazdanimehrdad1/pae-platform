@@ -49,7 +49,7 @@ PARAMS = BessParams(
     priority=Priority.P,
     aux_load_kw=0,
 )
-WINDOW = AutoDispatchSettings(soc_low_pct=20, soc_high_pct=80)
+WINDOW = AutoDispatchSettings(soc_low_pct=20, soc_high_pct=80, discharge_pct=100, charge_pct=100)
 
 TEST_SITE = "test_site"
 QUARTER_HOUR_S = 900.0
@@ -61,10 +61,13 @@ def step(
     soc_pct: float = 50,
     t_s: float = 0,
     dt_s: float = 1,
-    power_pct: float = 100,
+    power_pct: float | None = None,
     noise_draw: float = 0,
 ) -> tuple[AutoDispatchBessState, BessSetpoint]:
-    return advance(PARAMS, settings, state, soc_pct, t_s, dt_s, power_pct, noise_draw)
+    """power_pct: both directions at that % (else the settings')."""
+    if power_pct is not None:
+        settings = replace(settings, discharge_pct=power_pct, charge_pct=power_pct)
+    return advance(PARAMS, settings, state, soc_pct, t_s, dt_s, noise_draw)
 
 
 class TestDirection:
@@ -91,6 +94,13 @@ class TestPower:
         assert setpoint == BessSetpoint(1250, 0, BessMode.PQ)
         _, setpoint = step(WINDOW, AutoDispatchBessState(CHARGE), power_pct=25)
         assert setpoint == BessSetpoint(-500, 0, BessMode.PQ)
+
+    def test_discharge_and_charge_shares_apply_by_direction(self) -> None:
+        split = replace(WINDOW, discharge_pct=80, charge_pct=30)
+        _, setpoint = step(split, AutoDispatchBessState(DISCHARGE))
+        assert setpoint.p_kw == pytest.approx(2000)  # 80 % of 2500
+        _, setpoint = step(split, AutoDispatchBessState(CHARGE))
+        assert setpoint.p_kw == pytest.approx(-600)  # 30 % of 2000
 
     def test_noise_scales_the_target_and_never_passes_the_rating(self) -> None:
         noisy = replace(WINDOW, p_noise_std_pct=10)
@@ -135,11 +145,26 @@ class TestResolve:
         override = AutoDispatchBessSettings(soc_high_pct=70, rest_s=0)
         settings = resolve("bess1", PARAMS, defaults, override)
         assert settings == AutoDispatchSettings(
-            soc_low_pct=30, soc_high_pct=70, rest_s=0, q_kvar=100
+            soc_low_pct=30,
+            soc_high_pct=70,
+            discharge_pct=50,
+            charge_pct=50,
+            rest_s=0,
+            q_kvar=100,
         )
         assert resolve("bess1", PARAMS, AutoDispatchBessSettings(), None) == AutoDispatchSettings(
-            soc_low_pct=10, soc_high_pct=90
+            soc_low_pct=10, soc_high_pct=90, discharge_pct=50, charge_pct=50
         )
+
+    def test_power_shares_override_then_defaults_then_the_request(self) -> None:
+        defaults = AutoDispatchBessSettings(charge_pct=40)
+        override = AutoDispatchBessSettings(discharge_pct=90)
+        settings = resolve("bess1", PARAMS, defaults, override, power_pct=20)
+        assert settings is not None
+        assert (settings.discharge_pct, settings.charge_pct) == (90, 40)
+        settings = resolve("bess1", PARAMS, AutoDispatchBessSettings(), None, power_pct=20)
+        assert settings is not None
+        assert (settings.discharge_pct, settings.charge_pct) == (20, 20)
 
     def test_excluded_is_none(self) -> None:
         defaults = AutoDispatchBessSettings(included=False)
@@ -200,6 +225,19 @@ class TestEngine:
         assert all(20 <= first <= 80 and 40 <= second <= 60 for first, second in trace)
         assert min(second for _, second in trace) == pytest.approx(40)
         assert min(first for first, _ in trace) == pytest.approx(20)
+
+    def test_each_bess_drives_at_its_own_share(self) -> None:
+        engine = make_engine(n_bess=2, soc_initial_pct=60)
+        request = on(
+            power_pct=50,
+            defaults={"start_direction": "discharge"},
+            bess={"bess1": {"discharge_pct": 80}, "bess2": {"discharge_pct": 30}},
+        )
+        report = engine.set_auto_dispatch(request)
+        assert [(row.discharge_pct, row.charge_pct) for row in report.bess] == [(80, 50), (30, 50)]
+        bess = asyncio.run(engine.step(1)).bess
+        rating = engine.runtime.bess["bess1"].params.p_discharge_max_kw
+        assert [item.p_kw for item in bess] == pytest.approx([rating * 0.8, rating * 0.3])
 
     def test_rests_between_cycles(self) -> None:
         engine = make_engine(soc_initial_pct=21)

@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from conftest import PROFILES, site_config_dict
 
+from powerflow.core.battery import BessBatteryRequest
 from powerflow.core.engine import Engine, RunState
 from powerflow.core.runtime import SiteRuntime
 from powerflow.core.snapshot import Snapshot
@@ -95,6 +96,7 @@ class TestManualStepping:
             {"efficiency": {"charge": 0.95, "discharge": 0.95}, "soc_initial_pct": 50}
         )
         engine = make_engine(raw)
+        use_config_efficiency(engine)
         soc: list[float] = []
         discharge(engine, 2000)
         for _ in range(12 * 60):  # 12 h discharging at 2 MW: empties after ~2.2 h
@@ -117,6 +119,12 @@ class TestManualStepping:
         assert last is not None and last.bess[0].limit_flag_names == ["SOC_LIMIT"]
 
 
+def use_config_efficiency(engine: Engine) -> None:
+    """Every BESS on its site config's efficiency (the engine starts them at 100 %)."""
+    for asset_id in engine.runtime.bess:
+        engine.set_battery(asset_id, BessBatteryRequest(round_trip_efficiency_pct=None))
+
+
 class FlakySolver(PowerFlowSolver):
     """Delegates to pandapower but fails on chosen solve calls."""
 
@@ -137,6 +145,7 @@ class FlakySolver(PowerFlowSolver):
 class TestNonConvergence:
     def test_failed_step_keeps_last_good_state(self) -> None:
         engine = make_engine(solver_factory=lambda topology: FlakySolver(topology, {3}))
+        use_config_efficiency(engine)
         discharge(engine, 1000)
         run(engine.step(2))
         good = engine.store.latest

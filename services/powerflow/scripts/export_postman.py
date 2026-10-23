@@ -74,6 +74,8 @@ def query_example(name: str) -> tuple[str, bool]:
 def json_body(method: str, path: str) -> object | None:
     if path.endswith("/bess/{asset_id}/setpoint"):
         return {"p_kw": 1500, "q_kvar": 0, "mode": "pq"}
+    if path.endswith("/bess/{asset_id}/battery"):
+        return {"soc_pct": 20, "round_trip_efficiency_pct": 90}  # null: the site config's
     if path.endswith("/pv/{asset_id}/setpoint"):
         return {"p_limit_pct": 80, "pf": 0.95}
     if method == "post" and path == "/api/sim/conditions":
@@ -87,7 +89,7 @@ def json_body(method: str, path: str) -> object | None:
             "enabled": True,
             "power_pct": 50,
             "defaults": {"soc_low_pct": 20, "soc_high_pct": 80, "rest_s": 300},
-            "bess": {"bess1": {"p_noise_std_pct": 5, "ramp_kw_per_s": 50}},
+            "bess": {"bess1": {"discharge_pct": 80, "p_noise_std_pct": 5, "ramp_kw_per_s": 50}},
         }
     if method == "post" and path == "/api/sim/event-scenario/start":
         return {"name": "bess1_trip"}  # now; add "at_step": N to schedule it

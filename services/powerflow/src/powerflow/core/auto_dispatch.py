@@ -1,9 +1,10 @@
 """Auto dispatch settings and report: the request (site-wide defaults plus per-BESS overrides),
 how they resolve per BESS against its battery, and what GET/PUT /sim/auto-dispatch return.
 
-A field left out of an override falls back to the defaults, then to: the battery's
-soc_min_pct..soc_max_pct window, no rest, no noise, no extra ramp, the automatic start
-direction and Q = 0. The physics of one step are in `models/auto_dispatch.py`.
+A field left out of an override falls back to the defaults, then to: the request's power_pct
+for discharge_pct and charge_pct, the battery's soc_min_pct..soc_max_pct window, no rest, no
+noise, no extra ramp, the automatic start direction and Q = 0. The physics of one step are in
+`models/auto_dispatch.py`.
 """
 
 from typing import Self
@@ -43,6 +44,18 @@ class AutoDispatchBessSettings(BaseModel):
         ge=0,
         le=100,
         description="Window high edge; default the battery's soc_max_pct.",
+    )
+    discharge_pct: float | None = Field(
+        default=None,
+        gt=0,
+        le=100,
+        description="% of the discharge rating to discharge at; default the request's power_pct.",
+    )
+    charge_pct: float | None = Field(
+        default=None,
+        gt=0,
+        le=100,
+        description="% of the charge rating to charge at; default the request's power_pct.",
     )
     rest_s: float | None = Field(
         default=None,
@@ -86,7 +99,8 @@ class AutoDispatchRequest(BaseModel):
         default=DEFAULT_POWER_PCT,
         gt=0,
         le=100,
-        description="% of each BESS's discharge/charge rating to drive it at.",
+        description="% of each BESS's discharge/charge rating to drive it at, where neither "
+        "`defaults` nor its override sets discharge_pct / charge_pct.",
     )
     defaults: AutoDispatchBessSettings = Field(
         default_factory=AutoDispatchBessSettings, description="For every BESS."
@@ -108,6 +122,8 @@ class AutoDispatchBess(BaseModel):
     soc_max_pct: float
     soc_low_pct: float | None = Field(description="The window it cycles in; null while excluded.")
     soc_high_pct: float | None
+    discharge_pct: float | None = Field(description="Resolved; null while excluded.")
+    charge_pct: float | None
     rest_s: float | None
     rest_remaining_s: float | None = Field(description="Sim seconds left while resting.")
     p_noise_std_pct: float | None
@@ -135,6 +151,7 @@ def resolve(
     params: BessParams,
     defaults: AutoDispatchBessSettings,
     override: AutoDispatchBessSettings | None,
+    power_pct: float = DEFAULT_POWER_PCT,
 ) -> AutoDispatchSettings | None:
     """One BESS's settings, or None when it's excluded. AutoDispatchError when its window
     doesn't fit inside its battery's band (or ends up empty)."""
@@ -160,6 +177,8 @@ def resolve(
     return AutoDispatchSettings(
         soc_low_pct=low,
         soc_high_pct=high,
+        discharge_pct=_first(power_pct, override.discharge_pct, defaults.discharge_pct),
+        charge_pct=_first(power_pct, override.charge_pct, defaults.charge_pct),
         rest_s=_first(0.0, override.rest_s, defaults.rest_s),
         p_noise_std_pct=_first(0.0, override.p_noise_std_pct, defaults.p_noise_std_pct),
         ramp_kw_per_s=ramp,

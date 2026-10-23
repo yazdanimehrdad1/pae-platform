@@ -11,6 +11,7 @@ from powerflow.app import create_app
 from powerflow.conditions import ConditionChange
 from powerflow.conditions.scenario import EventScenario
 from powerflow.core.auto_dispatch import AutoDispatchRequest
+from powerflow.core.battery import BessBatteryRequest
 from powerflow.core.setpoints import BessSetpointRequest, PvSetpointRequest
 from powerflow.interfaces.http.routes_conditions import StartScenarioRequest, StopScenarioRequest
 from powerflow.interfaces.http.routes_sim import SpeedRequest, StartRequest
@@ -60,6 +61,7 @@ def test_example_bodies_are_valid() -> None:
     """Every example body is accepted by the model its endpoint validates with."""
     validators = {
         ("PUT", "assets/bess/:asset_id/setpoint"): BessSetpointRequest.model_validate_json,
+        ("PUT", "assets/bess/:asset_id/battery"): BessBatteryRequest.model_validate_json,
         ("PUT", "assets/pv/:asset_id/setpoint"): PvSetpointRequest.model_validate_json,
         ("PUT", "sites/:name"): SiteConfig.model_validate_json,
         ("POST", "sim/conditions"): TypeAdapter(ConditionChange).validate_json,
@@ -85,6 +87,6 @@ def test_example_bodies_are_valid() -> None:
                 validate = validators[(request["method"], "/".join(path[1:]))]
                 validate(body["raw"])
             checked += 1
-    # BESS/PV setpoints, a site, a condition, start, speed, auto dispatch, a scenario + its start,
-    # a CSV
-    assert checked == 11
+    # BESS/PV setpoints, a BESS battery override, a site, a condition, start, speed, auto
+    # dispatch, a scenario + its start, a CSV
+    assert checked == 12

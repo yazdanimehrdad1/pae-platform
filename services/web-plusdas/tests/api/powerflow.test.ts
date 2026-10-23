@@ -47,6 +47,21 @@ describe('powerflowApi', () => {
     expect(JSON.parse(init.body)).toEqual({ enabled: true, power_pct: 40, defaults: { rest_s: 60 }, bess: { bess2: { included: false } } });
   });
 
+  it('reads the config the engine is simulating', async () => {
+    const fetchMock = stubFetch(200, { schema_version: 1 });
+    await powerflowApi.getActiveConfig();
+    expect(fetchMock.mock.calls[0][0]).toBe('/powerflow-api/config');
+  });
+
+  it('sets a BESS battery override as a JSON PUT', async () => {
+    const fetchMock = stubFetch(200, { asset_id: 'bess 1', soc_pct: 10, round_trip_efficiency_pct: null, eta_charge: 0.95, eta_discharge: 0.95 });
+    await powerflowApi.setBessBattery('bess 1', { soc_pct: 10, round_trip_efficiency_pct: null });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/powerflow-api/assets/bess/bess%201/battery');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ soc_pct: 10, round_trip_efficiency_pct: null });
+  });
+
   it('reads the fault cause catalog', async () => {
     const fetchMock = stubFetch(200, []);
     await powerflowApi.getFaultCauses();
