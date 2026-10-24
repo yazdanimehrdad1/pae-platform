@@ -26,7 +26,7 @@ services:
       retries: 3
 
   backend-ot-postgres:
-    image: timescale/timescaledb:latest-pg16
+    image: postgres:16.15-alpine
     ports:
       - "${BACKEND_OT_POSTGRES_PORT:-5435}:5432"
     environment:

@@ -23,7 +23,7 @@ This guide covers different ways to access and interact with the PostgreSQL/Time
 
 **Docker Container:**
 - Container Name: `pae-backend-ot-postgres`
-- Image: `timescale/timescaledb:latest-pg16`
+- Image: `postgres:16.15-alpine` (plain PostgreSQL; TimescaleDB was dropped 2026-10-24)
 
 **Connection String (Python/asyncpg):**
 ```

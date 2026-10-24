@@ -40,7 +40,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Non-root runtime user. UID/GID pinned to 999 to match k8s runAsUser/runAsGroup.
+# Non-root runtime user. UID/GID pinned to 999 (stable for volume ownership and runAsUser).
 RUN groupadd --system --gid 999 app && \
     useradd --system --uid 999 --gid app --home-dir /app --shell /usr/sbin/nologin app
 
@@ -62,14 +62,14 @@ USER app
 EXPOSE 8000
 
 # Liveness only — hits the dependency-free /api/healthz (Modbus/DB/Redis issues
-# won't fail it; k8s uses /api/readyz for readiness).
+# won't fail it; readiness checks use /api/readyz).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz')" || exit 1
 
 # Runs migrations (unless RUN_MIGRATIONS_ON_START=false) before starting the app.
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
 
-# Single uvicorn process per container. Scale horizontally via k8s replicas + HPA,
+# Single uvicorn process per container. Scale horizontally with more containers,
 # NOT multiple workers: the scheduler runs in-process and relies on Redis leader
-# election, so one process per pod keeps exactly one poller cluster-wide.
+# election, so one process per container keeps exactly one poller overall.
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

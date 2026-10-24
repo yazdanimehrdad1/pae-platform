@@ -30,6 +30,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 ENV API_UPSTREAM=http://host.docker.internal:8000 \
     POWERFLOW_UPSTREAM=http://host.docker.internal:8020 \
     INTELLI_GATEWAY_UPSTREAM=http://host.docker.internal:8030 \
+    NGINX_RESOLVER=127.0.0.11 \
     APP_API_BASE_URL=/api \
     APP_POWERFLOW_BASE_URL=/powerflow-api \
     APP_INTELLI_GATEWAY_BASE_URL=/intelli-gateway-api

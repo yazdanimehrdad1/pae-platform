@@ -112,6 +112,13 @@ tools, and gives a hint about the likely issue and the checks to make.
   Postgres), PV model, facade, endpoints. `make test-integration` is now the Postgres suite;
   the real-Claude test moved to `make test-llm`.
 
+### 5. Deployment readiness (uncommitted, 2026-10-24; root `deploy/PLAN.md`, Stage 1)
+- `GET /api/readyz`: 200 with `database` `ok` or `not_configured` (no `DATABASE_URL`), 503 with
+  `unavailable` when its Postgres doesn't answer (`services/postgres/database.py::database_is_reachable`).
+  The production deploy waits on it. Contract change, additive.
+- Postgres pinned to `postgres:16.15-alpine` (dev and tests), the same image as prod.
+- `DevicePointResponse` gained `source_point_id`, catching up with backend-ot's contract.
+
 ## Decisions made with the user (don't change without asking)
 - **Engineer knowledge lives in this service** (in memory now, its own Postgres next), not in
   backend-ot. Guides are scoped **per site device**: (site_id, device_id, point name).

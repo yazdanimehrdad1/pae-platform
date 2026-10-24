@@ -7,7 +7,7 @@
 
 services:
   postgres-test:
-    image: timescale/timescaledb:latest-pg16
+    image: postgres:16.15-alpine
     environment:
       - POSTGRES_DB=pae_backend_ot_test
       - POSTGRES_USER=pae_backend_ot_test_user

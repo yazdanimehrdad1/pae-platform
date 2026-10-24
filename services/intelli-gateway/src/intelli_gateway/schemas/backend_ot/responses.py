@@ -96,6 +96,7 @@ class DevicePointResponse(StrictModel):
     poll_kind: str | None = None
     scale_factor: float | None = None
     severity: PointSeverityName | None = None
+    source_point_id: int | None = None
     unit: str | None = None
     virtual_definition: dict[str, object] | None = None
     word_order: str = "msw_first"

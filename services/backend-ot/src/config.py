@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     postgres_user: str = Field(default="pae_backend_ot_user", alias="POSTGRES_USER")
     # Secret: no default on purpose — a missing POSTGRES_PASSWORD must fail loudly at
     # startup rather than silently connect with a known-bad value. Supplied via .env
-    # locally and a k8s Secret (from GCP Secret Manager) in the cluster.
+    # locally and the sops-encrypted secrets file in production.
     postgres_password: str = Field(alias="POSTGRES_PASSWORD")
     database_pool_size: int = Field(default=10, alias="DATABASE_POOL_SIZE")
     database_max_overflow: int = Field(default=20, alias="DATABASE_MAX_OVERFLOW")
@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     # How often due report schedules are checked (a scheduled report starts at most this late)
     report_schedule_interval_seconds: int = Field(default=60, ge=5, alias="REPORT_SCHEDULE_INTERVAL_SECONDS")
 
-    # Pod identification (for Kubernetes)
+    # Instance identification (scheduler leader identity)
     pod_name: str = Field(default="", alias="POD_NAME")  # Falls back to HOSTNAME if not set
 
 

@@ -44,6 +44,7 @@ import { TimeZoneToggle } from "@/shared/components/TimeZoneToggle";
 import { useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { fromZonedInput, toZonedInput } from "@/shared/lib/zonedTime";
 import { SeriesStylePopover } from "./components/SeriesStylePopover";
+import { latestReadingTime } from "./lib/latestReading";
 import { DASH_ARRAY, pruneSeriesStyles, resolveSeriesStyles, type SeriesStyle } from "./lib/seriesStyles";
 
 const PRESET_LABELS: [TimeRange | 'custom', string][] = [
@@ -97,7 +98,7 @@ function TrendTooltip({ active, label, payload, lines, analogKeys, pointLabels, 
   );
 }
 
-function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecastAheadHours, scale, onScaleChange, styles, onStylesChange, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint }: {
+function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecastAheadHours, scale, onScaleChange, styles, onStylesChange, pointLabels, siteId, discreteMode, onDiscreteModeChange, onRevealPoint, onLatestReading }: {
   selectedPoints: string[];
   timeWindow: TimeWindow;
   timeZone: string;
@@ -116,6 +117,8 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
   onDiscreteModeChange: (mode: DiscreteModeId) => void;
   // A series name was clicked: show that selection in the Trends panel.
   onRevealPoint: (selectionId: string) => void;
+  /** The newest device reading of the trend's window (null: none), after every fetch. */
+  onLatestReading: (timestamp: number | null) => void;
 }) {
   const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
   // The window the chart shows is fetched: zooming in refetches, so a zoom of 3 days or less gets
@@ -125,6 +128,13 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
     : timeWindow;
   const { data, lines, functionSeries, forecastSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow, { autoRefresh, forecastAheadHours });
   const { pointsById } = usePointCatalog(siteId);
+  // Zoomed, the fetched window is the zoomed one, so its newest reading says nothing about how live
+  // the data is: the page keeps the last one reported for the whole window (and while loading).
+  const latestReading = useMemo(() => latestReadingTime(lines, selectedPoints), [lines, selectedPoints]);
+  useEffect(() => {
+    if (!zoomRange && !isLoading) onLatestReading(latestReading);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestReading, zoomRange, isLoading]);
   const spanMs = 'preset' in timeWindow
     ? PRESET_MS[timeWindow.preset]
     : new Date(timeWindow.endTime).getTime() - new Date(timeWindow.startTime).getTime();
@@ -456,8 +466,14 @@ export default function Historian() {
   const currentTrend = currentTrendId ? trends.find(t => t.id === currentTrendId) || null : null;
   const selectedPoints = currentTrend?.points || [];
 
-  const lastDataTimeString = selectedPoints.length > 0
-    ? new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone })
+  // The newest device reading across the trends on screen, as each chart reports it after a fetch.
+  const [latestReadingByTrend, setLatestReadingByTrend] = useState<Record<string, number | null>>({});
+  const handleLatestReading = (trendId: string, timestamp: number | null) =>
+    setLatestReadingByTrend(previous => (previous[trendId] === timestamp ? previous : { ...previous, [trendId]: timestamp }));
+  const visibleTrendIds = [topTrendId, middleTrendId, bottomTrendId, fourthTrendId].slice(0, layoutCount).filter(Boolean);
+  const latestReadings = visibleTrendIds.map(trendId => latestReadingByTrend[trendId]).filter((timestamp): timestamp is number => typeof timestamp === 'number');
+  const lastDataTimeString = latestReadings.length > 0
+    ? new Date(Math.max(...latestReadings)).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone })
     : 'No data';
 
   useEffect(() => {
@@ -852,25 +868,25 @@ export default function Historian() {
                               </Select>
                             )}
                           </div>
-                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(topTrendId)} onScaleChange={scale => setTrendScale(topTrendId, scale)} styles={stylesOf(topTrendId)} onStylesChange={styles => setTrendStyles(topTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(topTrendId)} onScaleChange={scale => setTrendScale(topTrendId, scale)} styles={stylesOf(topTrendId)} onStylesChange={styles => setTrendStyles(topTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(topTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
                         <div ref={middleTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} styles={stylesOf(middleTrendId)} onStylesChange={styles => setTrendStyles(middleTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} styles={stylesOf(middleTrendId)} onStylesChange={styles => setTrendStyles(middleTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(middleTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
                         <div ref={bottomTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} styles={stylesOf(bottomTrendId)} onStylesChange={styles => setTrendStyles(bottomTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} styles={stylesOf(bottomTrendId)} onStylesChange={styles => setTrendStyles(bottomTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(bottomTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
                         <div ref={fourthTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} styles={stylesOf(fourthTrendId)} onStylesChange={styles => setTrendStyles(fourthTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} />
+                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} styles={stylesOf(fourthTrendId)} onStylesChange={styles => setTrendStyles(fourthTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(fourthTrendId, timestamp)} />
                         </div>
                       )}
                     </div>

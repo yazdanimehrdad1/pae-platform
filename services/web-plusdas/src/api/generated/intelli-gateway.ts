@@ -22,6 +22,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readyz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness
+         * @description Ready to serve: its own Postgres answers (when one is configured). The deploy waits on it.
+         */
+        get: operations["readyz_api_readyz_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forecast/health": {
         parameters: {
             query?: never;
@@ -271,6 +291,17 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** ReadinessResponse */
+        ReadinessResponse: {
+            /**
+             * Database
+             * @description Its own Postgres: not_configured when DATABASE_URL is unset (forecasts in memory).
+             * @enum {string}
+             */
+            database: "ok" | "unavailable" | "not_configured";
+            /** Ok */
+            ok: boolean;
+        };
         /** RefreshResponse */
         RefreshResponse: {
             /**
@@ -409,6 +440,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    readyz_api_readyz_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+            /** @description The database is unreachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessResponse"];
                 };
             };
         };
