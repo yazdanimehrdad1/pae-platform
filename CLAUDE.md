@@ -23,7 +23,8 @@ contracts/           the ONLY shared surface: generated OpenAPI specs + mock reg
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 deploy/PLAN.md       staged production plan (one GCP VM + Docker Compose); deploy/prod/ (stack,
                      config, sops secrets) and deploy/infra/ (OpenTofu) are added stage by stage
-scripts/             check_boundaries.py, e2e/ checks (stdlib only, no service imports)
+scripts/             check_boundaries.py, e2e/ checks, ci/ (CI helpers) (stdlib only, no service imports)
+.github/             root CI: workflows/ci.yml (+ reusable _service-ci.yml, _build-image.yml), dependabot.yml
 .claude/             skills, agents (root); services add their own .claude/skills/
 TODO_MONOREPO_TASKS.md  open monorepo work (debt, hardening, pointers into deploy/PLAN.md); remove items when done
 ```
@@ -71,6 +72,12 @@ the root, and `make -C services/<svc> help` in each service.
   web-plusdas's `test-integration` checks the running container, so it needs the dev stack up.
 - **Root checks:** `make check` = lint + typecheck + test + `check-boundaries` + `contracts-check` (stage
   regenerated contracts first). `make hooks` enables the pre-commit hook once per clone.
+- **CI** (`.github/workflows/ci.yml`) runs the same make targets: on a PR, the changed services
+  (plus a changed contract's consumers, `scripts/ci/changed_services.py`), the root checks and a
+  build + smoke test of changed production images; on `main`, everything, then pushes
+  `ghcr.io/<owner>/pae-<svc>:<git sha>` for the four deployed services. The one required check is
+  "CI result". A new service or contract consumer goes into `scripts/ci/changed_services.py`.
+  Third-party actions are pinned to commit SHAs (Dependabot updates them).
 - **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
   `down`, `ps`, `logs`, `seed-mock-modbus`, `seed-2bess-1pv`, `e2e`, `e2e-2bess-1pv`, and for the
   phone app `mobile-dev`. See the `run-platform` skill. **The root takes priority:**

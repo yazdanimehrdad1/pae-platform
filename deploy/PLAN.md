@@ -207,14 +207,14 @@ deploy/
              ─► OK: record RELEASE (keep RELEASE.prev) │ FAIL: auto-redeploy RELEASE.prev
 ```
 - **Workflows:** `ci.yml`, reusable `_service-ci.yml` and `_build-image.yml`, `deploy-prod.yml` (also `workflow_dispatch` with any SHA, which is how you roll back).
-- **Path filters include contract consumers:** a change to `contracts/openapi/backend-ot.openapi.json` also runs web-plusdas, mobile-plusdas and intelli-gateway; powerflow's and intelli-gateway's specs also run web-plusdas. PRs touching backend-ot also run its `make test-integration` (Postgres/Redis service containers).
+- **Path filters include contract consumers** (`scripts/ci/changed_services.py`, from `contracts/README.md`): a change to `contracts/openapi/backend-ot.openapi.json` also runs web-plusdas, mobile-plusdas and intelli-gateway; powerflow's and intelli-gateway's specs also run web-plusdas; an unknown contract runs everything. backend-ot, powerflow and intelli-gateway also run `make test-integration` (each service's own `compose.test.yaml` stack).
 - **The image build matrix is an explicit list** of the 4 prod services, not the root `Makefile` `SERVICES` list (`Makefile:26`, which includes mock-modbus). Each image is built from its own service directory as the context (web-plusdas: `services/web-plusdas` + `docker/Dockerfile`), which keeps `git subtree split` intact.
 - **Standards:**
   - least-privilege `permissions:`; actions pinned to commit SHAs; Dependabot
   - no secrets on fork PRs; branch protection on `main`
   - concurrency groups, job timeouts, uv/npm/buildx caches
   - OCI labels, provenance and SBOM; job summary + GitHub Deployment record
-  - CI only calls `make`
+  - every check is a `make` target (only the change selector and its unit tests run as plain scripts)
 - **Rules:**
   - Migrations stay backward-compatible (expand, then contract), so a rollback works.
   - Each deploy causes a few seconds of downtime per service.
@@ -301,7 +301,7 @@ New host and CI tools, each needing your OK when its stage starts (none is a ser
 |---|---|
 | **0 Cleanup** | Section above |
 | **1 Readiness** | Done: pinned `postgres:16.15-alpine` everywhere, intelli-gateway `/api/readyz`, nginx resolver + variable upstreams |
-| **2 CI** | `ci.yml` + reusable workflows; required checks on `main`; images to GHCR as `:<sha>` |
+| **2 CI** | Done: `ci.yml` + reusable `_service-ci.yml` / `_build-image.yml`, `scripts/ci/` (changed-service selection, image smoke tests), Dependabot for actions. **Owner step:** require the single check "CI result" on `main` (branch protection) |
 | **3 Infra** | `deploy/infra/gcp/main.tf`: e2-standard-2, 20 GB boot, 50 GB pd-balanced data disk, static IP, daily snapshot schedule (7 kept), backup bucket (different region, e.g. us-east1), state bucket, least-privilege VM service account, firewall (no public ports). `make infra-plan/up`. |
 | **4 Access** | Tailscale-only access first; later a public domain + Caddy + oauth2-proxy, then real app auth (needed before the mobile app) |
 | **5 Prod stack** | `compose.prod.yaml`, configs, sops secrets, nightly restic backups; test a restore once |
