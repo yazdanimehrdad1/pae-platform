@@ -1,5 +1,5 @@
 """
-PostgreSQL/TimescaleDB connection management.
+PostgreSQL connection management.
 
 Handles database connection creation, connection pooling, and lifecycle management.
 Supports both asyncpg (legacy) and SQLAlchemy 2.0+ async (new) connections.

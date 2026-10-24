@@ -2,7 +2,7 @@
 #
 # Run from anywhere with `make -C services/backend-ot <target>` (or from this directory).
 # Standard targets (same names in every service): install lint format typecheck test
-# test-integration build up down logs run contract. Service-specific: migrate seed-db-* cloud-*.
+# test-integration build up down logs run contract. Service-specific: migrate seed-db-*.
 # Tooling: uv only; every Python tool runs from uv.lock via `uv run --frozen`.
 
 # ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ endif
 .DEFAULT_GOAL := help
 .PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-unit test-integration test-all contract postman \
 	build rebuild up up-build down down-all restart logs ps shell health clean \
-	run migrate apply-migration seed-db-mock-modbus seed-db-powerflow cloud-down cloud-up
+	run migrate apply-migration seed-db-mock-modbus seed-db-powerflow
 
 # Standalone stack. Host ports: BACKEND_OT_HTTP_PORT / _POSTGRES_PORT / _REDIS_PORT (defaults
 # 8000/5435/6380). The Modbus aggregator defaults to mock-modbus's host port via
@@ -69,8 +69,6 @@ help:
 	@echo "  seed-db-mock-modbus  load the mock-modbus dev site (Alpha Solar Farm) into the running stack"
 	@echo "  seed-db-powerflow SITE=2bess_1pv  load one of powerflow's simulated sites (dev stack only:"
 	@echo "                   its devices read powerflow:502 on the compose network)"
-	@echo ""
-	@echo "Cloud cost control (GKE): cloud-down / cloud-up"
 
 # ---------------------------------------------------------------------------
 # Develop
@@ -204,56 +202,3 @@ seed-db-powerflow:
 	$(COMPOSE) cp $(POWERFLOW_REGISTERS_CONTRACT) $(APP):/app/tests/seed_db/
 	$(COMPOSE) cp $(POWERFLOW_SITES_CONTRACT) $(APP):/app/tests/seed_db/
 	$(COMPOSE) exec -T $(APP) python tests/seed_db/seed_db.py powerflow $(SITE)
-
-# ---------------------------------------------------------------------------
-# Cloud cost control (GKE) — stop everything billable when not in use, and bring
-# it all back "ready". Scale-to-zero approach: keeps the cluster/ArgoCD config and
-# Cloud SQL DATA, just idles compute. Override the vars if your names differ.
-# ---------------------------------------------------------------------------
-GCP_PROJECT  ?= prd-pae-backend-ot
-GCP_REGION   ?= us-central1
-SQL_INSTANCE ?= pae-backend-ot-pg-prod
-K8S_NS       ?= pae-backend-ot-prod
-
-ifeq ($(OS),Windows_NT)
-# kubectl needs gke-gcloud-auth-plugin, which is on the PowerShell PATH but usually not on
-# make's recipe PATH — delegate to the PowerShell script (same logic).
-cloud-down:
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cloud.ps1 cloud-down
-cloud-up:
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cloud.ps1 cloud-up
-else
-# Stop all billable compute (app + redis + ArgoCD scaled to 0, Cloud SQL stopped).
-# Idle cost ≈ Cloud SQL storage only (~$2-3/mo). Data is preserved.
-cloud-down:
-	@echo ">> Stopping ArgoCD (so it won't scale things back up)..."
-	@kubectl -n argocd scale statefulset --all --replicas=0
-	@kubectl -n argocd scale deploy --all --replicas=0
-	@echo ">> Removing HPA (it would otherwise force min replicas)..."
-	@kubectl -n $(K8S_NS) delete hpa pae-backend-ot --ignore-not-found
-	@echo ">> Scaling app + redis to 0..."
-	@kubectl -n $(K8S_NS) scale deploy pae-backend-ot redis --replicas=0
-	@echo ">> Stopping Cloud SQL..."
-	@gcloud sql instances patch $(SQL_INSTANCE) --project=$(GCP_PROJECT) --activation-policy=NEVER --quiet
-	@echo ">> cloud-down complete. Billing minimized (data preserved)."
-
-# Start Cloud SQL, bring ArgoCD back, scale workloads up, let ArgoCD reconcile.
-cloud-up:
-	@echo ">> Starting Cloud SQL..."
-	@gcloud sql instances patch $(SQL_INSTANCE) --project=$(GCP_PROJECT) --activation-policy=ALWAYS --quiet
-	@echo ">> Waiting for Cloud SQL to be RUNNABLE..."
-	@until [ "$$(gcloud sql instances describe $(SQL_INSTANCE) --project=$(GCP_PROJECT) --format='value(state)')" = "RUNNABLE" ]; do sleep 10; echo "   ...still starting"; done
-	@echo ">> Bringing ArgoCD back..."
-	@kubectl -n argocd scale statefulset --all --replicas=1
-	@kubectl -n argocd scale deploy --all --replicas=1
-	@kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=180s
-	@kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=120s
-	@echo ">> Scaling redis + app back up..."
-	@kubectl -n $(K8S_NS) scale deploy redis --replicas=1
-	@kubectl -n $(K8S_NS) rollout status deploy/redis --timeout=120s
-	@kubectl -n $(K8S_NS) scale deploy pae-backend-ot --replicas=2
-	@kubectl -n $(K8S_NS) rollout status deploy/pae-backend-ot --timeout=240s
-	@echo ">> Nudging ArgoCD to reconcile (recreates HPA, marks Synced)..."
-	@kubectl -n argocd annotate application pae-backend-ot-prod argocd.argoproj.io/refresh=hard --overwrite >/dev/null
-	@echo ">> cloud-up complete. App is ready."
-endif

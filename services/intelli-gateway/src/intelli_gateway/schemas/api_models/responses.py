@@ -1,5 +1,7 @@
 """Response bodies of the HTTP API (the published contract)."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from intelli_gateway.schemas.tools import JSONValue
@@ -52,3 +54,12 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     ok: bool
+
+
+class ReadinessResponse(BaseModel):
+    ok: bool
+    database: Literal["ok", "unavailable", "not_configured"] = Field(
+        description=(
+            "Its own Postgres: not_configured when DATABASE_URL is unset (forecasts in memory)."
+        )
+    )

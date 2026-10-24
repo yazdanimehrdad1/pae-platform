@@ -7,7 +7,7 @@
 
 services:
   powerflow-postgres-test:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     environment:
       - POSTGRES_DB=powerflow_test
       - POSTGRES_USER=powerflow_test

@@ -59,9 +59,9 @@ Migrations are raw numbered SQL under `src/db/migrations/NNN_*.sql`, applied in 
 by `scripts/migrate_db.py` and tracked in `schema_migrations`. **There is no Alembic** —
 to change the schema, add the next `NNN_*.sql`.
 
-Note the image is `timescale/timescaledb`, but no migration calls `create_hypertable`, so
-the time-series tables are currently plain Postgres. Partitioning, compression and
-retention are unimplemented.
+The image is plain `postgres:16.15-alpine` (TimescaleDB was dropped 2026-10-24), so
+the time-series tables are plain Postgres. Monthly partitioning with 90-day retention is
+planned (`deploy/PLAN.md`, Stage 1).
 
 ## Known gaps
 

@@ -1,7 +1,7 @@
 """
 Integration tests for the health endpoints that don't need a Modbus server.
 
-/healthz must stay unauthenticated and dependency-free (Docker HEALTHCHECK and k8s probes
+/healthz must stay unauthenticated and dependency-free (Docker HEALTHCHECK and health probes
 hit it); /readyz, /db_health and /redis_health must report real connectivity. The Modbus
 probes (/health_modbus_client and a *reachable* device) wait for the mock Modbus server;
 an unreachable device is covered here because it needs no server.
