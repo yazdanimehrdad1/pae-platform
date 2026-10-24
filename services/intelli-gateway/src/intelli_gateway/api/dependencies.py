@@ -1,6 +1,7 @@
 """FastAPI dependencies: the auth placeholder, access checks and the wired services."""
 
 from fastapi import Header, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.schemas.context import RequestContext
@@ -49,6 +50,12 @@ def get_service(request: Request) -> GatewayService:
 def get_forecast_service(request: Request) -> ForecastService:
     service: ForecastService = request.app.state.services.forecast
     return service
+
+
+def get_database(request: Request) -> AsyncEngine | None:
+    """This service's own Postgres engine, or None when DATABASE_URL is unset."""
+    database: AsyncEngine | None = request.app.state.services.database
+    return database
 
 
 def require_site_access(ctx: RequestContext, site_id: int) -> None:

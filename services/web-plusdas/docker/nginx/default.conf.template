@@ -2,14 +2,26 @@
 # substituted): ${API_UPSTREAM} is the backend-ot base URL, e.g. http://backend-ot:8000, and
 # ${POWERFLOW_UPSTREAM} the powerflow simulator's, e.g. http://powerflow:8000, and
 # ${INTELLI_GATEWAY_UPSTREAM} intelli-gateway's, e.g. http://intelli-gateway:8000.
+# ${NGINX_RESOLVER} is the DNS server for those names (Docker's 127.0.0.11 by default; the cluster
+# DNS on Kubernetes).
+#
+# Each proxy_pass goes through a variable, so nginx resolves the upstream per request (cached for
+# `valid`) instead of once at start: nginx starts even while an upstream is down or not deployed,
+# and that route answers 502 until it is back.
 server {
     listen 80;
     root /usr/share/nginx/html;
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+    resolver_timeout 5s;
 
-    # Same-origin API: the browser calls /api/* here and nginx forwards it unchanged
-    # (no URI part on proxy_pass, so the /api prefix is kept). No CORS needed.
+    set $api_upstream ${API_UPSTREAM};
+    set $powerflow_upstream ${POWERFLOW_UPSTREAM};
+    set $intelli_gateway_upstream ${INTELLI_GATEWAY_UPSTREAM};
+
+    # Same-origin API: the browser calls /api/* here and nginx forwards it unchanged (with a
+    # variable and no URI part, proxy_pass sends the request URI as is). No CORS needed.
     location /api/ {
-        proxy_pass ${API_UPSTREAM};
+        proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -18,9 +30,10 @@ server {
     }
 
     # The powerflow simulator's API, same origin too: /powerflow-api/x is forwarded as /api/x
-    # (proxy_pass has a URI part, so the matched prefix is replaced). Used by the Simulation page.
+    # (the rewrite does the prefix swap; query strings are kept). Used by the Simulation page.
     location /powerflow-api/ {
-        proxy_pass ${POWERFLOW_UPSTREAM}/api/;
+        rewrite ^/powerflow-api/(.*)$ /api/$1 break;
+        proxy_pass $powerflow_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -31,7 +44,8 @@ server {
     # intelli-gateway's API (the PV forecast in the Historian), same origin: /intelli-gateway-api/x
     # is forwarded as /api/x.
     location /intelli-gateway-api/ {
-        proxy_pass ${INTELLI_GATEWAY_UPSTREAM}/api/;
+        rewrite ^/intelli-gateway-api/(.*)$ /api/$1 break;
+        proxy_pass $intelli_gateway_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -42,7 +56,7 @@ server {
     # Live register stream: server-sent events read with fetch (src/api/sse.ts). Buffering
     # would hold events back until the buffer fills, so pass them straight through.
     location /api/modbus-live-stream-raw-registers/ {
-        proxy_pass ${API_UPSTREAM};
+        proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

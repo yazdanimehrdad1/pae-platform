@@ -12,7 +12,7 @@ name: powerflow
 
 services:
   powerflow-postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     ports:
       - "${POWERFLOW_POSTGRES_PORT:-5436}:5432"
     environment:

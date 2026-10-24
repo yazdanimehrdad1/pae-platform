@@ -321,6 +321,30 @@
         "title": "PvForecastResponse",
         "type": "object"
       },
+      "ReadinessResponse": {
+        "properties": {
+          "database": {
+            "description": "Its own Postgres: not_configured when DATABASE_URL is unset (forecasts in memory).",
+            "enum": [
+              "ok",
+              "unavailable",
+              "not_configured"
+            ],
+            "title": "Database",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "database"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
       "RefreshResponse": {
         "properties": {
           "finished_at": {
@@ -678,6 +702,38 @@
           }
         },
         "summary": "Liveness",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/readyz": {
+      "get": {
+        "description": "Ready to serve: its own Postgres answers (when one is configured). The deploy waits on it.",
+        "operationId": "readyz_api_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "The database is unreachable"
+          }
+        },
+        "summary": "Readiness",
         "tags": [
           "health"
         ]

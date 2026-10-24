@@ -1,7 +1,8 @@
 # mock-modbus
 
 **DEV-ONLY.** Stands in for on-site OT devices during development. It must never appear
-in a production manifest (k8s, overlays, prod compose). Owned here: the simulator and its
+in a production manifest (`deploy/prod/`, `deploy/infra/`, a future `deploy/k8s/`, or the root
+deploy/build workflows). Owned here: the simulator and its
 device register maps. Not owned: anything backend-ot does with the values — backend-ot
 reaches this service over Modbus TCP only and never imports its code.
 

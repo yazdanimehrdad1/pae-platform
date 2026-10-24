@@ -15,20 +15,11 @@ backlog. Remove an item when it's done; the commit that closes it records the de
   `services/web-plusdas/docs/backend-gaps.md` lists what backend-ot needs to add for each. It's
   backend-ot work first (`add-endpoint` skill, `make contract`), then the UI (`make -C services/web-plusdas api-types`,
   `add-api-call` skill).
-- **There's no CI.** The checks only run through each clone's pre-commit hook (`make hooks`)
-  and `make check`. See "CI" below.
+## Production deployment
 
-## Deferred
-
-- **CI** (deferred 2026-09-23). Root path-filtered workflows that call the same
-  `make -C services/<svc> …` targets (and `make check-boundaries`, `make contracts-check`), so
-  there's no new logic to write. They replace the inert `services/backend-ot/.github/`.
-- **Deploy cutover** (deferred 2026-09-23). Point ArgoCD `repoURL`/`path` at this repo and the
-  service directories, move the CD image-tag bump here, and introduce per-service release tags.
-  Deployment files stay out of scope until this is picked up (root CLAUDE.md).
-  web-plusdas's nginx now proxies `/powerflow-api` to `POWERFLOW_UPSTREAM`, resolved at start: a
-  deployment without powerflow must set a resolvable upstream (or make it optional with a
-  `resolver` + variable upstream), or nginx won't start.
+- **CI, CD and production hosting** are planned in stages in `deploy/PLAN.md` (Stages 0 and 1 are
+  done). Until Stage 2 lands, the checks only run
+  through each clone's pre-commit hook (`make hooks`) and `make check`.
 
 ## Mobile (mobile-plusdas)
 

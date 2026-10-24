@@ -39,6 +39,17 @@ async def wait_for_database(engine: AsyncEngine, timeout_s: float = 30.0) -> Non
             await asyncio.sleep(1.0)
 
 
+async def database_is_reachable(engine: AsyncEngine) -> bool:
+    """One `SELECT 1`, for the readiness check. Never raises for an unreachable database."""
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except (OSError, OperationalError, DBAPIError) as error:
+        logger.warning("database_unreachable", extra={"fields": {"error": type(error).__name__}})
+        return False
+    return True
+
+
 async def migrate(engine: AsyncEngine) -> list[str]:
     """Apply pending migrations; returns the versions applied now."""
     applied_now: list[str] = []

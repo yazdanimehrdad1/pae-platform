@@ -6,7 +6,7 @@ name: intelli-gateway
 
 services:
   intelli-gateway-postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     ports:
       - "${INTELLI_GATEWAY_POSTGRES_PORT:-5437}:5432"
     environment:

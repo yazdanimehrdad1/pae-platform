@@ -4,11 +4,11 @@ A FastAPI-based REST API service for communicating with Modbus TCP servers using
 
 ## Features
 
-- **GET /api/healthz**: Liveness check (no I/O; the Docker HEALTHCHECK and k8s probes hit it). `/api/readyz` checks postgres and redis
+- **GET /api/healthz**: Liveness check (no I/O; the Docker HEALTHCHECK and production health checks hit it). `/api/readyz` checks postgres and redis
 - Robust error handling with proper HTTP status codes
 - Environment variable configuration
 - Clean connection management (no socket leaks)
-- **Distributed Scheduler**: APScheduler with Redis-based leader election for multi-replica Kubernetes deployments
+- **Distributed Scheduler**: APScheduler with Redis-based leader election so only one instance polls, even with several replicas
 
 ## Scheduler Implementation
 

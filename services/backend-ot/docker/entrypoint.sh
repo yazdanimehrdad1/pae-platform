@@ -40,9 +40,9 @@ if [ $timeout -eq 0 ]; then
 fi
 
 # Run database migrations unless disabled.
-# Default is "true" so docker-compose / local dev behaviour is unchanged. In
-# Kubernetes the app Deployment sets RUN_MIGRATIONS_ON_START=false and a dedicated
-# migration Job (ArgoCD PreSync hook) owns the schema, so replicas don't race.
+# Default is "true" so compose / local dev behaviour is unchanged. In
+# production RUN_MIGRATIONS_ON_START=false and a one-shot migrate step
+# owns the schema, so app containers never race on it.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-true}"
 
 if [ "$RUN_MIGRATIONS_ON_START" = "true" ]; then

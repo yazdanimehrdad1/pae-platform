@@ -95,6 +95,13 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
   (backend-ot 307s it).
 - A new **streaming** route needs its own nginx location with `proxy_buffering off` (like
   `/api/modbus-live-stream-raw-registers/`).
+- **Upstreams resolve per request** (`resolver ${NGINX_RESOLVER}`, default Docker's
+  `127.0.0.11`): every `proxy_pass` goes through a `set $..._upstream` variable, so nginx starts
+  even while an upstream is down (that route answers 502 until it's back). With a variable,
+  `proxy_pass` doesn't swap URI prefixes, so a prefix change is a `rewrite ... break` (see
+  `/powerflow-api/`). A new upstream route follows the same pattern. `127.0.0.11` exists only on
+  a user-defined Docker network (compose always makes one); a bare `docker run` on the default
+  bridge must pass `-e NGINX_RESOLVER=<dns>` or every proxied route answers 502.
 
 ## Contracts (rules: `contracts/README.md`, procedure: root `contracts` skill)
 - **Consumes** `contracts/openapi/backend-ot.openapi.json` and `contracts/openapi/powerflow.openapi.json`
