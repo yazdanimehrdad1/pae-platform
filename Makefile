@@ -34,8 +34,8 @@ DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildca
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
 # Cloud environments dev and prod (deploy/PLAN.md): delegated to deploy/cloud/Makefile, always with env=prod|dev.
-CLOUD_TARGETS := infra-up ssh ui
-.PHONY: help up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(CLOUD_TARGETS) $(FANOUT_TARGETS)
+CLOUD_TARGETS := infra-up ssh ui host-setup deploy status stats backup
+.PHONY: help cloud-seed-site up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(CLOUD_TARGETS) $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -74,6 +74,10 @@ help:
 	@echo "  infra-up env=...   create or complete that environment's GCP infrastructure (idempotent)"
 	@echo "  ssh env=...        shell on that environment's VM through IAP"
 	@echo "  ui env=...         that environment's UI through an IAP tunnel on http://localhost:8080"
+	@echo "  host-setup env=... one-time VM setup (data disk, Docker, Ops Agent, backup timer)"
+	@echo "  deploy env=... [RELEASE=<sha>]  deploy a release (default: newest origin/main)"
+	@echo "  status / logs [svc=] / stats / backup  env=...   what runs, logs, CPU+memory, dump DBs now"
+	@echo "  cloud-seed-site env=dev SITE=<site>  load a powerflow simulated site into dev (never prod)"
 	@echo ""
 	@echo "Services: $(SERVICES)"
 	@echo "Standalone: make -C services/<svc> <target>   (see each service's CLAUDE.md)"
@@ -123,8 +127,10 @@ restart:
 ps:
 	$(DEV_COMPOSE) ps
 
+# `make logs` follows the local dev stack; `make logs env=dev|prod` shows a cloud VM's last lines.
 logs:
-	$(DEV_COMPOSE) logs -f $(svc)
+	@if [ -n "$(env)" ]; then $(MAKE) --no-print-directory -C deploy/cloud logs env=$(env) svc=$(svc); \
+	else $(DEV_COMPOSE) logs -f $(svc); fi
 
 # backend-ot's own seed targets, pointed at the dev stack instead of its standalone stack.
 seed:
@@ -214,3 +220,13 @@ contracts-check: contract
 # ---------------------------------------------------------------------------
 $(CLOUD_TARGETS):
 	@$(MAKE) --no-print-directory -C deploy/cloud $@
+
+# dev cloud only: load one of powerflow's simulated sites into dev (backend-ot packages its seeder,
+# deploy/cloud ships and runs it). Refuses prod, which holds real client data.
+cloud-seed-site:
+	@test "$(env)" = dev || { echo "cloud-seed-site seeds the dev cloud only: pass env=dev" >&2; exit 2; }
+	@test -n "$(SITE)" || { echo "usage: make cloud-seed-site env=dev SITE=<powerflow site, e.g. 2bess_1pv>" >&2; exit 2; }
+	@tmp="$$(mktemp -d)"; \
+	$(MAKE) --no-print-directory -s -C services/backend-ot seed-bundle OUT="$$tmp/seed_db" && \
+	$(MAKE) --no-print-directory -C deploy/cloud seed-site env=dev SITE=$(SITE) BUNDLE="$$tmp/seed_db"; \
+	status=$$?; rm -rf "$$tmp"; exit $$status

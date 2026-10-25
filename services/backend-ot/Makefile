@@ -25,7 +25,7 @@ endif
 .DEFAULT_GOAL := help
 .PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-unit test-integration test-all contract postman \
 	build rebuild up up-build down down-all restart logs ps shell health clean \
-	run migrate apply-migration seed-db-mock-modbus seed-db-powerflow
+	run migrate apply-migration seed-db-mock-modbus seed-db-powerflow seed-bundle
 
 # Standalone stack. Host ports: BACKEND_OT_HTTP_PORT / _POSTGRES_PORT / _REDIS_PORT (defaults
 # 8000/5435/6380). The Modbus aggregator defaults to mock-modbus's host port via
@@ -69,6 +69,7 @@ help:
 	@echo "  seed-db-mock-modbus  load the mock-modbus dev site (Alpha Solar Farm) into the running stack"
 	@echo "  seed-db-powerflow SITE=2bess_1pv  load one of powerflow's simulated sites (dev stack only:"
 	@echo "                   its devices read powerflow:502 on the compose network)"
+	@echo "  seed-bundle OUT=<dir>  copy the seeder + its contracts into <dir> (root cloud-seed-site)"
 
 # ---------------------------------------------------------------------------
 # Develop
@@ -202,3 +203,14 @@ seed-db-powerflow:
 	$(COMPOSE) cp $(POWERFLOW_REGISTERS_CONTRACT) $(APP):/app/tests/seed_db/
 	$(COMPOSE) cp $(POWERFLOW_SITES_CONTRACT) $(APP):/app/tests/seed_db/
 	$(COMPOSE) exec -T $(APP) python tests/seed_db/seed_db.py powerflow $(SITE)
+
+# The seeder and the contracts it reads, copied into OUT (a new or empty directory), for running
+# the seed inside a backend-ot container elsewhere (tests/seed_db/run_in_container.sh). The root
+# `make cloud-seed-site env=dev` ships it to the dev cloud VM; that caller and deploy/cloud refuse
+# prod, which holds real client data.
+seed-bundle:
+	@test -n "$(OUT)" || { echo "usage: make seed-bundle OUT=<directory>"; exit 2; }
+	mkdir -p "$(OUT)"
+	cp -r tests/seed_db/. "$(OUT)/"
+	cp $(MOCK_MODBUS_CONTRACT) $(POWERFLOW_REGISTERS_CONTRACT) $(POWERFLOW_SITES_CONTRACT) "$(OUT)/"
+	find "$(OUT)" -name __pycache__ -prune -exec rm -rf {} +

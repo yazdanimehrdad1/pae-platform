@@ -36,7 +36,7 @@ touched service first.
 4. **Secrets:** passwords, tokens, keys, connection strings with credentials, `.env` files being
    added (`git ls-files` must never list a `.env`). Production secrets live only in GCP Secret
    Manager: flag any secret value in `deploy/`, workflows or scripts (only secret *names*, e.g.
-   `deploy/cloud/secrets.list`), a script that prints a secret, and GitHub secrets for anything
+   in `deploy/cloud/scripts/deploy.sh`), a script that prints a secret, and GitHub secrets for anything
    Workload Identity Federation covers. Values in `.env.example` must be placeholders.
 5. **Production deployment** lives in `deploy/cloud/`, `deploy/infra/` and root `.github/` (plan:
    `deploy/PLAN.md`). These may coordinate services only through published images, env and

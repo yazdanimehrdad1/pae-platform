@@ -28,7 +28,11 @@ ZONE ?= us-central1-a
 UI_PORT ?= 8080
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 
-.PHONY: require-env infra-up ssh ui
+GCLOUD_VM := --project $(PROJECT) --zone $(ZONE) --tunnel-through-iap --quiet --strict-host-key-checking=no
+SSH := gcloud compute ssh $(VM) $(GCLOUD_VM) --command
+COMPOSE_ON_VM := sudo docker compose -p pae
+
+.PHONY: require-env infra-up ssh ui host-setup deploy status logs stats backup seed-site
 
 require-env:
 	@case "$(env)" in prod|dev) ;; *) echo "pass env=prod or env=dev" >&2; exit 2 ;; esac
@@ -45,3 +49,53 @@ ssh: require-env
 ui: require-env
 	@echo "$(env) UI on http://localhost:$(UI_PORT) (Ctrl+C to stop)"
 	gcloud compute start-iap-tunnel $(VM) 80 --local-host-port=localhost:$(UI_PORT) --project $(PROJECT) --zone $(ZONE)
+
+# Copy local files to a fresh directory on the VM: $(call upload,<remote dir>,<local paths>)
+upload = $(SSH) "rm -rf $(1) && mkdir -p $(1)" && gcloud compute scp --recurse $(2) $(VM):$(1)/ $(GCLOUD_VM)
+
+# One-time (re-runnable) VM setup: data disk, Docker, registry login, Ops Agent, backup timer.
+host-setup: require-env
+	$(call upload,/tmp/pae-setup,scripts)
+	$(SSH) "sudo bash /tmp/pae-setup/scripts/host-setup.sh"
+
+# Deploy a release (default: the newest commit on origin/main, whose images CI pushed).
+deploy: require-env
+	@release="$(RELEASE)"; \
+	if [ -z "$$release" ]; then git fetch -q origin main && release="$$(git rev-parse origin/main)"; fi; \
+	echo "deploying $$release to $(env)"; \
+	$(call upload,/tmp/pae-bundle,compose.yaml config scripts) && \
+	$(SSH) "sudo bash /tmp/pae-bundle/scripts/deploy.sh $(env) $$release"
+
+# What runs, and which release.
+status: require-env
+	$(SSH) "echo release=\$$(cat /opt/pae/RELEASE 2>/dev/null || echo none); $(COMPOSE_ON_VM) ps"
+
+# The last 200 log lines (svc=<compose service> for one).
+logs: require-env
+	$(SSH) "$(COMPOSE_ON_VM) logs --tail 200 $(svc)"
+
+# Live CPU and memory per container (one sample).
+stats: require-env
+	$(SSH) "sudo docker stats --no-stream"
+
+# Dump every database to the environment's backup bucket now.
+backup: require-env
+	$(SSH) "sudo /opt/pae/scripts/backup.sh manual"
+
+# dev only: load a powerflow simulated site into dev's backend-ot and run it in dev's powerflow.
+# BUNDLE is the directory `make -C services/backend-ot seed-bundle` filled (the root
+# `make cloud-seed-site env=dev SITE=...` does both). Never prod: prod holds real client data.
+seed-site: require-env
+	@test "$(env)" = dev || { echo "seed-site loads simulated data into dev only" >&2; exit 2; }
+	@test -n "$(SITE)" && test -d "$(BUNDLE)" || { echo "usage: make seed-site env=dev SITE=<site> BUNDLE=<dir>" >&2; exit 2; }
+	@echo "$(SITE)" | grep -Eqx '[a-z0-9_]+' || { echo "SITE must match [a-z0-9_]+" >&2; exit 2; }
+	$(call upload,/tmp/pae-seed,$(BUNDLE))
+	@# docker cp leaves root-owned files the container's user can't remove, so each run gets a new
+	@# directory inside the container (gone when the container is next recreated).
+	$(SSH) "set -e; c=\"$(COMPOSE_ON_VM)\"; d=/tmp/pae-seed-\$$(date +%s); \
+		\$$c cp /tmp/pae-seed/$(notdir $(BUNDLE)) backend-ot:\$$d; \
+		\$$c exec -T backend-ot sh \$$d/run_in_container.sh $(SITE); \
+		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/stop; \
+		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sites/$(SITE)/activate; \
+		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/start; \
+		echo 'dev: powerflow is running $(SITE); backend-ot polls it at powerflow:502'"
