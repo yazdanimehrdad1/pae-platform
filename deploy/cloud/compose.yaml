@@ -1,0 +1,219 @@
+# The cloud stack (dev and prod run this same file): the four deployed services and their
+# databases, from the published images. Started by scripts/deploy.sh on the VM:
+#   docker compose --env-file config/<env>.env --env-file release.env run --rm backend-ot-migrate
+#   docker compose --env-file config/<env>.env --env-file release.env up -d --wait
+#
+# - Images only (never `build:`): ${REGISTRY}/pae-<service>:${RELEASE}, one git SHA for every service.
+# - Self-contained: it never includes or extends services/*/compose.yaml and has no ../services/
+#   paths (root CLAUDE.md). The local dev stack's Modbus simulator is DEV-ONLY and never runs here.
+# - Non-secret settings come from config/<env>.env; secrets come from the per-service env files
+#   that deploy.sh writes from Secret Manager into /opt/pae/env/ (root only, 0600).
+# - Data lives on the data disk (/mnt/pae-data/volumes/<volume>), which the daily snapshots cover.
+# - Only web-plusdas is published (port 80); the firewall admits it from Google's IAP range only.
+#   powerflow's Modbus server (502) stays on the internal network.
+name: pae
+
+x-logging: &logging
+  driver: json-file # the Ops Agent ships these files to Cloud Logging
+  options:
+    max-size: 20m
+    max-file: "5"
+
+x-postgres-healthcheck: &postgres-healthcheck
+  interval: 5s
+  timeout: 3s
+  retries: 20
+
+services:
+  # ---- backend-ot -------------------------------------------------------------------------
+  backend-ot-postgres:
+    image: postgres:16.15-alpine
+    env_file: [/opt/pae/env/backend-ot-postgres.env]
+    environment:
+      - POSTGRES_DB=pae_backend_ot
+      - POSTGRES_USER=pae_backend_ot_user
+    volumes:
+      - backend-ot-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *postgres-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U pae_backend_ot_user -d pae_backend_ot"]
+    deploy:
+      resources: {limits: {memory: 1g}}
+    logging: *logging
+    restart: unless-stopped
+
+  # Locks and cache only (leader election), so nothing is persisted.
+  backend-ot-redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources: {limits: {memory: 256m}}
+    logging: *logging
+    restart: unless-stopped
+
+  # Migrations run once, before the app (the Kubernetes Job later): deploy.sh runs
+  # `docker compose run --rm backend-ot-migrate` and only then `up`. The profile keeps `up` from
+  # starting it again.
+  backend-ot-migrate:
+    image: ${REGISTRY}/pae-backend-ot:${RELEASE}
+    profiles: [migrate]
+    command: ["python", "scripts/migrate_db.py"]
+    env_file: [/opt/pae/env/backend-ot.env]
+    environment: &backend-ot-env
+      - LOG_LEVEL=${LOG_LEVEL}
+      - RUN_MIGRATIONS_ON_START=false
+      - POSTGRES_HOST=backend-ot-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=pae_backend_ot
+      - POSTGRES_USER=pae_backend_ot_user
+      - REDIS_HOST=backend-ot-redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - AGGREGATOR_MODBUS_HOST=${AGGREGATOR_MODBUS_HOST}
+      - AGGREGATOR_MODBUS_PORT=${AGGREGATOR_MODBUS_PORT}
+    depends_on:
+      backend-ot-postgres: {condition: service_healthy}
+    logging: *logging
+    restart: "no"
+
+  backend-ot:
+    image: ${REGISTRY}/pae-backend-ot:${RELEASE}
+    env_file: [/opt/pae/env/backend-ot.env]
+    environment: *backend-ot-env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/readyz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on: # backend-ot-migrate has already run (deploy.sh)
+      backend-ot-postgres: {condition: service_healthy}
+      backend-ot-redis: {condition: service_healthy}
+    deploy:
+      resources: {limits: {memory: 1g}}
+    logging: *logging
+    restart: unless-stopped
+
+  # ---- intelli-gateway (single replica: conversations live in the process) -----------------
+  intelli-gateway-postgres:
+    image: postgres:16.15-alpine
+    env_file: [/opt/pae/env/intelli-gateway-postgres.env]
+    environment:
+      - POSTGRES_DB=intelli_gateway
+      - POSTGRES_USER=intelli_gateway
+    volumes:
+      - intelli-gateway-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *postgres-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U intelli_gateway -d intelli_gateway"]
+    deploy:
+      resources: {limits: {memory: 512m}}
+    logging: *logging
+    restart: unless-stopped
+
+  intelli-gateway:
+    image: ${REGISTRY}/pae-intelli-gateway:${RELEASE}
+    env_file: [/opt/pae/env/intelli-gateway.env] # ANTHROPIC_API_KEY, OPEN_METEO_API_KEY, DATABASE_URL
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - USE_FAKE_DATA=false
+      - BACKEND_OT_URL=http://backend-ot:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/readyz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      intelli-gateway-postgres: {condition: service_healthy}
+    deploy:
+      resources: {limits: {memory: 768m}}
+    logging: *logging
+    restart: unless-stopped
+
+  # ---- powerflow (single replica: the simulation engine lives in the process) -------------
+  powerflow-postgres:
+    image: postgres:16.15-alpine
+    env_file: [/opt/pae/env/powerflow-postgres.env]
+    environment:
+      - POSTGRES_DB=powerflow
+      - POSTGRES_USER=powerflow
+    volumes:
+      - powerflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *postgres-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U powerflow -d powerflow"]
+    deploy:
+      resources: {limits: {memory: 512m}}
+    logging: *logging
+    restart: unless-stopped
+
+  powerflow:
+    image: ${REGISTRY}/pae-powerflow:${RELEASE}
+    env_file: [/opt/pae/env/powerflow.env] # DATABASE_URL
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL}
+      - MODBUS_HOST=0.0.0.0
+      - MODBUS_PORT=502
+      - PROFILES_DIR=profiles
+      - POINT_STANDARD_DIR=docs/point-standard
+      - ACTIVE_SITE=
+    volumes:
+      - powerflow-profiles:/app/profiles
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      powerflow-postgres: {condition: service_healthy}
+    deploy:
+      resources: {limits: {memory: 1536m}}
+    logging: *logging
+    restart: unless-stopped
+
+  # ---- web-plusdas: the UI and the same-origin proxy (/api, /powerflow-api, /intelli-gateway-api)
+  web-plusdas:
+    image: ${REGISTRY}/pae-web-plusdas:${RELEASE}
+    ports:
+      - "80:80"
+    environment:
+      - API_UPSTREAM=http://backend-ot:8000
+      - POWERFLOW_UPSTREAM=http://powerflow:8000
+      - INTELLI_GATEWAY_UPSTREAM=http://intelli-gateway:8000
+    healthcheck:
+      # 127.0.0.1, not localhost: busybox resolves localhost to ::1 and nginx listens on IPv4 only.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      resources: {limits: {memory: 128m}}
+    logging: *logging
+    restart: unless-stopped
+
+# Named volumes bound to the data disk, so the daily snapshots cover every database. Docker still
+# seeds an empty one from the image (powerflow's shipped profiles).
+x-data-volume: &data-volume
+  driver: local
+volumes:
+  backend-ot-postgres-data:
+    <<: *data-volume
+    driver_opts: {type: none, o: bind, device: /mnt/pae-data/volumes/backend-ot-postgres-data}
+  intelli-gateway-postgres-data:
+    <<: *data-volume
+    driver_opts: {type: none, o: bind, device: /mnt/pae-data/volumes/intelli-gateway-postgres-data}
+  powerflow-postgres-data:
+    <<: *data-volume
+    driver_opts: {type: none, o: bind, device: /mnt/pae-data/volumes/powerflow-postgres-data}
+  powerflow-profiles:
+    <<: *data-volume
+    driver_opts: {type: none, o: bind, device: /mnt/pae-data/volumes/powerflow-profiles}

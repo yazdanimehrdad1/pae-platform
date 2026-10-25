@@ -45,8 +45,8 @@ TODO_MONOREPO_TASKS.md  open monorepo work (debt, hardening, pointers into deplo
 - **Contracts are generated, never hand-edited.** The provider regenerates them (`make contract`)
   in the same change as the code, and a breaking change needs a version bump and the user's OK.
 - **Each service builds and tests on its own.** Its build context is its own directory, its
-  config is its own `.env` locally (in the dev and prod clouds: `deploy/cloud/config/<svc>.env` plus
-  its secrets from GCP Secret Manager, `deploy/cloud/secrets.list`), and nothing reads a root `.env` except the root dev-stack
+  config is its own `.env` locally (in the dev and prod clouds: `deploy/cloud/config/<env>.env` plus
+  its secrets from GCP Secret Manager, written by `deploy/cloud/scripts/deploy.sh`), and nothing reads a root `.env` except the root dev-stack
   port overrides.
 - **`services/web-plusdas` stays extractable** (`git subtree split --prefix=services/web-plusdas`).
   It depends only on `contracts/` and its own files, nothing outside it imports from it, and

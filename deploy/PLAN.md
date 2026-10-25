@@ -139,7 +139,7 @@ Edit:
 - **`scripts/check_boundaries.py`:**
   - Dev-only scan (`:17,199-204`): **keep its current scope, all of `deploy/` except `deploy/compose/`**, so the future `deploy/k8s/` is covered. Skip `*.md` (docs aren't manifests; `deploy/PLAN.md` mentions mock-modbus by name). Add the root `.github/workflows/deploy-prod.yml` and `_build-image.yml`, but **not** `ci.yml`, which legitimately tests mock-modbus.
   - Outside-in check: add `deploy/prod` and `deploy/infra` to `SHARED_DIRS` (`:39`), so a `../services/...` path there is caught.
-  - New check, written in Stage 5 with the first sops file: every `deploy/cloud/secrets/*.sops.env` is encrypted.
+  - ~~New check in Stage 5: every `*.sops.env` is encrypted.~~ Superseded by rev. 3: secrets live in Secret Manager, there are no sops files.
 - **`TODO_MONOREPO_TASKS.md`:**
   - Replace "There's no CI" (`:18-19`), the CI item (`:22-25`) and "Deploy cutover" (`:26-28`) with a pointer to `deploy/PLAN.md`.
   - Keep `:29-31`, the nginx `POWERFLOW_UPSTREAM` lesson; Stage 1 uses it.
@@ -209,15 +209,15 @@ The Docker Compose stack, the images and CI stay provider-neutral. Leaving GCP l
 ```
 deploy/
   compose/                 (existing) dev stack, builds from source, includes mock-modbus
-  prod/
-    compose.prod.yaml      image: ${REGISTRY}/pae-<svc>:${RELEASE}, never build:; volumes on the data
-                           disk, healthchecks, resource limits, the backend-ot-migrate one-shot. No
-                           mock-modbus. Self-contained: never include/extends services/*/compose.yaml
-                           and no ../services/... paths.
-    Makefile               prod-* targets (called from the root Makefile)
-    config/                non-secret env per service, plain text, committed
-    secrets.list           which Secret Manager secret becomes which service's env key (names only)
-    scripts/               deploy.sh (runs on the VM), backup.sh, host-setup.sh
+  cloud/                   dev and prod (the same files; env=dev|prod picks the settings)
+    compose.yaml           the stack: image: ${REGISTRY}/pae-<svc>:${RELEASE}, never build:; volumes on
+                           the data disk, healthchecks, memory limits, the backend-ot-migrate profile.
+                           Self-contained: never include/extends services/*/compose.yaml and no
+                           ../services/... paths; the local Modbus simulator never runs here.
+    Makefile               infra-up, host-setup, deploy, status, logs, stats, backup, ssh, ui, seed-site
+                           (all env=dev|prod; called from the root Makefile)
+    config/dev.env|prod.env  non-secret settings per environment, committed
+    scripts/               host-setup.sh, deploy.sh, backup.sh (run on the VM), ops-agent.yaml
   infra/
     gcp/bootstrap.sh       gcloud: APIs, VPC + firewall, Cloud NAT, service accounts, Artifact Registry,
                            buckets, Workload Identity Federation, VM + disks + snapshot schedule
@@ -274,7 +274,7 @@ deploy/
 | CI → GCP | none | none: Workload Identity Federation, attribute condition = this repository | none | repository variables `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_CI_SERVICE_ACCOUNT` (not secret) |
 
 - **The owner adds the API-key values** (`gcloud secrets versions add <name> --data-file=-`, typed into the terminal, or in the console). Claude creates the empty secrets and the scripts, never the values. `bootstrap.sh` generates the three Postgres passwords itself (`openssl rand`, piped straight into Secret Manager), so nobody sees them.
-- `deploy/cloud/secrets.list` maps each secret name to its service and env key; `deploy.sh` reads only those.
+- `deploy/cloud/scripts/deploy.sh` maps each secret to its service's env file in `/opt/pae/env/` (root, 0600); optional secrets without a value (the API keys) are left out instead of set empty.
 - Rotate a secret: add a new version, then `make deploy env=...` (a database password change also needs `ALTER USER` first).
 - Service accounts (least privilege):
   - `pae-prod-vm`: `secretmanager.secretAccessor` on the listed secrets, `artifactregistry.reader` on the repository, `storage.objectAdmin` on the backup bucket, `logging.logWriter` and `monitoring.metricWriter`.
@@ -320,7 +320,7 @@ deploy/
 | **2 CI** | Done: `ci.yml` + reusable `_service-ci.yml` / `_build-image.yml`, `scripts/ci/` (changed-service selection, image smoke tests), Dependabot for actions. **Owner step:** require the single check "CI result" on `main`. Image pushes go to Artifact Registry (Stage 3) |
 | **3 Infra** | **Done 2026-10-25** (`make infra-up env=prod`, `make ssh env=prod` verified). `deploy/infra/gcp/bootstrap.sh`: APIs, removal of the auto-created `default` network (its rules opened SSH/RDP to the internet), VPC + firewall (IAP range only), Cloud NAT, service accounts, Artifact Registry (+ cleanup policy), backup bucket (us-east1), Secret Manager secrets, WIF for this repository, VM e2-standard-2 (20 GB boot, 50 GB data disk, no external IP), daily snapshot schedule (7 kept). CI image push switched to Artifact Registry. **dev** (`pae-development`, VM `pae-dev`, e2-medium, 30 GB data disk) from the same script with `env=dev`; it pulls the same images from prod's registry |
 | **4 Access** | IAP tunnel for the owner first (`make ui env=prod|dev`); later a public domain with HTTPS and login, then real app auth (needed before the mobile app). Decide the HTTPS front then |
-| **5 Prod stack** | `compose.prod.yaml`, configs, `secrets.list`, `host-setup.sh` (Docker, data disk mount, Ops Agent), weekly `pg_dump` to GCS; test a restore once |
+| **5 Stack** | **Done on dev 2026-10-25** (prod: same files, deployed at go-live). `deploy/cloud/compose.yaml`, `config/dev.env` + `prod.env`, `scripts/host-setup.sh` (data disk, Docker, registry login, Ops Agent, weekly backup timer), `scripts/deploy.sh` (Secret Manager → env files, pre-deploy backup, pull, migrate, up --wait, checks through the UI origin, auto-rollback), `scripts/backup.sh` (pg_dump → GCS). `make host-setup / deploy / status / logs / stats / backup env=...`, `make cloud-seed-site env=dev SITE=...`. Verified: dev deploy green, UI through IAP, container logs in Cloud Logging, `2bess_1pv` seeded, the e2e check AGREE on all 9 devices |
 | **6 Site links** | Playbooks: (a) WireGuard or Tailscale to the site router, (b) direct static IP + allow-list (needs a static egress IP on the NAT), (c) on-site backend-ot with the same compose. Verify with `/api/health_modbus_client` |
 | **7 CD** | `deploy.yml` (WIF + IAP SSH + `deploy.sh`): every merge to `main` deploys to **dev** automatically, then **prod** gets the same SHA after approval; `pae-ci` gets IAP + OS Login on both VMs. Manual deploy first, then CI; rehearse a rollback |
 | **8 Cost controls** | `pause` / `resume` / `destroy` (per environment); rehearse pause → resume → restore |
@@ -329,7 +329,7 @@ deploy/
 ## Future path: Option B (GKE Autopilot + Cloud SQL), about 1–2 weeks
 1. **Middle step, A + Cloud SQL (about 1–2 days):** Cloud SQL PG 16 (ENTERPRISE, e.g. `db-custom-1-3840`) with private IP in the VM's VPC; `pg_dump`/restore; point `POSTGRES_HOST`/`DATABASE_URL` at it. Nothing in the schema is Cloud SQL-specific. Its backups/PITR replace the data disk and dumps for that DB.
 2. GKE Autopilot cluster in the same project; images already in Artifact Registry.
-3. `deploy/k8s/base` + `overlays/prod` (kustomize) from `compose.prod.yaml`: probes, limits, `replicas: 1` where single-instance, the migrate Job as an ArgoCD Sync hook.
+3. `deploy/k8s/base` + `overlays/prod` (kustomize) from `deploy/cloud/compose.yaml`: probes, limits, `replicas: 1` where single-instance, the migrate Job as an ArgoCD Sync hook.
 4. Secrets: External Secrets Operator reading the same Secret Manager secrets.
 5. Site connectivity: Cloud VPN or the Tailscale Kubernetes operator.
 6. ArgoCD; `deploy.yml` changes from "run deploy.sh" to "bump the image tag in the overlay".
