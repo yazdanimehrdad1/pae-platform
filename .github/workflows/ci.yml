@@ -1,0 +1,149 @@
+# CI for the monorepo. Every check is a make target, the same one you run locally.
+# - Pull request: the changed services' checks (a contract change also checks its consumers),
+#   the root checks, and a build + smoke test of each changed production image (not pushed).
+# - Push to main (and manual runs): every service, then all four production images built,
+#   smoke-tested and pushed to Artifact Registry as
+#   us-central1-docker.pkg.dev/pae-platform-prod/pae/pae-<service>:<git sha> (Workload Identity Federation).
+# Branch protection needs only one required check: "CI result".
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A pull request's newer push cancels its older run. On main every commit gets its own group, so
+# no run is cancelled or dropped and every merged SHA gets its images (rollback needs them).
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: Changed services
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      services: ${{ steps.select.outputs.services }}
+      images: ${{ steps.select.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - name: Select
+        id: select
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            uv run --no-project python scripts/ci/changed_services.py --base "$BASE_SHA" --head "$HEAD_SHA"
+          else
+            uv run --no-project python scripts/ci/changed_services.py --all
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  root:
+    name: Root checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/*/uv.lock
+      - name: CI scripts' tests
+        run: uv run --no-project python -m unittest discover -s scripts/ci
+      - name: Service boundaries
+        run: make check-boundaries
+      - name: Contracts are current
+        run: make contracts-check
+
+  service:
+    name: Service
+    needs: changes
+    if: needs.changes.outputs.services != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.services) }}
+    uses: ./.github/workflows/_service-ci.yml
+    with:
+      service: ${{ matrix.service }}
+      toolchain: ${{ matrix.toolchain }}
+      integration: ${{ matrix.integration }}
+
+  # Pull requests: build + smoke test only, with a read-only token.
+  image:
+    name: Image
+    needs: [changes, root, service]
+    # Runs when there are images and nothing before it failed (the service job may be skipped).
+    if: >-
+      always() && github.event_name == 'pull_request' && needs.changes.outputs.images != '[]'
+      && needs.changes.result == 'success' && needs.root.result == 'success'
+      && (needs.service.result == 'success' || needs.service.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.images) }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      service: ${{ matrix.service }}
+      context: ${{ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push: false
+
+  # main (and manual runs on main): build, smoke test and push every production image.
+  image-push:
+    name: Image
+    needs: [changes, root, service]
+    if: >-
+      always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      && needs.changes.outputs.images != '[]'
+      && needs.changes.result == 'success' && needs.root.result == 'success'
+      && (needs.service.result == 'success' || needs.service.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.images) }}
+    permissions:
+      contents: read
+      id-token: write # Workload Identity Federation login to Artifact Registry
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      service: ${{ matrix.service }}
+      context: ${{ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push: true
+
+  result:
+    name: CI result
+    needs: [changes, root, service, image, image-push]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed or was skipped
+        run: |
+          echo "changes=$CHANGES root=$ROOT service=$SERVICE image=$IMAGE image-push=$IMAGE_PUSH"
+          for result in "$CHANGES" "$ROOT" "$SERVICE" "$IMAGE" "$IMAGE_PUSH"; do
+            case "$result" in success|skipped) ;; *) exit 1 ;; esac
+          done
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          ROOT: ${{ needs.root.result }}
+          SERVICE: ${{ needs.service.result }}
+          IMAGE: ${{ needs.image.result }}
+          IMAGE_PUSH: ${{ needs.image-push.result }}

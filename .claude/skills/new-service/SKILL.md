@@ -92,6 +92,9 @@ every future service gets the fix.
 - root `CLAUDE.md`: the port registry and the services list;
 - `.claude/skills/run-platform/SKILL.md`: "Default host ports";
 - `contracts/README.md`: as described in the procedure.
+- `scripts/ci/changed_services.py`: add it to `SERVICES` (toolchain, whether it has
+  `test-integration`), to `CONTRACT_USERS` for the contracts it provides or consumes, and to
+  `IMAGES` only once it is deployed to production (and add its case to `scripts/ci/smoke_image.sh`).
 - Service-specific skills go in `services/<name>/.claude/skills/<skill>/SKILL.md` once the
   service has a repeatable workflow of its own.
 

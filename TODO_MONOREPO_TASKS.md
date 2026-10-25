@@ -17,9 +17,9 @@ backlog. Remove an item when it's done; the commit that closes it records the de
   `add-api-call` skill).
 ## Production deployment
 
-- **CI, CD and production hosting** are planned in stages in `deploy/PLAN.md` (Stages 0 and 1 are
-  done). Until Stage 2 lands, the checks only run
-  through each clone's pre-commit hook (`make hooks`) and `make check`.
+- **CI, CD and production hosting** are planned in stages in `deploy/PLAN.md` (Stages 0, 1 and 2 are
+  done). CI runs on every PR to main and every push to main
+  (`.github/workflows/ci.yml`); locally, `make hooks` and `make check`.
 
 ## Mobile (mobile-plusdas)
 

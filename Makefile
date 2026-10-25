@@ -33,7 +33,9 @@ TARGET_SERVICES := $(or $(svc),$(SERVICES))
 DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildcard .env),--env-file $(CURDIR)/.env)
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
-.PHONY: help up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(FANOUT_TARGETS)
+# Cloud environments dev and prod (deploy/PLAN.md): delegated to deploy/cloud/Makefile, always with env=prod|dev.
+CLOUD_TARGETS := infra-up ssh ui
+.PHONY: help up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(CLOUD_TARGETS) $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -67,6 +69,11 @@ help:
 	@echo "  check-boundaries   no cross-service imports/paths; mock-modbus in no production manifest"
 	@echo "  contracts-check    regenerate every contract; fail if contracts/ differs from the index"
 	@echo "  hooks              enable the repo's git hooks (.githooks/pre-commit)"
+	@echo ""
+	@echo "Cloud environments (env=prod: pae-platform-prod, env=dev: pae-development; see deploy/PLAN.md):"
+	@echo "  infra-up env=...   create or complete that environment's GCP infrastructure (idempotent)"
+	@echo "  ssh env=...        shell on that environment's VM through IAP"
+	@echo "  ui env=...         that environment's UI through an IAP tunnel on http://localhost:8080"
 	@echo ""
 	@echo "Services: $(SERVICES)"
 	@echo "Standalone: make -C services/<svc> <target>   (see each service's CLAUDE.md)"
@@ -201,3 +208,9 @@ contracts-check: contract
 	@untracked="$$(git ls-files --others --exclude-standard -- $(CONTRACT_FILES))"; \
 		if [ -n "$$untracked" ]; then echo "contracts-check: untracked contract files:" >&2; echo "$$untracked" >&2; exit 1; fi
 	@echo "contracts-check: contracts/ is current"
+
+# ---------------------------------------------------------------------------
+# Cloud environments: everything lives in deploy/cloud/Makefile.
+# ---------------------------------------------------------------------------
+$(CLOUD_TARGETS):
+	@$(MAKE) --no-print-directory -C deploy/cloud $@

@@ -1,0 +1,11 @@
+# Keeps the SHA-pinned GitHub Actions current (one grouped PR a week). Service dependencies are
+# updated by hand (uv lock / npm) for now, so their lockfiles change only on purpose.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

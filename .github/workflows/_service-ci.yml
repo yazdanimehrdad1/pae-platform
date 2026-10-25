@@ -1,0 +1,73 @@
+# Reusable: one service's checks, through its own Makefile (the same targets as a laptop:
+# make -C services/<svc> install lint typecheck test [test-integration]). Called by ci.yml.
+name: service-ci
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: Directory name under services/
+        required: true
+        type: string
+      toolchain:
+        description: python (uv) or node (npm)
+        required: true
+        type: string
+      integration:
+        description: Also run make test-integration (Docker compose test stack)
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ inputs.service }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        if: inputs.toolchain == 'python'
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/${{ inputs.service }}/uv.lock
+
+      - name: Set up Node
+        if: inputs.toolchain == 'node'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: services/${{ inputs.service }}/package-lock.json
+
+      - name: Install
+        run: make -C "services/$SERVICE" install
+        env:
+          SERVICE: ${{ inputs.service }}
+
+      - name: Lint
+        run: make -C "services/$SERVICE" lint
+        env:
+          SERVICE: ${{ inputs.service }}
+
+      - name: Typecheck
+        run: make -C "services/$SERVICE" typecheck
+        env:
+          SERVICE: ${{ inputs.service }}
+
+      - name: Unit tests
+        run: make -C "services/$SERVICE" test
+        env:
+          SERVICE: ${{ inputs.service }}
+
+      - name: Integration tests
+        if: inputs.integration
+        run: make -C "services/$SERVICE" test-integration
+        env:
+          SERVICE: ${{ inputs.service }}
