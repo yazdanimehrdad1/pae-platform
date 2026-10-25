@@ -87,7 +87,8 @@ the root, and `make -C services/<svc> help` in each service.
   build + smoke test of changed production images; on `main`, everything, then pushes
   `us-central1-docker.pkg.dev/pae-platform-prod/pae/pae-<svc>:<git sha>` (Artifact Registry, through Workload Identity Federation) for the four deployed services. The one required check is
   "CI result". A new service or contract consumer goes into `scripts/ci/changed_services.py`.
-  Third-party actions are pinned to commit SHAs (Dependabot updates them).
+  Third-party actions are pinned to commit SHAs (Dependabot updates them). `.github/workflows/deploy.yml`
+  then deploys each green `main` commit to dev automatically, and to prod only with the owner's approval.
 - **Dev stack (all services, one network), the default for development:** `make up [svc=]`,
   `down`, `ps`, `logs`, `seed-mock-modbus`, `seed-2bess-1pv`, `e2e`, `e2e-2bess-1pv`, and for the
   phone app `mobile-dev`. See the `run-platform` skill. **The root takes priority:**

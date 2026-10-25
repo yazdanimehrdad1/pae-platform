@@ -1,0 +1,83 @@
+# Deploy a release (one git SHA; CI already built and pushed its images) to a cloud environment.
+# - dev: automatically after CI succeeds on main, the same commit.
+# - prod: waits for the owner's approval (GitHub Environment "production" with required reviewers).
+#   It runs after dev only while the repository variable PROD_AUTO_PROMOTE is "true" (set it at
+#   go-live; until then the prod VM is stopped), or when started by hand.
+# - Manual: Actions > Deploy > Run workflow, pick the environment and optionally an older SHA
+#   (that is the rollback).
+# Each deploy is the same `make deploy env=... RELEASE=<sha>` the owner runs from a laptop: IAP SSH
+# to the VM, then deploy/cloud/scripts/deploy.sh. GCP access is Workload Identity Federation (no
+# keys); it only works from refs/heads/main.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [dev, prod]
+        default: dev
+      release:
+        description: Git SHA to deploy (empty = the newest commit on main)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release to deploy
+    # Only after a successful CI run of a push to main (not a PR run that merged elsewhere).
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+    steps:
+      - name: Pick the SHA
+        id: pick
+        run: |
+          sha="${RUN_SHA:-${INPUT_SHA:-$GITHUB_SHA}}"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "not a full 40-character SHA: $sha" >&2; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Release \`$sha\`" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.release }}
+
+  dev:
+    name: Deploy to dev
+    needs: release
+    if: github.event_name == 'workflow_run' || inputs.environment == 'dev'
+    uses: ./.github/workflows/_deploy-env.yml
+    with:
+      environment: dev
+      github_environment: dev
+      release: ${{ needs.release.outputs.sha }}
+    permissions:
+      contents: read
+      id-token: write
+
+  prod:
+    name: Deploy to prod
+    needs: [release, dev]
+    if: >-
+      always() && needs.release.result == 'success'
+      && ((github.event_name == 'workflow_run' && needs.dev.result == 'success' && vars.PROD_AUTO_PROMOTE == 'true')
+          || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'))
+    uses: ./.github/workflows/_deploy-env.yml
+    with:
+      environment: prod
+      github_environment: production
+      release: ${{ needs.release.outputs.sha }}
+    permissions:
+      contents: read
+      id-token: write

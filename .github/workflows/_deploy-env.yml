@@ -1,0 +1,60 @@
+# Reusable: deploy one release to one cloud environment with the same make target as a laptop
+# (`make deploy env=<env> RELEASE=<sha>`). Called by deploy.yml. The GitHub Environment carries the
+# approval rule ("production" requires the owner's approval) and the deployment history.
+name: deploy-env
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: dev or prod (deploy/cloud's env=)
+        required: true
+        type: string
+      github_environment:
+        description: GitHub Environment (approval rules, deployment history)
+        required: true
+        type: string
+      release:
+        description: Full git SHA whose images CI pushed
+        required: true
+        type: string
+
+# No permissions block on purpose: the caller grants contents: read and id-token: write (WIF).
+
+jobs:
+  deploy:
+    name: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: ${{ inputs.github_environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false # never interrupt a deploy halfway; the next one waits
+    steps:
+      # The deploy files (deploy/cloud) of the same commit as the images.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release }}
+          persist-credentials: false
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      # The runner image ships gcloud; the auth step points it at the federated credentials.
+      - name: Deploy
+        run: make deploy env="$ENVIRONMENT" RELEASE="$RELEASE"
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          RELEASE: ${{ inputs.release }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "${ENVIRONMENT}: \`${RELEASE}\` (${JOB_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          RELEASE: ${{ inputs.release }}
+          JOB_STATUS: ${{ job.status }}
