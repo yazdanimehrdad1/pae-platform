@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     postgres_user: str = Field(default="pae_backend_ot_user", alias="POSTGRES_USER")
     # Secret: no default on purpose — a missing POSTGRES_PASSWORD must fail loudly at
     # startup rather than silently connect with a known-bad value. Supplied via .env
-    # locally and the sops-encrypted secrets file in production.
+    # locally and GCP Secret Manager (written to the VM at deploy) in production.
     postgres_password: str = Field(alias="POSTGRES_PASSWORD")
     database_pool_size: int = Field(default=10, alias="DATABASE_POOL_SIZE")
     database_max_overflow: int = Field(default=20, alias="DATABASE_MAX_OVERFLOW")

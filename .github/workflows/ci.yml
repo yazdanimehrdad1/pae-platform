@@ -2,7 +2,8 @@
 # - Pull request: the changed services' checks (a contract change also checks its consumers),
 #   the root checks, and a build + smoke test of each changed production image (not pushed).
 # - Push to main (and manual runs): every service, then all four production images built,
-#   smoke-tested and pushed to GHCR as ghcr.io/<owner>/pae-<service>:<git sha>.
+#   smoke-tested and pushed to Artifact Registry as
+#   us-central1-docker.pkg.dev/pae-platform-prod/pae/pae-<service>:<git sha> (Workload Identity Federation).
 # Branch protection needs only one required check: "CI result".
 name: CI
 
@@ -119,7 +120,7 @@ jobs:
         include: ${{ fromJSON(needs.changes.outputs.images) }}
     permissions:
       contents: read
-      packages: write
+      id-token: write # Workload Identity Federation login to Artifact Registry
     uses: ./.github/workflows/_build-image.yml
     with:
       service: ${{ matrix.service }}

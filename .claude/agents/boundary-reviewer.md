@@ -31,13 +31,14 @@ touched service first.
    bump and the consumers from `contracts/README.md` updated in the same change.
 3. **mock-modbus is DEV-ONLY:** it may appear only in `services/mock-modbus/`,
    `deploy/compose/`, backend-ot's dev seed/tests and root `ci.yml` (which tests it) — never in
-   `deploy/prod/`, `deploy/infra/`, `deploy/k8s/`, the root deploy/build workflows
-   (`deploy-*.yml`, `_build-image.yml`), a production Dockerfile, or backend-ot's `src/` runtime code.
+   `deploy/cloud/`, `deploy/infra/`, `deploy/k8s/`, the root deploy/build workflows
+   (`deploy*.yml`, `_build-image.yml`), a production Dockerfile, or backend-ot's `src/` runtime code.
 4. **Secrets:** passwords, tokens, keys, connection strings with credentials, `.env` files being
-   added (`git ls-files` must never list a `.env`). Committed `deploy/prod/secrets/*.sops.env`
-   files are allowed only when sops-encrypted (a `sops:` block / `ENC[` values); flag any
-   secrets file in plaintext. Values in `.env.example` and `*.sops.env.example` must be placeholders.
-5. **Production deployment** lives in `deploy/prod/`, `deploy/infra/` and root `.github/` (plan:
+   added (`git ls-files` must never list a `.env`). Production secrets live only in GCP Secret
+   Manager: flag any secret value in `deploy/`, workflows or scripts (only secret *names*, e.g.
+   `deploy/cloud/secrets.list`), a script that prints a secret, and GitHub secrets for anything
+   Workload Identity Federation covers. Values in `.env.example` must be placeholders.
+5. **Production deployment** lives in `deploy/cloud/`, `deploy/infra/` and root `.github/` (plan:
    `deploy/PLAN.md`). These may coordinate services only through published images, env and
    `make -C`: flag any `include`/`extends` of `services/*/compose.yaml`, `build:` from a service,
    or `../services/...` path there. Flag edits to them that don't match the plan's current stage.
