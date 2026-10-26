@@ -44,11 +44,14 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
 
       # The runner image ships gcloud; the auth step points it at the federated credentials.
+      # gcloud compute ssh names the OS Login user from core/account, which a credential file
+      # leaves empty (gcloud then crashes with "quote_from_bytes() expected bytes"): set it.
       - name: Deploy
         run: make deploy env="$ENVIRONMENT" RELEASE="$RELEASE"
         env:
           ENVIRONMENT: ${{ inputs.environment }}
           RELEASE: ${{ inputs.release }}
+          CLOUDSDK_CORE_ACCOUNT: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
 
       - name: Summary
         if: always()
