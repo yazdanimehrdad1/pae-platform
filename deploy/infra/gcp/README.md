@@ -29,6 +29,13 @@ make ssh env=prod                 # shell on the VM through IAP (no external IP,
 | Data disk | `pae-prod-data` (50 GB pd-balanced) | Holds the Docker volumes (databases); `auto-delete=no`, survives the VM |
 | VM | `pae-prod` (e2-standard-2, Debian 12, us-central1-a) | No external IP, OS Login, Shielded VM, deletion protection |
 
+## Public HTTP (`PUBLIC_HTTP`)
+
+`PUBLIC_HTTP=true` (dev's default since 2026-10-26, for demos) reserves a static IP
+(`<vm>-public-ip`), attaches it to the VM and adds the firewall rule `pae-allow-public-http`
+(tcp 80 from anywhere, that VM only). SSH stays IAP-only. `PUBLIC_HTTP=false` (prod's default)
+removes all three. There is no login in the app yet, so a public environment is usable by anyone.
+
 ## dev (`env=dev`)
 
 The same script with `env=dev` builds the same setup in `pae-development`: VM `pae-dev` (e2-medium),

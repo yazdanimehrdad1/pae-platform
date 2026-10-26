@@ -17,6 +17,8 @@ Constraints:
 
 Each stage starts only after the owner approves it. Cost figures are estimates from GCP list prices; check them in the GCP pricing calculator.
 
+**Current status, day-to-day use and the go-live checklist: [`STATUS.md`](STATUS.md).**
+
 ## Decisions (rev. 3)
 | # | Decision |
 |---|---|
@@ -24,7 +26,7 @@ Each stage starts only after the owner approves it. Cost figures are estimates f
 | Tooling | **GCP-native** (rev. 3): only `gcloud` on the laptop; Secret Manager, Artifact Registry, Workload Identity Federation, IAP, Ops Agent. See "Tooling". |
 | Database | **Plain PostgreSQL 16**, the same image in dev and prod. No TimescaleDB. |
 | Historian | **No retention work**: readings are kept indefinitely in one plain table; storage is handled by growing the data disk. This plan covers deployment only. |
-| Environments | **local** = laptop Docker (`make up`). **dev** = `pae-development`, VM `pae-dev` (e2-medium, 30 GB data disk): same images, compose file and setup as prod, only simulated/test sites, deployed automatically on every merge to `main`. **prod** = `pae-platform-prod`, VM `pae-prod`: real sites, deployed the same commit only after the owner approves. **Prod VM stopped 2026-10-25 to save cost** (about $8/month for disks and snapshots); everything is set up, and only dev is deployed until go-live. |
+| Environments | **local** = laptop Docker (`make up`). **dev** = `pae-development`, VM `pae-dev` (e2-medium, 30 GB data disk; **public over HTTP at http://136.115.89.60 since 2026-10-26 for demos**, see `STATUS.md`): same images, compose file and setup as prod, only simulated/test sites, deployed automatically on every merge to `main`. **prod** = `pae-platform-prod`, VM `pae-prod`: real sites, deployed the same commit only after the owner approves. **Prod VM stopped 2026-10-25 to save cost** (about $8/month for disks and snapshots); everything is set up, and only dev is deployed until go-live. |
 
 ---
 
@@ -322,7 +324,7 @@ deploy/
 | **4 Access** | IAP tunnel for the owner first (`make ui env=prod|dev`); later a public domain with HTTPS and login, then real app auth (needed before the mobile app). Decide the HTTPS front then |
 | **5 Stack** | **Done on dev 2026-10-25** (prod: same files, deployed at go-live). `deploy/cloud/compose.yaml`, `config/dev.env` + `prod.env`, `scripts/host-setup.sh` (data disk, Docker, registry login, Ops Agent, weekly backup timer), `scripts/deploy.sh` (Secret Manager → env files, pre-deploy backup, pull, migrate, up --wait, checks through the UI origin, auto-rollback), `scripts/backup.sh` (pg_dump → GCS). `make host-setup / deploy / status / logs / stats / backup env=...`, `make cloud-seed-site env=dev SITE=...`. Verified: dev deploy green, UI through IAP, container logs in Cloud Logging, `2bess_1pv` seeded, the e2e check AGREE on all 9 devices |
 | **6 Site links** | Playbooks: (a) WireGuard or Tailscale to the site router, (b) direct static IP + allow-list (needs a static egress IP on the NAT), (c) on-site backend-ot with the same compose. Verify with `/api/health_modbus_client` |
-| **7 CD** | **Written 2026-10-25, first run pending** (needs the CD access grants). `.github/workflows/deploy.yml` + reusable `_deploy-env.yml`: after CI succeeds on a push to `main`, **dev** gets that SHA automatically (`make deploy env=dev RELEASE=<sha>` on the runner: WIF, then IAP SSH as `pae-ci` with OS Login, then `deploy.sh`). **prod** waits for approval in the GitHub Environment `production`; it follows dev only while the repository variable `PROD_AUTO_PROMOTE` is `true` (set at go-live), otherwise only by hand (Actions → Deploy → Run workflow). Rollback = Run workflow with an older SHA. `bootstrap.sh` grants `pae-ci` IAP tunnel, OS Admin Login, compute viewer and service-account-user on the VM account, per project |
+| **7 CD** | **Done 2026-10-26**: first automatic deploy of `ce69a5a` to dev green (two fixes on the way: `CLOUDSDK_CORE_ACCOUNT` for OS Login under WIF, uploads into each SSH user's home). `.github/workflows/deploy.yml` + reusable `_deploy-env.yml`: after CI succeeds on a push to `main`, **dev** gets that SHA automatically (`make deploy env=dev RELEASE=<sha>` on the runner: WIF, then IAP SSH as `pae-ci` with OS Login, then `deploy.sh`). **prod** waits for approval in the GitHub Environment `production`; it follows dev only while the repository variable `PROD_AUTO_PROMOTE` is `true` (set at go-live), otherwise only by hand (Actions → Deploy → Run workflow). Rollback = Run workflow with an older SHA. `bootstrap.sh` grants `pae-ci` IAP tunnel, OS Admin Login, compute viewer and service-account-user on the VM account, per project |
 | **8 Cost controls** | `pause` / `resume` / `destroy` (per environment); rehearse pause → resume → restore |
 | **9 Operations** | Ops Agent dashboards and the alerts above, runbook (deploy, rollback, restore, rotate a secret, add a site) |
 

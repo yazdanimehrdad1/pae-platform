@@ -23,12 +23,16 @@ prod)
 	VM="pae-prod"
 	MACHINE_TYPE="${MACHINE_TYPE:-e2-standard-2}"
 	DATA_DISK_GB="${DATA_DISK_GB:-50}"
+	PUBLIC_HTTP="${PUBLIC_HTTP:-false}"
 	;;
 dev)
 	PROJECT="${PROJECT:-pae-development}"
 	VM="pae-dev"
 	MACHINE_TYPE="${MACHINE_TYPE:-e2-medium}"
 	DATA_DISK_GB="${DATA_DISK_GB:-30}"
+	# Temporary (2026-10-26): dev is public over plain HTTP for demos, linked from the owner's
+	# website. No login exists yet (deploy/PLAN.md, Stage 4); dev holds simulated data only.
+	PUBLIC_HTTP="${PUBLIC_HTTP:-true}"
 	;;
 *)
 	echo "usage: ENV=prod|dev bash deploy/infra/gcp/bootstrap.sh   (make infra-up env=prod|dev)" >&2
@@ -263,6 +267,37 @@ if exists gc compute instances describe "$VM" --zone "$ZONE"; then skip "$VM"; e
 		--shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring \
 		--deletion-protection
 fi
+PUBLIC_IP_NAME="${VM}-public-ip"
+if [ "$PUBLIC_HTTP" = true ]; then
+	step "Public HTTP (port 80 from the internet) on a static IP"
+	if exists gc compute addresses describe "$PUBLIC_IP_NAME" --region "$REGION"; then skip "$PUBLIC_IP_NAME"; else
+		gc compute addresses create "$PUBLIC_IP_NAME" --region "$REGION" --network-tier PREMIUM
+	fi
+	public_ip="$(gcv compute addresses describe "$PUBLIC_IP_NAME" --region "$REGION" --format 'value(address)')"
+	if [ "$(gcv compute instances describe "$VM" --zone "$ZONE" --format 'value(networkInterfaces[0].accessConfigs[0].natIP)')" = "$public_ip" ]; then
+		skip "${public_ip} on ${VM}"
+	else
+		gc compute instances add-access-config "$VM" --zone "$ZONE" --access-config-name external-nat --address "$public_ip"
+	fi
+	if exists gc compute firewall-rules describe pae-allow-public-http; then skip pae-allow-public-http; else
+		gc compute firewall-rules create pae-allow-public-http --network "$NETWORK" --direction INGRESS \
+			--action ALLOW --rules tcp:80 --source-ranges 0.0.0.0/0 --target-tags "$NETWORK_TAG" \
+			--description "Public HTTP for demos (no login yet); SSH stays IAP-only"
+	fi
+	echo "    public UI: http://${public_ip}"
+else
+	step "No public access (IAP only)"
+	if exists gc compute firewall-rules describe pae-allow-public-http; then
+		gc compute firewall-rules delete pae-allow-public-http
+	fi
+	if [ -n "$(gcv compute instances describe "$VM" --zone "$ZONE" --format 'value(networkInterfaces[0].accessConfigs[0].natIP)')" ]; then
+		gc compute instances delete-access-config "$VM" --zone "$ZONE" --access-config-name external-nat
+	fi
+	if exists gc compute addresses describe "$PUBLIC_IP_NAME" --region "$REGION"; then
+		gc compute addresses delete "$PUBLIC_IP_NAME" --region "$REGION"
+	fi
+fi
+
 for disk in "$VM" "$DATA_DISK"; do
 	if gcv compute disks describe "$disk" --zone "$ZONE" --format 'value(resourcePolicies)' | grep -q "/${SNAPSHOT_POLICY}"; then
 		skip "snapshot schedule on ${disk}"

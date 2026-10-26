@@ -32,7 +32,8 @@ TODO_MONOREPO_TASKS.md  open monorepo work (debt, hardening, pointers into deplo
 ## Environments
 - **local**: the laptop. `make up` runs every service from source in Docker, with mock-modbus and
   powerflow sites. The repo calls this the **dev stack** (`deploy/compose/`); it is not the dev environment.
-- **dev**: a cloud mirror of prod with non-client data (GCP `pae-development`, VM `pae-dev`). It gets
+- **dev**: a cloud mirror of prod with non-client data (GCP `pae-development`, VM `pae-dev`; public for
+  demos at http://136.115.89.60, no login yet, see `deploy/STATUS.md`). It gets
   every merge to `main` automatically.
 - **prod**: the real system with real sites and clients (GCP `pae-platform-prod`, VM `pae-prod`). It
   gets the same commit as dev, only after the owner approves.
