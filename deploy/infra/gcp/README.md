@@ -24,6 +24,7 @@ make ssh env=prod                 # shell on the VM through IAP (no external IP,
 | Secrets | `backend-ot-postgres-password`, `intelli-gateway-postgres-password`, `powerflow-postgres-password` | Random values generated once, never printed |
 | Secrets (owner fills) | `intelli-gateway-anthropic-api-key`, `intelli-gateway-open-meteo-api-key` | Created empty |
 | Workload Identity Federation | pool `github`, provider `github-actions` | Only `yazdanimehrdad1/pae-platform` (matched by its numeric repository and owner ids, which can't be re-registered) on `refs/heads/main` can act as `pae-ci`; a re-run re-applies the condition |
+| CD access (each project) | `pae-ci` gets `iap.tunnelResourceAccessor`, `compute.osAdminLogin`, `compute.viewer` and `iam.serviceAccountUser` on the VM's account | Lets `.github/workflows/deploy.yml` reach the VM the same way `make deploy` does (IAP SSH, OS Login with sudo); still no public IP or open port |
 | Snapshot schedule | `pae-daily` | Daily 03:00 UTC, 7 kept, on the boot and data disks |
 | Data disk | `pae-prod-data` (50 GB pd-balanced) | Holds the Docker volumes (databases); `auto-delete=no`, survives the VM |
 | VM | `pae-prod` (e2-standard-2, Debian 12, us-central1-a) | No external IP, OS Login, Shielded VM, deletion protection |

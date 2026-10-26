@@ -227,6 +227,17 @@ for attempt in 1 2 3 4 5 6; do
 done
 fi
 
+step "CD access: ${CI_SA} may SSH (through IAP, OS Login with sudo) to ${VM} to run deploy.sh"
+# Project-level because the roles are about reaching this project's one VM; IAP's firewall rule
+# and the VM's lack of an external IP still apply. serviceAccountUser is needed to log in to a VM
+# that runs as ${VM_SA}.
+for role in roles/iap.tunnelResourceAccessor roles/compute.osAdminLogin roles/compute.viewer; do
+	gc projects add-iam-policy-binding "$PROJECT" --member "serviceAccount:${CI_SA_EMAIL}" \
+		--role "$role" --condition=None >/dev/null
+done
+gc iam service-accounts add-iam-policy-binding "$VM_SA_EMAIL" --role roles/iam.serviceAccountUser \
+	--member "serviceAccount:${CI_SA_EMAIL}" >/dev/null
+
 step "Daily snapshot schedule ${SNAPSHOT_POLICY} (7 kept)"
 if exists gc compute resource-policies describe "$SNAPSHOT_POLICY" --region "$REGION"; then skip "$SNAPSHOT_POLICY"; else
 	gc compute resource-policies create snapshot-schedule "$SNAPSHOT_POLICY" --region "$REGION" \
