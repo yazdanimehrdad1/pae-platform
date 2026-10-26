@@ -33,20 +33,20 @@ export default function ReportsPage() {
   const { timeZone, display, setDisplay, siteTimeZone } = useDisplayTimeZone(site?.timezone);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Reports</h1>
           <p className="text-sm text-muted-foreground">Generate reports from templates and open the ones already generated.</p>
           <div className="mt-1"><TimeZoneToggle siteTimeZone={siteTimeZone} display={display} onDisplayChange={setDisplay} /></div>
         </div>
-        <div className="flex items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           {site && (
             <Button asChild size="sm" className="gap-1.5">
               <Link to={`/reports/${site.id}/builder`}><Plus aria-hidden className="h-4 w-4" />New report</Link>
             </Button>
           )}
-          <div className="w-56 space-y-1">
+          <div className="w-full space-y-1 sm:w-56">
             <Label htmlFor="reports-site" className="text-xs text-muted-foreground">Site</Label>
             <Select value={siteId} onValueChange={value => setSearchParams({ site: value })}>
               <SelectTrigger id="reports-site" className="h-8 text-sm"><SelectValue placeholder="Choose a site" /></SelectTrigger>

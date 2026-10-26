@@ -31,3 +31,8 @@ Makefile
 # Host-side checks and tests are not shipped
 scripts/
 tests/
+
+# Playwright layout check output
+test-results/
+playwright-report/
+playwright.config.ts

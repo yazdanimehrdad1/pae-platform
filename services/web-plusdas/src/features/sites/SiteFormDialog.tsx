@@ -131,7 +131,7 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
           <DialogTitle>{site ? "Edit Site" : "Add Site"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="client_id">Client ID</Label>
               <Input id="client_id" {...register("client_id")} />
@@ -144,7 +144,7 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="operator">Operator</Label>
               <Input id="operator" {...register("operator")} />
@@ -177,7 +177,7 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
             {errors.street && <p className="text-xs text-destructive">{errors.street.message}</p>}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label htmlFor="city">City</Label>
               <Input id="city" {...register("city")} />
@@ -195,7 +195,7 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label htmlFor="lat">Latitude</Label>
               <Input id="lat" type="number" step="any" {...register("lat")} />

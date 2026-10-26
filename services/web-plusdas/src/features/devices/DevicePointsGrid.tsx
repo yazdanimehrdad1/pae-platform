@@ -88,9 +88,11 @@ export interface SaveChanges {
   creates: DevicePointCreateRequest[];
 }
 
-export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequestDelete }: {
+export function DevicePointsGrid({ points, disabled, readOnly = false, isSaving, onSave, onRequestDelete }: {
   points: DevicePoint[];
   disabled: boolean;
+  // View only (phones): no editing, adding, deleting or saving.
+  readOnly?: boolean;
   isSaving: boolean;
   onSave: (changes: SaveChanges) => Promise<void>;
   onRequestDelete: (point: DevicePoint) => void;
@@ -226,7 +228,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
     <div className="space-y-3">
       <SpreadsheetGrid
         cellAction={(row, _rowIndex, column) =>
-          column.key === "labels" && !disabled && labelKind(row.values.data_type) !== null ? (
+          column.key === "labels" && !disabled && !readOnly && labelKind(row.values.data_type) !== null ? (
             <Button
               type="button"
               variant="ghost"
@@ -244,18 +246,19 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
         rows={rows}
         onRowsChange={setRows}
         newRowValues={EMPTY_VALUES}
+        readOnly={readOnly}
         disabled={disabled}
         isCellEditable={isCellEditable}
         errorCells={errorCells}
         isRowDirty={isRowDirty}
         isRowNew={isRowNew}
-        onDeleteRow={deleteRow}
+        onDeleteRow={readOnly ? undefined : deleteRow}
         onDiscardAll={() => { if (dirtyCount > 0 && !isSaving) discard(); }}
         resetToken={resetToken}
-        hint="Click a cell and type to edit. Drag to select, Ctrl+C / Ctrl+V to copy-paste, drag the corner handle to fill down. Use the filter row to narrow points."
+        hint={readOnly ? undefined : "Click a cell and type to edit. Drag to select, Ctrl+C / Ctrl+V to copy-paste, drag the corner handle to fill down. Use the filter row to narrow points."}
         emptyMessage='No points yet. Click "Add Row" to create one.'
         noMatchMessage="No points match the filters."
-        toolbar={(
+        toolbar={readOnly ? undefined : (
           <>
             <Button type="button" variant="ghost" size="sm" className="gap-1" disabled={dirtyCount === 0 || isSaving} onClick={discard}>
               <Undo2 className="w-4 h-4" />Discard

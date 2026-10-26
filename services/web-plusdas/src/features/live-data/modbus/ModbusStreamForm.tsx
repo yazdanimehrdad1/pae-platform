@@ -292,7 +292,7 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, initialV
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1">
           <Label htmlFor="host">Host</Label>
           <Input id="host" {...register('host')} />
@@ -310,7 +310,7 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, initialV
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="space-y-1">
           <Label>Kind</Label>
           <Controller control={control} name="kind" render={({ field }) => (
@@ -346,7 +346,7 @@ export function ModbusStreamForm({ siteId, initialValues, initialAlias, initialV
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="space-y-1">
           <Label htmlFor="interval">Interval (s)</Label>
           <Input id="interval" type="number" step="0.1" {...register('interval')} />

@@ -16,6 +16,9 @@ import { useModbusConfigSlots } from "./hooks/useModbusConfigSlots";
 import { ModbusStreamForm } from "./modbus/ModbusStreamForm";
 import { ModbusSessionCard } from "./modbus/ModbusSessionCard";
 import { ModbusSessionsOverview } from "./modbus/ModbusSessionsOverview";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { EDIT_ON_LARGER_SCREEN, HideOnPhone } from "@/shared/components/HideOnPhone";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
 
 export default function LiveData() {
   const { isNotesCollapsed, setIsNotesCollapsed } = useNotesSidebar();
@@ -24,6 +27,9 @@ export default function LiveData() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null);
   const previousSidebarStateRef = useRef<boolean | null>(null);
   const previousNotesStateRef = useRef<boolean | null>(null);
+  // Below laptop width the Asset Tree is a drawer over the readings, not a column beside them.
+  const isLaptop = useBreakpoint() === "laptop";
+  const [isAssetDrawerOpen, setIsAssetDrawerOpen] = useState(false);
 
   const { data: sites = [] } = useQuery({
     queryKey: ['sites'],
@@ -47,6 +53,8 @@ export default function LiveData() {
   const selectedDevice = siteDevices.find(device => device.deviceId === selectedDeviceId) ?? null;
 
   useEffect(() => {
+    // The Notes column and the Asset Tree share the laptop width; smaller layouts use drawers.
+    if (!isLaptop) return;
     if (!isNotesCollapsed) {
       if (previousSidebarStateRef.current === null) {
         previousSidebarStateRef.current = isSidebarOpen;
@@ -58,10 +66,12 @@ export default function LiveData() {
         previousSidebarStateRef.current = null;
       }
     }
-  }, [isNotesCollapsed, isSidebarOpen]);
+  }, [isNotesCollapsed, isSidebarOpen, isLaptop]);
 
   const handleAssetTreeToggle = () => {
-    if (!isSidebarOpen && !isNotesCollapsed) {
+    if (!isLaptop) {
+      setIsAssetDrawerOpen(open => !open);
+    } else if (!isSidebarOpen && !isNotesCollapsed) {
       if (previousNotesStateRef.current === null) {
         previousNotesStateRef.current = isNotesCollapsed;
       }
@@ -95,51 +105,64 @@ export default function LiveData() {
     }
   }, [sessions, modbusSubTab]);
 
+  // Choosing a device in the drawer closes it, so the readings show.
+  const handleSelectDevice = (deviceId: number) => {
+    setSelectedDeviceId(deviceId);
+    setIsAssetDrawerOpen(false);
+  };
+
+  // The Asset Tree: a column beside the readings on laptops, a drawer below that.
+  const assetTree = (
+    <Card className="h-full rounded-none border-0 flex flex-col">
+      <CardHeader className="pb-4 shrink-0 space-y-3">
+        <CardTitle className="flex items-center text-lg">
+          <Network className="w-5 h-5 mr-2" />
+          Asset Tree
+        </CardTitle>
+        <CardDescription>
+          Choose a site and a device
+        </CardDescription>
+        <div className="space-y-1">
+          <Label htmlFor="live-data-site">Site</Label>
+          <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+            <SelectTrigger id="live-data-site"><SelectValue placeholder="Select a site" /></SelectTrigger>
+            <SelectContent>
+              {sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 flex-1 overflow-auto">
+        {areDevicesLoading ? (
+          <p className="text-sm text-muted-foreground">Loading devices…</p>
+        ) : siteDevices.length === 0 ? (
+          <p className="text-sm text-muted-foreground">This site has no devices.</p>
+        ) : (
+          <SiteDeviceList devices={siteDevices} selectedDeviceId={selectedDeviceId} onSelect={handleSelectDevice} />
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
-        <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border p-4 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Live Data</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Live Data</h1>
             <p className="text-muted-foreground mt-1">Latest readings of a device's points; Modbus Debug for raw registers</p>
           </div>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
+        {isLaptop ? (
+        <>
         <div
           className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${showAssetTreeSidebar ? 'w-80' : 'w-0 opacity-0'}`}
         >
           <div className="flex-1 overflow-hidden min-w-[20rem]">
-            <Card className="h-full rounded-none border-0 flex flex-col">
-              <CardHeader className="pb-4 shrink-0 space-y-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Network className="w-5 h-5 mr-2" />
-                  Asset Tree
-                </CardTitle>
-                <CardDescription>
-                  Choose a site and a device
-                </CardDescription>
-                <div className="space-y-1">
-                  <Label htmlFor="live-data-site">Site</Label>
-                  <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                    <SelectTrigger id="live-data-site"><SelectValue placeholder="Select a site" /></SelectTrigger>
-                    <SelectContent>
-                      {sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 flex-1 overflow-auto">
-                {areDevicesLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading devices…</p>
-                ) : siteDevices.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">This site has no devices.</p>
-                ) : (
-                  <SiteDeviceList devices={siteDevices} selectedDeviceId={selectedDeviceId} onSelect={setSelectedDeviceId} />
-                )}
-              </CardContent>
-            </Card>
+            {assetTree}
           </div>
         </div>
 
@@ -155,10 +178,24 @@ export default function LiveData() {
             </Button>
           </div>
         )}
+        </>
+        ) : (
+          <Sheet open={isAssetDrawerOpen} onOpenChange={setIsAssetDrawerOpen}>
+            <SheetContent side="left" aria-describedby={undefined} className="flex w-full flex-col p-0 sm:max-w-sm">
+              <SheetTitle className="sr-only">Asset Tree</SheetTitle>
+              {assetTree}
+            </SheetContent>
+          </Sheet>
+        )}
 
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'points' | 'modbus')} className="flex-1 flex flex-col min-h-0">
-            <div className="border-b border-border px-6 pt-4">
+            <div className="border-b border-border px-4 pt-3 md:px-6 md:pt-4 flex flex-wrap items-center gap-2 pb-2 md:pb-0">
+              {!isLaptop && activeTab !== 'modbus' && (
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsAssetDrawerOpen(true)}>
+                  <PanelLeftOpen className="w-4 h-4" />Asset Tree
+                </Button>
+              )}
               <TabsList>
                 <TabsTrigger value="points">Point Monitoring</TabsTrigger>
                 <TabsTrigger value="modbus">Modbus Debug</TabsTrigger>
@@ -175,15 +212,21 @@ export default function LiveData() {
                   </div>
                   <h3 className="text-lg font-semibold mb-2">No Device Selected</h3>
                   <p className="max-w-sm text-center">
-                    Choose a device in the Asset Tree on the left to see its points and their latest readings
+                    Choose a device in the Asset Tree to see its points and their latest readings
                   </p>
+                  {!isLaptop && (
+                    <Button variant="outline" size="sm" className="mt-4 gap-2" onClick={() => setIsAssetDrawerOpen(true)}>
+                      <PanelLeftOpen className="w-4 h-4" />Open Asset Tree
+                    </Button>
+                  )}
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value="modbus" className="flex-1 flex-col min-h-0 mt-0 data-[state=active]:flex">
+              <HideOnPhone note={`Modbus Debug: ${EDIT_ON_LARGER_SCREEN}`} className="p-4">
               <Tabs value={modbusSubTab} onValueChange={setModbusSubTab} className="flex-1 flex flex-col min-h-0">
-                <div className="border-b border-border px-6 pt-3 flex items-center justify-between gap-3">
+                <div className="border-b border-border px-4 pt-3 md:px-6 flex flex-wrap items-center justify-between gap-3">
                   <TabsList className="h-auto gap-2 bg-transparent p-0">
                     <TabsTrigger value="all-sessions">All Sessions</TabsTrigger>
                     {configSlots.map((slot) => {
@@ -210,7 +253,7 @@ export default function LiveData() {
                   </div>
                 </div>
 
-                <TabsContent value="all-sessions" className="flex-1 overflow-y-auto p-6 mt-0">
+                <TabsContent value="all-sessions" className="flex-1 overflow-y-auto p-4 md:p-6 mt-0">
                   <ModbusSessionsOverview sessions={sessions} aliasBySlot={aliasBySlot} onSelect={setModbusSubTab} />
                 </TabsContent>
 
@@ -218,7 +261,7 @@ export default function LiveData() {
                   const session = sessionBySlot.get(slot);
                   return (
                     <Fragment key={slot}>
-                      <TabsContent value={`config-${slot}`} className="flex-1 overflow-y-auto p-6 mt-0">
+                      <TabsContent value={`config-${slot}`} className="flex-1 overflow-y-auto p-4 md:p-6 mt-0">
                         <ModbusStreamForm
                           siteId={selectedSiteId || null}
                           initialValues={configsBySlot[slot]?.request}
@@ -232,7 +275,7 @@ export default function LiveData() {
                         />
                       </TabsContent>
                       {session && (
-                        <TabsContent value={session.sessionId} className="flex-1 overflow-y-auto p-6 mt-0">
+                        <TabsContent value={session.sessionId} className="flex-1 overflow-y-auto p-4 md:p-6 mt-0">
                           <ModbusSessionCard
                             session={session}
                             alias={aliasBySlot[slot]}
@@ -246,6 +289,7 @@ export default function LiveData() {
                   );
                 })}
               </Tabs>
+              </HideOnPhone>
             </TabsContent>
           </Tabs>
         </div>

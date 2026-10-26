@@ -67,7 +67,7 @@ export function PointCombobox({ options, value, onChange, placeholder = "Choose 
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[18rem] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[min(18rem,calc(100vw-2rem))] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search devices and points" value={search} onValueChange={setSearch} />
           <CommandList>

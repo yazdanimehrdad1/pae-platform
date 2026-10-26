@@ -108,7 +108,7 @@ export function ModbusSessionCard({ session, alias, onResume, onStop, onDelete }
       <CardContent className="space-y-4">
         <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuration</h4>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <ConfigField label="Host" value={session.host} />
             <ConfigField label="Port" value={session.port} />
             <ConfigField label="Server Address" value={session.server_address} />

@@ -215,7 +215,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
           <DialogTitle>{device ? "Edit Device" : "Add Device"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="name">Name</Label>
               <Input id="name" {...register("name")} />
@@ -236,7 +236,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="vendor">Vendor</Label>
               <Input id="vendor" {...register("vendor")} />
@@ -252,7 +252,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
             <Textarea id="description" {...register("description")} />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label htmlFor="host">Host</Label>
               <Input id="host" {...register("host")} />
@@ -270,7 +270,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label>Protocol</Label>
               <Controller control={control} name="protocol" render={({ field }) => (
@@ -322,7 +322,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
               <p className="text-xs text-muted-foreground">
                 Leave blank if this device has no PV array. Azimuth is clockwise from north (180 = south).
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <PvInput id="pv_tilt_deg" label="Tilt (deg)" register={register} error={errors.pv_tilt_deg?.message} />
                 <PvInput id="pv_azimuth_deg" label="Azimuth (deg)" register={register} error={errors.pv_azimuth_deg?.message} />
                 <PvInput id="pv_dc_capacity_kw" label="DC capacity (kWp)" register={register} error={errors.pv_dc_capacity_kw?.message} />

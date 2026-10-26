@@ -24,6 +24,7 @@ import {
   useSites,
 } from "./hooks/usePowerflow";
 import type { SldLive } from "./lib/sldLayout";
+import { EDIT_ON_LARGER_SCREEN, HideOnPhone } from "@/shared/components/HideOnPhone";
 
 // The powerflow simulator: pick one of the stored sites, run it, send setpoints, and look at its
 // profiles and Modbus layout. Sites can't be created here, only selected (and a few selection
@@ -76,16 +77,16 @@ const SimulationPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Simulation</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Simulation</h1>
           <p className="text-muted-foreground mt-1">The powerflow microgrid simulator: choose a site, run it and send setpoints</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {runState && <RunStateBadge state={runState} />}
           <Select value={selected ?? undefined} onValueChange={setChosen}>
-            <SelectTrigger className="w-64" aria-label="Site">
+            <SelectTrigger className="w-full sm:w-64" aria-label="Site">
               <SelectValue placeholder="Select site" />
             </SelectTrigger>
             <SelectContent>
@@ -97,12 +98,14 @@ const SimulationPage = () => {
               ))}
             </SelectContent>
           </Select>
+          <HideOnPhone>
           <Button
             disabled={!selected || selectedIsActive || activate.isPending}
             onClick={() => selected && activate.mutate({ name: selected, state: runState })}
           >
             {runState && runState !== "stopped" ? "Stop & activate" : "Activate"}
           </Button>
+          </HideOnPhone>
         </div>
       </div>
 
@@ -120,7 +123,7 @@ const SimulationPage = () => {
 
         <TabsContent value="overview" className="space-y-4">
           {status.data ? (
-            <RunControls status={status.data} />
+            <HideOnPhone note={`Run controls: ${EDIT_ON_LARGER_SCREEN}`}><RunControls status={status.data} /></HideOnPhone>
           ) : status.isError ? (
             <p role="alert" className="text-destructive">{getErrorMessage(status.error)}</p>
           ) : null}
@@ -146,6 +149,7 @@ const SimulationPage = () => {
         </TabsContent>
 
         <TabsContent value="settings">
+          <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
           {site.data && selected && (
             <SiteSettingsForm
               key={selected}
@@ -155,10 +159,13 @@ const SimulationPage = () => {
               runState={runState}
             />
           )}
+          </HideOnPhone>
         </TabsContent>
 
         <TabsContent value="assets">
+          <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
           <AssetsPanel selectedIsActive={selectedIsActive} />
+          </HideOnPhone>
         </TabsContent>
 
         <TabsContent value="measurements">
@@ -166,23 +173,31 @@ const SimulationPage = () => {
         </TabsContent>
 
         <TabsContent value="profiles">
+          <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
           {site.data && selected && (
             <ProfilesPanel siteName={selected} config={site.data} isActive={selectedIsActive} runState={runState} />
           )}
+          </HideOnPhone>
         </TabsContent>
 
         <TabsContent value="modbus">
+          <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
           <ModbusPanel />
+          </HideOnPhone>
         </TabsContent>
 
         <TabsContent value="sites">
+          <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
           {selected && <SitesPanel sites={sites.data} selected={selected} runState={runState} onSelect={setChosen} />}
+          </HideOnPhone>
         </TabsContent>
 
         <TabsContent value="scenarios">
+          <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
           {site.data && selected && (
             <ScenariosPanel siteName={selected} config={site.data} isActive={selectedIsActive} report={report} />
           )}
+          </HideOnPhone>
         </TabsContent>
       </Tabs>
     </div>

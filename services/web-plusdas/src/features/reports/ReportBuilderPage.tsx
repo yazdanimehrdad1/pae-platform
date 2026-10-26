@@ -1,3 +1,4 @@
+import { EDIT_ON_LARGER_SCREEN, HideOnPhone } from "@/shared/components/HideOnPhone";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -132,7 +133,7 @@ function Builder({ siteId, template }: { siteId: string; template: ReportTemplat
 
   const hasName = name.trim().length > 0;
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       <div className="space-y-1">
         <Button asChild variant="ghost" size="sm" className="-ml-2 gap-1.5">
           <Link to={`/reports?site=${siteId}`}><ArrowLeft aria-hidden className="h-4 w-4" />Reports</Link>
@@ -144,6 +145,8 @@ function Builder({ siteId, template }: { siteId: string; template: ReportTemplat
         </p>
       </div>
 
+      <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
+      <div className="space-y-6">
       <Card>
         <CardHeader><CardTitle>Report</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -239,6 +242,8 @@ function Builder({ siteId, template }: { siteId: string; template: ReportTemplat
       </div>
       {!canSend && <p className="text-xs text-muted-foreground">Fill in the sections marked in red to generate or save.</p>}
       {canSend && !hasName && <p className="text-xs text-muted-foreground">Give the report a name to save it as a template.</p>}
+      </div>
+      </HideOnPhone>
     </div>
   );
 }

@@ -54,7 +54,7 @@ export function AlarmTable({ alarms, model, now, timeZone, selectedEventId, last
           No active alarms{lastClearedAt && <> · last cleared {formatSiteTime(lastClearedAt, timeZone, { withDate: true })}</>}
         </p>
       ) : (
-        <Table>
+        <Table className="min-w-[44rem]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-32">Severity</TableHead>

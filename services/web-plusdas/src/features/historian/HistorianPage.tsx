@@ -37,6 +37,8 @@ import { StateLanes } from "./components/discrete/StateLanes";
 import { buildStepLayout, renderStepSeries, STATE_AXIS_WIDTH } from "./components/discrete/stepSeries";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNotesSidebar } from "@/shared/contexts/NotesSidebarContext";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DeviceAssetTree, type RevealRequest } from "@/shared/components/DeviceAssetTree";
 import { useQuery } from "@tanstack/react-query";
 import { sitesApi } from "@/api";
@@ -264,7 +266,7 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
           />
         )}
         {showLineChart && (
-          <div className={showLanes ? "h-[22rem]" : "h-[28rem]"}>
+          <div className={showLanes ? "h-[clamp(14rem,50dvh,22rem)]" : "h-[clamp(16rem,65dvh,28rem)]"}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData} margin={CHART_MARGIN}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
@@ -352,8 +354,13 @@ export default function Historian() {
   const [isSidebarWide, setIsSidebarWide] = useState(false);
   const previousSidebarStateRef = useRef<boolean | null>(null);
   const previousNotesStateRef = useRef<boolean | null>(null);
+  // Below laptop width the Trends panel is a drawer over the charts, not a column beside them.
+  const isLaptop = useBreakpoint() === "laptop";
+  const [isTrendsDrawerOpen, setIsTrendsDrawerOpen] = useState(false);
 
   useEffect(() => {
+    // The Notes column and the Trends panel share the laptop width; smaller layouts use drawers.
+    if (!isLaptop) return;
     if (!isNotesCollapsed) {
       if (previousSidebarStateRef.current === null) previousSidebarStateRef.current = isSidebarOpen;
       setIsSidebarOpen(false);
@@ -363,10 +370,12 @@ export default function Historian() {
         previousSidebarStateRef.current = null;
       }
     }
-  }, [isNotesCollapsed]);
+  }, [isNotesCollapsed, isLaptop]);
 
   const handleTrendsPanelToggle = () => {
-    if (!isSidebarOpen && !isNotesCollapsed) {
+    if (!isLaptop) {
+      setIsTrendsDrawerOpen(open => !open);
+    } else if (!isSidebarOpen && !isNotesCollapsed) {
       if (previousNotesStateRef.current === null) previousNotesStateRef.current = isNotesCollapsed;
       setIsNotesCollapsed(true);
       setIsSidebarOpen(true);
@@ -384,7 +393,8 @@ export default function Historian() {
   const [revealRequest, setRevealRequest] = useState<RevealRequest | null>(null);
   const handleRevealPoint = (trendId: string, selectionId: string) => {
     setCurrentTrendId(trendId);
-    if (!isSidebarOpen) handleTrendsPanelToggle();
+    if (!isLaptop) setIsTrendsDrawerOpen(true);
+    else if (!isSidebarOpen) handleTrendsPanelToggle();
     setRevealRequest({ selectionId, requestId: Date.now() });
   };
 
@@ -624,15 +634,105 @@ export default function Historian() {
   };
 
 
-  return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Historian</h1>
-            <p className="text-muted-foreground mt-1">Time-series data analysis and trending</p>
+  // The Trends panel's contents: a column beside the charts on laptops, a drawer below that.
+  const trendsPanel = (
+    <>
+      <div className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Trends Panel</h2>
+        {isLaptop && <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-pressed={isSidebarWide}
+                aria-label={isSidebarWide ? "Narrow the trends panel" : "Widen the trends panel"}
+                onClick={() => setIsSidebarWide(wide => !wide)}>
+                {isSidebarWide ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>{isSidebarWide ? "Narrow panel" : "Widen panel"}</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>}
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <section>
+          <h3 className="text-sm font-medium text-foreground mb-2">Saved trends</h3>
+          <div className="rounded-md border border-border bg-card overflow-hidden p-3">
+            <button type="button" onClick={() => setIsCollectionExpanded(p => !p)} className="w-full flex items-center justify-between py-1 px-2 rounded cursor-pointer hover:bg-muted/50">
+              <div className="flex items-center gap-1">
+                {isCollectionExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                <span className="text-sm font-semibold">Collection</span>
+              </div>
+            </button>
+            {isCollectionExpanded && (
+              <div className="mt-1">
+                {sites_saved_trends.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No saved trends yet. Create one using the controls above.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {sites_saved_trends.map(trend => (
+                      <div key={trend.id} role="button" tabIndex={0}
+                        onClick={() => handleToggleCollectionTrend(trend.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleToggleCollectionTrend(trend.id); }}
+                        className={`w-full flex items-center gap-2 px-2 py-1 rounded text-sm text-left cursor-pointer hover:bg-muted/60 ${currentTrendId === trend.id ? "bg-muted" : ""}`}>
+                        <Checkbox checked={currentTrendId === trend.id} className="mr-1 pointer-events-none" />
+                        <span className={`truncate ${currentTrendId === trend.id ? "font-medium" : ""}`}>{trend.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex space-x-2">
+        </section>
+        <section>
+          <div className="rounded-md border border-border bg-card overflow-hidden p-3">
+            <button type="button" onClick={() => setIsSharedExpanded(p => !p)} className="w-full flex items-center justify-between py-1 px-2 rounded cursor-pointer hover:bg-muted/50">
+              <div className="flex items-center gap-1">
+                {isSharedExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                <span className="text-sm font-semibold">Shared</span>
+              </div>
+            </button>
+            {isSharedExpanded && <div className="mt-1"><p className="text-xs text-muted-foreground">No shared trends yet.</p></div>}
+          </div>
+        </section>
+        <section className="space-y-2">
+          <h3 className="text-sm font-medium text-foreground mb-2">Asset tree</h3>
+          <div className="space-y-1">
+            <Label htmlFor="historian-site" className="text-xs text-muted-foreground">Site</Label>
+            <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+              <SelectTrigger id="historian-site" className="h-8 text-sm"><SelectValue placeholder="Select a site" /></SelectTrigger>
+              <SelectContent>
+                {sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <DeviceAssetTree
+            siteId={selectedSiteId || null}
+            siteName={selectedSite?.name ?? 'Site'}
+            selectedPoints={selectedPoints}
+            onSelect={updateCurrentTrendPoints}
+            onResolveLabels={handleResolveLabels}
+            pointIdsToResolve={trends.flatMap(t => t.points)}
+            expandBitfields
+            includeFunctions
+            includeForecast
+            revealRequest={revealRequest}
+          />
+        </section>
+      </div>
+    </>
+  );
+
+  return (
+    // Laptops: header fixed, charts scroll in their pane. Smaller screens: the whole page scrolls,
+    // so the header moves out of the way and the charts get the screen.
+    <div className="min-h-full flex flex-col xl:h-full">
+      <div className="border-b border-border p-4 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Historian</h1>
+            <p className="hidden text-muted-foreground mt-1 sm:block">Time-series data analysis and trending</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => {
               if (location.state?.selectedSite) navigate('/site-devices', { state: { selectedSite: location.state.selectedSite } });
               else navigate('/sites');
@@ -645,101 +745,31 @@ export default function Historian() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col ${!isSidebarOpen ? 'w-0 opacity-0' : isSidebarWide ? 'w-[30rem]' : 'w-80'}`}>
-          <div className={`flex-1 overflow-hidden flex flex-col ${isSidebarWide ? 'min-w-[30rem]' : 'min-w-[20rem]'}`}>
-            <div className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Trends Panel</h2>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-pressed={isSidebarWide}
-                      aria-label={isSidebarWide ? "Narrow the trends panel" : "Widen the trends panel"}
-                      onClick={() => setIsSidebarWide(wide => !wide)}>
-                      {isSidebarWide ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>{isSidebarWide ? "Narrow panel" : "Widen panel"}</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              <section>
-                <h3 className="text-sm font-medium text-foreground mb-2">Saved trends</h3>
-                <div className="rounded-md border border-border bg-card overflow-hidden p-3">
-                  <button type="button" onClick={() => setIsCollectionExpanded(p => !p)} className="w-full flex items-center justify-between py-1 px-2 rounded cursor-pointer hover:bg-muted/50">
-                    <div className="flex items-center gap-1">
-                      {isCollectionExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                      <span className="text-sm font-semibold">Collection</span>
-                    </div>
-                  </button>
-                  {isCollectionExpanded && (
-                    <div className="mt-1">
-                      {sites_saved_trends.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No saved trends yet. Create one using the controls above.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {sites_saved_trends.map(trend => (
-                            <div key={trend.id} role="button" tabIndex={0}
-                              onClick={() => handleToggleCollectionTrend(trend.id)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleToggleCollectionTrend(trend.id); }}
-                              className={`w-full flex items-center gap-2 px-2 py-1 rounded text-sm text-left cursor-pointer hover:bg-muted/60 ${currentTrendId === trend.id ? "bg-muted" : ""}`}>
-                              <Checkbox checked={currentTrendId === trend.id} className="mr-1 pointer-events-none" />
-                              <span className={`truncate ${currentTrendId === trend.id ? "font-medium" : ""}`}>{trend.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </section>
-              <section>
-                <div className="rounded-md border border-border bg-card overflow-hidden p-3">
-                  <button type="button" onClick={() => setIsSharedExpanded(p => !p)} className="w-full flex items-center justify-between py-1 px-2 rounded cursor-pointer hover:bg-muted/50">
-                    <div className="flex items-center gap-1">
-                      {isSharedExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                      <span className="text-sm font-semibold">Shared</span>
-                    </div>
-                  </button>
-                  {isSharedExpanded && <div className="mt-1"><p className="text-xs text-muted-foreground">No shared trends yet.</p></div>}
-                </div>
-              </section>
-              <section className="space-y-2">
-                <h3 className="text-sm font-medium text-foreground mb-2">Asset tree</h3>
-                <div className="space-y-1">
-                  <Label htmlFor="historian-site" className="text-xs text-muted-foreground">Site</Label>
-                  <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                    <SelectTrigger id="historian-site" className="h-8 text-sm"><SelectValue placeholder="Select a site" /></SelectTrigger>
-                    <SelectContent>
-                      {sites.map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <DeviceAssetTree
-                  siteId={selectedSiteId || null}
-                  siteName={selectedSite?.name ?? 'Site'}
-                  selectedPoints={selectedPoints}
-                  onSelect={updateCurrentTrendPoints}
-                  onResolveLabels={handleResolveLabels}
-                  pointIdsToResolve={trends.flatMap(t => t.points)}
-                  expandBitfields
-                  includeFunctions
-                  includeForecast
-                  revealRequest={revealRequest}
-                />
-              </section>
+      <div className="flex-1 flex xl:overflow-hidden">
+        {isLaptop ? (
+          <>
+          <div className={`border-r border-border transition-all duration-300 ease-in-out flex flex-col ${!isSidebarOpen ? 'w-0 opacity-0' : isSidebarWide ? 'w-[30rem]' : 'w-80'}`}>
+            <div className={`flex-1 overflow-hidden flex flex-col ${isSidebarWide ? 'min-w-[30rem]' : 'min-w-[20rem]'}`}>
+              {trendsPanel}
             </div>
           </div>
-        </div>
 
-        <div className="relative border-r border-border flex flex-col justify-center">
-          <Button variant="ghost" size="icon" className="h-12 w-4 rounded-none rounded-r-md border-y border-r border-border -ml-[1px] z-10 bg-background hover:bg-muted" onClick={handleTrendsPanelToggle}>
-            {isSidebarOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
-          </Button>
-        </div>
+            <div className="relative border-r border-border flex flex-col justify-center">
+              <Button variant="ghost" size="icon" className="h-12 w-4 rounded-none rounded-r-md border-y border-r border-border -ml-[1px] z-10 bg-background hover:bg-muted" onClick={handleTrendsPanelToggle}>
+                {isSidebarOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Sheet open={isTrendsDrawerOpen} onOpenChange={setIsTrendsDrawerOpen}>
+            <SheetContent side="left" aria-describedby={undefined} className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+              <SheetTitle className="sr-only">Trends panel</SheetTitle>
+              {trendsPanel}
+            </SheetContent>
+          </Sheet>
+        )}
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col">
           {selectedPoints.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6">
               <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
@@ -747,12 +777,22 @@ export default function Historian() {
               </div>
               <h3 className="text-lg font-semibold mb-2">No Device Selected</h3>
               <p className="max-w-sm text-center">Select a data point from the Asset tree in the Trends Panel to view historical trends.</p>
+              {!isLaptop && (
+                <Button variant="outline" size="sm" className="mt-4 gap-2" onClick={() => setIsTrendsDrawerOpen(true)}>
+                  <PanelLeftOpen className="w-4 h-4" />Open Trends Panel
+                </Button>
+              )}
             </div>
           ) : (
             <div className="h-full flex flex-col">
-              <div className="border-b border-border px-6 py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+              <div className="border-b border-border px-4 py-3 md:px-6 md:py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {!isLaptop && (
+                    <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsTrendsDrawerOpen(true)}>
+                      <PanelLeftOpen className="w-4 h-4" />Trends Panel
+                    </Button>
+                  )}
+                  <div className="flex items-center gap-2 min-w-0 basis-full overflow-x-auto xl:basis-auto xl:flex-1">
                     {trends.map(trend => (
                       <div key={trend.id} draggable onDragStart={(e) => handleDragStart(e, trend.id)} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} onDrop={(e) => handleDrop(e, trend.id)}
                         className={`flex items-center gap-1 rounded-md border cursor-move transition-opacity ${currentTrendId === trend.id ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"} ${draggedTrendId === trend.id ? "opacity-50" : ""}`}>
@@ -782,9 +822,9 @@ export default function Historian() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Select value={currentTrendId} onValueChange={setCurrentTrendId}>
-                      <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select a trend" /></SelectTrigger>
+                      <SelectTrigger className="hidden sm:flex sm:w-[200px]"><SelectValue placeholder="Select a trend" /></SelectTrigger>
                       <SelectContent>{trends.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                     <div className="flex items-center gap-2">
@@ -812,12 +852,12 @@ export default function Historian() {
                 </div>
               </div>
 
-              <div className="flex-1 p-6 overflow-y-auto">
+              <div className="flex-1 p-2 sm:p-4 md:p-6 xl:overflow-y-auto">
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="p-4 md:p-6">
                     <div className="flex items-center justify-end">
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-start gap-2 sm:items-end">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Label htmlFor="time-range">Time Range</Label>
                           <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange | 'custom')}>
                             <SelectTrigger className="w-[160px]" id="time-range"><SelectValue /></SelectTrigger>
@@ -831,13 +871,13 @@ export default function Historian() {
                           <AutoRefreshToggle enabled={autoRefresh} onChange={setAutoRefresh} />
                         </div>
                         {timeRange === 'custom' && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Input type="datetime-local" aria-label={`From (${timeZone})`} value={toZonedInput(customStart, timeZone)} onChange={e => e.target.value && setCustomStart(fromZonedInput(e.target.value, timeZone))} className="w-[180px]" />
                             <span className="text-muted-foreground text-sm">to</span>
                             <Input type="datetime-local" aria-label={`To (${timeZone})`} value={toZonedInput(customEnd, timeZone)} onChange={e => e.target.value && setCustomEnd(fromZonedInput(e.target.value, timeZone))} className="w-[180px]" />
                           </div>
                         )}
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 [@media(hover:none)]:hidden">
                           <ZoomIn className="w-3 h-3" /><span>Drag to zoom</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -855,11 +895,11 @@ export default function Historian() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent ref={cardContentRef}>
+                  <CardContent ref={cardContentRef} className="p-2 pt-0 sm:p-4 sm:pt-0 md:p-6 md:pt-0">
                     <div className="space-y-6">
                       {layoutCount >= 1 && topTrendId && (
-                        <div ref={topTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
-                          <div className="flex items-center justify-between">
+                        <div ref={topTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <Label>Trend-1: {trends.find(t => t.id === topTrendId)?.name || ''}</Label>
                             {layoutCount === 1 && (
                               <Select value={topTrendId} onValueChange={(v) => setTopTrendId(v)}>
@@ -872,19 +912,19 @@ export default function Historian() {
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
-                        <div ref={middleTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
+                        <div ref={middleTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
                           <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} styles={stylesOf(middleTrendId)} onStylesChange={styles => setTrendStyles(middleTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(middleTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
-                        <div ref={bottomTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
+                        <div ref={bottomTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
                           <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} styles={stylesOf(bottomTrendId)} onStylesChange={styles => setTrendStyles(bottomTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(bottomTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
-                        <div ref={fourthTrendRef} className="border rounded-lg p-4 bg-card space-y-2">
+                        <div ref={fourthTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
                           <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} styles={stylesOf(fourthTrendId)} onStylesChange={styles => setTrendStyles(fourthTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(fourthTrendId, timestamp)} />
                         </div>

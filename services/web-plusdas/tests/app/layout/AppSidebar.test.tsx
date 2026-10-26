@@ -23,6 +23,7 @@ function navTitles(): string[] {
 const NOTHING_ACTIVE: ActiveAlarmsSummaryRecord = { fault_count: 0, warning_count: 0, sites: [] };
 
 beforeEach(() => {
+  localStorage.clear(); // the laptop column remembers being collapsed
   vi.restoreAllMocks();
   vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue(NOTHING_ACTIVE);
 });
@@ -84,6 +85,47 @@ describe('AppSidebar', () => {
     role.current = 'monitor';
     renderSidebar();
     expect(navTitles()).not.toContain('Simulation');
+  });
+
+  describe('per breakpoint', () => {
+    function stubWindowWidth(width: number) {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: width >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }));
+    }
+
+    it('is a full column on a laptop, and collapses to icons it names', () => {
+      role.current = 'engineer';
+      stubWindowWidth(1366);
+      renderSidebar();
+      expect(navTitles()).toContain('Sites');
+      screen.getByRole('button', { name: 'Collapse navigation' }).click();
+      return waitFor(() => {
+        expect(navTitles()).not.toContain('Sites');
+        expect(screen.getByRole('link', { name: 'Sites' }).getAttribute('title')).toBe('Sites');
+      });
+    });
+
+    it('is an icon rail on a tablet whose chevron opens the full navigation in a drawer', async () => {
+      role.current = 'engineer';
+      stubWindowWidth(1024);
+      renderSidebar();
+      expect(navTitles()).not.toContain('Sites');
+      expect(screen.getByRole('link', { name: 'Sites' })).toBeTruthy();
+      screen.getByRole('button', { name: 'Expand navigation' }).click();
+      const drawer = await screen.findByRole('dialog', { name: 'Navigation' });
+      expect(drawer.textContent).toContain('Sites');
+    });
+
+    it('renders nothing on a phone (the top bar holds the menu)', () => {
+      role.current = 'engineer';
+      stubWindowWidth(390);
+      const { container } = renderSidebar();
+      expect(container.innerHTML).toBe('');
+    });
   });
 
   describe('System alarms bell', () => {

@@ -12,7 +12,7 @@ import { devicesApi } from "@/api";
 import { deviceTypeConfig } from "@/shared/config/device-types";
 import {
   Search, Activity, Filter, ArrowLeft, BarChart3,
-  AlertTriangle, CheckCircle, Clock, Settings, XCircle, Info
+  AlertTriangle, CheckCircle, Clock, Settings, XCircle, Info, ChevronDown
 } from "lucide-react";
 
 function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: Device; onViewHistorian: (device: Device) => void, onDataMetadata: (device: Device) => void }) {
@@ -42,8 +42,8 @@ function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: D
   return (
     <Card className="hover:bg-muted/30 transition-colors">
       <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 items-center space-x-4 flex-1">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${deviceConfig.bgColor}`}>
               <DeviceIcon className={`w-5 h-5 ${deviceConfig.color}`} />
             </div>
@@ -55,7 +55,7 @@ function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: D
             </div>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 xl:flex-nowrap">
             <div className="text-center">
               <div className="data-metric text-sm">{device.points.length}</div>
               <div className="data-label text-xs">Points</div>
@@ -64,7 +64,7 @@ function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: D
               <div className="text-sm font-medium">{device.lastUpdate}</div>
               <div className="data-label text-xs">Updated</div>
             </div>
-            <div className="text-center min-w-[80px]">
+            <div className="hidden text-center min-w-[80px] sm:block">
               <div className="text-xs">{device.firmware}</div>
               <div className="data-label text-xs">Firmware</div>
             </div>
@@ -93,6 +93,8 @@ export default function SiteDevices() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  // On phones the status cards fold into a one-line summary (always shown from tablet up).
+  const [isStatusCardsOpen, setIsStatusCardsOpen] = useState(false);
 
   const selectedSite = location.state?.selectedSite;
 
@@ -133,7 +135,7 @@ export default function SiteDevices() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -141,7 +143,7 @@ export default function SiteDevices() {
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Failed to load site data</h3>
@@ -158,9 +160,9 @@ export default function SiteDevices() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
-        <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border p-4 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <Breadcrumb className="mb-4">
               <BreadcrumbList>
@@ -175,12 +177,12 @@ export default function SiteDevices() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <h1 className="text-3xl font-bold text-foreground">{selectedSite.name} Devices</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">{selectedSite.name} Devices</h1>
             <p className="text-muted-foreground mt-1">
               {selectedSite.location} • {devices.length} devices configured
             </p>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
               <Link to="/sites">
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -195,8 +197,26 @@ export default function SiteDevices() {
         </div>
       </div>
 
-      <div className="border-b border-border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="border-b border-border p-4 md:p-6">
+        <button
+          type="button"
+          onClick={() => setIsStatusCardsOpen(open => !open)}
+          aria-expanded={isStatusCardsOpen}
+          aria-controls="site-device-status-cards"
+          className="flex w-full items-center justify-between gap-2 text-left text-sm md:hidden"
+        >
+          <span className="flex flex-wrap gap-x-3 gap-y-1">
+            <span className="font-medium">{devices.length} devices</span>
+            <span className="text-success">{statusCounts.online} online</span>
+            <span className="text-warning">{statusCounts.warning} warnings</span>
+            <span className="text-destructive">{statusCounts.offline} offline</span>
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isStatusCardsOpen ? "rotate-180" : ""}`} />
+        </button>
+        <div
+          id="site-device-status-cards"
+          className={`${isStatusCardsOpen ? "mt-4 grid" : "hidden"} md:mt-0 md:grid grid-cols-2 md:grid-cols-4 gap-4`}
+        >
           <div className="bg-card rounded-lg p-4 border">
             <div className="flex items-center justify-between">
               <div>
@@ -236,10 +256,11 @@ export default function SiteDevices() {
         </div>
       </div>
 
-      <div className="border-b border-border p-6">
+      {/* Search and filters: tablets and laptops only; phones list every device. */}
+      <div className="hidden border-b border-border p-4 md:block md:p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-1 gap-4 items-center">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-1 flex-wrap gap-4 items-center">
+            <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[14rem] max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search devices, make, or model..."
@@ -284,7 +305,7 @@ export default function SiteDevices() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         {filteredDevices.length === 0 ? (
           <div className="text-center py-12">
             <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

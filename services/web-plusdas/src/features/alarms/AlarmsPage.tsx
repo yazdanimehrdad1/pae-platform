@@ -30,13 +30,13 @@ export default function AlarmsPage() {
   const { timeZone, display, setDisplay, siteTimeZone } = useDisplayTimeZone(site?.timezone);
 
   return (
-    <div className="h-screen overflow-y-auto">
-      <div className="space-y-4 p-6">
+    <div className="h-full overflow-y-auto">
+      <div className="space-y-4 p-4 md:p-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="text-2xl font-semibold">System alarms</h1>
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <div className="pb-2"><TimeZoneToggle siteTimeZone={siteTimeZone} display={display} onDisplayChange={setDisplay} /></div>
-            <div className="w-56 space-y-1">
+            <div className="w-full space-y-1 sm:w-56">
               <Label htmlFor="alarms-site" className="text-xs text-muted-foreground">Site</Label>
               <Select value={siteId} onValueChange={setSiteId}>
                 <SelectTrigger id="alarms-site" className="h-8 text-sm"><SelectValue placeholder="Choose a site" /></SelectTrigger>
