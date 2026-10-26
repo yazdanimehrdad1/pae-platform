@@ -530,6 +530,16 @@ class DevicePoint(Base):
         comment="STANDARDIZED points only: the NATIVE point on the same device whose readings it shows"
     )
 
+    # NATIVE points only can be False (chk_device_points_record_enabled_category); the poller
+    # then stores no readings for the point.
+    record_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the poller stores this point's readings (NATIVE points only can be false)"
+    )
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

@@ -33,6 +33,7 @@ class PowerflowRegister(_Strict):
     label: str
     qty: str
     tier: str
+    record: bool = Field(..., description="Whether to store the point's readings (the point standard's record column)")
     data_type: PowerflowDataType
     width: int = Field(..., ge=1, le=4)
     signed: bool

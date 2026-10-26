@@ -22,6 +22,7 @@ const point = {
   category: 'NATIVE',
   class: 'ANALOG',
   severity: null,
+  record_enabled: true,
 } as DevicePoint;
 
 const cell = (rowIndex: number, key: string) => document.querySelector(`[data-cell="${rowIndex}:${key}"]`) as HTMLElement;
@@ -134,5 +135,30 @@ describe('DevicePointsGrid', () => {
     fireEvent.click(screen.getByRole('button', { name: /Save \(1\)/ }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].updates[0].payload.enum_detail).toEqual({ '0': 'OFF', '3': 'ON', '4': 'FAULT' });
+  });
+
+  it('shows whether each point is recorded and saves turning recording off', async () => {
+    const notRecorded = { ...enumPoint, record_enabled: false } as DevicePoint;
+    const onSave = renderGrid(undefined, undefined, [point, notRecorded]);
+    expect(cell(0, 'record').textContent).toBe('Yes');
+    expect(cell(1, 'record').textContent).toBe('No');
+
+    fireEvent.mouseDown(cell(0, 'record'));
+    fireEvent.mouseUp(window);
+    fireEvent.keyDown(grid(), { key: 'F2' });
+    fireEvent.change(cell(0, 'record').querySelector('select')!, { target: { value: 'No' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save \(1\)/ }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].updates).toEqual([
+      expect.objectContaining({ id: 7, payload: expect.objectContaining({ record_enabled: false }) }),
+    ]);
+  });
+
+  it('does not let a standardized point stop recording', () => {
+    renderGrid(undefined, undefined, [{ ...point, category: 'STANDARDIZED', record_enabled: true } as DevicePoint]);
+    fireEvent.doubleClick(cell(0, 'record'));
+    expect(cell(0, 'record').querySelector('select')).toBeNull();
+    expect(cell(0, 'record').className).toContain('cursor-not-allowed');
   });
 });

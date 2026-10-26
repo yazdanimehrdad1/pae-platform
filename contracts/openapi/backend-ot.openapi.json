@@ -1710,6 +1710,12 @@
             ],
             "title": "Poll Kind"
           },
+          "record_enabled": {
+            "default": true,
+            "description": "Whether the poller stores this point's readings. Only NATIVE points can be false. On a bulk upsert of an existing point, leaving it out keeps the current value",
+            "title": "Record Enabled",
+            "type": "boolean"
+          },
           "scale_factor": {
             "anyOf": [
               {
@@ -1880,6 +1886,12 @@
             ],
             "description": "Register type: holding, input, or coils",
             "title": "Poll Kind"
+          },
+          "record_enabled": {
+            "default": true,
+            "description": "Whether the poller stores this point's readings (NATIVE points only can be false)",
+            "title": "Record Enabled",
+            "type": "boolean"
           },
           "scale_factor": {
             "anyOf": [
@@ -2120,6 +2132,18 @@
               }
             ],
             "title": "Poll Kind"
+          },
+          "record_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the poller stores this point's readings. Only NATIVE points can be false; turning it off is refused (409) while a standardized link, virtual point or user alarm reads the point",
+            "title": "Record Enabled"
           },
           "scale_factor": {
             "anyOf": [
@@ -9060,7 +9084,7 @@
     },
     "/api/device-points/site/{site_id}/device/{device_id}/bulk": {
       "put": {
-        "description": "Upsert multiple device points in one call.\nPoints matched by name: existing names are updated, new names are created.\nScan range recompute runs once at the end.",
+        "description": "Upsert multiple device points in one call.\nPoints matched by name: existing names are updated, new names are created.\nScan range recompute runs once at the end.\nrecord_enabled is changed on an existing point only when sent; turning it off is refused (409)\nwhile a standardized link, virtual point or user alarm reads the point.",
         "operationId": "bulk_upsert_points_api_device_points_site__site_id__device__device_id__bulk_put",
         "parameters": [
           {
@@ -9433,7 +9457,7 @@
     },
     "/api/device-points/site/{site_id}/device/{device_id}/{point_id}": {
       "put": {
-        "description": "Update a device point. Triggers scan range recompute unless locked.",
+        "description": "Update a device point. Triggers scan range recompute unless locked.\nTurning record_enabled off is refused (409) while a standardized link, virtual point or user\nalarm reads the point.",
         "operationId": "update_point_api_device_points_site__site_id__device__device_id___point_id__put",
         "parameters": [
           {

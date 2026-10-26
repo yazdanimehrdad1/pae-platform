@@ -4,6 +4,8 @@ Unit tests for request validation in schemas.api_models.requests.
 Guards that the API accepts exactly the supported data_type / device_type vocabulary,
 that a point's size matches its data_type's register width, and that a point's optional
 class / severity accept exactly their vocabulary in any casing, under the wire name "class",
+that a new point records by default while an update or upsert that leaves record_enabled out
+doesn't change it,
 and that a site's time zone is stored as its canonical IANA name (unknown zones rejected).
 """
 
@@ -115,6 +117,23 @@ class TestPointClassAndSeverity:
         point = DevicePointCreateRequest.model_validate(self._payload(**{"class": "ANALOG"}))
         assert point.model_dump(by_alias=True)["class"] == "ANALOG"
 
+
+class TestRecordEnabled:
+    PAYLOAD: dict[str, str | int] = {"name": "test_point", "size": 1, "data_type": "uint16"}
+
+    def test_a_new_point_records_by_default_and_the_default_is_not_marked_as_sent(self):
+        point = DevicePointCreateRequest.model_validate(self.PAYLOAD)
+        assert point.record_enabled is True
+        # bulk upsert only changes an existing point's flag when it was sent.
+        assert "record_enabled" not in point.model_fields_set
+
+    def test_sent_false_is_marked_as_sent(self):
+        point = DevicePointCreateRequest.model_validate(self.PAYLOAD | {"record_enabled": False})
+        assert point.record_enabled is False
+        assert "record_enabled" in point.model_fields_set
+
+    def test_an_update_leaves_it_unchanged_unless_sent(self):
+        assert DevicePointUpdateRequest.model_validate({}).record_enabled is None
 
 class TestSiteTimezone:
     def _create(self, **overrides: object) -> SiteCreateRequest:

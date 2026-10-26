@@ -211,6 +211,11 @@ class DevicePointCreateRequest(BaseModel):
         description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
     )
     severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    record_enabled: bool = Field(
+        True,
+        description="Whether the poller stores this point's readings. Only NATIVE points can be false. "
+        "On a bulk upsert of an existing point, leaving it out keeps the current value",
+    )
 
     # "class" on the wire (a Python keyword), point_class in code; accept either on input.
     model_config = ConfigDict(populate_by_name=True)
@@ -251,6 +256,11 @@ class DevicePointUpdateRequest(BaseModel):
         description="Signal class: ANALOG (metered/continuous), BINARY (state/status/flags), ALARM (warning/fault/error/trip), CONTROL (setpoint/command/config)",
     )
     severity: Severity | None = Field(None, description="Severity: HIGH, MEDIUM or LOW")
+    record_enabled: bool | None = Field(
+        None,
+        description="Whether the poller stores this point's readings. Only NATIVE points can be false; "
+        "turning it off is refused (409) while a standardized link, virtual point or user alarm reads the point",
+    )
 
     # "class" on the wire (a Python keyword), point_class in code; accept either on input.
     model_config = ConfigDict(populate_by_name=True)

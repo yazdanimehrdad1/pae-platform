@@ -51,6 +51,7 @@ class PointRow:
     label: str = ""  # the CSV's human-readable name
     qty: str = ""  # the physical quantity key, the same across asset types (e.g. v_ab)
     tier: str = ""  # M mandatory, R recommended, O optional
+    record: bool = True  # the `record` column: should a historian store its readings
 
     @property
     def width(self) -> int:
@@ -123,6 +124,9 @@ def _point_row(path: Path, raw: dict[str, str]) -> PointRow | None:
         raise PointStandardError(
             f"{path.name}: {raw['point']}: powerflow_server must be yes, calc or no"
         ) from error
+    record = raw.get("record", "")
+    if record not in ("yes", "no"):
+        raise PointStandardError(f"{path.name}: {raw['point']}: record must be yes or no")
     point = raw["point"]
     if point.endswith(REPEAT_SUFFIX):
         point = point.removesuffix(REPEAT_SUFFIX) + "_1"
@@ -137,6 +141,7 @@ def _point_row(path: Path, raw: dict[str, str]) -> PointRow | None:
         label=raw.get("label", ""),
         qty=raw.get("qty", ""),
         tier=raw.get("tier", ""),
+        record=record == "yes",
     )
 
 

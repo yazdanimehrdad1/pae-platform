@@ -164,6 +164,8 @@ async def bulk_upsert_points(
     Upsert multiple device points in one call.
     Points matched by name: existing names are updated, new names are created.
     Scan range recompute runs once at the end.
+    record_enabled is changed on an existing point only when sent; turning it off is refused (409)
+    while a standardized link, virtual point or user alarm reads the point.
     """
     try:
         await get_device_by_id(site_id, device_id)
@@ -282,7 +284,10 @@ async def update_point(
     point_id: int,
     body: DevicePointUpdateRequest,
 ) -> DevicePointResponse:
-    """Update a device point. Triggers scan range recompute unless locked."""
+    """Update a device point. Triggers scan range recompute unless locked.
+    Turning record_enabled off is refused (409) while a standardized link, virtual point or user
+    alarm reads the point.
+    """
     try:
         await get_device_by_id(site_id, device_id)
         point = await update_device_point(point_id, body)

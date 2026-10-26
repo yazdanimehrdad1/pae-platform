@@ -31,8 +31,8 @@ from helpers.alarms.engine import (
     observe_threshold,
     step,
 )
+from helpers.device_points.recording_dependents import alarm_rule_point_ids
 from helpers.reads.device_points_readings import get_latest_readings_by_point_ids
-from helpers.virtual_points.definition import condition_point_ids
 from helpers.virtual_points.resolve import input_max_gap
 from logger import get_logger
 from schemas.api_models.alarms import CommsStaleAlarm, ConditionAlarm, ThresholdAlarm
@@ -163,13 +163,7 @@ def _record(session: AsyncSession, alarm: AlarmDefinition, transition: AlarmTran
 async def _point_values(site_id: int, alarms: list[AlarmDefinition], now: datetime) -> tuple[dict[int, float | None], dict[int, int]]:
     """Latest value of every point the alarms read (None when missing or older than the max gap),
     and each point's device."""
-    point_ids: set[int] = set()
-    for alarm in alarms:
-        match alarm.rule:
-            case ThresholdAlarm():
-                point_ids |= condition_point_ids(alarm.rule.condition)
-            case ConditionAlarm():
-                point_ids |= condition_point_ids(alarm.rule.when)
+    point_ids = {point_id for alarm in alarms if alarm.rule is not None for point_id in alarm_rule_point_ids(alarm.rule)}
     if not point_ids:
         return {}, {}
     oldest = now - input_max_gap()

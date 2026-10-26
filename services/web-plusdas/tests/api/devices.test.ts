@@ -34,7 +34,7 @@ const pvDevice: DeviceRecord = {
     standardized: [],
     native: [{
       id: 4, name: 'voltage', category: 'NATIVE', address: 1, size: 1, data_type: 'uint16',
-      byte_order: 'big', word_order: 'msw_first', device_id: 1, site_id: 1001,
+      byte_order: 'big', word_order: 'msw_first', device_id: 1, site_id: 1001, record_enabled: true,
     }],
     virtual: [],
   },

@@ -220,6 +220,10 @@ def map_modbus_data_to_device_points(
         # stored readings (helpers.virtual_points), never decoded from the register map.
         if point.category != "NATIVE":
             continue
+        # A point that isn't recorded is still read (it stays in the scan ranges) but never stored.
+        # `is False`: an unsaved DevicePoint has None until the column default applies.
+        if point.record_enabled is False:
+            continue
         extraction = _extract_register_values(
             register_map=register_map.values,
             point_address=point.address,

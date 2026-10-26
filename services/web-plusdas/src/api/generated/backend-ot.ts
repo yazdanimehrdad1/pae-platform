@@ -417,6 +417,8 @@ export interface paths {
          * @description Upsert multiple device points in one call.
          *     Points matched by name: existing names are updated, new names are created.
          *     Scan range recompute runs once at the end.
+         *     record_enabled is changed on an existing point only when sent; turning it off is refused (409)
+         *     while a standardized link, virtual point or user alarm reads the point.
          */
         put: operations["bulk_upsert_points_api_device_points_site__site_id__device__device_id__bulk_put"];
         post?: never;
@@ -524,6 +526,8 @@ export interface paths {
         /**
          * Update a device point
          * @description Update a device point. Triggers scan range recompute unless locked.
+         *     Turning record_enabled off is refused (409) while a standardized link, virtual point or user
+         *     alarm reads the point.
          */
         put: operations["update_point_api_device_points_site__site_id__device__device_id___point_id__put"];
         post?: never;
@@ -2216,6 +2220,12 @@ export interface components {
             name: string;
             /** Poll Kind */
             poll_kind?: ("holding" | "input" | "coils") | null;
+            /**
+             * Record Enabled
+             * @description Whether the poller stores this point's readings. Only NATIVE points can be false. On a bulk upsert of an existing point, leaving it out keeps the current value
+             * @default true
+             */
+            record_enabled: boolean;
             /** Scale Factor */
             scale_factor?: number | null;
             /**
@@ -2305,6 +2315,12 @@ export interface components {
              */
             poll_kind?: string | null;
             /**
+             * Record Enabled
+             * @description Whether the poller stores this point's readings (NATIVE points only can be false)
+             * @default true
+             */
+            record_enabled: boolean;
+            /**
              * Scale Factor
              * @description Scale factor
              */
@@ -2377,6 +2393,11 @@ export interface components {
             name?: string | null;
             /** Poll Kind */
             poll_kind?: ("holding" | "input" | "coils") | null;
+            /**
+             * Record Enabled
+             * @description Whether the poller stores this point's readings. Only NATIVE points can be false; turning it off is refused (409) while a standardized link, virtual point or user alarm reads the point
+             */
+            record_enabled?: boolean | null;
             /** Scale Factor */
             scale_factor?: number | null;
             /**

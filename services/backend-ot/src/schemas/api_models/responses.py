@@ -162,6 +162,10 @@ class DevicePointResponse(BaseModel):
             "shows (times scale_factor, in unit). Set with PUT .../{point_id}/link; null means unlinked"
         ),
     )
+    record_enabled: bool = Field(
+        True,
+        description="Whether the poller stores this point's readings (NATIVE points only can be false)",
+    )
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {

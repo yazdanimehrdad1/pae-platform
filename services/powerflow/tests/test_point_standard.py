@@ -59,6 +59,19 @@ class TestCatalog:
         for rows in POINT_STANDARD.point_lists.values():
             assert all(isinstance(row.support, ServerSupport) for row in rows)
 
+    def test_static_heartbeat_and_setpoint_flag_points_are_not_recorded(self) -> None:
+        """`record` = no on nameplate values, heartbeats, setpoint enable/mode flags and the
+        meters' per-phase VA/PF; the measurements a site is run on stay recorded."""
+        common = {row.point: row.record for row in POINT_STANDARD.rows("common.csv")}
+        assert not common["WMaxRtg"] and not common["Hb"]
+        assert common["BrkPos"]
+        bess = {row.point: row.record for row in POINT_STANDARD.rows("bess.csv")}
+        assert not bess["WHRtg"] and not bess["WSetEna"]
+        assert bess["W"] and bess["SoC"] and bess["InvSt"] and bess["WSet"]
+        meter = {row.point: row.record for row in POINT_STANDARD.rows("meter.csv")}
+        assert not meter["PFphA"] and not meter["VAphC"]
+        assert meter["W"] and meter["PF"] and meter["AphA"] and meter["PhVphAB"]
+
     def test_strings_dropped_and_repeats_expanded(self) -> None:
         common = [row.point for row in POINT_STANDARD.rows("common.csv")]
         assert "Mn" not in common and "WMaxRtg" in common

@@ -175,6 +175,7 @@ async def seed(data: SeedData | None = None) -> None:
                     word_order=point.word_order,
                     bitfield_detail=point.bitfield_detail,
                     enum_detail=point.enum_detail,
+                    record_enabled=point.record_enabled,
                 ))
                 logger.info(
                     "Created device point '%s.%s' (addr=%s)",
