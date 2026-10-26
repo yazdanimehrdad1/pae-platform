@@ -50,21 +50,23 @@ ui: require-env
 	@echo "$(env) UI on http://localhost:$(UI_PORT) (Ctrl+C to stop)"
 	gcloud compute start-iap-tunnel $(VM) 80 --local-host-port=localhost:$(UI_PORT) --project $(PROJECT) --zone $(ZONE)
 
-# Copy local files to a fresh directory on the VM: $(call upload,<remote dir>,<local paths>)
+# Copy local files to a fresh directory in the SSH user's home on the VM (relative path; each user
+# - the owner, the CI account - has its own, so nobody trips over another's files in /tmp):
+# $(call upload,<dir under home>,<local paths>)
 upload = $(SSH) "rm -rf $(1) && mkdir -p $(1)" && gcloud compute scp --recurse $(2) $(VM):$(1)/ $(GCLOUD_VM)
 
 # One-time (re-runnable) VM setup: data disk, Docker, registry login, Ops Agent, backup timer.
 host-setup: require-env
-	$(call upload,/tmp/pae-setup,scripts)
-	$(SSH) "sudo bash /tmp/pae-setup/scripts/host-setup.sh"
+	$(call upload,pae-setup,scripts)
+	$(SSH) "sudo bash pae-setup/scripts/host-setup.sh"
 
 # Deploy a release (default: the newest commit on origin/main, whose images CI pushed).
 deploy: require-env
 	@release="$(RELEASE)"; \
 	if [ -z "$$release" ]; then git fetch -q origin main && release="$$(git rev-parse origin/main)"; fi; \
 	echo "deploying $$release to $(env)"; \
-	$(call upload,/tmp/pae-bundle,compose.yaml config scripts) && \
-	$(SSH) "sudo bash /tmp/pae-bundle/scripts/deploy.sh $(env) $$release"
+	$(call upload,pae-bundle,compose.yaml config scripts) && \
+	$(SSH) "sudo bash pae-bundle/scripts/deploy.sh $(env) $$release"
 
 # What runs, and which release.
 status: require-env
@@ -89,11 +91,11 @@ seed-site: require-env
 	@test "$(env)" = dev || { echo "seed-site loads simulated data into dev only" >&2; exit 2; }
 	@test -n "$(SITE)" && test -d "$(BUNDLE)" || { echo "usage: make seed-site env=dev SITE=<site> BUNDLE=<dir>" >&2; exit 2; }
 	@echo "$(SITE)" | grep -Eqx '[a-z0-9_]+' || { echo "SITE must match [a-z0-9_]+" >&2; exit 2; }
-	$(call upload,/tmp/pae-seed,$(BUNDLE))
+	$(call upload,pae-seed,$(BUNDLE))
 	@# docker cp leaves root-owned files the container's user can't remove, so each run gets a new
 	@# directory inside the container (gone when the container is next recreated).
 	$(SSH) "set -e; c=\"$(COMPOSE_ON_VM)\"; d=/tmp/pae-seed-\$$(date +%s); \
-		\$$c cp /tmp/pae-seed/$(notdir $(BUNDLE)) backend-ot:\$$d; \
+		\$$c cp pae-seed/$(notdir $(BUNDLE)) backend-ot:\$$d; \
 		\$$c exec -T backend-ot sh \$$d/run_in_container.sh $(SITE); \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/stop; \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sites/$(SITE)/activate; \
