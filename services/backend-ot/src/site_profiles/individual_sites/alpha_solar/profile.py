@@ -1,10 +1,10 @@
 """
-Alpha Solar Farm (dev site 1001): the endpoints and alarms it offers.
+Alpha Solar Farm (dev site 1001): the endpoints, alarms and stored virtual points it offers.
 
 Only what is declared here gets a URL (endpoints), an alarm row per site (alarms) or a health
-verdict in the SLD info boxes (device_health). To add one: write its code in the site's
-alpha_solar_functions.py, alpha_solar_health.py or alpha_solar_alarms.py (or common/<device type>/
-for a shared one), then declare it below.
+verdict in the SLD info boxes (device_health) or a stored VIRTUAL point (virtual_points). To add one:
+write its code in the site's alpha_solar_functions.py, alpha_solar_health.py, alpha_solar_alarms.py or
+alpha_solar_virtual_points.py (or common/<device type>/ for a shared one), then declare it below.
 """
 
 from schemas.site_profiles import EnergySeriesResult, EnergySummaryResult
@@ -16,6 +16,7 @@ from site_profiles.declarations.alarm import SiteAlarm
 from site_profiles.declarations.endpoint import SiteEndpoint
 from site_profiles.declarations.health import DeviceHealthCheck
 from site_profiles.declarations.profile import SiteProfile
+from site_profiles.declarations.virtual_point import SiteVirtualPoint
 from site_profiles.individual_sites.alpha_solar.alpha_solar_alarms import (
     high_severity_alarm_point_active,
 )
@@ -27,6 +28,11 @@ from site_profiles.individual_sites.alpha_solar.alpha_solar_functions import (
     site_poi_power,
 )
 from site_profiles.individual_sites.alpha_solar.alpha_solar_health import bess_health
+from site_profiles.individual_sites.alpha_solar.alpha_solar_helper_functions import (
+    POI_ACTIVE_POWER_POINT,
+    POI_REACTIVE_POWER_POINT,
+)
+from site_profiles.individual_sites.alpha_solar.alpha_solar_virtual_points import poi_apparent_power
 
 ALPHA_SOLAR_PROFILE = SiteProfile(
     key="alpha_solar",
@@ -85,4 +91,18 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
     ),
     # Health shown in the SLD info boxes: a site-specific check (BESS). PV has none for now.
     device_health=(DeviceHealthCheck(node_type="bess", evaluate=bess_health),),
+    # Stored every poll interval into a VIRTUAL point on the device (helpers.profile_points).
+    virtual_points=(
+        SiteVirtualPoint(
+            key="poi_apparent_power",
+            device_name="mock-device-3",
+            point_name="poi_apparent_power",
+            unit="kVA",
+            description=(
+                f"Apparent power at the POI: √(P² + Q²) of {POI_ACTIVE_POWER_POINT} and "
+                f"{POI_REACTIVE_POWER_POINT}, at each of their polls"
+            ),
+            compute=poi_apparent_power,
+        ),
+    ),
 )

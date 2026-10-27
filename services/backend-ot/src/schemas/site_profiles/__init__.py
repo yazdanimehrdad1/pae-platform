@@ -33,6 +33,7 @@ from schemas.site_profiles.common import (
     SiteEndpointsResponse,
     TimeWindow,
     TimeWindowParams,
+    VirtualPointContext,
 )
 
 __all__ = [
@@ -65,4 +66,5 @@ __all__ = [
     "SiteEndpointsResponse",
     "TimeWindow",
     "TimeWindowParams",
+    "VirtualPointContext",
 ]

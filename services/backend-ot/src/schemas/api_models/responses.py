@@ -166,6 +166,21 @@ class DevicePointResponse(BaseModel):
         True,
         description="Whether the poller stores this point's readings (NATIVE points only can be false)",
     )
+    profile_point_key: str | None = Field(
+        None,
+        description=(
+            "VIRTUAL points owned by the site profile only: the key of the virtual point its profile.py "
+            "declares. Its values are computed by the profile's code and stored every poll interval; it "
+            "has no virtual_definition and can't be edited or deleted through the API (409)"
+        ),
+    )
+    profile_point_description: str | None = Field(
+        None,
+        description=(
+            "VIRTUAL points owned by the site profile only: what the profile's code computes, in "
+            "place of a virtual_definition (from the declaration's description)"
+        ),
+    )
     deleted_at: datetime | None = Field(None, description="Soft-delete timestamp; null means active")
 
     model_config = {

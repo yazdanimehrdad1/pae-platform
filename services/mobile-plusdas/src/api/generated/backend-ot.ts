@@ -397,6 +397,7 @@ export interface paths {
         /**
          * Soft- or hard-delete device points
          * @description Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.
+         *     Points the site profile owns (profile_point_key set) can't be deleted: 409.
          */
         delete: operations["delete_points_api_device_points_site__site_id__device__device_id__delete"];
         options?: never;
@@ -506,6 +507,7 @@ export interface paths {
         /**
          * Update a virtual point
          * @description Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.
+         *     A point the site profile owns (profile_point_key set) is changed in code only: 409.
          */
         put: operations["update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put"];
         post?: never;
@@ -2314,6 +2316,16 @@ export interface components {
              * @description Register type: holding, input, or coils
              */
             poll_kind?: string | null;
+            /**
+             * Profile Point Description
+             * @description VIRTUAL points owned by the site profile only: what the profile's code computes, in place of a virtual_definition (from the declaration's description)
+             */
+            profile_point_description?: string | null;
+            /**
+             * Profile Point Key
+             * @description VIRTUAL points owned by the site profile only: the key of the virtual point its profile.py declares. Its values are computed by the profile's code and stored every poll interval; it has no virtual_definition and can't be edited or deleted through the API (409)
+             */
+            profile_point_key?: string | null;
             /**
              * Record Enabled
              * @description Whether the poller stores this point's readings (NATIVE points only can be false)

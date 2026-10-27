@@ -31,26 +31,38 @@ export function VirtualPointsList({ siteId, points, onEdit, onDelete }: {
 
   return (
     <ul className="divide-y divide-border rounded-md border border-border">
-      {points.map(point => (
-        <li key={point.id} className="flex items-start gap-3 p-3" data-testid="virtual-point">
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{point.name}</span>
-              <Badge variant="outline">{point.virtual_definition?.kind ?? "no definition"}</Badge>
-              {point.unit && <span className="text-xs text-muted-foreground">{point.unit}</span>}
+      {points.map(point => {
+        // Computed by the site profile's code and stored every poll: changed in code only (the API answers 409).
+        const fromProfile = point.profile_point_key != null;
+        return (
+          <li key={point.id} className="flex items-start gap-3 p-3" data-testid="virtual-point">
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{point.name}</span>
+                <Badge variant="outline">{fromProfile ? "site profile" : point.virtual_definition?.kind ?? "no definition"}</Badge>
+                {point.unit && <span className="text-xs text-muted-foreground">{point.unit}</span>}
+              </div>
+              {fromProfile ? (
+                <p className="text-xs text-muted-foreground">
+                  {point.profile_point_description ?? `Computed by the site profile (${point.profile_point_key})`}
+                </p>
+              ) : describeDraft(draftFromPoint(point), pointsById).map((line, index) => (
+                <p key={index} className="truncate font-mono text-xs text-muted-foreground" title={line}>{line}</p>
+              ))}
             </div>
-            {describeDraft(draftFromPoint(point), pointsById).map((line, index) => (
-              <p key={index} className="truncate font-mono text-xs text-muted-foreground" title={line}>{line}</p>
-            ))}
-          </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${point.name}`} onClick={() => onEdit(point)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${point.name}`} onClick={() => onDelete(point)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </li>
-      ))}
+            {!fromProfile && (
+              <>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${point.name}`} onClick={() => onEdit(point)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${point.name}`} onClick={() => onDelete(point)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

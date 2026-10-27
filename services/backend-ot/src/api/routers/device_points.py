@@ -215,7 +215,9 @@ async def update_virtual_point_for_device(
     point_id: int,
     body: VirtualPointUpdateRequest,
 ) -> DevicePointResponse:
-    """Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept."""
+    """Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.
+    A point the site profile owns (profile_point_key set) is changed in code only: 409.
+    """
     try:
         await get_device_by_id(site_id, device_id)
         point = await update_virtual_point(site_id, device_id, point_id, body)
@@ -310,7 +312,9 @@ async def delete_points(
     mode: Literal["soft", "hard"] = Query(default="soft", description="soft=preserve readings, hard=cascade delete"),
     confirm: bool = Query(default=False, description="Required for mode=hard"),
 ) -> list[DevicePointResponse]:
-    """Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent."""
+    """Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.
+    Points the site profile owns (profile_point_key set) can't be deleted: 409.
+    """
     try:
         if mode == "hard" and not confirm:
             raise HTTPException(

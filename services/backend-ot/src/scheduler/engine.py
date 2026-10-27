@@ -11,6 +11,7 @@ from config import settings
 from logger import get_logger
 from reports.jobs import register_report_jobs
 from scheduler.jobs import (
+    cron_job_compute_profile_points_all_sites,
     cron_job_evaluate_alarms_all_sites,
     cron_job_poll_modbus_registers_all_sites,
 )
@@ -180,6 +181,7 @@ def register_jobs() -> None:
     # Register all cron jobs
     _register_modbus_polling_job()
     _register_alarm_evaluation_job()
+    _register_profile_point_job()
     register_report_jobs(add_job)
 
     logger.info("All scheduled jobs registered")
@@ -210,4 +212,18 @@ def _register_alarm_evaluation_job() -> None:
         trigger=IntervalTrigger(seconds=settings.alarm_evaluation_interval_seconds),
         job_id="alarm_evaluation",
         name="Alarm Evaluation"
+    )
+
+
+def _register_profile_point_job() -> None:
+    """
+    Register the profile virtual point job: every site profile's declared virtual points, computed
+    from stored readings and stored, every poll interval. It runs separately from polling (a slow
+    or failing function never delays a poll) and catches up on windows it missed.
+    """
+    add_job(
+        job_func=cron_job_compute_profile_points_all_sites,
+        trigger=IntervalTrigger(seconds=settings.poll_interval_seconds),
+        job_id="profile_point_compute",
+        name="Profile Virtual Points"
     )

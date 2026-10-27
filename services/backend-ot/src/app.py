@@ -33,6 +33,7 @@ from config import settings
 # Database connection imports
 from db.connection import check_db_health, close_all_db_connections, get_async_engine, get_db_pool
 from helpers.alarms.profile_sync import sync_all_sites_profile_alarms
+from helpers.profile_points.sync import sync_all_sites_profile_points
 from logger import get_logger, setup_logging
 from scheduler.engine import start_scheduler, stop_scheduler
 
@@ -73,6 +74,11 @@ async def lifespan(_: FastAPI):
         await sync_all_sites_profile_alarms()
     except Exception as e:
         logger.error(f"Failed to sync profile alarms: {e}", exc_info=True)
+    # ...and a VIRTUAL point per virtual point it declares (stored by the job profile_point_compute).
+    try:
+        await sync_all_sites_profile_points()
+    except Exception as e:
+        logger.error(f"Failed to sync profile virtual points: {e}", exc_info=True)
 
     await start_scheduler()
 

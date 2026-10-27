@@ -27,7 +27,7 @@ from db.connection import close_all_db_connections
 # intent explicit. RESTART IDENTITY resets sites_id_seq back to its START (1001).
 SERVICE_TABLES = (
     "report_runs", "report_schedules", "report_templates",
-    "alarm_evaluation_state", "alarm_events", "alarm_definitions",
+    "alarm_evaluation_state", "alarm_events", "alarm_definitions", "profile_point_state",
     "device_points_readings", "device_points", "pv_array_configs", "devices", "site_slds", "sites",
 )
 

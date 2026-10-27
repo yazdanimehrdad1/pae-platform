@@ -108,6 +108,10 @@ async def update_virtual_point(
             raise NotFoundError(f"Device point {point_id} not found on device {device_id}")
         if point.category != "VIRTUAL":
             raise ValidationError(f"Point {point_id} is {point.category}, not VIRTUAL; update it with PUT .../{point_id}")
+        if point.profile_point_key is not None:
+            raise ConflictError(
+                f"Point {point_id} is owned by the site profile (virtual point '{point.profile_point_key}'); change it in code"
+            )
 
         sent = request.model_fields_set
         if request.name is not None:

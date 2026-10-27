@@ -224,6 +224,12 @@ async def delete_device_points(
         )
         found = {p.id: p for p in result.scalars().all()}
         missing = [pid for pid in point_ids if pid not in found]
+        profile_owned = sorted(p.id for p in found.values() if p.profile_point_key is not None)
+        if profile_owned:
+            # The site profile declares them; the sync would only bring them back.
+            raise ConflictError(
+                f"Points {profile_owned} are owned by the site profile; remove them from its profile.py instead"
+            )
 
         if hard:
             deleted = list(found.values())

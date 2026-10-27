@@ -22,10 +22,12 @@ from httpx import AsyncClient
 from integration.factories import (
     DEVICE_POINT_LIST,
     create_alarm,
+    create_alpha_poi_device,
     create_device,
     create_linked_bess,
     create_site,
     create_virtual_point,
+    device_points,
     link_url,
     point_request,
     standardized_points_by_name,
@@ -811,3 +813,31 @@ class TestRecordEnabled:
         )
         assert response.status_code == 400, response.text
         assert "not recorded" in error_message(response)
+
+
+class TestProfileOwnedPoints:
+    """A VIRTUAL point the site profile owns (alpha_solar's poi_apparent_power) is changed in code only."""
+
+    async def owned_point(self, client) -> DevicePointResponse:
+        site, device, _ = await create_alpha_poi_device(client)
+        return (await device_points(client, site.site_id, device.device_id))["poi_apparent_power"]
+
+    async def test_update_through_the_virtual_route_is_refused(self, client):
+        point = await self.owned_point(client)
+        response = await client.put(
+            f"{virtual_url(point.site_id, point.device_id)}/{point.id}",
+            json=VirtualPointUpdateRequest(unit="MVA").model_dump(mode="json", exclude_unset=True),
+        )
+        assert response.status_code == 409, response.text
+        assert "owned by the site profile" in error_message(response)
+
+    @pytest.mark.parametrize("mode", ["soft", "hard"])
+    async def test_delete_is_refused_and_the_point_stays(self, client, mode):
+        point = await self.owned_point(client)
+        response = await client.delete(
+            points_url(point.site_id, point.device_id),
+            params={"point_ids": point.id, "mode": mode, "confirm": True},
+        )
+        assert response.status_code == 409, response.text
+        assert "owned by the site profile" in error_message(response)
+        assert (await device_points(client, point.site_id, point.device_id))["poi_apparent_power"].deleted_at is None

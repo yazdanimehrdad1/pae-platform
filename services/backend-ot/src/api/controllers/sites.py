@@ -11,6 +11,7 @@ import db.devices as devices_db
 import db.site_slds as site_slds_db
 import db.sites as sites_db
 from helpers.alarms.profile_sync import sync_site_profile_alarms
+from helpers.profile_points.sync import sync_site_profile_points
 from helpers.sites import get_complete_site_data_with_points
 from helpers.sites.sld import sld_link_errors
 from logger import get_logger
@@ -62,6 +63,7 @@ async def update_site(site_id: int, site_update: SiteUpdateRequest) -> SiteRespo
     updated = await sites_db.update_site(site_id, site_update)
     if "profile" in site_update.model_fields_set:
         await sync_site_profile_alarms(site_id)
+        await sync_site_profile_points(site_id)
     return updated
 
 

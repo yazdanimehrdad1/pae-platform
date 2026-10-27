@@ -8,8 +8,9 @@ fresh, reported, non-zero readings mark their point as set.
 
 from datetime import UTC, datetime, timedelta
 
-from schemas.api_models import TimeseriesPoint
+from schemas.api_models import PointTimeseries, TimeseriesPoint
 from site_profiles.individual_sites.alpha_solar.alpha_solar_helper_functions import (
+    apparent_power_samples,
     availability_pct,
     count_online_samples,
     set_alarm_points,
@@ -66,3 +67,24 @@ class TestSetAlarmPoints:
             self.reading(9, 1.0, START),  # a reading of a point not asked about
         ]
         assert set_alarm_points(points, readings, self.OLDEST) == []
+
+
+def power_series(values: list[float | None]) -> PointTimeseries:
+    return PointTimeseries(id=1, name="p", data_type="float32", timeseries=states(values))
+
+
+class TestApparentPowerSamples:
+    def test_hypot_of_p_and_q_at_each_poll_stamped_with_the_poll(self):
+        samples = apparent_power_samples(power_series([3.0, -6.0]), power_series([4.0, 8.0]))
+        assert [(sample.time, sample.value) for sample in samples] == [
+            (START, 5.0),
+            (START + timedelta(minutes=1), 10.0),
+        ]
+
+    def test_poll_missing_either_value_gives_no_sample(self):
+        samples = apparent_power_samples(power_series([3.0, None, 3.0]), power_series([4.0, 4.0, None]))
+        assert [sample.time for sample in samples] == [START]
+
+    def test_poll_only_one_series_has_gives_no_sample(self):
+        reactive = PointTimeseries(id=2, name="q", data_type="float32", timeseries=states([4.0])[:0])
+        assert apparent_power_samples(power_series([3.0]), reactive) == []

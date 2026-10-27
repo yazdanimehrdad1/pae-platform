@@ -34,6 +34,7 @@ from helpers.device_points.scan_range_computation import (  # noqa: E402
 )
 from helpers.device_points.standardized_point_links import apply_point_link  # noqa: E402
 from helpers.device_points.virtual_points import new_virtual_point  # noqa: E402
+from helpers.profile_points.sync import sync_site_profile_points  # noqa: E402
 from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
 from schemas.db_models.orm_models import (  # noqa: E402
@@ -296,9 +297,11 @@ async def seed(data: SeedData | None = None) -> None:
         seeded_site_ids = [site.id for site in site_by_name.values()]
         await session.commit()
 
-    # 9. Profile alarms: what POST /api/sites does (one row per alarm the site's profile declares).
+    # 9. Profile alarms and virtual points: what POST /api/sites and POST ./devices do (one row per
+    # alarm and per virtual point the site's profile declares).
     for site_id in seeded_site_ids:
         await sync_site_profile_alarms(site_id)
+        await sync_site_profile_points(site_id)
     logger.info("Seeding complete.")
 
 
