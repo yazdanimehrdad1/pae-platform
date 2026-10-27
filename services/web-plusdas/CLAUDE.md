@@ -41,6 +41,11 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
   against the **running** container (SPA fallback, cache headers, `/config.js`, `/api/healthz` +
   `/api/sites` through the web origin, plus `/powerflow-api/health` and `/intelli-gateway-api/healthz`).
   It needs the dev stack up.
+- Layout: `make test-layout` (Playwright, `tests/layout/`, Chromium only) opens every page at phone,
+  tablet and laptop widths and fails when the page itself scrolls sideways or content sticks out
+  of its box; screenshots land in `test-results/layout/` (gitignored). It needs a running UI
+  (`make run`, or `LAYOUT_BASE_URL=http://localhost:5173` for the container) with the dev stack
+  up and seeded. Not part of `make test` or CI.
 - API types: `make api-types` regenerates `src/api/generated/{backend-ot,powerflow,intelli-gateway}.ts` after a
   contract changes (`make test` fails until you do). Then fix whatever `make typecheck` reports.
 - Dev server: `make run` (Vite on http://localhost:**5174**, `/api` proxied to
@@ -114,6 +119,22 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
 - A route that isn't in the contract can't be called: backend-ot adds it first. What the mocked
   pages need is in `docs/backend-gaps.md`.
 - Provides no contract (no `contract` target).
+
+## Screen sizes
+Mostly used on laptops and tablets; phones must stay organized. Three layouts on Tailwind's
+default breakpoints: phone `< md` (768px), tablet `md` to `< xl` (1280px, so 1024 landscape is a
+tablet), laptop `xl` and up. A phone turned sideways (height < 500px, width < 1024px) is a phone
+too, which `md:` alone can't see: phone-only behaviour that must hold sideways uses
+`useBreakpoint()` (`src/shared/hooks/use-mobile.tsx`) or the
+`[@media(max-height:499px)_and_(max-width:1023px)]:` variant. Otherwise prefer `md:`/`xl:` classes.
+- The shell (`DashboardLayout`, `data-shell` attribute): laptop = nav column + Notes column; tablet
+  = icon rail + drawers (nav, Notes); phone = `MobileTopBar` + drawers. Side panels inside pages
+  follow suit: Historian's Trends panel and Live Data's Asset Tree are drawers below laptop width.
+- Editing tools are view-only on phones: wrap them in `HideOnPhone` (optionally with
+  `note={EDIT_ON_LARGER_SCREEN}`); grids take `readOnly`.
+- Pages fill `main` with `h-full` (never `h-screen` or `calc(100vh - …)`), headers and toolbars
+  `flex-wrap`, fixed-width controls `w-full sm:w-…`, wide tables and grids scroll inside their own box.
+  Hover-only controls need `[@media(hover:hover)]:` so touch screens still see them.
 
 ## Gotchas
 - `strict: false` and `noImplicitAny: false` in tsconfig (inherited): the compiler won't catch

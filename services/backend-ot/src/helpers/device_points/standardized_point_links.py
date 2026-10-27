@@ -37,6 +37,12 @@ def apply_point_link(point: DevicePoint, source: DevicePoint, request: Standardi
         raise ValidationError(f"Source point {source.id} is on device {source.device_id}, not on device {point.device_id}")
     if source.category != "NATIVE" or source.deleted_at is not None:
         raise ValidationError(f"Source point {source.id} must be an active NATIVE point")
+    # `is False`: an unsaved DevicePoint (the seeder, unit tests) has None until the column default applies.
+    if source.record_enabled is False:
+        raise ValidationError(
+            f"Source point {source.id} ('{source.name}') is not recorded, so it has no readings to show; "
+            "turn its recording on first"
+        )
     scale_error = power_scale_error(source.unit, request.unit, request.scale_factor)
     if scale_error is not None:
         raise ValidationError(scale_error)

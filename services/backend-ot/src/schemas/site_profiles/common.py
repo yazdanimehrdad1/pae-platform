@@ -387,3 +387,21 @@ class DeviceHealthContext(SiteContext):
     device: DeviceWithPoints = Field(..., description="The device to judge")
     now: datetime = Field(..., description="When this check runs (UTC)")
 
+
+# --- Profile virtual points ----------------------------------------------------------------
+
+
+class VirtualPointContext(SiteContext):
+    """What a profile virtual point's compute function gets: the site, its devices and points, the
+    device the point lives on (`device`, always set) and the window to compute, (start, end]."""
+
+    device: DeviceWithPoints = Field(..., description="The device the point lives on")
+    start: datetime = Field(..., description="Exclusive: values at or before it are already stored (UTC)")
+    end: datetime = Field(..., description="Inclusive: the newest poll this run covers (UTC)")
+
+    @property
+    def window(self) -> TimeWindow:
+        """The window as the TimeWindow site functions read with (it includes `start`, whose value
+        is already stored and is dropped)."""
+        return TimeWindow(start_time=self.start, end_time=self.end)
+

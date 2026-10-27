@@ -43,7 +43,7 @@ export function SeriesStylePopover({ keys, labels, resolved, styles, onChange }:
           <Palette className="h-3.5 w-3.5" />Styles
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[34rem] max-w-[95vw] space-y-3 p-3">
+      <PopoverContent align="end" className="w-[34rem] max-w-[calc(100vw-2rem)] space-y-3 p-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Signal styles</span>
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={!hasChanges} onClick={() => onChange(undefined)}>

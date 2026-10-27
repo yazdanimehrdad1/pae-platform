@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from db.connection import get_async_session_factory
 from helpers.device_points.address_overlap import NativePointRange, validate_no_register_overlap
+from helpers.device_points.recording_dependents import ensure_not_depended_on
 from helpers.device_points.scan_range_computation import compute_device_scan_ranges
 from schemas.api_models import SUPPORTED_DATA_TYPES, DataType, DevicePointData, register_size
 from schemas.api_models.requests import DevicePointsBulkRequest, DevicePointUpdateRequest
@@ -92,6 +93,18 @@ async def get_deleted_device_points(device_id: int) -> list[DevicePoint]:
             .order_by(DevicePoint.deleted_at.desc())
         )
         return list(result.scalars().all())
+
+
+async def _apply_record_enabled(session, point: DevicePoint, record_enabled: bool) -> None:
+    """Set whether the poller stores the point's readings. Only NATIVE points can stop recording,
+    and only while nothing reads their stored readings (409 otherwise)."""
+    if not record_enabled and point.record_enabled:
+        if point.category != "NATIVE":
+            raise ValidationError(
+                f"Point '{point.name}' is {point.category}; only NATIVE points can stop being recorded"
+            )
+        await ensure_not_depended_on(session, point.site_id, [point])
+    point.record_enabled = record_enabled
 
 
 async def update_device_point(
@@ -180,6 +193,8 @@ async def update_device_point(
             point.point_class = data.point_class
         if data.severity is not None:
             point.severity = data.severity
+        if data.record_enabled is not None:
+            await _apply_record_enabled(session, point, data.record_enabled)
 
         device_id = point.device_id
         await _recompute_scan_ranges(session, device_id)
@@ -209,6 +224,12 @@ async def delete_device_points(
         )
         found = {p.id: p for p in result.scalars().all()}
         missing = [pid for pid in point_ids if pid not in found]
+        profile_owned = sorted(p.id for p in found.values() if p.profile_point_key is not None)
+        if profile_owned:
+            # The site profile declares them; the sync would only bring them back.
+            raise ConflictError(
+                f"Points {profile_owned} are owned by the site profile; remove them from its profile.py instead"
+            )
 
         if hard:
             deleted = list(found.values())
@@ -267,6 +288,10 @@ async def bulk_upsert_device_points(
                 raise ValidationError(f"poll_kind is required for NATIVE point '{point.name}'")
             if point.address is None:
                 raise ValidationError(f"address is required for NATIVE point '{point.name}'")
+        elif not point.record_enabled:
+            raise ValidationError(
+                f"'{point.name}' is {point.category}; only NATIVE points can stop being recorded"
+            )
 
     session_factory = get_async_session_factory()
     async with session_factory() as session:
@@ -296,6 +321,7 @@ async def bulk_upsert_device_points(
         validate_no_register_overlap(native_candidates)
 
         upserted: list[DevicePoint] = []
+        stopping: list[DevicePoint] = []
         for data in bulk.points:
             if data.name in existing_by_name:
                 point = existing_by_name[data.name]
@@ -324,6 +350,12 @@ async def bulk_upsert_device_points(
                     point.point_class = data.point_class
                 if data.severity is not None:
                     point.severity = data.severity
+                # Only when sent: the field defaults to true, and a re-upsert that leaves it out
+                # must not quietly turn recording back on.
+                if "record_enabled" in data.model_fields_set:
+                    if not data.record_enabled and point.record_enabled:
+                        stopping.append(point)
+                    point.record_enabled = data.record_enabled
                 upserted.append(point)
             else:
                 new_point = DevicePoint(
@@ -343,9 +375,17 @@ async def bulk_upsert_device_points(
                     category=data.category,
                     point_class=data.point_class,
                     severity=data.severity,
+                    record_enabled=data.record_enabled,
                 )
                 session.add(new_point)
                 upserted.append(new_point)
+
+        for point in stopping:
+            if point.category != "NATIVE":
+                raise ValidationError(
+                    f"'{point.name}' is {point.category}; only NATIVE points can stop being recorded"
+                )
+        await ensure_not_depended_on(session, site_id, stopping)
 
         await session.flush()
         await _recompute_scan_ranges(session, device_id)

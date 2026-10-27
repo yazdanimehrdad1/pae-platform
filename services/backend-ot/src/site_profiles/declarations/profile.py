@@ -8,6 +8,7 @@ Each site package builds one in its own profile.py and profile_registry.py lists
         endpoints=(SiteEndpoint(...), ...),
         alarms=(SiteAlarm(...), ...),
         device_health=(DeviceHealthCheck(...), ...),
+        virtual_points=(SiteVirtualPoint(...), ...),
     )
 """
 
@@ -16,12 +17,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from site_profiles.declarations.alarm import SiteAlarm
 from site_profiles.declarations.endpoint import SiteEndpoint
 from site_profiles.declarations.health import DeviceHealthCheck
+from site_profiles.declarations.virtual_point import SiteVirtualPoint
 
 __all__ = ["SiteProfile"]
 
 
 class SiteProfile(BaseModel):
-    """The endpoints, alarms and device health checks one site offers. Its key is the value stored in
+    """The endpoints, alarms, device health checks and stored virtual points one site offers. Its key is the value stored in
     sites.profile (unique per site)."""
 
     model_config = ConfigDict(frozen=True)
@@ -32,6 +34,9 @@ class SiteProfile(BaseModel):
     device_health: tuple[DeviceHealthCheck, ...] = Field(
         (), description="How the site judges device health for SLD info boxes, one check per element type"
     )
+    virtual_points: tuple[SiteVirtualPoint, ...] = Field(
+        (), description="Virtual points whose values the profile computes and stores every poll interval"
+    )
 
     def find_alarm(self, key: str) -> SiteAlarm | None:
         """The declared alarm with this key, or None if the profile no longer declares it."""
@@ -40,6 +45,10 @@ class SiteProfile(BaseModel):
     def find_health_check(self, node_type: str) -> DeviceHealthCheck | None:
         """The declared health check for an SLD element type, or None if the site has none."""
         return next((check for check in self.device_health if check.node_type == node_type), None)
+
+    def find_virtual_point(self, key: str) -> SiteVirtualPoint | None:
+        """The declared virtual point with this key, or None if the profile no longer declares it."""
+        return next((point for point in self.virtual_points if point.key == key), None)
 
     def find_endpoint(self, name: str) -> SiteEndpoint | None:
         """The declared endpoint with this name, or None if the site doesn't offer it."""

@@ -10,6 +10,7 @@ from typing import Literal
 import db.devices as devices_db
 from helpers.device_points.device_points_crud import create_device_points
 from helpers.device_points.device_standardized_points import generate_standardized_points
+from helpers.profile_points.sync import sync_site_profile_points
 from logger import get_logger
 from schemas.api_models import (
     DeviceCreateRequest,
@@ -38,13 +39,18 @@ async def create_device(device: DeviceCreateRequest, site_id: int) -> DeviceWith
     standardized = generate_standardized_points(device.type, created.device_id, site_id)
     if standardized:
         await create_device_points(standardized)
+    # A virtual point the site profile declares on a device of this name gets its row now.
+    await sync_site_profile_points(site_id)
     return created
 
 
 async def update_device(
     device_id: int, device_update: DeviceUpdate, site_id: int
 ) -> DeviceWithPoints:
-    return await devices_db.update_device(device_id, device_update, site_id=site_id)
+    updated = await devices_db.update_device(device_id, device_update, site_id=site_id)
+    if "name" in device_update.model_fields_set:
+        await sync_site_profile_points(site_id)  # the device may now be the one a profile point names
+    return updated
 
 
 async def delete_device(
@@ -60,4 +66,5 @@ async def restore_device(device_id: int, site_id: int) -> DeviceWithPoints:
     device = await devices_db.restore_device(device_id, site_id=site_id)
     if device is None:
         raise NotFoundError(f"Device with ID {device_id} not found in site {site_id}")
+    await sync_site_profile_points(site_id)
     return device

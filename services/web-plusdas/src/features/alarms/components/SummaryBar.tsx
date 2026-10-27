@@ -1,3 +1,4 @@
+import { HideOnPhone } from "@/shared/components/HideOnPhone";
 import { ListChecks, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
@@ -23,13 +24,15 @@ export function SummaryBar({ faults, warnings, normalDevices, totalDevices, rule
         <span className={warnings > 0 ? "font-semibold" : "text-muted-foreground"}>{warnings} active {warnings === 1 ? "warning" : "warnings"}</span>
       </span>
       <span className="text-muted-foreground">{normalDevices} of {totalDevices} devices normal</span>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" className="gap-1" onClick={onOpenRules}>
           <ListChecks className="h-4 w-4" />Rules ({ruleCount})
         </Button>
-        <Button variant={isBuilderOpen ? "secondary" : "outline"} size="sm" className="gap-1" onClick={onToggleBuilder} aria-expanded={isBuilderOpen}>
-          <Plus className="h-4 w-4" />New rule
-        </Button>
+        <HideOnPhone>
+          <Button variant={isBuilderOpen ? "secondary" : "outline"} size="sm" className="gap-1" onClick={onToggleBuilder} aria-expanded={isBuilderOpen}>
+            <Plus className="h-4 w-4" />New rule
+          </Button>
+        </HideOnPhone>
       </div>
     </div>
   );

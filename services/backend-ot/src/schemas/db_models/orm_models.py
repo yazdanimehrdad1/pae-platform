@@ -530,6 +530,29 @@ class DevicePoint(Base):
         comment="STANDARDIZED points only: the NATIVE point on the same device whose readings it shows"
     )
 
+    # VIRTUAL points the site profile owns (helpers.profile_points); their values are stored by the
+    # job profile_point_compute, so they have no virtual_definition (chk_device_points_profile_point_category).
+    profile_point_key: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="VIRTUAL points owned by the site profile only: the declared SiteVirtualPoint key"
+    )
+    profile_point_description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="VIRTUAL points owned by the site profile only: what the profile code computes"
+    )
+
+    # NATIVE points only can be False (chk_device_points_record_enabled_category); the poller
+    # then stores no readings for the point.
+    record_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the poller stores this point's readings (NATIVE points only can be false)"
+    )
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -540,6 +563,7 @@ class DevicePoint(Base):
     # Table-level constraints
     __table_args__ = (
         UniqueConstraint('site_id', 'device_id', 'name', name='uq_device_point_site_device_name'),
+        UniqueConstraint('device_id', 'profile_point_key', name='uq_device_points_device_profile_point_key'),
     )
 
     # Note: Unique constraint on (device_id, name) is enforced logic-side or via separate constraint
@@ -616,6 +640,17 @@ class AlarmEvaluationState(Base):
     condition_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     clear_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ProfilePointState(Base):
+    """How far the job profile_point_compute has computed a profile-owned VIRTUAL point."""
+
+    __tablename__ = "profile_point_state"
+
+    device_point_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("device_points.id", ondelete="CASCADE"), primary_key=True
+    )
+    computed_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class SiteSldRecord(Base):

@@ -11,7 +11,7 @@ import { PointLabelsDialog } from "./PointLabelsDialog";
 import { formatLabels, labelFields, labelKind, parseLabels } from "./lib/pointLabels";
 
 type ColumnKey =
-  | "name" | "category" | "poll_kind" | "address" | "size" | "data_type"
+  | "name" | "category" | "record" | "poll_kind" | "address" | "size" | "data_type"
   | "unit" | "scale_factor" | "byte_order" | "word_order" | "class" | "severity" | "labels";
 
 // VIRTUAL points are created with their own dialog (features/devices/virtual), not as grid rows.
@@ -32,10 +32,13 @@ const SEVERITIES: Record<DevicePointSeverity, true> = { HIGH: true, MEDIUM: true
 const SEVERITY = Object.keys(SEVERITIES) as DevicePointSeverity[];
 const BYTE_ORDER = ["big", "little"];
 const WORD_ORDER = ["msw_first", "lsw_first"];
+// Whether the poller stores the point's readings (record_enabled). Only NATIVE points can stop recording.
+const RECORD = ["Yes", "No"];
 
 const COLUMNS: GridColumn<ColumnKey>[] = [
   { key: "name", label: "Name", kind: "text", minWidth: "min-w-[150px]" },
   { key: "category", label: "Category", kind: "enum", options: CATEGORY, minWidth: "min-w-[130px]" },
+  { key: "record", label: "Record", kind: "enum", options: RECORD, minWidth: "min-w-[90px]" },
   { key: "poll_kind", label: "Poll Kind", kind: "enum", options: POLL_KIND, optional: true, minWidth: "min-w-[110px]" },
   { key: "address", label: "Address", kind: "number", minWidth: "min-w-[90px]" },
   { key: "size", label: "Size", kind: "number", minWidth: "min-w-[70px]" },
@@ -54,7 +57,7 @@ type RowValues = Record<ColumnKey, string>;
 type PointRow = GridRow<ColumnKey>;
 
 const EMPTY_VALUES: RowValues = {
-  name: "", category: "NATIVE", poll_kind: "holding", address: "", size: "1",
+  name: "", category: "NATIVE", record: "Yes", poll_kind: "holding", address: "", size: "1",
   data_type: "int16", unit: "", scale_factor: "1", byte_order: "big",
   word_order: "msw_first", class: "", severity: "", labels: "",
 };
@@ -65,6 +68,7 @@ function pointToValues(point: DevicePoint): RowValues {
   return {
     name: point.name ?? "",
     category: point.category,
+    record: point.record_enabled === false ? "No" : "Yes",
     poll_kind: point.poll_kind ?? "",
     address: point.address != null ? String(point.address) : "",
     size: String(point.size),
@@ -84,9 +88,11 @@ export interface SaveChanges {
   creates: DevicePointCreateRequest[];
 }
 
-export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequestDelete }: {
+export function DevicePointsGrid({ points, disabled, readOnly = false, isSaving, onSave, onRequestDelete }: {
   points: DevicePoint[];
   disabled: boolean;
+  // View only (phones): no editing, adding, deleting or saving.
+  readOnly?: boolean;
   isSaving: boolean;
   onSave: (changes: SaveChanges) => Promise<void>;
   onRequestDelete: (point: DevicePoint) => void;
@@ -120,9 +126,13 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
 
   const isRowNew = (row: PointRow) => !baselineByKey.has(row.key);
 
-  // Category is fixed once a point exists (backend does not update it).
-  const isCellEditable = (row: PointRow, column: GridColumn<ColumnKey>) =>
-    !(column.key === "category" && !isRowNew(row));
+  // Category is fixed once a point exists (backend does not update it). Only NATIVE points can stop
+  // recording (STANDARDIZED points are computed from their source on read).
+  const isCellEditable = (row: PointRow, column: GridColumn<ColumnKey>) => {
+    if (column.key === "category") return isRowNew(row);
+    if (column.key === "record") return row.values.category === "NATIVE";
+    return true;
+  };
 
   const isRowDirty = (row: PointRow): boolean => {
     const base = baselineByKey.get(row.key) ?? EMPTY_VALUES;
@@ -164,6 +174,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
       }
       if (values.scale_factor.trim() !== "" && Number.isNaN(Number(values.scale_factor))) addError("scale_factor");
       if (!CATEGORY.includes(values.category)) addError("category");
+      if (!RECORD.includes(values.record) || (values.record === "No" && values.category !== "NATIVE")) addError("record");
       if (values.poll_kind !== "" && !POLL_KIND.includes(values.poll_kind)) addError("poll_kind");
       if (!BYTE_ORDER.includes(values.byte_order)) addError("byte_order");
       if (!WORD_ORDER.includes(values.word_order)) addError("word_order");
@@ -185,6 +196,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
         scale_factor: values.scale_factor.trim() !== "" ? Number(values.scale_factor) : null,
         class: values.class !== "" ? (values.class as DevicePointClass) : null,
         severity: values.severity !== "" ? (values.severity as DevicePointSeverity) : null,
+        record_enabled: values.record === "Yes",
         ...labelFields(labels.labels, values.data_type),
       };
 
@@ -216,7 +228,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
     <div className="space-y-3">
       <SpreadsheetGrid
         cellAction={(row, _rowIndex, column) =>
-          column.key === "labels" && !disabled && labelKind(row.values.data_type) !== null ? (
+          column.key === "labels" && !disabled && !readOnly && labelKind(row.values.data_type) !== null ? (
             <Button
               type="button"
               variant="ghost"
@@ -234,18 +246,19 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
         rows={rows}
         onRowsChange={setRows}
         newRowValues={EMPTY_VALUES}
+        readOnly={readOnly}
         disabled={disabled}
         isCellEditable={isCellEditable}
         errorCells={errorCells}
         isRowDirty={isRowDirty}
         isRowNew={isRowNew}
-        onDeleteRow={deleteRow}
+        onDeleteRow={readOnly ? undefined : deleteRow}
         onDiscardAll={() => { if (dirtyCount > 0 && !isSaving) discard(); }}
         resetToken={resetToken}
-        hint="Click a cell and type to edit. Drag to select, Ctrl+C / Ctrl+V to copy-paste, drag the corner handle to fill down. Use the filter row to narrow points."
+        hint={readOnly ? undefined : "Click a cell and type to edit. Drag to select, Ctrl+C / Ctrl+V to copy-paste, drag the corner handle to fill down. Use the filter row to narrow points."}
         emptyMessage='No points yet. Click "Add Row" to create one.'
         noMatchMessage="No points match the filters."
-        toolbar={(
+        toolbar={readOnly ? undefined : (
           <>
             <Button type="button" variant="ghost" size="sm" className="gap-1" disabled={dirtyCount === 0 || isSaving} onClick={discard}>
               <Undo2 className="w-4 h-4" />Discard
@@ -259,7 +272,7 @@ export function DevicePointsGrid({ points, disabled, isSaving, onSave, onRequest
 
       {errorCells.size > 0 && (
         <p className="text-xs text-destructive">
-          {errorCells.size} invalid cell{errorCells.size > 1 ? "s" : ""} highlighted. Fix them before saving (Name &amp; Data Type required, Size ≥ 1, Address 0–65535; labels as code=label pairs, only on enum and bitfield types).
+          {errorCells.size} invalid cell{errorCells.size > 1 ? "s" : ""} highlighted. Fix them before saving (Name &amp; Data Type required, Size ≥ 1, Address 0–65535; Record Yes or No, and only NATIVE points can be No; labels as code=label pairs, only on enum and bitfield types).
         </p>
       )}
 

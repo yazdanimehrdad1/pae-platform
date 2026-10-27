@@ -105,7 +105,7 @@ export default function ManageSitesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -113,7 +113,7 @@ export default function ManageSitesPage() {
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Failed to load sites</h3>
@@ -167,8 +167,8 @@ export default function ManageSitesPage() {
   );
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border p-4 md:p-6">
         <Breadcrumb className="mb-4">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -182,9 +182,9 @@ export default function ManageSitesPage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Manage Sites</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Manage Sites</h1>
             <p className="text-muted-foreground mt-1">Create, edit, delete, and restore sites</p>
           </div>
           <Button onClick={openCreate} className="gap-2">
@@ -193,7 +193,7 @@ export default function ManageSitesPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         <Tabs defaultValue="active">
           <TabsList>
             <TabsTrigger value="active">Active ({activeSites.length})</TabsTrigger>

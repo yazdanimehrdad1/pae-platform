@@ -6,7 +6,8 @@ here and add it to ALL_SITE_PROFILES. A profile belongs to at most one site (sit
 unique); a site without site-specific code has no profile (NULL). The router mounts one URL per entry in SITE_ENDPOINT_ROUTES. Building
 that list validates every declared endpoint, and validate_site_alarms every declared alarm, so a
 misdeclared one stops the app from starting instead of failing on a request or an evaluation.
-validate_site_device_health does the same for the device health checks behind SLD info boxes.
+validate_site_device_health does the same for the device health checks behind SLD info boxes, and
+validate_site_virtual_points for the stored virtual points.
 """
 
 import re
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 
 from schemas.api_models import PointTimeseries
 from schemas.api_models.types import DeviceType
+from schemas.internal_models import TimestampedValue
 from schemas.site_profiles import (
     AlarmCheck,
     DeviceHealth,
@@ -27,6 +29,7 @@ from site_profiles.declarations.alarm import SiteAlarm
 from site_profiles.declarations.endpoint import SiteEndpoint
 from site_profiles.declarations.health import DeviceHealthCheck
 from site_profiles.declarations.profile import SiteProfile
+from site_profiles.declarations.virtual_point import SiteVirtualPoint
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
@@ -233,6 +236,48 @@ def validate_site_device_health(profiles: tuple[SiteProfile, ...]) -> None:
             node_types.add(check.node_type)
 
 
+def _check_virtual_point(profile_key: str, point: SiteVirtualPoint) -> None:
+    """The compute function lives in common/ or in this profile's package, and returns a list of
+    TimestampedValue."""
+    where = f"{profile_key}: virtual point '{point.key}'"
+    compute = point.compute
+    packages = [_COMMON_PACKAGE, f"{_INDIVIDUAL_SITES_PACKAGE}.{profile_key}"]
+    if not any(compute.__module__.startswith(f"{package}.") for package in packages):
+        raise SiteProfileConfigError(
+            f"{where}: {compute.__qualname__} belongs in site_profiles/common/ or "
+            f"site_profiles/individual_sites/{profile_key}/, but is in {compute.__module__}"
+        )
+    returns = get_type_hints(compute).get("return")
+    if returns != list[TimestampedValue]:
+        raise SiteProfileConfigError(
+            f"{where}: {compute.__qualname__} returns {returns!r}, not list[TimestampedValue]"
+        )
+
+
+def validate_site_virtual_points(profiles: tuple[SiteProfile, ...]) -> None:
+    """
+    Validate every declared virtual point:
+    - the compute function is in site_profiles/common/ or the profile's own package, and is
+      annotated to return list[TimestampedValue];
+    - keys are unique within a profile, and so are (device_name, point_name) pairs.
+    """
+    for profile in profiles:
+        keys: set[str] = set()
+        targets: set[tuple[str, str]] = set()
+        for point in profile.virtual_points:
+            _check_virtual_point(profile.key, point)
+            target = (point.device_name, point.point_name)
+            if point.key in keys:
+                raise SiteProfileConfigError(f"{profile.key}: virtual point key '{point.key}' is declared twice")
+            if target in targets:
+                raise SiteProfileConfigError(
+                    f"{profile.key}: virtual point '{point.point_name}' on device '{point.device_name}' is declared twice"
+                )
+            keys.add(point.key)
+            targets.add(target)
+
+
 SITE_ENDPOINT_ROUTES: list[SiteEndpointRoute] = build_site_endpoint_routes(ALL_SITE_PROFILES)
 validate_site_alarms(ALL_SITE_PROFILES)
 validate_site_device_health(ALL_SITE_PROFILES)
+validate_site_virtual_points(ALL_SITE_PROFILES)

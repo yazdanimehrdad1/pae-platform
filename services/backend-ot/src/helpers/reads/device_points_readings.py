@@ -2,7 +2,9 @@
 
 NATIVE (and unlinked STANDARDIZED) points are read from device_points_readings. VIRTUAL points are
 computed on read from their inputs' stored readings (helpers.virtual_points.resolve); nothing is
-stored for them, and any stored rows under a virtual point's id are ignored. A linked STANDARDIZED
+stored for them, and any stored rows under a virtual point's id are ignored. The exception is a
+VIRTUAL point the site profile owns (profile_point_key): the job profile_point_compute stores its
+values (helpers.profile_points), so it is read from device_points_readings too. A linked STANDARDIZED
 point (source_point_id, set through PUT .../link) returns its source's stored readings under its
 own id and metadata, each value x its scale_factor.
 
@@ -174,8 +176,9 @@ async def _chart_timeseries(
 async def get_virtual_points_by_ids(
     point_ids: list[int], site_id: int | None = None, device_id: int | None = None
 ) -> list[DevicePoint]:
-    """The VIRTUAL points among `point_ids` (all of the device's or site's when empty)."""
-    conditions = [DevicePoint.category == "VIRTUAL"]
+    """The VIRTUAL points computed on read among `point_ids` (all of the device's or site's when
+    empty). A profile-owned one has its values stored, so it is read like a NATIVE point."""
+    conditions = [DevicePoint.category == "VIRTUAL", DevicePoint.profile_point_key.is_(None)]
     if point_ids:
         conditions.append(DevicePoint.id.in_(point_ids))
     if device_id is not None:

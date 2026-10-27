@@ -163,10 +163,10 @@ async def poll_single_device_modbus(site_name: str, device: DeviceWithPoints) ->
         )
 
         if not mapped_raw_registers_to_device_points_all:
-            result["error"] = "No device points configured — skipping DB store"
+            result["error"] = "No recorded device points configured — skipping DB store"
             logger.warning(
                 f"site_name='{site_name}', device_name='{device_name}': "
-                "no device points configured — skipping DB store"
+                "no recorded device points configured — skipping DB store"
             )
             return result
 

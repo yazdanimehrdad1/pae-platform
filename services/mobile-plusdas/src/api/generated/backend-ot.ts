@@ -397,6 +397,7 @@ export interface paths {
         /**
          * Soft- or hard-delete device points
          * @description Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.
+         *     Points the site profile owns (profile_point_key set) can't be deleted: 409.
          */
         delete: operations["delete_points_api_device_points_site__site_id__device__device_id__delete"];
         options?: never;
@@ -417,6 +418,8 @@ export interface paths {
          * @description Upsert multiple device points in one call.
          *     Points matched by name: existing names are updated, new names are created.
          *     Scan range recompute runs once at the end.
+         *     record_enabled is changed on an existing point only when sent; turning it off is refused (409)
+         *     while a standardized link, virtual point or user alarm reads the point.
          */
         put: operations["bulk_upsert_points_api_device_points_site__site_id__device__device_id__bulk_put"];
         post?: never;
@@ -504,6 +507,7 @@ export interface paths {
         /**
          * Update a virtual point
          * @description Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.
+         *     A point the site profile owns (profile_point_key set) is changed in code only: 409.
          */
         put: operations["update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put"];
         post?: never;
@@ -524,6 +528,8 @@ export interface paths {
         /**
          * Update a device point
          * @description Update a device point. Triggers scan range recompute unless locked.
+         *     Turning record_enabled off is refused (409) while a standardized link, virtual point or user
+         *     alarm reads the point.
          */
         put: operations["update_point_api_device_points_site__site_id__device__device_id___point_id__put"];
         post?: never;
@@ -2216,6 +2222,12 @@ export interface components {
             name: string;
             /** Poll Kind */
             poll_kind?: ("holding" | "input" | "coils") | null;
+            /**
+             * Record Enabled
+             * @description Whether the poller stores this point's readings. Only NATIVE points can be false. On a bulk upsert of an existing point, leaving it out keeps the current value
+             * @default true
+             */
+            record_enabled: boolean;
             /** Scale Factor */
             scale_factor?: number | null;
             /**
@@ -2305,6 +2317,22 @@ export interface components {
              */
             poll_kind?: string | null;
             /**
+             * Profile Point Description
+             * @description VIRTUAL points owned by the site profile only: what the profile's code computes, in place of a virtual_definition (from the declaration's description)
+             */
+            profile_point_description?: string | null;
+            /**
+             * Profile Point Key
+             * @description VIRTUAL points owned by the site profile only: the key of the virtual point its profile.py declares. Its values are computed by the profile's code and stored every poll interval; it has no virtual_definition and can't be edited or deleted through the API (409)
+             */
+            profile_point_key?: string | null;
+            /**
+             * Record Enabled
+             * @description Whether the poller stores this point's readings (NATIVE points only can be false)
+             * @default true
+             */
+            record_enabled: boolean;
+            /**
              * Scale Factor
              * @description Scale factor
              */
@@ -2377,6 +2405,11 @@ export interface components {
             name?: string | null;
             /** Poll Kind */
             poll_kind?: ("holding" | "input" | "coils") | null;
+            /**
+             * Record Enabled
+             * @description Whether the poller stores this point's readings. Only NATIVE points can be false; turning it off is refused (409) while a standardized link, virtual point or user alarm reads the point
+             */
+            record_enabled?: boolean | null;
             /** Scale Factor */
             scale_factor?: number | null;
             /**

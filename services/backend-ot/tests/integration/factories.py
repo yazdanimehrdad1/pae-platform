@@ -192,3 +192,25 @@ async def create_linked_bess(client: AsyncClient, linked: bool = True) -> Linked
         site_id=site.site_id, device_id=device.device_id, power=power, soc=soc,
         active_power=active_power, state_of_charge=state_of_charge,
     )
+
+
+# alpha_solar declares the profile virtual point poi_apparent_power (sqrt(P^2 + Q^2)) on this device.
+ALPHA_POI_DEVICE = "mock-device-3"
+
+
+async def create_alpha_poi_device(client: AsyncClient) -> tuple[SiteResponse, DeviceWithPoints, list[DevicePointResponse]]:
+    """An alpha_solar site with its POI device and the two NATIVE points poi_apparent_power reads
+    (creating the device syncs the profile point onto it)."""
+    site = await create_site(client, profile="alpha_solar")
+    device = await create_device(client, site.site_id, name=ALPHA_POI_DEVICE)
+    points = await upsert_points(client, site.site_id, device.device_id, [
+        point_request(name="poi_active_power_total", address=201),
+        point_request(name="poi_reactive_power_total", address=203, unit="kvar"),
+    ])
+    return site, device, points
+
+
+async def device_points(client: AsyncClient, site_id: int, device_id: int) -> dict[str, DevicePointResponse]:
+    response = await client.get(f"/api/device-points/site/{site_id}/device/{device_id}")
+    assert response.status_code == 200, response.text
+    return {point.name: point for point in DEVICE_POINT_LIST.validate_python(response.json())}

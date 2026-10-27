@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Site } from "@/api/types/sites";
@@ -69,32 +70,36 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
             aria-label={`${open ? "Collapse" : "Expand"} ${site.name}`}
             onClick={() => setOpen((isOpen) => !isOpen)}
             onKeyDown={handleToggleKey}
-            className="flex items-center justify-between p-4 cursor-pointer rounded-lg hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4 cursor-pointer rounded-lg hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <div className="flex items-center space-x-4 flex-1">
-              <ChevronRight
-                aria-hidden
-                className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
-              />
-              <div className="w-10 h-10 bg-gradient-secondary rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
+            {/* Left: the site and its alarm counts. Right: operator, status and actions, wrapping
+                under the left part (still right-aligned) when the card is too narrow for one line. */}
+            <div className="flex min-w-0 flex-[1_1_27rem] flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="flex min-w-[12rem] flex-1 items-center space-x-4">
+                <ChevronRight
+                  aria-hidden
+                  className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+                />
+                <div className="w-10 h-10 bg-gradient-secondary rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg truncate">{site.name}</h3>
+                  <p className="text-sm text-muted-foreground flex items-center min-w-0">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {site.location}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-lg truncate">{site.name}</h3>
-                <p className="text-sm text-muted-foreground flex items-center">
-                  <MapPin className="w-3 h-3 mr-1" />
-                  {site.location}
-                </p>
-              </div>
+              <SiteHealthCounts siteId={site.id} />
             </div>
 
-            <div className="flex items-center space-x-6">
-              <SiteHealthCounts siteId={site.id} />
-              <div className="text-center w-[120px] shrink-0">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-3">
+              <div className="hidden text-center w-[120px] shrink-0 sm:block">
                 <div className="text-sm font-medium truncate" title={site.operator}>{site.operator}</div>
                 <div className="data-label text-xs">Operator</div>
               </div>
-              <div className="text-center w-[180px] shrink-0">
+              <div className="hidden text-center w-[180px] shrink-0 sm:block">
                 <div className="text-xs truncate" title={site.lastUpdate}>{site.lastUpdate}</div>
                 <div className="data-label text-xs">Updated</div>
               </div>
@@ -102,24 +107,26 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {site.status}
               </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleViewDevices}
-                className="gap-2"
-              >
-                <List className="w-4 h-4" />
-                Devices
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleViewSLD}
-                className="gap-2"
-              >
-                <Network className="w-4 h-4" />
-                View SLD
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewDevices}
+                  className="gap-2"
+                >
+                  <List className="w-4 h-4" />
+                  Devices
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewSLD}
+                  className="gap-2"
+                >
+                  <Network className="w-4 h-4" />
+                  View SLD
+                </Button>
+              </div>
             </div>
           </div>
           <CollapsibleContent className="border-t border-border px-4 py-3">
@@ -142,6 +149,8 @@ export default function Sites() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const navigate = useNavigate();
+  // By breakpoint, not width: a phone turned sideways is still a phone.
+  const isPhone = useBreakpoint() === "phone";
 
   const filteredSites = sites.filter(site => {
     const matchesSearch = site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -155,12 +164,12 @@ export default function Sites() {
   });
 
   const handleSiteSelect = (site: Site) => {
-    navigate('/site-devices', { state: { selectedSite: site } });
+    navigate(`/site-devices?siteId=${encodeURIComponent(site.id)}`, { state: { selectedSite: site } });
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -168,7 +177,7 @@ export default function Sites() {
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Failed to load sites</h3>
@@ -179,11 +188,11 @@ export default function Sites() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
-        <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border p-4 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Sites</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Sites</h1>
             <p className="text-muted-foreground mt-1">
               Expand a site to see its active alarms
             </p>
@@ -197,10 +206,12 @@ export default function Sites() {
         </div>
       </div>
 
-      <div className="border-b border-border p-6">
+      {/* Search and filters: tablets and laptops only; phones list every site. */}
+      {!isPhone && (
+      <div className="border-b border-border p-4 md:p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-1 gap-4 items-center">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-1 flex-wrap gap-4 items-center">
+            <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[14rem] max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search sites, locations, or operators..."
@@ -241,8 +252,9 @@ export default function Sites() {
           </div>
         </div>
       </div>
+      )}
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         {filteredSites.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

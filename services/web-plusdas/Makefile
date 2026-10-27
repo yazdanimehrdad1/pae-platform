@@ -23,7 +23,7 @@ endif
 .SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
-.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration api-types build rebuild \
+.PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration test-layout api-types build rebuild \
 	up down down-all restart logs ps clean run
 
 # Standalone container. Host port: WEB_PLUSDAS_HTTP_PORT (default 5173). nginx forwards /api to
@@ -48,6 +48,8 @@ help:
 	@echo "  test             API types match the contract, then vitest (unit + component, no Docker)"
 	@echo "  api-types        regenerate src/api/generated/{backend-ot,powerflow}.ts from their contracts"
 	@echo "  test-integration check the running container: SPA, caching, /api same-origin proxy"
+	@echo "  test-layout      Playwright: every page fits phone/tablet/laptop widths (needs make run"
+	@echo "                   + the dev stack; LAYOUT_BASE_URL=http://localhost:5173 for the container)"
 	@echo "  run              Vite dev server on http://localhost:$(RUN_PORT) (/api -> localhost:8000)"
 	@echo ""
 	@echo "Containers (docker compose):"
@@ -90,6 +92,13 @@ api-types: $(NODE_MODULES)
 # Needs the container running: the root dev stack (`make up` at the repo root) or `make up` here.
 test-integration:
 	node scripts/check_same_origin.mjs --url http://localhost:$(HTTP_PORT)
+
+# Every page at phone, tablet and laptop widths (tests/layout/), screenshots in test-results/layout/.
+# Needs a running UI (`make run`, or LAYOUT_BASE_URL=http://localhost:5173 for the container) with
+# the dev stack up and seeded. Downloads Chromium on first use.
+test-layout: $(NODE_MODULES)
+	npx playwright install chromium
+	npx playwright test
 
 run: $(NODE_MODULES)
 	npm run dev -- --port $(RUN_PORT)

@@ -4,16 +4,18 @@ The calculations are pure (no DB, no network, no clock); get_poi_active_power re
 historian through spf_common_get_point_timeseries.
 """
 
+import math
 from datetime import datetime
 
 from helpers.sites.site_health import is_alarm_set
 from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
-from schemas.internal_models import PointReading
+from schemas.internal_models import PointReading, TimestampedValue
 from schemas.site_profiles import SiteContext, TimeWindow
 from site_profiles.common.shared_helper_functions import spf_common_get_point_timeseries
 from utils.exceptions import NotFoundError
 
 POI_ACTIVE_POWER_POINT = "poi_active_power_total"
+POI_REACTIVE_POWER_POINT = "poi_reactive_power_total"
 
 
 def count_online_samples(states: list[TimeseriesPoint], online_states: frozenset[int]) -> int:
@@ -55,3 +57,14 @@ async def get_poi_active_power(ctx: SiteContext, window: TimeWindow) -> PointTim
     poi_point = points[0]
     series_by_point = await spf_common_get_point_timeseries(ctx, [poi_point], window)
     return series_by_point[poi_point.id]
+
+
+def apparent_power_samples(active: PointTimeseries, reactive: PointTimeseries) -> list[TimestampedValue]:
+    """SAMPLE: sqrt(P^2 + Q^2) at every poll where both were read. P and Q come from the same
+    device, so one poll gives both the same timestamp; a poll missing either gives no value."""
+    reactive_by_time = {sample.time: sample.value for sample in reactive.timeseries if sample.value is not None}
+    return [
+        TimestampedValue(time=sample.time, value=math.hypot(sample.value, reactive_by_time[sample.time]))
+        for sample in active.timeseries
+        if sample.value is not None and sample.time in reactive_by_time
+    ]

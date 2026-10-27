@@ -109,6 +109,7 @@ def render_registers_contract(standard: PointStandard, sites: dict[str, SiteConf
                             "label": register.row.label,
                             "qty": register.row.qty,
                             "tier": register.row.tier,
+                            "record": register.row.record,
                         }
                         for register in device_template(standard, kind)
                     ],

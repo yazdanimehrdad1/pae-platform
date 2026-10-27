@@ -1,8 +1,8 @@
 """
 Unit tests for the standardized point link check (helpers.device_points.standardized_point_links).
 
-Invariant guarded: a link is set only from a STANDARDIZED point to an active NATIVE point on the
-same device, and between power units (W, kW, MW) its scale_factor must convert the source's unit
+Invariant guarded: a link is set only from a STANDARDIZED point to an active, recorded NATIVE point
+on the same device, and between power units (W, kW, MW) its scale_factor must convert the source's unit
 into the link's; other quantities are taken as given. A rejected link leaves the point untouched.
 Rows are in-memory ORM objects (no DB).
 """
@@ -53,8 +53,9 @@ class TestApplyPointLink:
             (standardized(), device_point(10, "W", "VIRTUAL", unit="W"), "active NATIVE"),
             (standardized(), device_point(10, "W", "STANDARDIZED", unit="W"), "active NATIVE"),
             (standardized(), device_point(10, "W", unit="W", deleted_at=datetime(2026, 1, 1, tzinfo=UTC)), "active NATIVE"),
+            (standardized(), device_point(10, "W", unit="W", record_enabled=False), "not recorded"),
         ],
-        ids=["point-not-standardized", "source-on-another-device", "virtual-source", "standardized-source", "deleted-source"],
+        ids=["point-not-standardized", "source-on-another-device", "virtual-source", "standardized-source", "deleted-source", "unrecorded-source"],
     )
     def test_rejected_links_leave_the_point_untouched(self, point: DevicePoint, source: DevicePoint, message: str):
         with pytest.raises(ValidationError, match=message):

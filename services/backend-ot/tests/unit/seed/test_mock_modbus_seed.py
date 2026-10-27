@@ -4,11 +4,18 @@ Invariant guarded: every device and register mock-modbus publishes in
 `contracts/modbus/mock-modbus.devices.json` becomes exactly one seeded device / NATIVE
 point that addresses it correctly — same unit id, same 1-based address (one_based mode),
 same register file, a data_type of the right width and signedness, and the same scale,
-unit and labels. The committed contract is read as a static fixture (no DB/network).
+unit and labels. The points in NOT_RECORDED_POINTS are seeded with recording off (every other
+point records), all of them are published registers, and none is named by the alpha_solar profile or
+the hand-written seed data (virtual points, alarms, SLD). The committed contract is read as a static
+fixture (no DB/network).
 """
+
+import re
+from pathlib import Path
 
 import pytest
 from seed_db.mock_modbus_seed import (
+    NOT_RECORDED_POINTS,
     build_device,
     build_point,
     build_seed,
@@ -197,3 +204,28 @@ class TestClassifyPoint:
         point = build_point(_register(name="alarm_flags", unit=None))
         assert point.point_class == "ALARM"
         assert point.severity == classify_point(_register(name="alarm_flags", unit=None))[1]
+
+
+# What names points by string: the alpha_solar profile's code and the hand-written seed data.
+_BACKEND_OT = Path(__file__).resolve().parents[3]
+_POINT_NAME_SOURCES = [
+    *sorted((_BACKEND_OT / "src" / "site_profiles" / "individual_sites" / "alpha_solar").glob("*.py")),
+    _BACKEND_OT / "tests" / "seed_db" / "dev_mock_data.py",
+]
+
+
+class TestNotRecordedPoints:
+    def test_only_the_listed_points_are_seeded_with_recording_off(self, contract: MockModbusContract) -> None:
+        _devices, points = build_seed(contract, SITE_NAME)
+        for device_points in points.values():
+            for point in device_points:
+                assert point.record_enabled == (point.name not in NOT_RECORDED_POINTS), point.name
+
+    def test_every_listed_point_is_a_published_register(self, contract: MockModbusContract) -> None:
+        published = {register.name for device in contract.devices for register in device.registers}
+        assert NOT_RECORDED_POINTS <= published, sorted(NOT_RECORDED_POINTS - published)
+
+    def test_no_listed_point_is_named_by_the_profile_or_the_seed_data(self) -> None:
+        for source in _POINT_NAME_SOURCES:
+            named = set(re.findall(r'"([a-z0-9_]+)"', source.read_text(encoding="utf-8")))
+            assert not named & NOT_RECORDED_POINTS, (source.name, sorted(named & NOT_RECORDED_POINTS))

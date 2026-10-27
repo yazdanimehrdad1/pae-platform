@@ -132,6 +132,17 @@ def classify_point(register: MockModbusRegister) -> tuple[PointClass | None, Sev
     return None, None
 
 
+# Registers that are polled but not stored: static configuration, firmware/self-test/calibration
+# diagnostics and uptime counters. None of them is read by the alpha_solar profile, its virtual
+# points or alarms (tests/unit/seed/test_mock_modbus_seed.py).
+NOT_RECORDED_POINTS: frozenset[str] = frozenset({
+    "string_configuration", "mppt_algorithm", "phase_rotation", "anti_islanding_mode",
+    "firmware_update_state", "comms_activity_state", "feature_enable_flags", "calibration_done_flags",
+    "self_test_result_flags", "external_sensor_presence_flags", "cell_chemistry",
+    "bms_uptime_seconds", "total_runtime_hours", "last_fault_timestamp",
+})
+
+
 def build_point(register: MockModbusRegister) -> DevicePointCreateRequest:
     data_type = point_data_type(register)
     point_class, severity = classify_point(register)
@@ -147,6 +158,7 @@ def build_point(register: MockModbusRegister) -> DevicePointCreateRequest:
         bitfield_detail=register.bit_flags,
         point_class=point_class,
         severity=severity,
+        record_enabled=register.name not in NOT_RECORDED_POINTS,
     )
 
 

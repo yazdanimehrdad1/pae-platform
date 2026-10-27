@@ -199,6 +199,8 @@ def build_point(register: PowerflowRegister, base: int) -> DevicePointCreateRequ
         bitfield_detail=register.bitfield_detail,
         point_class=point_kind,
         severity="LOW" if point_kind == "ALARM" else None,
+        # The point standard labels which points are worth storing (its `record` column).
+        record_enabled=register.record,
     )
 
 

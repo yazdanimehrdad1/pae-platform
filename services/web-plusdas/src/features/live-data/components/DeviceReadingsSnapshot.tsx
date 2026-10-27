@@ -47,7 +47,7 @@ export function DeviceReadingsSnapshot({ siteId, device }: { siteId: string; dev
           <table className="w-full caption-bottom text-sm">
             <TableHeader className="sticky top-0 z-20 bg-card">
               <TableRow>
-                <TableHead className="sticky left-0 z-30 min-w-56 bg-card">Point</TableHead>
+                <TableHead className="sticky left-0 z-30 min-w-40 md:min-w-56 bg-card">Point</TableHead>
                 <TableHead className="whitespace-nowrap">Register</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Size</TableHead>

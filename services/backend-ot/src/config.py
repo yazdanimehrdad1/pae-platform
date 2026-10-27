@@ -83,6 +83,14 @@ class Settings(BaseSettings):
     # Alarm Evaluation Job Configuration
     alarm_evaluation_interval_seconds: int = Field(default=22, ge=1, alias="ALARM_EVALUATION_INTERVAL_SECONDS")
 
+    # Profile Virtual Point Job Configuration (helpers.profile_points.compute; runs every poll interval)
+    # How long after a poll its values are computed, so every device of the site has stored them
+    profile_point_settle_seconds: int = Field(default=10, ge=0, alias="PROFILE_POINT_SETTLE_SECONDS")
+    # The longest window one run computes for a point; a longer gap is caught up over several runs
+    profile_point_max_window_seconds: int = Field(default=86400, ge=1, alias="PROFILE_POINT_MAX_WINDOW_SECONDS")
+    # A compute function taking longer is cancelled; the window is retried on the next run
+    profile_point_timeout_seconds: float = Field(default=30.0, gt=0, alias="PROFILE_POINT_TIMEOUT_SECONDS")
+
     # Report Generation Job Configuration (how often queued reports are picked up)
     report_worker_interval_seconds: int = Field(default=5, ge=1, alias="REPORT_WORKER_INTERVAL_SECONDS")
     # How often due report schedules are checked (a scheduled report starts at most this late)

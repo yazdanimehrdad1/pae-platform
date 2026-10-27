@@ -10,6 +10,9 @@ and updated only through the /virtual routes (never bulk or the generic PUT), th
 Standardized point links: set and cleared only through .../{point_id}/link, only from a STANDARDIZED
 point to an active NATIVE point on its device with a scale that converts power units; kept by id
 across renames, cleared when the source is hard-deleted.
+Recording: a point records by default; only a NATIVE point can stop, and not while a standardized
+link, virtual point or user alarm reads it (409); a bulk upsert that leaves record_enabled out keeps
+it, and nothing new can be made to read a point that isn't recorded.
 """
 
 import asyncpg
@@ -18,10 +21,13 @@ from httpx import AsyncClient
 
 from integration.factories import (
     DEVICE_POINT_LIST,
+    create_alarm,
+    create_alpha_poi_device,
     create_device,
     create_linked_bess,
     create_site,
     create_virtual_point,
+    device_points,
     link_url,
     point_request,
     standardized_points_by_name,
@@ -45,6 +51,7 @@ from schemas.api_models import (
     VirtualPointCreateRequest,
     VirtualPointUpdateRequest,
 )
+from schemas.api_models.alarms import AlarmDefinitionCreateRequest, ThresholdAlarm
 from schemas.tests_models import ApiErrorDetail, ApiErrorResponse
 
 
@@ -680,3 +687,157 @@ class TestLinkErrors:
         body = POWER_LINK.model_dump(mode="json") | {"source_point_id": "W"}
         response = await client.put(link_url(point.site_id, point.device_id, point.id), json=body)
         assert response.status_code == 422
+
+
+# --- Recording (record_enabled) -----------------------------------------------------------
+
+
+async def put_point(client: AsyncClient, point: DevicePointResponse, update: DevicePointUpdateRequest):
+    return await client.put(f"{points_url(point.site_id, point.device_id)}/{point.id}", json=update_body(update))
+
+
+async def stop_recording(client: AsyncClient, point: DevicePointResponse) -> DevicePointResponse:
+    response = await put_point(client, point, DevicePointUpdateRequest(record_enabled=False))
+    assert response.status_code == 200, response.text
+    return DevicePointResponse.model_validate(response.json())
+
+
+def threshold_alarm(point_id: int) -> AlarmDefinitionCreateRequest:
+    return AlarmDefinitionCreateRequest(
+        name="too_high", severity="warning",
+        rule=ThresholdAlarm(kind="threshold", condition=VirtualCondition(point_id=point_id, operator=">", value=10)),
+    )
+
+
+class TestRecordEnabled:
+    async def test_a_new_point_records(self, client):
+        site_id, device_id = await make_device(client)
+        [point] = await upsert_points(client, site_id, device_id, [point_request()])
+        assert point.record_enabled is True
+        standardized = await standardized_points_by_name(client, site_id, device_id)
+        assert all(point.record_enabled for point in standardized.values())
+
+    async def test_update_turns_recording_off_and_on_and_keeps_scan_ranges(self, client):
+        site_id, device_id = await make_device(client)
+        [point] = await upsert_points(client, site_id, device_id, [point_request()])
+        before = (await get_device(client, site_id, device_id)).scan_ranges
+
+        assert (await stop_recording(client, point)).record_enabled is False
+        [listed] = await list_points(client, points_url(site_id, device_id), category="NATIVE")
+        assert listed.record_enabled is False
+        # Still polled: only storing stops.
+        assert (await get_device(client, site_id, device_id)).scan_ranges == before
+
+        response = await put_point(client, point, DevicePointUpdateRequest(record_enabled=True))
+        assert response.status_code == 200, response.text
+        assert DevicePointResponse.model_validate(response.json()).record_enabled is True
+
+    async def test_a_standardized_point_cant_stop_recording(self, client):
+        site = await create_site(client)
+        device = await create_device(client, site.site_id, name="bess-1", type="BESS")
+        standardized = (await standardized_points_by_name(client, site.site_id, device.device_id))["BESS_ACTIVE_POWER"]
+        response = await put_point(client, standardized, DevicePointUpdateRequest(record_enabled=False))
+        assert response.status_code == 400, response.text
+        assert "only NATIVE" in error_message(response)
+
+    async def test_bulk_upsert_sets_it_and_keeps_it_when_left_out(self, client):
+        site_id, device_id = await make_device(client)
+        [point] = await upsert_points(client, site_id, device_id, [point_request(record_enabled=False)])
+        assert point.record_enabled is False
+
+        # Re-upserted without the field (as an older client would send it): still not recorded.
+        body = DevicePointsBulkRequest(points=[point_request(unit="kW")])
+        wire = body.model_dump(mode="json", by_alias=True)
+        for sent in wire["points"]:
+            del sent["record_enabled"]
+        response = await client.put(f"{points_url(site_id, device_id)}/bulk", json=wire)
+        assert response.status_code == 200, response.text
+        [upserted] = DEVICE_POINT_LIST.validate_python(response.json())
+        assert (upserted.unit, upserted.record_enabled) == ("kW", False)
+
+    async def test_bulk_upsert_of_a_standardized_point_cant_stop_recording(self, client):
+        site_id, device_id = await make_device(client)
+        body = DevicePointsBulkRequest(points=[point_request(category="STANDARDIZED", record_enabled=False)])
+        response = await client.put(f"{points_url(site_id, device_id)}/bulk", json=body.model_dump(mode="json", by_alias=True))
+        assert response.status_code == 400, response.text
+        assert "only NATIVE" in error_message(response)
+
+    async def test_a_linked_source_cant_stop_recording(self, client):
+        bess = await create_linked_bess(client)
+        response = await put_point(client, bess.power, DevicePointUpdateRequest(record_enabled=False))
+        assert response.status_code == 409, response.text
+        assert "standardized point 'BESS_ACTIVE_POWER'" in error_message(response)
+
+        body = DevicePointsBulkRequest(points=[point_request(name="W", address=100, unit="W", record_enabled=False)])
+        response = await client.put(
+            f"{points_url(bess.site_id, bess.device_id)}/bulk", json=body.model_dump(mode="json", by_alias=True)
+        )
+        assert response.status_code == 409, response.text
+        listed = await list_points(client, points_url(bess.site_id, bess.device_id), category="NATIVE")
+        assert {point.name: point.record_enabled for point in listed}["W"] is True
+
+    async def test_a_virtual_input_cant_stop_recording(self, client):
+        site_id, device_id, (power_a, power_b, *_) = await two_devices_with_inputs(client)
+        await create_virtual_point(client, site_id, device_id, VirtualPointCreateRequest(
+            name="SITE_POWER", unit="kW", definition=calculation(power_a.id, power_b.id),
+        ))
+        response = await put_point(client, power_b, DevicePointUpdateRequest(record_enabled=False))
+        assert response.status_code == 409, response.text
+        assert "virtual point 'SITE_POWER'" in error_message(response)
+
+    async def test_a_point_a_user_alarm_reads_cant_stop_recording(self, client):
+        site_id, device_id = await make_device(client)
+        [point] = await upsert_points(client, site_id, device_id, [point_request()])
+        await create_alarm(client, site_id, threshold_alarm(point.id))
+        response = await put_point(client, point, DevicePointUpdateRequest(record_enabled=False))
+        assert response.status_code == 409, response.text
+        assert "alarm 'too_high'" in error_message(response)
+
+    async def test_nothing_new_can_read_a_point_that_isnt_recorded(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        power = await stop_recording(client, bess.power)
+
+        response = await put_link(client, bess.active_power, POWER_LINK.model_copy(update={"source_point_id": power.id}))
+        assert response.status_code == 400, response.text
+        assert "not recorded" in error_message(response)
+
+        virtual = VirtualPointCreateRequest(name="P", definition=calculation(power.id))
+        response = await client.post(
+            virtual_url(bess.site_id, bess.device_id), json=virtual.model_dump(mode="json", by_alias=True)
+        )
+        assert response.status_code == 400, response.text
+        assert "not recorded" in error_message(response)
+
+        response = await client.post(
+            f"/api/alarms/site/{bess.site_id}/definitions", json=threshold_alarm(power.id).model_dump(mode="json")
+        )
+        assert response.status_code == 400, response.text
+        assert "not recorded" in error_message(response)
+
+
+class TestProfileOwnedPoints:
+    """A VIRTUAL point the site profile owns (alpha_solar's poi_apparent_power) is changed in code only."""
+
+    async def owned_point(self, client) -> DevicePointResponse:
+        site, device, _ = await create_alpha_poi_device(client)
+        return (await device_points(client, site.site_id, device.device_id))["poi_apparent_power"]
+
+    async def test_update_through_the_virtual_route_is_refused(self, client):
+        point = await self.owned_point(client)
+        response = await client.put(
+            f"{virtual_url(point.site_id, point.device_id)}/{point.id}",
+            json=VirtualPointUpdateRequest(unit="MVA").model_dump(mode="json", exclude_unset=True),
+        )
+        assert response.status_code == 409, response.text
+        assert "owned by the site profile" in error_message(response)
+
+    @pytest.mark.parametrize("mode", ["soft", "hard"])
+    async def test_delete_is_refused_and_the_point_stays(self, client, mode):
+        point = await self.owned_point(client)
+        response = await client.delete(
+            points_url(point.site_id, point.device_id),
+            params={"point_ids": point.id, "mode": mode, "confirm": True},
+        )
+        assert response.status_code == 409, response.text
+        assert "owned by the site profile" in error_message(response)
+        assert (await device_points(client, point.site_id, point.device_id))["poi_apparent_power"].deleted_at is None

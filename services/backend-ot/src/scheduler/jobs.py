@@ -1,10 +1,11 @@
-"""Scheduled jobs: Modbus polling, and alarm evaluation."""
+"""Scheduled jobs: Modbus polling, alarm evaluation, and profile virtual points."""
 
 from datetime import UTC, datetime
 
 from db.sites import get_all_sites
 from helpers.alarms.evaluation import evaluate_all_sites_alarms
 from helpers.modbus.poll_device import poll_modbus_registers_per_site
+from helpers.profile_points.compute import compute_all_sites_profile_points
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -35,3 +36,14 @@ async def cron_job_evaluate_alarms_all_sites() -> None:
     except Exception as e:
         # Don't re-raise - let scheduler handle retry on next interval
         logger.error(f"Error in alarm evaluation job: {e}", exc_info=True)
+
+
+async def cron_job_compute_profile_points_all_sites() -> None:
+    """
+    Scheduled job to compute and store every site's profile virtual points from stored readings.
+    """
+    try:
+        await compute_all_sites_profile_points(datetime.now(UTC))
+    except Exception as e:
+        # Don't re-raise - the next interval computes the same windows again
+        logger.error(f"Error in profile virtual point job: {e}", exc_info=True)

@@ -1710,6 +1710,12 @@
             ],
             "title": "Poll Kind"
           },
+          "record_enabled": {
+            "default": true,
+            "description": "Whether the poller stores this point's readings. Only NATIVE points can be false. On a bulk upsert of an existing point, leaving it out keeps the current value",
+            "title": "Record Enabled",
+            "type": "boolean"
+          },
           "scale_factor": {
             "anyOf": [
               {
@@ -1880,6 +1886,36 @@
             ],
             "description": "Register type: holding, input, or coils",
             "title": "Poll Kind"
+          },
+          "profile_point_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "VIRTUAL points owned by the site profile only: what the profile's code computes, in place of a virtual_definition (from the declaration's description)",
+            "title": "Profile Point Description"
+          },
+          "profile_point_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "VIRTUAL points owned by the site profile only: the key of the virtual point its profile.py declares. Its values are computed by the profile's code and stored every poll interval; it has no virtual_definition and can't be edited or deleted through the API (409)",
+            "title": "Profile Point Key"
+          },
+          "record_enabled": {
+            "default": true,
+            "description": "Whether the poller stores this point's readings (NATIVE points only can be false)",
+            "title": "Record Enabled",
+            "type": "boolean"
           },
           "scale_factor": {
             "anyOf": [
@@ -2120,6 +2156,18 @@
               }
             ],
             "title": "Poll Kind"
+          },
+          "record_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the poller stores this point's readings. Only NATIVE points can be false; turning it off is refused (409) while a standardized link, virtual point or user alarm reads the point",
+            "title": "Record Enabled"
           },
           "scale_factor": {
             "anyOf": [
@@ -8824,7 +8872,7 @@
     },
     "/api/device-points/site/{site_id}/device/{device_id}": {
       "delete": {
-        "description": "Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.",
+        "description": "Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.\nPoints the site profile owns (profile_point_key set) can't be deleted: 409.",
         "operationId": "delete_points_api_device_points_site__site_id__device__device_id__delete",
         "parameters": [
           {
@@ -9060,7 +9108,7 @@
     },
     "/api/device-points/site/{site_id}/device/{device_id}/bulk": {
       "put": {
-        "description": "Upsert multiple device points in one call.\nPoints matched by name: existing names are updated, new names are created.\nScan range recompute runs once at the end.",
+        "description": "Upsert multiple device points in one call.\nPoints matched by name: existing names are updated, new names are created.\nScan range recompute runs once at the end.\nrecord_enabled is changed on an existing point only when sent; turning it off is refused (409)\nwhile a standardized link, virtual point or user alarm reads the point.",
         "operationId": "bulk_upsert_points_api_device_points_site__site_id__device__device_id__bulk_put",
         "parameters": [
           {
@@ -9361,7 +9409,7 @@
     },
     "/api/device-points/site/{site_id}/device/{device_id}/virtual/{point_id}": {
       "put": {
-        "description": "Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.",
+        "description": "Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.\nA point the site profile owns (profile_point_key set) is changed in code only: 409.",
         "operationId": "update_virtual_point_for_device_api_device_points_site__site_id__device__device_id__virtual__point_id__put",
         "parameters": [
           {
@@ -9433,7 +9481,7 @@
     },
     "/api/device-points/site/{site_id}/device/{device_id}/{point_id}": {
       "put": {
-        "description": "Update a device point. Triggers scan range recompute unless locked.",
+        "description": "Update a device point. Triggers scan range recompute unless locked.\nTurning record_enabled off is refused (409) while a standardized link, virtual point or user\nalarm reads the point.",
         "operationId": "update_point_api_device_points_site__site_id__device__device_id___point_id__put",
         "parameters": [
           {

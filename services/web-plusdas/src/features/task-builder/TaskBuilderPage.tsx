@@ -30,10 +30,10 @@ const TaskBuilder = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">AI Task Builder</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">AI Task Builder</h1>
           <p className="text-muted-foreground mt-1">
             Describe tasks in natural language for the AI agent to automate
           </p>
@@ -115,11 +115,11 @@ const TaskBuilder = () => {
             {MOCK_TASKS.map((task) => (
               <div
                 key={task.id}
-                className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+                className="flex flex-wrap items-start gap-4 p-4 sm:flex-nowrap bg-muted/50 rounded-lg hover:bg-muted transition-colors"
               >
                 {getStatusIcon(task.status)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 basis-48">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <h4 className="font-medium text-foreground">{task.title}</h4>
                     {getStatusBadge(task.status)}
                   </div>

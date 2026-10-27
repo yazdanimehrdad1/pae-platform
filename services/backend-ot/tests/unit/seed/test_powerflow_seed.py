@@ -9,6 +9,8 @@ units (kW, kvar, kVA, kWh, kV; others as published); unserved registers are not
 seeded. The site's single line diagram validates and links only points the seed creates.
 Its standardized point links (load, BESS, PV, meters) join a template point to a served register
 of the same device, with a scale that converts the register's stored unit.
+Each point records exactly when the point standard labels its register record = yes, some served
+registers are labelled no, and none of those is an SLD role or a link source.
 Every PV device gets a PV array config with the contract's DC/AC ratings, and the site has a
 location (coordinates with elevation) so it can be forecast. The
 committed contracts are read as static fixtures (no DB/network).
@@ -264,3 +266,23 @@ class TestPointLinks:
             assert source_device == link.device_name, link
             source = native[(source_device, source_name)]
             assert power_scale_error(source.unit, link.link.unit, link.link.scale_factor) is None, link
+
+
+class TestNotRecordedPoints:
+    def test_each_point_records_as_its_register_is_labelled(self, seed: SeedData, registers, sites) -> None:
+        for ref in sites.sites[SITE].devices:
+            labelled = {register.point: register.record for register in registers.device_types[ref.kind].registers}
+            for point in seed.device_points[device_name(SITE, ref)]:
+                assert point.record_enabled == labelled[point.name], (ref.asset_id, point.name)
+
+    def test_some_served_registers_are_labelled_not_recorded(self, seed: SeedData) -> None:
+        assert any(not point.record_enabled for points in seed.device_points.values() for point in points)
+
+    def test_no_sld_role_or_link_source_is_unrecorded(self, seed: SeedData) -> None:
+        unrecorded = {
+            (device, point.name) for device, points in seed.device_points.items() for point in points if not point.record_enabled
+        }
+        _, sld_points = build_sld(seed)
+        read = {(device, point) for device, points in sld_points.items() for point in points}
+        read |= {source for _, source in resolve_links(seed)}
+        assert not read & unrecorded, sorted(read & unrecorded)

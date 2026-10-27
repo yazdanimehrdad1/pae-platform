@@ -23,7 +23,7 @@ async def check_input_points(
     *,
     allow_virtual: bool,
 ) -> None:
-    """Every point exists on `site_id` and is active; bit tests read bitfields; VIRTUAL points only
+    """Every point exists on `site_id`, is active and is recorded; bit tests read bitfields; VIRTUAL points only
     when `allow_virtual` (a virtual point can't read another virtual point; an alarm can)."""
     wanted = set(point_ids)
     result = await session.execute(select(DevicePoint).where(DevicePoint.id.in_(wanted)))
@@ -37,6 +37,11 @@ async def check_input_points(
             raise ValidationError(f"Input point {point.id} ('{point.name}') is on another site")
         if point.deleted_at is not None:
             raise ValidationError(f"Input point {point.id} ('{point.name}') is deleted")
+        if not point.record_enabled:
+            raise ValidationError(
+                f"Input point {point.id} ('{point.name}') is not recorded, so it has no readings to read; "
+                "turn its recording on first"
+            )
         if point.category == "VIRTUAL" and not allow_virtual:
             raise ValidationError(
                 f"Input point {point.id} ('{point.name}') is virtual; virtual points can't read other virtual points"

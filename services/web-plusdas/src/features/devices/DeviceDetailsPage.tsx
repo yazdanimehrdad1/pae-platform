@@ -28,6 +28,8 @@ import { VirtualPointDialog } from "@/features/devices/virtual/VirtualPointDialo
 import { VirtualPointsList } from "@/features/devices/virtual/VirtualPointsList";
 import { PointLinkDialog } from "@/features/devices/standardized/PointLinkDialog";
 import { StandardizedPointsList } from "@/features/devices/standardized/StandardizedPointsList";
+import { EDIT_ON_LARGER_SCREEN, HideOnPhone } from "@/shared/components/HideOnPhone";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
 
 type ScanRangeKind = 'holding' | 'input' | 'coils';
 const SCAN_RANGE_KINDS: ScanRangeKind[] = ['holding', 'input', 'coils'];
@@ -37,6 +39,7 @@ type EditableScanRanges = Record<ScanRangeKind, EditableRange[]>;
 export default function DeviceDetails() {
   const { deviceId } = useParams();
   const location = useLocation();
+  const isPhone = useBreakpoint() === "phone";
   const navigate = useNavigate();
 
   const device: Device | undefined = location.state?.device;
@@ -104,6 +107,8 @@ export default function DeviceDetails() {
   // A standardized point shows the readings of a NATIVE point on this device once linked to it.
   const standardizedPoints = activePoints.filter(p => p.category === 'STANDARDIZED');
   const nativePoints = activePoints.filter(p => p.category === 'NATIVE');
+  // Only recorded points have readings to show, so only they can be a link source.
+  const recordedNativePoints = nativePoints.filter(p => p.record_enabled !== false);
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
   const deletedPoints = allPoints.filter(p => p.deleted_at);
 
@@ -305,7 +310,7 @@ export default function DeviceDetails() {
 
   if (!device) {
     return (
-      <div className="p-6 text-center">
+      <div className="p-4 md:p-6 text-center">
         <h2 className="text-xl font-bold">Device Not Found</h2>
         <Button className="mt-4" onClick={() => navigate('/site-devices')}>
           Back to Devices
@@ -315,8 +320,8 @@ export default function DeviceDetails() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border p-4 md:p-6">
         <Breadcrumb className="mb-4">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -338,9 +343,9 @@ export default function DeviceDetails() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
               {effectiveName}
               <Badge variant={device.status === 'online' ? 'default' : 'secondary'} className={
                 device.status === 'online' ? 'bg-success text-success-foreground' :
@@ -354,9 +359,11 @@ export default function DeviceDetails() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <HideOnPhone>
             <Button variant="outline" size="sm" disabled={!liveDevice} onClick={() => setEditDeviceOpen(true)}>
               <Pencil className="w-4 h-4 mr-2" />Edit Device
             </Button>
+            </HideOnPhone>
             <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -365,7 +372,7 @@ export default function DeviceDetails() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -409,7 +416,7 @@ export default function DeviceDetails() {
                                   {!liveDevice?.scan_ranges_locked && <TooltipContent><p>Already auto-computed</p></TooltipContent>}
                                 </Tooltip>
                               </TooltipProvider>
-                              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={!liveDevice} onClick={startEditingRanges}>
+                              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={!liveDevice || isPhone} onClick={startEditingRanges}>
                                 <Pencil className="w-3 h-3" />Edit Scan Ranges
                               </Button>
                             </>
@@ -557,15 +564,20 @@ export default function DeviceDetails() {
         </div>
 
         <Card className="mt-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+            <CardTitle className="flex flex-wrap items-center gap-2">
               <Database className="w-5 h-5" />
               Device Points
+              <span className="text-sm font-normal text-muted-foreground">
+                {recordedNativePoints.length} of {nativePoints.length} native points recorded
+              </span>
             </CardTitle>
+            <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
             <Button variant="outline" size="sm" className="gap-1" disabled={!liveDevice}
               onClick={() => setVirtualDialog({ open: true, point: null })}>
               <Plus className="w-4 h-4" />Add virtual point
             </Button>
+            </HideOnPhone>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="active">
@@ -578,6 +590,7 @@ export default function DeviceDetails() {
                 <DevicePointsGrid
                   points={registerPoints}
                   disabled={!liveDevice}
+                  readOnly={isPhone}
                   isSaving={savePointsMutation.isPending}
                   onSave={(changes) => savePointsMutation.mutateAsync(changes)}
                   onRequestDelete={(p) => setDeletingPoint(p)}
@@ -664,7 +677,7 @@ export default function DeviceDetails() {
           siteId={selectedSite.id}
           deviceId={deviceIdNum}
           point={linkDialog.point}
-          sources={nativePoints}
+          sources={recordedNativePoints}
         />
       )}
 

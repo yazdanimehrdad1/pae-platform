@@ -60,7 +60,7 @@ function BessSetpointForm({ bess, locked }: { bess: BessConfig; locked: boolean 
 
   return (
     <div className="space-y-2" data-bess-form={bess.id}>
-      <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
+      <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
         <div className="space-y-1">
           <Label htmlFor={`${bess.id}-p`}>P kW (+ discharge)</Label>
           <Input id={`${bess.id}-p`} type="number" disabled={locked} placeholder={setpoint ? String(setpoint.p_kw) : ""} value={pKw} onChange={(event) => setPKw(event.target.value)} />
@@ -127,7 +127,7 @@ function PvSetpointForm({ pv }: { pv: PvConfig }) {
 
   return (
     <div className="space-y-2" data-pv-form={pv.id}>
-      <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2">
+      <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
         <div className="space-y-1">
           <Label htmlFor={`${pv.id}-limit`}>Curtail to % of P max</Label>
           <Input id={`${pv.id}-limit`} type="number" min={0} max={100} placeholder={setpoint ? String(Math.round(setpoint.p_limit_pct)) : ""} value={limitPct} onChange={(event) => setLimitPct(event.target.value)} />

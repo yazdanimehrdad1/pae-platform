@@ -94,6 +94,9 @@ class DevicePointResponse(StrictModel):
     deleted_at: datetime | None = None
     enum_detail: dict[str, str] | None = None
     poll_kind: str | None = None
+    profile_point_description: str | None = None
+    profile_point_key: str | None = None
+    record_enabled: bool = True
     scale_factor: float | None = None
     severity: PointSeverityName | None = None
     source_point_id: int | None = None

@@ -164,6 +164,8 @@ async def bulk_upsert_points(
     Upsert multiple device points in one call.
     Points matched by name: existing names are updated, new names are created.
     Scan range recompute runs once at the end.
+    record_enabled is changed on an existing point only when sent; turning it off is refused (409)
+    while a standardized link, virtual point or user alarm reads the point.
     """
     try:
         await get_device_by_id(site_id, device_id)
@@ -213,7 +215,9 @@ async def update_virtual_point_for_device(
     point_id: int,
     body: VirtualPointUpdateRequest,
 ) -> DevicePointResponse:
-    """Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept."""
+    """Update a VIRTUAL point's name, unit, class, severity or definition. Omitted fields are kept.
+    A point the site profile owns (profile_point_key set) is changed in code only: 409.
+    """
     try:
         await get_device_by_id(site_id, device_id)
         point = await update_virtual_point(site_id, device_id, point_id, body)
@@ -282,7 +286,10 @@ async def update_point(
     point_id: int,
     body: DevicePointUpdateRequest,
 ) -> DevicePointResponse:
-    """Update a device point. Triggers scan range recompute unless locked."""
+    """Update a device point. Triggers scan range recompute unless locked.
+    Turning record_enabled off is refused (409) while a standardized link, virtual point or user
+    alarm reads the point.
+    """
     try:
         await get_device_by_id(site_id, device_id)
         point = await update_device_point(point_id, body)
@@ -305,7 +312,9 @@ async def delete_points(
     mode: Literal["soft", "hard"] = Query(default="soft", description="soft=preserve readings, hard=cascade delete"),
     confirm: bool = Query(default=False, description="Required for mode=hard"),
 ) -> list[DevicePointResponse]:
-    """Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent."""
+    """Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.
+    Points the site profile owns (profile_point_key set) can't be deleted: 409.
+    """
     try:
         if mode == "hard" and not confirm:
             raise HTTPException(

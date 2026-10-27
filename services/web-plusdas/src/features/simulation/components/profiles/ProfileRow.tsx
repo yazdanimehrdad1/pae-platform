@@ -21,7 +21,7 @@ export function ProfileRow({
   onChange: (choice: ProfileChoice) => void;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_14rem_7rem] items-end gap-3">
+    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_14rem_7rem]">
       <div className="pb-2 space-y-1">
         <p className="text-sm text-foreground">{label}</p>
         {badge}

@@ -126,7 +126,7 @@ export default function ManageDevicesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -134,7 +134,7 @@ export default function ManageDevicesPage() {
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Failed to load devices</h3>
@@ -187,8 +187,8 @@ export default function ManageDevicesPage() {
   );
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-border p-6">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border p-4 md:p-6">
         <Breadcrumb className="mb-4">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -208,12 +208,12 @@ export default function ManageDevicesPage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Manage Devices</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Manage Devices</h1>
             <p className="text-muted-foreground mt-1">Create, edit, delete, and restore devices for {selectedSite.name}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate('/site-devices', { state: { selectedSite } })}>
               <ArrowLeft className="w-4 h-4 mr-2" />Back to Devices
             </Button>
@@ -224,7 +224,7 @@ export default function ManageDevicesPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         <Tabs defaultValue="active">
           <TabsList>
             <TabsTrigger value="active">Active ({activeDevices.length})</TabsTrigger>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Building2,
@@ -17,6 +17,7 @@ import {
   LogOut,
   StickyNote,
   Radio,
+  Server,
   ExternalLink,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/shared/components/mode-toggle";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
 
 interface NavigationItem {
   id: string;
@@ -34,6 +37,7 @@ interface NavigationItem {
   path: string;
   roles: string[];
   newTabOption?: boolean; // also offers a button that opens it in a new browser tab
+  activePrefixes?: string[]; // also active on paths starting with these (exact match otherwise)
 }
 
 const navigationItems: NavigationItem[] = [
@@ -43,6 +47,14 @@ const navigationItems: NavigationItem[] = [
     icon: Building2,
     path: '/sites',
     roles: ['engineer', 'admin', 'monitor']
+  },
+  {
+    id: 'site-devices',
+    title: 'Devices',
+    icon: Server,
+    path: '/site-devices',
+    roles: ['engineer', 'admin', 'monitor'],
+    activePrefixes: ['/site-devices', '/devices/'],
   },
   {
     id: 'alarms',
@@ -117,17 +129,37 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-export function AppSidebar() {
+const NAV_COLLAPSED_STORAGE_KEY = "nav_sidebar_collapsed";
+
+function readSavedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(NAV_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+interface SidebarPanelProps {
+  isCollapsed: boolean;
+  // The header chevron: collapses the column on laptops, opens the drawer from the tablet rail.
+  onToggleCollapse?: () => void;
+  // Called after a link is followed (closes the drawer).
+  onNavigate?: () => void;
+  className?: string;
+}
+
+// The navigation itself, rendered as the laptop column, the tablet icon rail or inside the drawer.
+function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: SidebarPanelProps) {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const visibleItems = navigationItems.filter(item =>
     user && item.roles.includes(user.role)
   );
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (item: NavigationItem) =>
+    location.pathname === item.path || (item.activePrefixes ?? []).some(prefix => location.pathname.startsWith(prefix));
 
   // The System alarms bell: red while any site has an active fault, amber while only warnings.
   const activeAlarms = useActiveAlarms().data;
@@ -136,8 +168,8 @@ export function AppSidebar() {
 
   return (
     <div className={cn(
-      "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 print:hidden",
-      isCollapsed ? "w-16" : "w-64"
+      "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-300 print:hidden",
+      className
     )}>
       <div className={cn(
         "flex border-b border-sidebar-border transition-all duration-300 flex-shrink-0",
@@ -155,14 +187,17 @@ export function AppSidebar() {
         )}
         <div className={cn("flex items-center", isCollapsed ? "flex-col space-y-2" : "space-x-1")}>
           <ModeToggle />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </Button>
+          {onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -180,9 +215,9 @@ export function AppSidebar() {
         </div>
       )}
 
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className={cn("flex-1 space-y-2 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
         {visibleItems.map((item) => {
-          const active = isActive(item.path);
+          const active = isActive(item);
           const alarming = item.id === 'alarms' && alarmSeverity !== null;
           const Icon = alarming ? BellRing : item.icon;
 
@@ -190,10 +225,14 @@ export function AppSidebar() {
             <NavLink
               key={item.id}
               to={item.path}
-              title={alarming ? alarmText ?? undefined : undefined}
+              onClick={onNavigate}
+              // Collapsed, only the icon shows: its title is the tooltip and the accessible name.
+              title={alarming ? alarmText ?? undefined : isCollapsed ? item.title : undefined}
+              aria-label={isCollapsed ? item.title : undefined}
               data-alarm-severity={item.id === 'alarms' ? alarmSeverity ?? 'none' : undefined}
               className={cn(
-                "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                "flex items-center rounded-lg py-2 text-sm font-medium transition-all duration-200",
+                isCollapsed ? "justify-center px-0" : "px-3",
                 "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-industrial"
@@ -235,9 +274,12 @@ export function AppSidebar() {
       </nav>
 
       {user && (
-        <div className="p-4 border-t border-sidebar-border flex-shrink-0 mt-auto">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-secondary rounded-full flex items-center justify-center">
+        <div className={cn("border-t border-sidebar-border flex-shrink-0 mt-auto", isCollapsed ? "p-2" : "p-4")}>
+          <div className={cn("flex items-center", isCollapsed ? "flex-col space-y-2" : "space-x-3")}>
+            <div
+              className="w-8 h-8 shrink-0 bg-gradient-secondary rounded-full flex items-center justify-center"
+              title={isCollapsed ? user.name : undefined}
+            >
               <span className="text-xs font-medium text-white">
                 {user.name.charAt(0).toUpperCase()}
               </span>
@@ -265,5 +307,73 @@ export function AppSidebar() {
         </div>
       )}
     </div>
+  );
+}
+
+interface NavDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+// The full navigation as an overlay from the left (the tablet rail's chevron, the phone top bar's menu).
+export function NavDrawer({ open, onOpenChange }: NavDrawerProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="left"
+        aria-describedby={undefined}
+        // The panel's own chevron closes it, so the sheet's corner X (its last child) is hidden.
+        className="w-64 p-0 sm:max-w-xs [&>button:last-child]:hidden"
+      >
+        <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SidebarPanel
+          isCollapsed={false}
+          onToggleCollapse={() => onOpenChange(false)}
+          onNavigate={() => onOpenChange(false)}
+          className="border-r-0"
+        />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// Laptop: the column (collapsible, remembered per browser). Tablet: the icon rail, whose chevron
+// opens the full navigation as a drawer so the page keeps its width. Phone: nothing here; the
+// top bar (MobileTopBar) opens the drawer.
+export function AppSidebar() {
+  const breakpoint = useBreakpoint();
+  const [isCollapsed, setIsCollapsed] = useState(readSavedCollapsed);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_COLLAPSED_STORAGE_KEY, String(isCollapsed));
+    } catch {
+      // Storage blocked: the column starts expanded next time.
+    }
+  }, [isCollapsed]);
+
+  // Leaving the tablet layout closes its drawer.
+  useEffect(() => {
+    if (breakpoint !== "tablet") setIsDrawerOpen(false);
+  }, [breakpoint]);
+
+  if (breakpoint === "phone") return null;
+
+  if (breakpoint === "tablet") {
+    return (
+      <>
+        <SidebarPanel isCollapsed onToggleCollapse={() => setIsDrawerOpen(true)} className="w-16 shrink-0" />
+        <NavDrawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} />
+      </>
+    );
+  }
+
+  return (
+    <SidebarPanel
+      isCollapsed={isCollapsed}
+      onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+      className={cn("shrink-0", isCollapsed ? "w-16" : "w-64")}
+    />
   );
 }

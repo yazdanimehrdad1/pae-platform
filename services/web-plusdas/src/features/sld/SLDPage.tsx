@@ -25,6 +25,7 @@ import { SiteSldDiagram, type SldEditInteraction } from "./components/SiteSldDia
 import { SldEditorPanel, type PickTarget, type RequestPick } from "./editor/SldEditorPanel";
 import { useDragToPan } from "./hooks/useDragToPan";
 import { useWheelZoom } from "./hooks/useWheelZoom";
+import { HideOnPhone } from "@/shared/components/HideOnPhone";
 import { draftErrors, newDraft, type Cell } from "./lib/sldDraft";
 import { SLD_SVG_SELECTOR, computeSldGeometry } from "./lib/sldGeometry";
 
@@ -254,15 +255,15 @@ const SLD = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full flex-col gap-4 p-4 md:gap-6 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Single Line Diagram</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Single Line Diagram</h1>
           <p className="text-muted-foreground mt-1">
             {isEditing ? "Editing: click an element to change it, or an empty cell to place one" : "Electrical layout of the site"}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           {isEditing ? (
             <>
               <Button variant="outline" className="gap-2" onClick={cancelEditing} disabled={save.isPending}>
@@ -281,7 +282,7 @@ const SLD = () => {
           ) : (
             <>
               <Select value={siteId ?? undefined} onValueChange={(value) => setSearchParams({ siteId: value })}>
-                <SelectTrigger className="w-56">
+                <SelectTrigger className="min-w-0 flex-1 sm:w-56 sm:flex-none">
                   <SelectValue placeholder="Select site" />
                 </SelectTrigger>
                 <SelectContent>
@@ -295,16 +296,18 @@ const SLD = () => {
               <Button variant="outline" size="icon" onClick={() => refetch()} disabled={!siteId} aria-label="Reload">
                 <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
               </Button>
-              <Button className="gap-2" onClick={startEditing} disabled={!siteId || isLoading || isError}>
-                <Pencil className="w-4 h-4" />
-                Manage
-              </Button>
+              <HideOnPhone>
+                <Button className="gap-2" onClick={startEditing} disabled={!siteId || isLoading || isError}>
+                  <Pencil className="w-4 h-4" />
+                  Manage
+                </Button>
+              </HideOnPhone>
             </>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setZoom((previous) => clampZoom(previous + ZOOM_STEP))}>
           <ZoomIn className="w-4 h-4" />Zoom In
         </Button>
@@ -338,7 +341,7 @@ const SLD = () => {
         </Button>
         <span className="text-sm text-muted-foreground ml-2">{Math.round(zoom * 100)}%</span>
         {pendingPick && (
-          <span className="ml-auto flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary" role="status">
+          <span className="ml-auto flex flex-wrap items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary" role="status">
             {pendingPick.label}: click {pendingPick.target === "cell" ? "an empty cell" : "an element or bus"} on the diagram
             <button type="button" className="underline" onClick={() => setPendingPick(null)}>
               cancel
@@ -353,10 +356,11 @@ const SLD = () => {
         </p>
       )}
 
-      <div className="flex gap-4" style={{ height: "calc(100vh - 240px)" }}>
+      {/* The diagram takes the rest of the page; the editor sits beside it on laptops, below it otherwise. */}
+      <div className="flex min-h-[24rem] flex-1 flex-col gap-4 xl:flex-row">
         <div
           ref={sldContainerRef}
-          className="flex-1 overflow-auto border border-border rounded-lg bg-background select-none"
+          className="min-h-[16rem] flex-1 overflow-auto border border-border rounded-lg bg-background select-none"
           style={{ cursor, touchAction: isHandToolActive && !isEditing ? "none" : undefined }}
           {...panHandlers}
         >

@@ -91,7 +91,7 @@ export function PointLinkDialog({ open, onOpenChange, siteId, deviceId, point, s
             </Select>
             <FieldError id="link-source-error" message={shownErrors.source} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="link-unit">Unit</Label>
               <Input id="link-unit" value={draft.unit} maxLength={50} placeholder="e.g. kW"

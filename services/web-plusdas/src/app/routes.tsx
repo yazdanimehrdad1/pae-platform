@@ -24,7 +24,7 @@ const Settings = lazy(() => import("@/features/settings/SettingsPage"));
 const NotFound = lazy(() => import("./NotFoundPage"));
 
 const PageLoader = () => (
-  <div className="flex items-center justify-center h-screen">
+  <div className="flex items-center justify-center h-full">
     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
   </div>
 );
@@ -55,7 +55,7 @@ export const AppRoutes = () => {
           <Route path="/task-builder" element={<DashboardLayout><TaskBuilder /></DashboardLayout>} />
           <Route path="/simulation" element={<DashboardLayout><Simulation /></DashboardLayout>} />
           <Route path="/optimization" element={<DashboardLayout><Optimization /></DashboardLayout>} />
-          <Route path="/users" element={<DashboardLayout><div className="p-6"><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground mt-2">User administration coming soon</p></div></DashboardLayout>} />
+          <Route path="/users" element={<DashboardLayout><div className="p-4 md:p-6"><h1 className="text-2xl md:text-3xl font-bold">User Management</h1><p className="text-muted-foreground mt-2">User administration coming soon</p></div></DashboardLayout>} />
           <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           <Route path="/notes" element={<DashboardLayout><NotesPage /></DashboardLayout>} />
           <Route path="*" element={<NotFound />} />

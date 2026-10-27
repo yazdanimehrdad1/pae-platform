@@ -412,7 +412,7 @@ export const SldEditorPanel = (props: SldEditorPanelProps) => {
   };
 
   return (
-    <aside className="w-80 shrink-0 overflow-y-auto rounded-lg border border-border bg-card p-4 space-y-4" aria-label="SLD editor">
+    <aside className="max-h-[45%] w-full shrink-0 overflow-y-auto rounded-lg xl:max-h-none xl:w-80 border border-border bg-card p-4 space-y-4" aria-label="SLD editor">
       {errors.length > 0 && (
         <ul className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive space-y-1" role="alert">
           {errors.map((error) => (
