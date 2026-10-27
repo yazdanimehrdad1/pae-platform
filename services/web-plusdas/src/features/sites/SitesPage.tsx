@@ -69,27 +69,31 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
             aria-label={`${open ? "Collapse" : "Expand"} ${site.name}`}
             onClick={() => setOpen((isOpen) => !isOpen)}
             onKeyDown={handleToggleKey}
-            className="flex flex-col gap-3 p-4 cursor-pointer rounded-lg hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:flex-row xl:items-center xl:justify-between"
+            className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4 cursor-pointer rounded-lg hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <div className="flex min-w-0 items-center space-x-4 flex-1">
-              <ChevronRight
-                aria-hidden
-                className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
-              />
-              <div className="w-10 h-10 bg-gradient-secondary rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
+            {/* Left: the site and its alarm counts. Right: operator, status and actions, wrapping
+                under the left part (still right-aligned) when the card is too narrow for one line. */}
+            <div className="flex min-w-0 flex-[1_1_27rem] flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="flex min-w-[12rem] flex-1 items-center space-x-4">
+                <ChevronRight
+                  aria-hidden
+                  className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+                />
+                <div className="w-10 h-10 bg-gradient-secondary rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg truncate">{site.name}</h3>
+                  <p className="text-sm text-muted-foreground flex items-center min-w-0">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {site.location}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-lg truncate">{site.name}</h3>
-                <p className="text-sm text-muted-foreground flex items-center min-w-0">
-                  <MapPin className="w-3 h-3 mr-1" />
-                  {site.location}
-                </p>
-              </div>
+              <SiteHealthCounts siteId={site.id} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pl-8 xl:flex-nowrap xl:pl-0">
-              <SiteHealthCounts siteId={site.id} />
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-3">
               <div className="hidden text-center w-[120px] shrink-0 sm:block">
                 <div className="text-sm font-medium truncate" title={site.operator}>{site.operator}</div>
                 <div className="data-label text-xs">Operator</div>
@@ -102,24 +106,26 @@ function SiteListItem({ site, onSelect }: { site: Site; onSelect: (site: Site) =
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {site.status}
               </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleViewDevices}
-                className="gap-2"
-              >
-                <List className="w-4 h-4" />
-                Devices
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleViewSLD}
-                className="gap-2"
-              >
-                <Network className="w-4 h-4" />
-                View SLD
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewDevices}
+                  className="gap-2"
+                >
+                  <List className="w-4 h-4" />
+                  Devices
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewSLD}
+                  className="gap-2"
+                >
+                  <Network className="w-4 h-4" />
+                  View SLD
+                </Button>
+              </div>
             </div>
           </div>
           <CollapsibleContent className="border-t border-border px-4 py-3">
@@ -155,7 +161,7 @@ export default function Sites() {
   });
 
   const handleSiteSelect = (site: Site) => {
-    navigate('/site-devices', { state: { selectedSite: site } });
+    navigate(`/site-devices?siteId=${encodeURIComponent(site.id)}`, { state: { selectedSite: site } });
   };
 
   if (isLoading) {

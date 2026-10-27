@@ -17,6 +17,7 @@ import {
   LogOut,
   StickyNote,
   Radio,
+  Server,
   ExternalLink,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ interface NavigationItem {
   path: string;
   roles: string[];
   newTabOption?: boolean; // also offers a button that opens it in a new browser tab
+  activePrefixes?: string[]; // also active on paths starting with these (exact match otherwise)
 }
 
 const navigationItems: NavigationItem[] = [
@@ -45,6 +47,14 @@ const navigationItems: NavigationItem[] = [
     icon: Building2,
     path: '/sites',
     roles: ['engineer', 'admin', 'monitor']
+  },
+  {
+    id: 'site-devices',
+    title: 'Devices',
+    icon: Server,
+    path: '/site-devices',
+    roles: ['engineer', 'admin', 'monitor'],
+    activePrefixes: ['/site-devices', '/devices/'],
   },
   {
     id: 'alarms',
@@ -148,7 +158,8 @@ function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: 
     user && item.roles.includes(user.role)
   );
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (item: NavigationItem) =>
+    location.pathname === item.path || (item.activePrefixes ?? []).some(prefix => location.pathname.startsWith(prefix));
 
   // The System alarms bell: red while any site has an active fault, amber while only warnings.
   const activeAlarms = useActiveAlarms().data;
@@ -206,7 +217,7 @@ function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: 
 
       <nav className={cn("flex-1 space-y-2 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
         {visibleItems.map((item) => {
-          const active = isActive(item.path);
+          const active = isActive(item);
           const alarming = item.id === 'alarms' && alarmSeverity !== null;
           const Icon = alarming ? BellRing : item.icon;
 

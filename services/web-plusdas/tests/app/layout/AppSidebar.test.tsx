@@ -87,6 +87,24 @@ describe('AppSidebar', () => {
     expect(navTitles()).not.toContain('Simulation');
   });
 
+  it('lists Devices right under Sites, active on a device page too', () => {
+    role.current = 'monitor';
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/devices/5']}>
+          <AppSidebar />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const titles = navTitles();
+    expect(titles[titles.indexOf('Sites') + 1]).toBe('Devices');
+    const devices = screen.getByRole('link', { name: 'Devices' });
+    expect(devices.getAttribute('href')).toBe('/site-devices');
+    expect(devices.className).toMatch(/bg-sidebar-primary/);
+    expect(screen.getByRole('link', { name: 'Sites' }).className).not.toMatch(/bg-sidebar-primary/);
+  });
+
   describe('per breakpoint', () => {
     function stubWindowWidth(width: number) {
       vi.stubGlobal('matchMedia', (query: string) => ({

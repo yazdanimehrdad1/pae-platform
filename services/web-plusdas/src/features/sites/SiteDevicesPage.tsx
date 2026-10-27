@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,14 +8,33 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import type { Device } from "@/api/types/devices";
-import { devicesApi } from "@/api";
+import { devicesApi, sitesApi } from "@/api";
+import type { Site } from "@/api/types/sites";
 import { deviceTypeConfig } from "@/shared/config/device-types";
 import {
   Search, Activity, Filter, ArrowLeft, BarChart3,
   AlertTriangle, CheckCircle, Clock, Settings, XCircle, Info, ChevronDown
 } from "lucide-react";
 
-function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: Device; onViewHistorian: (device: Device) => void, onDataMetadata: (device: Device) => void }) {
+const LAST_SITE_STORAGE_KEY = "site_devices_last_site";
+
+function readLastSiteId(): string | null {
+  try {
+    return localStorage.getItem(LAST_SITE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberSiteId(siteId: string) {
+  try {
+    localStorage.setItem(LAST_SITE_STORAGE_KEY, siteId);
+  } catch {
+    // Storage blocked: the page opens on the first site next time.
+  }
+}
+
+function DeviceListItem({ device, onDataMetadata }: { device: Device; onDataMetadata: (device: Device) => void }) {
   const deviceConfig = deviceTypeConfig[device.type];
   const DeviceIcon = deviceConfig.icon;
 
@@ -42,7 +61,7 @@ function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: D
   return (
     <Card className="hover:bg-muted/30 transition-colors">
       <CardContent className="p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3">
           <div className="flex min-w-0 items-center space-x-4 flex-1">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${deviceConfig.bgColor}`}>
               <DeviceIcon className={`w-5 h-5 ${deviceConfig.color}`} />
@@ -55,7 +74,7 @@ function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: D
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 xl:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <div className="text-center">
               <div className="data-metric text-sm">{device.points.length}</div>
               <div className="data-label text-xs">Points</div>
@@ -76,10 +95,6 @@ function DeviceListItem({ device, onViewHistorian, onDataMetadata }: { device: D
               <Info className="w-4 h-4 mr-2" />
               Metadata
             </Button>
-            <Button size="sm" onClick={() => onViewHistorian(device)}>
-              <BarChart3 className="w-4 h-4 mr-2" />
-              View Data
-            </Button>
           </div>
         </div>
       </CardContent>
@@ -96,13 +111,39 @@ export default function SiteDevices() {
   // On phones the status cards fold into a one-line summary (always shown from tablet up).
   const [isStatusCardsOpen, setIsStatusCardsOpen] = useState(false);
 
-  const selectedSite = location.state?.selectedSite;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: sites, isLoading: areSitesLoading } = useQuery<Site[]>({
+    queryKey: ['sites'],
+    queryFn: sitesApi.getAll,
+  });
+
+  // The site shown: ?siteId, else the one the link passed (Sites > Devices), else the last one
+  // viewed here, else the first. Opened from the navigation there is no link state.
+  const siteIdParam = searchParams.get('siteId');
+  const stateSite: Site | undefined = location.state?.selectedSite;
+  const selectedSite: Site | undefined = sites
+    ? [siteIdParam, stateSite?.id, readLastSiteId()]
+        .map(siteId => siteId && sites.find(site => site.id === siteId))
+        .find(Boolean) || sites[0]
+    : stateSite;
+
+  // Keep the site in the URL (refresh and shared links) and remember it for next time.
+  useEffect(() => {
+    if (!selectedSite) return;
+    rememberSiteId(selectedSite.id);
+    if (siteIdParam !== selectedSite.id) {
+      setSearchParams({ siteId: selectedSite.id }, { replace: true, state: location.state });
+    }
+  }, [selectedSite, siteIdParam, setSearchParams, location.state]);
 
   useEffect(() => {
-    if (!selectedSite) {
-      navigate('/sites');
-    }
-  }, [selectedSite, navigate]);
+    if (sites && sites.length === 0) navigate('/sites');
+  }, [sites, navigate]);
+
+  const selectSite = (siteId: string) => {
+    const site = sites?.find(candidate => candidate.id === siteId);
+    setSearchParams({ siteId }, { state: { selectedSite: site } });
+  };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['site-devices', selectedSite?.id],
@@ -123,17 +164,18 @@ export default function SiteDevices() {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const handleViewHistorian = (device: Device) => {
-    navigate('/historian', { state: { selectedSite, selectedDevice: device } });
+  // The Historian opens on the site; its devices and points are picked in its Trends panel.
+  const handleViewData = () => {
+    navigate('/historian', { state: { selectedSite } });
   };
 
   const handleViewMetadata = (device: Device) => {
     navigate(`/devices/${device.id}`, { state: { device, selectedSite } });
   };
 
-  if (!selectedSite) return null;
+  if (!selectedSite && !areSitesLoading) return null;
 
-  if (isLoading) {
+  if (isLoading || !selectedSite) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -182,7 +224,15 @@ export default function SiteDevices() {
               {selectedSite.location} • {devices.length} devices configured
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <Select value={selectedSite.id} onValueChange={selectSite}>
+              <SelectTrigger className="h-9 w-full sm:w-56" aria-label="Site">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(sites ?? [selectedSite]).map(site => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Button variant="outline" size="sm" asChild>
               <Link to="/sites">
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -192,6 +242,10 @@ export default function SiteDevices() {
             <Button variant="outline" size="sm" onClick={() => navigate('/site-devices/manage', { state: { selectedSite } })}>
               <Settings className="w-4 h-4 mr-2" />
               Configure
+            </Button>
+            <Button size="sm" onClick={handleViewData}>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              View Data
             </Button>
           </div>
         </div>
@@ -320,7 +374,6 @@ export default function SiteDevices() {
               <DeviceListItem
                 key={device.id}
                 device={device}
-                onViewHistorian={handleViewHistorian}
                 onDataMetadata={handleViewMetadata}
               />
             ))}

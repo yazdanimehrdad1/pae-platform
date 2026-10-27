@@ -13,6 +13,7 @@ const VIEWPORTS = [
 const STATIC_ROUTES = [
   "/sites",
   "/sites/manage",
+  "/site-devices",
   "/historian",
   "/live-data",
   "/alarms",
@@ -142,11 +143,11 @@ for (const viewport of VIEWPORTS) {
     }
 
     // A site's devices and a device's details get their site and device from the link that
-    // opens them (router state), so they are reached by clicking through from Sites.
+    // opens them, so they are reached by clicking through from Sites.
     test("site devices and device details fit", async ({ page }) => {
       await page.goto("/sites");
       await page.getByRole("button", { name: "Devices" }).first().click();
-      await expect(page).toHaveURL(/\/site-devices$/);
+      await expect(page).toHaveURL(/\/site-devices\?siteId=/);
       await page.waitForTimeout(1500);
       await page.screenshot({ path: `test-results/layout/${viewport.name}/site-devices.png` });
       await expectNoSidewaysScroll(page);
