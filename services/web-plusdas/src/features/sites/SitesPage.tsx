@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Site } from "@/api/types/sites";
@@ -148,6 +149,8 @@ export default function Sites() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const navigate = useNavigate();
+  // By breakpoint, not width: a phone turned sideways is still a phone.
+  const isPhone = useBreakpoint() === "phone";
 
   const filteredSites = sites.filter(site => {
     const matchesSearch = site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -204,7 +207,8 @@ export default function Sites() {
       </div>
 
       {/* Search and filters: tablets and laptops only; phones list every site. */}
-      <div className="hidden border-b border-border p-4 md:block md:p-6">
+      {!isPhone && (
+      <div className="border-b border-border p-4 md:p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex flex-1 flex-wrap gap-4 items-center">
             <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[14rem] max-w-md">
@@ -248,6 +252,7 @@ export default function Sites() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
         {filteredSites.length === 0 ? (

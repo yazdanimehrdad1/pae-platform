@@ -123,8 +123,10 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
 ## Screen sizes
 Mostly used on laptops and tablets; phones must stay organized. Three layouts on Tailwind's
 default breakpoints: phone `< md` (768px), tablet `md` to `< xl` (1280px, so 1024 landscape is a
-tablet), laptop `xl` and up. Prefer `md:`/`xl:` classes; `useBreakpoint()`
-(`src/shared/hooks/use-mobile.tsx`) only where the DOM differs.
+tablet), laptop `xl` and up. A phone turned sideways (height < 500px, width < 1024px) is a phone
+too, which `md:` alone can't see: phone-only behaviour that must hold sideways uses
+`useBreakpoint()` (`src/shared/hooks/use-mobile.tsx`) or the
+`[@media(max-height:499px)_and_(max-width:1023px)]:` variant. Otherwise prefer `md:`/`xl:` classes.
 - The shell (`DashboardLayout`, `data-shell` attribute): laptop = nav column + Notes column; tablet
   = icon rail + drawers (nav, Notes); phone = `MobileTopBar` + drawers. Side panels inside pages
   follow suit: Historian's Trends panel and Live Data's Asset Tree are drawers below laptop width.

@@ -2,48 +2,41 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useBreakpoint } from '@/shared/hooks/use-mobile';
-
-// A matchMedia that answers `(min-width: Npx)` queries for a window width the test can change.
-function stubWindowWidth(initialWidth: number) {
-  let width = initialWidth;
-  const listeners = new Set<() => void>();
-  vi.stubGlobal('matchMedia', (query: string) => {
-    const minWidth = Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0);
-    return {
-      get matches() { return width >= minWidth; },
-      media: query,
-      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
-      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
-    };
-  });
-  return (nextWidth: number) => {
-    width = nextWidth;
-    listeners.forEach((listener) => listener());
-  };
-}
+import { stubViewport } from './viewportStub';
 
 describe('useBreakpoint', () => {
   it.each([
-    [390, 'phone'],
-    [767, 'phone'],
-    [768, 'tablet'],
-    [1024, 'tablet'],
-    [1279, 'tablet'],
-    [1280, 'laptop'],
-    [1440, 'laptop'],
-  ])('at %ipx is %s', (width, expected) => {
-    stubWindowWidth(width);
+    [390, 844, 'phone'],
+    [767, 900, 'phone'],
+    [768, 1024, 'tablet'],
+    [1024, 768, 'tablet'],
+    [1279, 800, 'tablet'],
+    [1280, 800, 'laptop'],
+    [1440, 900, 'laptop'],
+  ])('at %ix%i is %s', (width, height, expected) => {
+    stubViewport(width, height);
     const { result } = renderHook(() => useBreakpoint());
     expect(result.current).toBe(expected);
   });
 
+  it.each([
+    [844, 390],
+    [932, 430],
+  ])('is a phone when a phone is turned sideways (%ix%i)', (width, height) => {
+    stubViewport(width, height);
+    const { result } = renderHook(() => useBreakpoint());
+    expect(result.current).toBe('phone');
+  });
+
   it('follows the window when it is resized or rotated', () => {
-    const resize = stubWindowWidth(1366);
+    const resize = stubViewport(1366, 768);
     const { result } = renderHook(() => useBreakpoint());
     expect(result.current).toBe('laptop');
-    act(() => resize(1024));
+    act(() => resize(1024, 768));
     expect(result.current).toBe('tablet');
-    act(() => resize(390));
+    act(() => resize(390, 844));
+    expect(result.current).toBe('phone');
+    act(() => resize(844, 390));
     expect(result.current).toBe('phone');
   });
 

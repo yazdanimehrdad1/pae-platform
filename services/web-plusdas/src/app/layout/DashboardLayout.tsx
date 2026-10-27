@@ -54,7 +54,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div
       data-shell={breakpoint}
-      className="h-dvh bg-background flex flex-col md:flex-row w-full overflow-hidden print:block print:h-auto print:overflow-visible"
+      // A column (top bar above the page) on phones, a row (navigation beside it) otherwise; by
+      // breakpoint, not width alone: a sideways phone is a phone.
+      className={`h-dvh bg-background flex ${breakpoint === "phone" ? "flex-col" : "flex-row"} w-full overflow-hidden print:block print:h-auto print:overflow-visible`}
     >
       {breakpoint === "phone" ? (
         <MobileTopBar onOpenNotes={showNotes ? openNotesDrawer : undefined} />

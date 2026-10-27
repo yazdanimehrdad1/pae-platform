@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useBreakpoint } from "@/shared/hooks/use-mobile";
 import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -110,6 +111,8 @@ export default function SiteDevices() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   // On phones the status cards fold into a one-line summary (always shown from tablet up).
   const [isStatusCardsOpen, setIsStatusCardsOpen] = useState(false);
+  // By breakpoint, not width: a phone turned sideways is still a phone.
+  const isPhone = useBreakpoint() === "phone";
 
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: sites, isLoading: areSitesLoading } = useQuery<Site[]>({
@@ -252,12 +255,13 @@ export default function SiteDevices() {
       </div>
 
       <div className="border-b border-border p-4 md:p-6">
+        {isPhone && (
         <button
           type="button"
           onClick={() => setIsStatusCardsOpen(open => !open)}
           aria-expanded={isStatusCardsOpen}
           aria-controls="site-device-status-cards"
-          className="flex w-full items-center justify-between gap-2 text-left text-sm md:hidden"
+          className="flex w-full items-center justify-between gap-2 text-left text-sm"
         >
           <span className="flex flex-wrap gap-x-3 gap-y-1">
             <span className="font-medium">{devices.length} devices</span>
@@ -267,9 +271,10 @@ export default function SiteDevices() {
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isStatusCardsOpen ? "rotate-180" : ""}`} />
         </button>
+        )}
         <div
           id="site-device-status-cards"
-          className={`${isStatusCardsOpen ? "mt-4 grid" : "hidden"} md:mt-0 md:grid grid-cols-2 md:grid-cols-4 gap-4`}
+          className={`${!isPhone ? "grid" : isStatusCardsOpen ? "mt-4 grid" : "hidden"} grid-cols-2 md:grid-cols-4 gap-4`}
         >
           <div className="bg-card rounded-lg p-4 border">
             <div className="flex items-center justify-between">
@@ -311,7 +316,8 @@ export default function SiteDevices() {
       </div>
 
       {/* Search and filters: tablets and laptops only; phones list every device. */}
-      <div className="hidden border-b border-border p-4 md:block md:p-6">
+      {!isPhone && (
+      <div className="border-b border-border p-4 md:p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex flex-1 flex-wrap gap-4 items-center">
             <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[14rem] max-w-md">
@@ -358,6 +364,7 @@ export default function SiteDevices() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
         {filteredDevices.length === 0 ? (

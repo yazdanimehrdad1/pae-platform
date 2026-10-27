@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 // and grids scroll inside their own box), and the shell must match the breakpoint.
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844, shell: "phone" },
+  { name: "phone-landscape", width: 844, height: 390, shell: "phone" },
   { name: "tablet-portrait", width: 768, height: 1024, shell: "tablet" },
   { name: "tablet-landscape", width: 1024, height: 768, shell: "tablet" },
   { name: "laptop", width: 1366, height: 768, shell: "laptop" },

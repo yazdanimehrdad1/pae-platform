@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
+import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw, Maximize2, Minimize2, Smartphone } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useHistorianSeries } from "./hooks/useHistorianSeries";
 import type { LinePoint } from "./sampling/chartRows";
@@ -64,7 +64,17 @@ function formatTimestamp(ts: number, spanMs: number, timeZone: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone }) + ' ' + time;
 }
 
+// The right margin keeps the last time tick from being clipped; on phones the ticks are short.
 const CHART_MARGIN = { top: 5, right: 40, left: 0, bottom: 5 };
+const PHONE_CHART_MARGIN = { ...CHART_MARGIN, right: 16 };
+
+// Time-axis ticks on a phone: a narrow chart fits a few short labels, so the time alone within two
+// days and the date alone beyond (the tooltip still shows both).
+function formatPhoneTick(ts: number, spanMs: number, timeZone: string): string {
+  const d = new Date(ts);
+  if (spanMs < 2 * 24 * 3_600_000) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone });
+}
 
 type StepLayout = ReturnType<typeof buildStepLayout>;
 
@@ -165,6 +175,10 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
   const zoomedRows = zoomRange ? chartData.filter(row => row.timestamp >= zoomRange.start && row.timestamp <= zoomRange.end) : chartData;
   const displayData = stepLayout ? stepLayout.addPlotValues(zoomedRows) : zoomedRows;
   const formatTime = (timestamp: number) => formatTimestamp(timestamp, spanMs, timeZone);
+  // Phones: a chart as wide as it is shaped (not as tall as the screen), short time ticks, a slim margin.
+  const isPhone = useBreakpoint() === "phone";
+  const chartMargin = isPhone ? PHONE_CHART_MARGIN : CHART_MARGIN;
+  const formatTick = isPhone ? (timestamp: number) => formatPhoneTick(timestamp, spanMs, timeZone) : formatTime;
 
   // Each analog line's axis: per unit by default, so a 1-10 signal isn't flattened by a 1000-5000 one.
   const unitOf = (key: string): string | null => {
@@ -190,8 +204,8 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
     axes.filter(axis => axis.side === side).reduce((total, axis) => total + (widthOf.get(axis.id) ?? 0), 0);
 
   // Horizontal extent of the plot area, so the lanes line up with the chart and drag maps to time.
-  const plotLeft = CHART_MARGIN.left + sideWidth("left");
-  const plotRight = CHART_MARGIN.right + sideWidth("right") + (stepLayout ? STATE_AXIS_WIDTH : 0);
+  const plotLeft = chartMargin.left + sideWidth("left");
+  const plotRight = chartMargin.right + sideWidth("right") + (stepLayout ? STATE_AXIS_WIDTH : 0);
 
   const getTimestampFromX = (x: number, containerWidth: number): number => {
     if (!chartData.length) return 0;
@@ -266,11 +280,13 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
           />
         )}
         {showLineChart && (
-          <div className={showLanes ? "h-[clamp(14rem,50dvh,22rem)]" : "h-[clamp(16rem,65dvh,28rem)]"}>
+          <div className={showLanes
+            ? "w-full aspect-[16/10] max-h-[55dvh] md:aspect-auto md:max-h-none md:h-[min(22rem,55dvh)]"
+            : "w-full aspect-[4/3] max-h-[70dvh] md:aspect-auto md:max-h-none md:h-[min(28rem,70dvh)]"}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={displayData} margin={CHART_MARGIN}>
+              <LineChart data={displayData} margin={chartMargin}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="timestamp" type="number" scale="time" domain={domain} allowDataOverflow tick={{ fontSize: 11 }} tickFormatter={formatTime} />
+                <XAxis dataKey="timestamp" type="number" scale="time" domain={domain} allowDataOverflow tick={{ fontSize: 11 }} tickFormatter={formatTick} minTickGap={24} />
                 {axes.length === 0 && <YAxis width={0} hide />}
                 {axes.map(axis => (
                   <YAxis
@@ -279,7 +295,7 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
                     orientation={axis.side}
                     width={widthOf.get(axis.id)}
                     stroke={axis.color}
-                    tick={{ fontSize: 12, fill: axis.color }}
+                    tick={{ fontSize: isPhone ? 11 : 12, fill: axis.color }}
                     label={axis.label ? {
                       value: axis.label, angle: -90, fontSize: 11, fill: axis.color,
                       // offset 8: the rotated label's middle, half of its strip, so the outer one isn't clipped
@@ -338,6 +354,12 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
           />
         )}
       </div>
+      {(showLineChart || showLanes) && (
+        <p className="hidden items-center gap-1.5 text-xs text-muted-foreground [@media(max-width:767px)_and_(orientation:portrait)]:flex">
+          <Smartphone className="h-3.5 w-3.5 rotate-90" aria-hidden="true" />
+          Turn your phone sideways for a wider chart.
+        </p>
+      )}
     </div>
   );
 }
@@ -852,7 +874,7 @@ export default function Historian() {
                 </div>
               </div>
 
-              <div className="flex-1 p-2 sm:p-4 md:p-6 xl:overflow-y-auto">
+              <div className="flex-1 p-2 sm:p-4 md:p-6 [@media(max-height:499px)_and_(max-width:1023px)]:p-1 xl:overflow-y-auto">
                 <Card>
                   <CardHeader className="p-4 md:p-6">
                     <div className="flex items-center justify-end">
@@ -895,10 +917,10 @@ export default function Historian() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent ref={cardContentRef} className="p-2 pt-0 sm:p-4 sm:pt-0 md:p-6 md:pt-0">
+                  <CardContent ref={cardContentRef} className="p-2 pt-0 sm:p-4 sm:pt-0 md:p-6 md:pt-0 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 [@media(max-height:499px)_and_(max-width:1023px)]:pt-0">
                     <div className="space-y-6">
                       {layoutCount >= 1 && topTrendId && (
-                        <div ref={topTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
+                        <div ref={topTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <Label>Trend-1: {trends.find(t => t.id === topTrendId)?.name || ''}</Label>
                             {layoutCount === 1 && (
@@ -912,19 +934,19 @@ export default function Historian() {
                         </div>
                       )}
                       {layoutCount >= 2 && middleTrendId && (
-                        <div ref={middleTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
+                        <div ref={middleTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
                           <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
                           <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} styles={stylesOf(middleTrendId)} onStylesChange={styles => setTrendStyles(middleTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(middleTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 3 && bottomTrendId && (
-                        <div ref={bottomTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
+                        <div ref={bottomTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
                           <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
                           <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} styles={stylesOf(bottomTrendId)} onStylesChange={styles => setTrendStyles(bottomTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(bottomTrendId, timestamp)} />
                         </div>
                       )}
                       {layoutCount >= 4 && fourthTrendId && (
-                        <div ref={fourthTrendRef} className="border rounded-lg p-2 sm:p-4 bg-card space-y-2">
+                        <div ref={fourthTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
                           <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
                           <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} styles={stylesOf(fourthTrendId)} onStylesChange={styles => setTrendStyles(fourthTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(fourthTrendId, timestamp)} />
                         </div>

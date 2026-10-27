@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { alarmsApi } from '@/api';
 import type { ActiveAlarmsSummaryRecord } from '@/api/types/alarms';
 import { AppSidebar } from '@/app/layout/AppSidebar';
+import { stubViewport } from '../../shared/hooks/viewportStub';
 
 const role = vi.hoisted(() => ({ current: 'engineer' }));
 vi.mock('@/shared/contexts/auth', () => ({
@@ -106,18 +107,9 @@ describe('AppSidebar', () => {
   });
 
   describe('per breakpoint', () => {
-    function stubWindowWidth(width: number) {
-      vi.stubGlobal('matchMedia', (query: string) => ({
-        matches: width >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
-        media: query,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-      }));
-    }
-
     it('is a full column on a laptop, and collapses to icons it names', () => {
       role.current = 'engineer';
-      stubWindowWidth(1366);
+      stubViewport(1366);
       renderSidebar();
       expect(navTitles()).toContain('Sites');
       screen.getByRole('button', { name: 'Collapse navigation' }).click();
@@ -129,7 +121,7 @@ describe('AppSidebar', () => {
 
     it('is an icon rail on a tablet whose chevron opens the full navigation in a drawer', async () => {
       role.current = 'engineer';
-      stubWindowWidth(1024);
+      stubViewport(1024);
       renderSidebar();
       expect(navTitles()).not.toContain('Sites');
       expect(screen.getByRole('link', { name: 'Sites' })).toBeTruthy();
@@ -140,7 +132,7 @@ describe('AppSidebar', () => {
 
     it('renders nothing on a phone (the top bar holds the menu)', () => {
       role.current = 'engineer';
-      stubWindowWidth(390);
+      stubViewport(390);
       const { container } = renderSidebar();
       expect(container.innerHTML).toBe('');
     });
