@@ -1181,6 +1181,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/site-functions/site/{site_id}/site-assets-active-power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BESS 1 + BESS 2 + PV 1 active power series (kW), with peak and average */
+        get: operations["site_function_site_assets_active_power_api_site_functions_site__site_id__site_assets_active_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-assets-reactive-power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BESS 1 + BESS 2 + PV 1 reactive power series (kvar), with peak and average */
+        get: operations["site_function_site_assets_reactive_power_api_site_functions_site__site_id__site_assets_reactive_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/site-functions/site/{site_id}/site-energy-series": {
         parameters: {
             query?: never;
@@ -1215,6 +1249,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/site-functions/site/{site_id}/site-poi-active-power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The POI meter's active power series (kW), with peak and average */
+        get: operations["site_function_site_poi_active_power_api_site_functions_site__site_id__site_poi_active_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/site-functions/site/{site_id}/site-poi-power": {
         parameters: {
             query?: never;
@@ -1224,6 +1275,23 @@ export interface paths {
         };
         /** Point-of-interconnection active power series, with peak and average (kW) */
         get: operations["site_function_site_poi_power_api_site_functions_site__site_id__site_poi_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-poi-reactive-power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The POI meter's reactive power series (kvar), with peak and average */
+        get: operations["site_function_site_poi_reactive_power_api_site_functions_site__site_id__site_poi_reactive_power_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3255,6 +3323,41 @@ export interface components {
             timeseries?: components["schemas"]["TimeseriesPoint"][];
             /** Unit */
             unit?: string | null;
+        };
+        /**
+         * PowerSeriesResult
+         * @description A power series summed from SPF points; export positive, import negative.
+         */
+        PowerSeriesResult: {
+            /**
+             * Average
+             * @description Mean of the values in the window; null if no values
+             */
+            average?: number | null;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Peak
+             * @description Highest value in the window; null if no values
+             */
+            peak?: number | null;
+            /** @description The value at each poll timestamp, oldest first (id 0: computed) */
+            series: components["schemas"]["PointTimeseries"];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * Unit
+             * @description kW or kvar
+             */
+            unit: string;
         };
         /**
          * PvArrayConfigResponse
@@ -7245,6 +7348,90 @@ export interface operations {
             };
         };
     };
+    site_function_site_assets_active_power_api_site_functions_site__site_id__site_assets_active_power_get: {
+        parameters: {
+            query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowerSeriesResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_assets_reactive_power_api_site_functions_site__site_id__site_assets_reactive_power_get: {
+        parameters: {
+            query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowerSeriesResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     site_function_site_energy_series_api_site_functions_site__site_id__site_energy_series_get: {
         parameters: {
             query?: {
@@ -7327,6 +7514,48 @@ export interface operations {
             };
         };
     };
+    site_function_site_poi_active_power_api_site_functions_site__site_id__site_poi_active_power_get: {
+        parameters: {
+            query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowerSeriesResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     site_function_site_poi_power_api_site_functions_site__site_id__site_poi_power_get: {
         parameters: {
             query?: {
@@ -7356,6 +7585,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PoiPowerResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_poi_reactive_power_api_site_functions_site__site_id__site_poi_reactive_power_get: {
+        parameters: {
+            query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowerSeriesResult"];
                 };
             };
             /** @description Validation Error */

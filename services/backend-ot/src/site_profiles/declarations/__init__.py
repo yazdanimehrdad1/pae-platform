@@ -9,4 +9,5 @@ the function is `async def`. profile_registry.py validates the rest when the app
     alarm.py      SiteAlarm          a check that raises/clears alarm (AlarmEvaluator signature)
     health.py     DeviceHealthCheck  a health verdict for SLD boxes   (HealthEvaluator signature)
     profile.py    SiteProfile        one site's endpoints, alarms and health checks together
+    spf_point.py  SpfPoint           a device point a function reads, with its scale and sign
 """

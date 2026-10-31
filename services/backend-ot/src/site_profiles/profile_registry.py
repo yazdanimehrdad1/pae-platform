@@ -31,9 +31,10 @@ from site_profiles.declarations.health import DeviceHealthCheck
 from site_profiles.declarations.profile import SiteProfile
 from site_profiles.declarations.virtual_point import SiteVirtualPoint
 from site_profiles.individual_sites.alpha_solar.profile import ALPHA_SOLAR_PROFILE
+from site_profiles.individual_sites.powerflow_2bess_1pv.profile import POWERFLOW_2BESS_1PV_PROFILE
 from utils.exceptions import SiteProfileConfigError, ValidationError
 
-ALL_SITE_PROFILES: tuple[SiteProfile, ...] = (ALPHA_SOLAR_PROFILE,)
+ALL_SITE_PROFILES: tuple[SiteProfile, ...] = (ALPHA_SOLAR_PROFILE, POWERFLOW_2BESS_1PV_PROFILE)
 
 SITE_PROFILES_BY_KEY: dict[str, SiteProfile] = {profile.key: profile for profile in ALL_SITE_PROFILES}
 

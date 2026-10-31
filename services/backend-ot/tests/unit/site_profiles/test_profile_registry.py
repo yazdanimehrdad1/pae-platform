@@ -102,8 +102,8 @@ def make_profile(key: str, *endpoints: SiteEndpoint) -> SiteProfile:
 
 
 class TestRegisteredProfiles:
-    def test_alpha_solar_is_registered(self):
-        assert "alpha_solar" in SITE_PROFILES_BY_KEY
+    def test_alpha_solar_and_powerflow_2bess_1pv_are_registered(self):
+        assert {"alpha_solar", "powerflow_2bess_1pv"} <= set(SITE_PROFILES_BY_KEY)
 
     def test_there_is_no_shared_default_profile(self):
         # A site without site-specific code has no profile (NULL); profiles are one site's own code.
@@ -113,9 +113,13 @@ class TestRegisteredProfiles:
         assert sorted((route.kind, route.name) for route in SITE_ENDPOINT_ROUTES) == [
             ("device", "device-inverter-availability"),
             ("device", "device-plant-inverter-availability"),
+            ("site", "site-assets-active-power"),
+            ("site", "site-assets-reactive-power"),
             ("site", "site-energy-series"),
             ("site", "site-energy-summary"),
+            ("site", "site-poi-active-power"),
             ("site", "site-poi-power"),
+            ("site", "site-poi-reactive-power"),
         ]
 
     def test_get_site_profile_unknown_key_is_config_error(self):
