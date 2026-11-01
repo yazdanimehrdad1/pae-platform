@@ -15,9 +15,10 @@ Mapping (one backend-ot device per point-standard device of the site):
     (yes / calc)               data type, scale and unit in engineering units (W -> kW, var -> kvar,
                                VA -> kVA, Wh -> kWh, V -> kV: scale / 1000), enum/bit labels, holding
                                table, big-endian msw-first. Unserved ("no") rows always read 0: skipped.
-    topology                -> the site (no profile) and its single line diagram
+    topology                -> the site (its profile from PROFILE_BY_SITE) and its single line diagram
     standardized points     -> linked to the device's served register: active power to W (the
-                               load's IED_ACTIVE_POWER too), a BESS's state of charge to SoC
+                               load's IED_ACTIVE_POWER too), a BESS's state of charge to SoC,
+                               the POI meter's reactive power to VAR
 
 The site is the shipped default; edits made to it in powerflow's database aren't seen.
 """
@@ -127,9 +128,13 @@ POINT_LINKS: dict[PowerflowDeviceKind, dict[str, tuple[str, str]]] = {
     "load": {"IED_ACTIVE_POWER": ("W", "kW")},
     "bess": {"BESS_ACTIVE_POWER": ("W", "kW"), "BESS_STATE_OF_CHARGE": ("SoC", "%")},
     "pv": {"PV_ACTIVE_POWER": ("W", "kW")},
-    "poi_meter": {"METER_ACTIVE_POWER": ("W", "kW")},
+    "poi_meter": {"METER_ACTIVE_POWER": ("W", "kW"), "METER_REACTIVE_POWER": ("VAR", "kvar")},
     "feeder_meter": {"METER_ACTIVE_POWER": ("W", "kW")},
 }
+
+
+# The site profile (site_profiles/profile_registry.py) a seeded site gets; a site not listed has none.
+PROFILE_BY_SITE: dict[str, str] = {"2bess_1pv": "powerflow_2bess_1pv"}
 
 
 def default_contract_path(parts: tuple[str, str]) -> Path:
@@ -243,7 +248,7 @@ def build_site(site_key: str, site: PowerflowSite) -> SiteCreateRequest:
             "contracts/powerflow/sites.json and contracts/modbus/powerflow.registers.json"
         ),
         coordinates=DEV_SITE_COORDINATES,
-        profile=None,
+        profile=PROFILE_BY_SITE.get(site_key),
         timezone=DEV_SITE_TIMEZONE,
     )
 

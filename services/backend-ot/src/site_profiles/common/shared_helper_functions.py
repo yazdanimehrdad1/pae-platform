@@ -14,7 +14,7 @@ spf_common_get_point_timeseries (the historian read) is pure: no DB, no network,
 """
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from helpers.reads.device_points_readings import get_timeseries_by_point_ids
 from helpers.sampling.alignment import align_series
@@ -185,12 +185,31 @@ def spf_common_split_power_by_sign_kwh(
     have opposite signs is split at its interpolated zero crossing, so the two never cancel
     inside it. Same PLACEHOLDER gap rule as spf_common_integrate_power_to_energy_kwh.
     """
+    cumulative = spf_common_cumulative_power_by_sign_kwh(samples, unit)
+    if not cumulative:
+        return 0.0, 0.0
+    _, positive_kwh, negative_kwh = cumulative[-1]
+    return positive_kwh, negative_kwh
+
+
+def spf_common_cumulative_power_by_sign_kwh(
+    samples: list[TimeseriesPoint], unit: str | None
+) -> list[tuple[datetime, float, float]]:
+    """
+    (time, positive_kwh, negative_kwh) at every non-null sample, oldest first: each sign's
+    energy from the first sample up to that one, integrated as spf_common_split_power_by_sign_kwh
+    describes. The energy between two samples is the difference of their totals, so many
+    windows over one series cost one pass.
+    """
     factor = spf_common_power_unit_to_kw_factor(unit)
     readings: list[tuple[datetime, float]] = sorted(  # (time, kW), oldest first
         (sample.time, sample.value * factor) for sample in samples if sample.value is not None
     )
+    if not readings:
+        return []
     positive_kwh = 0.0
     negative_kwh = 0.0
+    cumulative = [(readings[0][0], 0.0, 0.0)]
     for (previous_time, previous_kw), (current_time, current_kw) in zip(
         readings, readings[1:], strict=False
     ):
@@ -210,7 +229,23 @@ def spf_common_split_power_by_sign_kwh(
                 positive_kwh += area_kwh
             else:
                 negative_kwh -= area_kwh
-    return positive_kwh, negative_kwh
+        cumulative.append((current_time, positive_kwh, negative_kwh))
+    return cumulative
+
+
+def spf_common_aligned_times(start: datetime, end: datetime, step: timedelta) -> list[datetime]:
+    """Every whole multiple of `step` since the UTC epoch from start to end, both included
+    (step=1 h: every hour on the hour). start and end must be aware."""
+    if step <= timedelta(0):
+        raise ValueError(f"step must be > 0, got {step}")
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
+    first = epoch + -((epoch - start) // step) * step  # start rounded up to a whole step
+    times: list[datetime] = []
+    time = first
+    while time <= end:
+        times.append(time)
+        time += step
+    return times
 
 
 def spf_common_counter_energy_kwh(

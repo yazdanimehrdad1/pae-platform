@@ -53,7 +53,7 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   are built from it (`tests/seed_db/mock_modbus_seed.py`). Never hand-edit seeded devices or points.
   Change the mock and run `make -C services/mock-modbus contract`.
 - **Consumes** `contracts/powerflow/sites.json` and `contracts/modbus/powerflow.registers.json` (dev
-  seed only): `tests/seed_db/powerflow_seed.py` builds a powerflow site (site with no profile, one
+  seed only): `tests/seed_db/powerflow_seed.py` builds a powerflow site (its profile from `PROFILE_BY_SITE`, one
   device per point-standard device reading `powerflow:502` directly, zero-based, its served
   registers as NATIVE points, the SLD). `make seed-db-powerflow SITE=<site>` (dev stack; root
   `make seed-2bess-1pv`, or `make seed-powerflow-site SITE=<site>`). Strict models: `schemas/tests_models/powerflow_contract.py`.

@@ -1,7 +1,7 @@
 """
 Integration tests for the powerflow dev seed (`seed_db.py powerflow <site>`).
 
-Invariant guarded: seeding powerflow's 2bess_1pv site creates its site (no profile), its nine
+Invariant guarded: seeding powerflow's 2bess_1pv site creates its site (with its profile), its nine
 devices with their served points and scan ranges, and its single line diagram whose links all
 resolve; the seeded devices carry the same STANDARDIZED points as API-created ones, linked to
 their served registers as the link endpoint would (a link changed through the API survives a
@@ -69,7 +69,7 @@ class TestPowerflowSeed:
         data = powerflow_seed_data(POWERFLOW_SITE)
         await seed(data)
         site = await site_named(client, data.sites[0].name)
-        assert site.profile is None
+        assert site.profile == "powerflow_2bess_1pv"
         devices = {device.name: device for device in await devices_of(client, site)}
         assert set(devices) == {seed_device.device.name for seed_device in data.devices}
         for name, device in devices.items():
@@ -107,7 +107,7 @@ class TestPowerflowSeed:
         devices = {device.name: device for device in await devices_of(client, site)}
         ids = {(name, point.name): point.id for name, device in devices.items() for point in device.points.native}
         links = data.point_links(lambda device, point: ids[(device, point)])
-        assert len(links) == 10
+        assert len(links) == 11  # active power x8, SoC x2, the POI meter's reactive power
         for link in links:
             device = devices[link.device_name]
             point = (await standardized_points_by_name(client, site.site_id, device.device_id))[link.point_name]

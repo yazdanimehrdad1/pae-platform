@@ -8,7 +8,6 @@ common/shared_helper_functions.py.
 
 import math
 from datetime import datetime
-from typing import Literal
 
 from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
 from schemas.site_profiles import (
@@ -17,7 +16,6 @@ from schemas.site_profiles import (
     PhaseImbalanceSample,
     PhaseImbalanceTimeseries,
     PhaseQuantity,
-    RoundTripBoundary,
     RoundTripEfficiencyResult,
     RoundTripEfficiencySettings,
 )
@@ -227,29 +225,23 @@ def _spf_common_round_trip_efficiency(
 
 def spf_common_round_trip_efficiency_result(
     *,
-    boundary: RoundTripBoundary,
-    energy_source: Literal["power", "counters"],
     charged_kwh: float,
     discharged_kwh: float,
-    aux_kwh: float | None,
     soc_samples: list[TimeseriesPoint],
     settings: RoundTripEfficiencySettings,
 ) -> RoundTripEfficiencyResult:
     """
     The round trip efficiency result, or the reason it can't be trusted (status).
 
-    aux_kwh (system boundary only) is counted as energy in: E_ch + E_aux. The checks run in
-    order: SoC data present, enough charged energy, SoC change small enough.
+    The checks run in order: SoC data present, enough charged energy, SoC change small enough.
     """
     result = RoundTripEfficiencyResult(
-        boundary=boundary,
-        energy_source=energy_source,
+        boundary=settings.boundary,
         status="missing_soc_data",
         round_trip_efficiency_pct=None,
         method=None,
         charged_kwh=charged_kwh,
         discharged_kwh=discharged_kwh,
-        aux_kwh=aux_kwh,
         soc_start_pct=None,
         soc_end_pct=None,
         stored_energy_change_kwh=None,
@@ -266,14 +258,13 @@ def spf_common_round_trip_efficiency_result(
     result.soc_end_pct = soc_end_pct
     result.stored_energy_change_kwh = stored_energy_change_kwh
 
-    energy_in_kwh = charged_kwh + (aux_kwh or 0.0)
-    if energy_in_kwh < settings.min_charged_kwh:
+    if charged_kwh < settings.min_charged_kwh:
         result.status = "insufficient_throughput"
     elif abs(soc_end_pct - soc_start_pct) > settings.max_soc_change_pct:
         result.status = "soc_change_too_large"
     else:
         round_trip_efficiency_pct = 100 * _spf_common_round_trip_efficiency(
-            energy_in_kwh, discharged_kwh, stored_energy_change_kwh
+            charged_kwh, discharged_kwh, stored_energy_change_kwh
         )
         result.round_trip_efficiency_pct = round_trip_efficiency_pct
         result.method = "closed_cycle" if stored_energy_change_kwh == 0 else "soc_corrected"

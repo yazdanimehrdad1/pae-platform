@@ -16,9 +16,11 @@ import pytest
 from schemas.api_models import TimeseriesPoint
 from site_profiles.common.shared_helper_functions import (
     _spf_common_energy_unit_to_kwh_factor,
+    spf_common_aligned_times,
     spf_common_combine_series,
     spf_common_counter_energy_kwh,
     spf_common_cumulative_energy_kwh,
+    spf_common_cumulative_power_by_sign_kwh,
     spf_common_integrate_power_to_energy_kwh,
     spf_common_mean_sample_value,
     spf_common_power_unit_to_kw_factor,
@@ -107,6 +109,43 @@ class TestSplitPowerBySign:
     def test_unknown_power_unit_is_an_error(self):
         with pytest.raises(ValueError, match="Unsupported power unit"):
             spf_common_split_power_by_sign_kwh(hourly_samples([1.0]), "kWh")
+
+
+class TestCumulativePowerBySign:
+    def test_running_totals_at_each_sample(self):
+        # the TestSplitPowerBySign series: totals after each interval, nulls skipped
+        cumulative = spf_common_cumulative_power_by_sign_kwh(
+            hourly_samples([-10.0, None, 10.0, 10.0]), "kW"
+        )
+        assert [(time, positive, negative) for time, positive, negative in cumulative] == [
+            (START, 0.0, 0.0),
+            (START + timedelta(hours=2), pytest.approx(5.0), pytest.approx(5.0)),
+            (START + timedelta(hours=3), pytest.approx(15.0), pytest.approx(5.0)),
+        ]
+
+    def test_last_total_is_the_split(self):
+        values = hourly_samples([-10.0, -10.0, 10.0, 10.0])
+        _, positive_kwh, negative_kwh = spf_common_cumulative_power_by_sign_kwh(values, "kW")[-1]
+        assert (positive_kwh, negative_kwh) == spf_common_split_power_by_sign_kwh(values, "kW")
+
+    def test_no_readings_gives_no_totals(self):
+        assert spf_common_cumulative_power_by_sign_kwh(hourly_samples([None]), "kW") == []
+        assert spf_common_split_power_by_sign_kwh([], "kW") == (0.0, 0.0)
+
+
+class TestAlignedTimes:
+    def test_start_rounded_up_end_included(self):
+        times = spf_common_aligned_times(
+            START + timedelta(minutes=10), START + timedelta(hours=3), timedelta(hours=1)
+        )
+        assert times == [START + timedelta(hours=hours) for hours in (1, 2, 3)]
+
+    def test_start_on_a_whole_step_is_included(self):
+        assert spf_common_aligned_times(START, START, timedelta(hours=1)) == [START]
+
+    def test_step_must_be_positive(self):
+        with pytest.raises(ValueError, match="step must be > 0"):
+            spf_common_aligned_times(START, START, timedelta(0))
 
 
 class TestCounterEnergy:

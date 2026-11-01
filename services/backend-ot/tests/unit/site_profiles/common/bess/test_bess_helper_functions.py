@@ -192,15 +192,10 @@ class TestFirstAndLastValue:
 
 
 class TestRoundTripEfficiencyResult:
-    def result(
-        self, soc_values, charged_kwh=80.0, discharged_kwh=62.7, aux_kwh=None, settings=SETTINGS
-    ):
+    def result(self, soc_values, charged_kwh=80.0, discharged_kwh=62.7, settings=SETTINGS):
         return spf_common_round_trip_efficiency_result(
-            boundary=settings.boundary,
-            energy_source="counters",
             charged_kwh=charged_kwh,
             discharged_kwh=discharged_kwh,
-            aux_kwh=aux_kwh,
             soc_samples=hourly_samples(soc_values),
             settings=settings,
         )
@@ -216,13 +211,6 @@ class TestRoundTripEfficiencyResult:
         result = self.result([50.0, 50.0], discharged_kwh=72.2)
         assert (result.status, result.method) == ("ok", "closed_cycle")
         assert result.round_trip_efficiency_pct == pytest.approx(90.25)
-
-    def test_aux_energy_counts_as_energy_in(self):
-        system = SETTINGS.model_copy(update={"boundary": "system"})
-        result = self.result(
-            [50.0, 50.0], charged_kwh=76.0, discharged_kwh=72.2, aux_kwh=4.0, settings=system
-        )
-        assert result.round_trip_efficiency_pct == pytest.approx(72.2 / 80.0 * 100)
 
     @pytest.mark.parametrize(
         ("soc_values", "charged_kwh", "status"),

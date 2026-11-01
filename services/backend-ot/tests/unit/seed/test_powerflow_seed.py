@@ -21,6 +21,7 @@ from seed_db.powerflow_seed import (
     DEVICE_TYPES,
     KILO_UNITS,
     POWERFLOW_HOST,
+    PROFILE_BY_SITE,
     REGISTERS_CONTRACT,
     SITES_CONTRACT,
     build_seed,
@@ -43,6 +44,7 @@ from schemas.tests_models import (
     SeedData,
     SeedPointLink,
 )
+from site_profiles.profile_registry import SITE_PROFILES_BY_KEY
 
 SITE = "2bess_1pv"
 
@@ -76,11 +78,18 @@ def build_sld(seed: SeedData) -> tuple[SiteSld, dict[str, set[str]]]:
 
 
 class TestSite:
-    def test_one_site_without_a_profile(self, seed: SeedData) -> None:
+    def test_one_site_with_its_profile(self, seed: SeedData) -> None:
         (site,) = seed.sites
         assert site.name == "Powerflow 2BESS 1PV" == site_display_name(SITE)
-        assert site.profile is None
+        assert site.profile == "powerflow_2bess_1pv"
         assert site.capacity == "5 MW / 20 MWh BESS + 5 MWac PV"
+
+    def test_a_site_not_in_the_profile_map_has_no_profile(self, registers, sites) -> None:
+        (site,) = build_seed("1bess_1pv", registers, sites).sites
+        assert site.profile is None
+
+    def test_the_profile_map_names_registered_profiles(self) -> None:
+        assert set(PROFILE_BY_SITE.values()) <= set(SITE_PROFILES_BY_KEY)
 
     def test_unknown_site_is_refused(self, registers, sites) -> None:
         with pytest.raises(ValueError, match="no default site"):
@@ -252,6 +261,7 @@ class TestPointLinks:
             ("2bess_1pv-bess2", "BESS_STATE_OF_CHARGE", "SoC"),
             ("2bess_1pv-pv1", "PV_ACTIVE_POWER", "W"),
             ("2bess_1pv-poi_meter", "METER_ACTIVE_POWER", "W"),
+            ("2bess_1pv-poi_meter", "METER_REACTIVE_POWER", "VAR"),
             ("2bess_1pv-m_bess1", "METER_ACTIVE_POWER", "W"),
             ("2bess_1pv-m_bess2", "METER_ACTIVE_POWER", "W"),
             ("2bess_1pv-m_pv1", "METER_ACTIVE_POWER", "W"),
