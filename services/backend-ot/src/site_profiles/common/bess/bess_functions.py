@@ -4,17 +4,20 @@ or health checks, passing the points it found in its SiteContext. Historian read
 spf_common_get_point_timeseries in common/shared_helper_functions.py.
 """
 
+from bisect import bisect_left, bisect_right
+from datetime import datetime, timedelta
+
 from helpers.sampling.alignment import default_max_gap
 from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
+from schemas.internal_models import TimestampedValue
 from schemas.site_profiles import (
     DeviceEnergy,
     EnergySeriesResult,
     EnergySummaryResult,
     PhaseImbalanceTimeseries,
-    RoundTripCounterSource,
+    RoundTripEfficiencyAtTime,
     RoundTripEfficiencyResult,
     RoundTripEfficiencySettings,
-    RoundTripPowerSource,
     SiteContext,
     TimeWindow,
 )
@@ -24,9 +27,10 @@ from site_profiles.common.bess.bess_helper_functions import (
     spf_common_round_trip_efficiency_result,
 )
 from site_profiles.common.shared_helper_functions import (
+    spf_common_aligned_times,
     spf_common_combine_series,
-    spf_common_counter_energy_kwh,
     spf_common_cumulative_energy_kwh,
+    spf_common_cumulative_power_by_sign_kwh,
     spf_common_get_point_timeseries,
     spf_common_integrate_power_to_energy_kwh,
     spf_common_split_power_by_sign_kwh,
@@ -90,90 +94,97 @@ async def spf_common_energy_kwh_by_device(
     )
 
 
-
-
-async def spf_common_bess_round_trip_efficiency(
-    ctx: SiteContext,
-    energy_source: RoundTripPowerSource | RoundTripCounterSource,
-    soc_point: DevicePointResponse,
-    window: TimeWindow,
+def spf_common_bess_round_trip_efficiency(
+    power_kw: list[TimestampedValue],
+    soc_pct: list[TimestampedValue],
     settings: RoundTripEfficiencySettings,
-    aux_counter_point: DevicePointResponse | None = None,
 ) -> RoundTripEfficiencyResult:
     """
-    Round trip efficiency of one BESS over `window`, corrected for the change in stored energy.
+    Round trip efficiency of one BESS, from series its site already read and sanitized.
 
-    energy_source: one net power point (split by sign) or a charged/discharged counter pair,
-        measured at settings.boundary.
-    soc_point: state of charge in %; its first and last readings give the SoC change.
-    aux_counter_point: auxiliary energy counter (HVAC, controls), only for boundary "system",
-        when the auxiliaries are fed outside the measured energy.
+    power_kw: the BESS's power in kW, export (discharge) positive, charge negative
+        (value x scale x sign, e.g. from spf_common_sum_points with the site's SPF point).
+    soc_pct: its state of charge in %, the same way; only the first and last values are used.
+    settings: the BESS's usable energy, the measurement boundary and the trust limits.
 
-    The formula and the status rules are in common/bess/bess_helper_functions.py
+        E_dis = integral of max(P, 0) dt            E_ch = integral of max(-P, 0) dt
+        Delta S = (SoC end - SoC start) / 100 * usable_energy_kwh
+        x = (Delta S + sqrt(Delta S^2 + 4 * E_ch * E_dis)) / (2 * E_ch)        eta_RT = x^2
+
+    With Delta S = 0 (SoC ended where it started) eta_RT is E_dis / E_ch. The derivation and
+    the status rules are in common/bess/bess_helper_functions.py
     (_spf_common_round_trip_efficiency, spf_common_round_trip_efficiency_result).
     """
-    if aux_counter_point is not None and settings.boundary != "system":
-        raise SiteProfileConfigError(
-            "round trip efficiency: an aux counter only applies to boundary 'system', "
-            f"not '{settings.boundary}'"
-        )
-    if isinstance(energy_source, RoundTripPowerSource):
-        energy_points = [energy_source.power_point]
-    else:
-        energy_points = [
-            energy_source.charged_counter_point,
-            energy_source.discharged_counter_point,
-        ]
-    points = [*energy_points, soc_point, *([aux_counter_point] if aux_counter_point else [])]
-    if len({point.id for point in points}) != len(points):
-        raise SiteProfileConfigError(
-            "round trip efficiency: each point may be used once, got "
-            + ", ".join(f"'{point.name}' (id {point.id})" for point in points)
-        )
-
-    series_by_point = await spf_common_get_point_timeseries(ctx, points, window)
-    try:
-        if isinstance(energy_source, RoundTripPowerSource):
-            power_point = energy_source.power_point
-            positive_kwh, negative_kwh = spf_common_split_power_by_sign_kwh(
-                series_by_point[power_point.id].timeseries, power_point.unit
-            )
-            if energy_source.sign_convention == "positive_is_discharge":
-                discharged_kwh, charged_kwh = positive_kwh, negative_kwh
-            else:
-                charged_kwh, discharged_kwh = positive_kwh, negative_kwh
-        else:
-            charged_point = energy_source.charged_counter_point
-            discharged_point = energy_source.discharged_counter_point
-            charged_kwh = spf_common_counter_energy_kwh(
-                series_by_point[charged_point.id].timeseries,
-                charged_point.unit,
-                energy_source.counter_rollover,
-            )
-            discharged_kwh = spf_common_counter_energy_kwh(
-                series_by_point[discharged_point.id].timeseries,
-                discharged_point.unit,
-                energy_source.counter_rollover,
-            )
-        aux_kwh = (
-            None
-            if aux_counter_point is None
-            else spf_common_counter_energy_kwh(
-                series_by_point[aux_counter_point.id].timeseries, aux_counter_point.unit, None
-            )
-        )
-    except ValueError as err:  # a point with an unsupported unit
-        raise SiteProfileConfigError(f"round trip efficiency: {err}") from err
-
+    power_samples = [TimeseriesPoint(time=value.time, value=value.value) for value in power_kw]
+    discharged_kwh, charged_kwh = spf_common_split_power_by_sign_kwh(power_samples, "kW")
+    soc_samples = [TimeseriesPoint(time=value.time, value=value.value) for value in soc_pct]
     return spf_common_round_trip_efficiency_result(
-        boundary=settings.boundary,
-        energy_source=energy_source.kind,
         charged_kwh=charged_kwh,
         discharged_kwh=discharged_kwh,
-        aux_kwh=aux_kwh,
-        soc_samples=series_by_point[soc_point.id].timeseries,
+        soc_samples=soc_samples,
         settings=settings,
     )
+
+
+def spf_common_bess_rolling_round_trip_efficiency(
+    power_kw: list[TimestampedValue],
+    soc_pct: list[TimestampedValue],
+    settings: RoundTripEfficiencySettings,
+    *,
+    start_time: datetime,
+    end_time: datetime,
+    lookback: timedelta,
+    step: timedelta,
+) -> list[RoundTripEfficiencyAtTime]:
+    """
+    Round trip efficiency at every whole step (e.g. every hour on the hour) from start_time to
+    end_time, each over the `lookback` ending there: the same result
+    spf_common_bess_round_trip_efficiency gives for the window [time - lookback, time].
+
+    power_kw and soc_pct are as for spf_common_bess_round_trip_efficiency, but must reach back
+    to start_time - lookback, or the first values see less than `lookback` of data. Charged
+    and discharged energy are running totals taken once (spf_common_cumulative_power_by_sign_kwh),
+    so each value is a difference of two totals plus two SoC lookups, not a new integration.
+    Values are on a fixed grid, not at the readings' own times: each one is a window's result.
+    """
+    power_samples = [TimeseriesPoint(time=value.time, value=value.value) for value in power_kw]
+    cumulative = spf_common_cumulative_power_by_sign_kwh(power_samples, "kW")
+    power_times = [time for time, _, _ in cumulative]
+    soc_readings = sorted((value.time, value.value) for value in soc_pct)
+    soc_times = [time for time, _ in soc_readings]
+
+    results: list[RoundTripEfficiencyAtTime] = []
+    for time in spf_common_aligned_times(start_time, end_time, step):
+        window_start = time - lookback
+
+        # Energy between the window's first and last power readings (none: 0 kWh).
+        first = bisect_left(power_times, window_start)
+        last = bisect_right(power_times, time) - 1
+        discharged_kwh, charged_kwh = 0.0, 0.0
+        if last > first:
+            discharged_kwh = cumulative[last][1] - cumulative[first][1]
+            charged_kwh = cumulative[last][2] - cumulative[first][2]
+
+        # The window's first and last SoC readings (fewer than two: missing_soc_data).
+        first = bisect_left(soc_times, window_start)
+        last = bisect_right(soc_times, time) - 1
+        soc_samples = (
+            [TimeseriesPoint(time=soc_times[index], value=soc_readings[index][1]) for index in (first, last)]
+            if last > first
+            else []
+        )
+        results.append(
+            RoundTripEfficiencyAtTime(
+                time=time,
+                round_trip=spf_common_round_trip_efficiency_result(
+                    charged_kwh=charged_kwh,
+                    discharged_kwh=discharged_kwh,
+                    soc_samples=soc_samples,
+                    settings=settings,
+                ),
+            )
+        )
+    return results
 
 
 async def spf_common_voltage_imbalance_timeseries(

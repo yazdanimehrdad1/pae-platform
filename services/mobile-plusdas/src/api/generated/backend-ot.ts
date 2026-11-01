@@ -1215,6 +1215,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/site-functions/site/{site_id}/site-bess1-rolling-round-trip-efficiency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BESS 1's round trip efficiency (%) over time, each value over the last lookback_days */
+        get: operations["site_function_site_bess1_rolling_round_trip_efficiency_api_site_functions_site__site_id__site_bess1_rolling_round_trip_efficiency_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-bess1-round-trip-efficiency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BESS 1's round trip efficiency (%), corrected for its change in SoC */
+        get: operations["site_function_site_bess1_round_trip_efficiency_api_site_functions_site__site_id__site_bess1_round_trip_efficiency_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-bess2-rolling-round-trip-efficiency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BESS 2's round trip efficiency (%) over time, each value over the last lookback_days */
+        get: operations["site_function_site_bess2_rolling_round_trip_efficiency_api_site_functions_site__site_id__site_bess2_rolling_round_trip_efficiency_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site-functions/site/{site_id}/site-bess2-round-trip-efficiency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BESS 2's round trip efficiency (%), corrected for its change in SoC */
+        get: operations["site_function_site_bess2_round_trip_efficiency_api_site_functions_site__site_id__site_bess2_round_trip_efficiency_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/site-functions/site/{site_id}/site-energy-series": {
         parameters: {
             query?: never;
@@ -1828,6 +1896,70 @@ export interface components {
             now: string;
             /** Site Id */
             site_id: number;
+        };
+        /**
+         * BessRollingRoundTripEfficiencyResult
+         * @description One BESS's round trip efficiency at every whole step in the window, each over the last
+         *     lookback_days. The step follows the window: 1 min up to 1 hour, 15 min under a week, else 1 hour.
+         */
+        BessRollingRoundTripEfficiencyResult: {
+            /**
+             * Bess
+             * @description The BESS device's name
+             */
+            bess: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /** Lookback Days */
+            lookback_days: number;
+            /** @description Round trip efficiency (%) at each whole step, oldest first; null where not computed */
+            series: components["schemas"]["PointTimeseries"];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * Step Minutes
+             * @description Minutes between values: 1, 15 or 60, from the window's length
+             */
+            step_minutes: number;
+            /**
+             * Values By Status
+             * @description How many values had each status; only ok and above_100_percent have a value
+             */
+            values_by_status: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * BessRoundTripEfficiencyResult
+         * @description One BESS's round trip efficiency over the requested window.
+         */
+        BessRoundTripEfficiencyResult: {
+            /**
+             * Bess
+             * @description The BESS device's name
+             */
+            bess: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            round_trip: components["schemas"]["RoundTripEfficiencyResult"];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
         };
         /**
          * CacheGetResponse
@@ -3907,6 +4039,51 @@ export interface components {
              * @enum {string}
              */
             kind: "rolling";
+        };
+        /**
+         * RoundTripEfficiencyResult
+         * @description Round trip efficiency of one BESS over a window, and the terms it was computed from.
+         */
+        RoundTripEfficiencyResult: {
+            /**
+             * Boundary
+             * @enum {string}
+             */
+            boundary: "dc" | "ac" | "system";
+            /**
+             * Charged Kwh
+             * @description Energy in (E_ch)
+             */
+            charged_kwh: number;
+            /**
+             * Discharged Kwh
+             * @description Energy out (E_dis)
+             */
+            discharged_kwh: number;
+            /**
+             * Method
+             * @description closed_cycle when SoC ended where it started; None when not computed
+             */
+            method: ("closed_cycle" | "soc_corrected") | null;
+            /**
+             * Round Trip Efficiency Pct
+             * @description Set when status is ok or above_100_percent, else None
+             */
+            round_trip_efficiency_pct: number | null;
+            /** Soc End Pct */
+            soc_end_pct: number | null;
+            /** Soc Start Pct */
+            soc_start_pct: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "above_100_percent" | "insufficient_throughput" | "soc_change_too_large" | "missing_soc_data";
+            /**
+             * Stored Energy Change Kwh
+             * @description Delta S = (SoC end - start) / 100 * usable
+             */
+            stored_energy_change_kwh: number | null;
         };
         /**
          * SiteActiveAlarms
@@ -7419,6 +7596,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PowerSeriesResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_bess1_rolling_round_trip_efficiency_api_site_functions_site__site_id__site_bess1_rolling_round_trip_efficiency_get: {
+        parameters: {
+            query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+                /** @description Each value is the round trip efficiency over the last N days */
+                lookback_days?: number;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BessRollingRoundTripEfficiencyResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_bess1_round_trip_efficiency_api_site_functions_site__site_id__site_bess1_round_trip_efficiency_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BessRoundTripEfficiencyResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_bess2_rolling_round_trip_efficiency_api_site_functions_site__site_id__site_bess2_rolling_round_trip_efficiency_get: {
+        parameters: {
+            query?: {
+                /** @description For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint. */
+                max_points?: number | null;
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+                /** @description Each value is the round trip efficiency over the last N days */
+                lookback_days?: number;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BessRollingRoundTripEfficiencyResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_function_site_bess2_round_trip_efficiency_api_site_functions_site__site_id__site_bess2_round_trip_efficiency_get: {
+        parameters: {
+            query?: {
+                /** @description Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range. */
+                start_time?: string | null;
+                /** @description Window end; defaults to now. Needs start_time. Cannot be combined with time_range. */
+                end_time?: string | null;
+                /** @description Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M. */
+                time_range?: ("1H" | "6H" | "12H" | "1D" | "2D" | "3D" | "1W" | "1M" | "3M") | null;
+                /** @description IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps. */
+                tz?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BessRoundTripEfficiencyResult"];
                 };
             };
             /** @description Validation Error */

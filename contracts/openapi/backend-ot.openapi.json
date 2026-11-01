@@ -832,6 +832,108 @@
         "title": "AlarmSnapshotResponse",
         "type": "object"
       },
+      "BessRollingRoundTripEfficiencyResult": {
+        "description": "One BESS's round trip efficiency at every whole step in the window, each over the last\nlookback_days. The step follows the window: 1 min up to 1 hour, 15 min under a week, else 1 hour.",
+        "properties": {
+          "bess": {
+            "description": "The BESS device's name",
+            "title": "Bess",
+            "type": "string"
+          },
+          "end_time": {
+            "format": "date-time",
+            "title": "End Time",
+            "type": "string"
+          },
+          "lookback_days": {
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "series": {
+            "$ref": "#/components/schemas/PointTimeseries",
+            "description": "Round trip efficiency (%) at each whole step, oldest first; null where not computed"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "step_minutes": {
+            "description": "Minutes between values: 1, 15 or 60, from the window's length",
+            "title": "Step Minutes",
+            "type": "integer"
+          },
+          "values_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "How many values had each status; only ok and above_100_percent have a value",
+            "propertyNames": {
+              "enum": [
+                "ok",
+                "above_100_percent",
+                "insufficient_throughput",
+                "soc_change_too_large",
+                "missing_soc_data"
+              ]
+            },
+            "title": "Values By Status",
+            "type": "object"
+          }
+        },
+        "required": [
+          "site_id",
+          "start_time",
+          "end_time",
+          "bess",
+          "lookback_days",
+          "step_minutes",
+          "values_by_status",
+          "series"
+        ],
+        "title": "BessRollingRoundTripEfficiencyResult",
+        "type": "object"
+      },
+      "BessRoundTripEfficiencyResult": {
+        "description": "One BESS's round trip efficiency over the requested window.",
+        "properties": {
+          "bess": {
+            "description": "The BESS device's name",
+            "title": "Bess",
+            "type": "string"
+          },
+          "end_time": {
+            "format": "date-time",
+            "title": "End Time",
+            "type": "string"
+          },
+          "round_trip": {
+            "$ref": "#/components/schemas/RoundTripEfficiencyResult"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "start_time",
+          "end_time",
+          "bess",
+          "round_trip"
+        ],
+        "title": "BessRoundTripEfficiencyResult",
+        "type": "object"
+      },
       "CacheGetResponse": {
         "description": "Response model for retrieving a value from the cache.",
         "properties": {
@@ -5609,6 +5711,116 @@
           "duration"
         ],
         "title": "RollingWindow",
+        "type": "object"
+      },
+      "RoundTripEfficiencyResult": {
+        "description": "Round trip efficiency of one BESS over a window, and the terms it was computed from.",
+        "properties": {
+          "boundary": {
+            "enum": [
+              "dc",
+              "ac",
+              "system"
+            ],
+            "title": "Boundary",
+            "type": "string"
+          },
+          "charged_kwh": {
+            "description": "Energy in (E_ch)",
+            "title": "Charged Kwh",
+            "type": "number"
+          },
+          "discharged_kwh": {
+            "description": "Energy out (E_dis)",
+            "title": "Discharged Kwh",
+            "type": "number"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "closed_cycle",
+                  "soc_corrected"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "closed_cycle when SoC ended where it started; None when not computed",
+            "title": "Method"
+          },
+          "round_trip_efficiency_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when status is ok or above_100_percent, else None",
+            "title": "Round Trip Efficiency Pct"
+          },
+          "soc_end_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soc End Pct"
+          },
+          "soc_start_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soc Start Pct"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "above_100_percent",
+              "insufficient_throughput",
+              "soc_change_too_large",
+              "missing_soc_data"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stored_energy_change_kwh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Delta S = (SoC end - start) / 100 * usable",
+            "title": "Stored Energy Change Kwh"
+          }
+        },
+        "required": [
+          "boundary",
+          "status",
+          "round_trip_efficiency_pct",
+          "method",
+          "charged_kwh",
+          "discharged_kwh",
+          "soc_start_pct",
+          "soc_end_pct",
+          "stored_energy_change_kwh"
+        ],
+        "title": "RoundTripEfficiencyResult",
         "type": "object"
       },
       "SiteActiveAlarms": {
@@ -12354,6 +12566,586 @@
           }
         },
         "summary": "BESS 1 + BESS 2 + PV 1 reactive power series (kvar), with peak and average",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/site-bess1-rolling-round-trip-efficiency": {
+      "get": {
+        "operationId": "site_function_site_bess1_rolling_round_trip_efficiency_api_site_functions_site__site_id__site_bess1_rolling_round_trip_efficiency_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "in": "query",
+            "name": "max_points",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 5000,
+                  "minimum": 100,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "title": "Max Points"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          },
+          {
+            "description": "Each value is the round trip efficiency over the last N days",
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "Each value is the round trip efficiency over the last N days",
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Lookback Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BessRollingRoundTripEfficiencyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "BESS 1's round trip efficiency (%) over time, each value over the last lookback_days",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/site-bess1-round-trip-efficiency": {
+      "get": {
+        "operationId": "site_function_site_bess1_round_trip_efficiency_api_site_functions_site__site_id__site_bess1_round_trip_efficiency_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BessRoundTripEfficiencyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "BESS 1's round trip efficiency (%), corrected for its change in SoC",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/site-bess2-rolling-round-trip-efficiency": {
+      "get": {
+        "operationId": "site_function_site_bess2_rolling_round_trip_efficiency_api_site_functions_site__site_id__site_bess2_rolling_round_trip_efficiency_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "in": "query",
+            "name": "max_points",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 5000,
+                  "minimum": 100,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "title": "Max Points"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          },
+          {
+            "description": "Each value is the round trip efficiency over the last N days",
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "Each value is the round trip efficiency over the last N days",
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Lookback Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BessRollingRoundTripEfficiencyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "BESS 2's round trip efficiency (%) over time, each value over the last lookback_days",
+        "tags": [
+          "site-functions",
+          "site-functions"
+        ]
+      }
+    },
+    "/api/site-functions/site/{site_id}/site-bess2-round-trip-efficiency": {
+      "get": {
+        "operationId": "site_function_site_bess2_round_trip_efficiency_api_site_functions_site__site_id__site_bess2_round_trip_efficiency_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window start (ISO 8601 with a UTC offset, or naive with tz). Cannot be combined with time_range.",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Window end; defaults to now. Needs start_time. Cannot be combined with time_range.",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1H",
+                    "6H",
+                    "12H",
+                    "1D",
+                    "2D",
+                    "3D",
+                    "1W",
+                    "1M",
+                    "3M"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Relative window ending now: 1H, 6H, 12H, 1D, 2D, 3D, 1W, 1M, 3M.",
+              "title": "Time Range"
+            }
+          },
+          {
+            "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA timezone (or US shorthand such as 'PT') for naive bounds and for response timestamps.",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BessRoundTripEfficiencyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "BESS 2's round trip efficiency (%), corrected for its change in SoC",
         "tags": [
           "site-functions",
           "site-functions"

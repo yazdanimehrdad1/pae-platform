@@ -1,12 +1,12 @@
 """
-Unit tests for the three-phase imbalance and round trip efficiency functions in
+Unit tests for the three-phase imbalance, energy and round trip efficiency functions in
 site_profiles.common.bess.bess_functions.
 
 Guards the wiring around the pure math: all points are read in one historian call, the result
 names what it was computed from, and a misdeclared call (repeated point, points on two devices,
-mixed or unsupported units, min_mean <= 0, an aux counter outside the system boundary) is a
-SiteProfileConfigError instead of a wrong answer. The historian read is faked at the module
-boundary.
+mixed or unsupported units, min_mean <= 0) is a SiteProfileConfigError instead of a wrong answer.
+The historian read is faked at the module boundary. Round trip efficiency reads nothing: it is
+given the site's sanitized series (kW discharge positive, SoC %), so its tests pass them in.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -15,13 +15,8 @@ import pytest
 
 import site_profiles.common.bess.bess_functions as common_functions
 from schemas.api_models import DevicePointResponse, PointTimeseries, TimeseriesPoint
-from schemas.site_profiles import (
-    RoundTripCounterSource,
-    RoundTripEfficiencySettings,
-    RoundTripPowerSource,
-    SiteContext,
-    TimeWindow,
-)
+from schemas.internal_models import TimestampedValue
+from schemas.site_profiles import RoundTripEfficiencySettings, SiteContext, TimeWindow
 from unit.site_fixtures import make_device, make_point, make_site
 from utils.exceptions import SiteProfileConfigError
 
@@ -155,131 +150,155 @@ class TestPhaseImbalanceTimeseries:
         assert reads == []  # rejected before touching the historian
 
 
-POWER_POINT = phase_point(41, "bess_active_power", unit="kW")
-CHARGED_POINT = phase_point(42, "energy_charged", unit="kWh")
-DISCHARGED_POINT = phase_point(43, "energy_discharged", unit="kWh")
-SOC_POINT = phase_point(44, "state_of_charge", unit="%")
-AUX_POINT = phase_point(45, "aux_energy", unit="kWh")
-COUNTERS = RoundTripCounterSource(
-    charged_counter_point=CHARGED_POINT, discharged_counter_point=DISCHARGED_POINT
-)
 RTE_SETTINGS = RoundTripEfficiencySettings(
     usable_energy_kwh=100.0, boundary="ac", min_charged_kwh=1.0, max_soc_change_pct=20.0
 )
 
 
-class TestBessRoundTripEfficiency:
-    async def test_counters_with_soc_correction(self, monkeypatch: pytest.MonkeyPatch):
-        # the worked example: ended 10 % fuller, truly 90.25 %
-        reads = fake_timeseries(monkeypatch, {42: [0.0, 80.0], 43: [0.0, 62.7], 44: [50.0, 60.0]})
+def hourly(values: list[float]) -> list[TimestampedValue]:
+    return [
+        TimestampedValue(time=START + timedelta(hours=index), value=value)
+        for index, value in enumerate(values)
+    ]
 
-        result = await common_functions.spf_common_bess_round_trip_efficiency(
-            context(), COUNTERS, SOC_POINT, WINDOW, RTE_SETTINGS
+
+def charge_then_discharge_kw(discharge_kw: float) -> list[TimestampedValue]:
+    """Hourly kW, discharge positive: 2 h at 40 kW in (80 kWh with the ramps), then out."""
+    return hourly([0.0, -40.0, -40.0, 0.0, discharge_kw, discharge_kw, 0.0])
+
+
+class TestBessRoundTripEfficiency:
+    # the worked example, truly 90.25 %: 80 kWh in, and out 72.2 kWh (closed cycle)
+    # or 62.7 kWh with 10 kWh still stored (SoC 50 -> 60 % of 100 kWh)
+    @pytest.mark.parametrize(
+        ("discharge_kw", "soc_end_pct", "discharged_kwh", "method"),
+        [(36.1, 50.0, 72.2, "closed_cycle"), (31.35, 60.0, 62.7, "soc_corrected")],
+    )
+    def test_worked_example(self, discharge_kw, soc_end_pct, discharged_kwh, method):
+        result = common_functions.spf_common_bess_round_trip_efficiency(
+            charge_then_discharge_kw(discharge_kw), hourly([50.0, soc_end_pct]), RTE_SETTINGS
         )
 
-        assert reads == [[42, 43, 44]]  # one historian read for every point
-        assert (result.energy_source, result.boundary, result.status) == ("counters", "ac", "ok")
+        assert (result.boundary, result.status, result.method) == ("ac", "ok", method)
+        assert (result.charged_kwh, result.discharged_kwh) == (
+            pytest.approx(80.0),
+            pytest.approx(discharged_kwh),
+        )
         assert result.round_trip_efficiency_pct == pytest.approx(90.25)
 
-    async def test_power_source_is_split_by_sign(self, monkeypatch: pytest.MonkeyPatch):
-        # 30 min steps: -10, -10, +10, +10 kW -> 6.25 kWh in and 6.25 kWh out
-        fake_timeseries(monkeypatch, {41: [-10.0, -10.0, 10.0, 10.0], 44: [50.0, 50.0]})
-
-        result = await common_functions.spf_common_bess_round_trip_efficiency(
-            context(),
-            RoundTripPowerSource(power_point=POWER_POINT),
-            SOC_POINT,
-            WINDOW,
-            RTE_SETTINGS,
-        )
-
-        assert result.energy_source == "power"
-        assert (result.charged_kwh, result.discharged_kwh) == (
-            pytest.approx(6.25),
-            pytest.approx(6.25),
-        )
-        assert (result.method, result.round_trip_efficiency_pct) == (
-            "closed_cycle",
-            pytest.approx(100.0),
-        )
-
     @pytest.mark.parametrize(
-        ("sign_convention", "expected_charged_kwh", "expected_discharged_kwh"),
-        [("positive_is_discharge", 16 / 3, 7 / 3), ("positive_is_charge", 7 / 3, 16 / 3)],
-    )
-    async def test_sign_convention_maps_signs_to_charge_and_discharge(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        sign_convention,
-        expected_charged_kwh,
-        expected_discharged_kwh,
-    ):
-        # 30 min steps: -8, -8, +4, +4 kW -> 16/3 kWh negative, 7/3 kWh positive
-        fake_timeseries(monkeypatch, {41: [-8.0, -8.0, 4.0, 4.0], 44: [50.0, 50.0]})
-        power_source = RoundTripPowerSource(
-            power_point=POWER_POINT, sign_convention=sign_convention
-        )
-
-        result = await common_functions.spf_common_bess_round_trip_efficiency(
-            context(), power_source, SOC_POINT, WINDOW, RTE_SETTINGS
-        )
-
-        assert result.charged_kwh == pytest.approx(expected_charged_kwh)
-        assert result.discharged_kwh == pytest.approx(expected_discharged_kwh)
-
-    async def test_aux_counter_is_read_for_the_system_boundary(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
-        reads = fake_timeseries(
-            monkeypatch, {42: [0.0, 76.0], 43: [0.0, 72.2], 44: [50.0, 50.0], 45: [10.0, 14.0]}
-        )
-        system = RTE_SETTINGS.model_copy(update={"boundary": "system"})
-
-        result = await common_functions.spf_common_bess_round_trip_efficiency(
-            context(), COUNTERS, SOC_POINT, WINDOW, system, aux_counter_point=AUX_POINT
-        )
-
-        assert reads == [[42, 43, 44, 45]]
-        assert result.aux_kwh == pytest.approx(4.0)
-        assert result.round_trip_efficiency_pct == pytest.approx(72.2 / 80.0 * 100)
-
-    @pytest.mark.parametrize(
-        ("energy_source", "soc_point", "aux_counter_point", "message"),
+        ("soc_values", "settings_update", "status"),
         [
-            (COUNTERS, SOC_POINT, AUX_POINT, "only applies to boundary 'system'"),
-            (COUNTERS, CHARGED_POINT, None, "each point may be used once"),
+            ([50.0], {}, "missing_soc_data"),
+            ([50.0, 50.0], {"min_charged_kwh": 500.0}, "insufficient_throughput"),
+            ([20.0, 60.0], {}, "soc_change_too_large"),
         ],
     )
-    async def test_misdeclared_call_is_a_config_error_before_reading(
-        self, monkeypatch: pytest.MonkeyPatch, energy_source, soc_point, aux_counter_point, message
+    def test_untrustworthy_windows_get_no_value(self, soc_values, settings_update, status):
+        result = common_functions.spf_common_bess_round_trip_efficiency(
+            charge_then_discharge_kw(36.1),
+            hourly(soc_values),
+            RTE_SETTINGS.model_copy(update=settings_update),
+        )
+
+        assert (result.status, result.round_trip_efficiency_pct) == (status, None)
+        assert result.charged_kwh == pytest.approx(80.0)  # the measured terms are still reported
+
+    def test_no_power_readings_is_insufficient_throughput(self):
+        result = common_functions.spf_common_bess_round_trip_efficiency(
+            [], hourly([50.0, 50.0]), RTE_SETTINGS
+        )
+        assert (result.status, result.charged_kwh, result.discharged_kwh) == (
+            "insufficient_throughput",
+            0.0,
+            0.0,
+        )
+
+
+def in_window(
+    values: list[TimestampedValue], start: datetime, end: datetime
+) -> list[TimestampedValue]:
+    return [value for value in values if start <= value.time <= end]
+
+
+class TestBessRollingRoundTripEfficiency:
+    # two worked-example cycles (closed, then ending 10 % fuller), back to back, with 30 min SoC
+    POWER_KW = hourly(
+        [0.0, -40.0, -40.0, 0.0, 36.1, 36.1, 0.0, -40.0, -40.0, 0.0, 31.35, 31.35, 0.0]
+    )
+    SOC_PCT = [
+        TimestampedValue(
+            time=START + timedelta(minutes=30 * index), value=50.0 + (index >= 14) * 10
+        )
+        for index in range(25)
+    ]
+
+    def rolling(
+        self, lookback_hours: int = 6, settings: RoundTripEfficiencySettings = RTE_SETTINGS
     ):
-        reads = fake_timeseries(monkeypatch, {})
+        return common_functions.spf_common_bess_rolling_round_trip_efficiency(
+            self.POWER_KW,
+            self.SOC_PCT,
+            settings,
+            start_time=START,
+            end_time=START + timedelta(hours=12),
+            lookback=timedelta(hours=lookback_hours),
+            step=timedelta(hours=1),
+        )
 
-        with pytest.raises(SiteProfileConfigError, match=message):
-            await common_functions.spf_common_bess_round_trip_efficiency(
-                context(),
-                energy_source,
-                soc_point,
-                WINDOW,
-                RTE_SETTINGS,
-                aux_counter_point=aux_counter_point,
-            )
-        assert reads == []
+    @pytest.mark.parametrize("lookback_hours", [1, 3, 6, 12])
+    def test_each_value_is_the_round_trip_efficiency_of_its_window(self, lookback_hours):
+        results = self.rolling(lookback_hours)
 
-    async def test_unsupported_unit_is_a_config_error(self, monkeypatch: pytest.MonkeyPatch):
-        fake_timeseries(monkeypatch, {41: [1.0, 1.0], 44: [50.0, 50.0]})
-        energy_point = POWER_POINT.model_copy(
-            update={"unit": "kWh"}
-        )  # an energy unit on a power point
-
-        with pytest.raises(SiteProfileConfigError, match="Unsupported power unit"):
-            await common_functions.spf_common_bess_round_trip_efficiency(
-                context(),
-                RoundTripPowerSource(power_point=energy_point),
-                SOC_POINT,
-                WINDOW,
+        assert [result.time for result in results] == [
+            START + timedelta(hours=hours) for hours in range(13)
+        ]
+        for result in results:
+            window_start = result.time - timedelta(hours=lookback_hours)
+            expected = common_functions.spf_common_bess_round_trip_efficiency(
+                in_window(self.POWER_KW, window_start, result.time),
+                in_window(self.SOC_PCT, window_start, result.time),
                 RTE_SETTINGS,
             )
+            assert result.round_trip.status == expected.status
+            assert result.round_trip.charged_kwh == pytest.approx(expected.charged_kwh)
+            assert result.round_trip.discharged_kwh == pytest.approx(expected.discharged_kwh)
+            assert result.round_trip.round_trip_efficiency_pct == (
+                None
+                if expected.round_trip_efficiency_pct is None
+                else pytest.approx(expected.round_trip_efficiency_pct)
+            )
+
+    def test_each_full_cycle_is_the_worked_example(self):
+        by_time = {result.time: result.round_trip for result in self.rolling()}
+
+        closed = by_time[START + timedelta(hours=6)]
+        corrected = by_time[START + timedelta(hours=12)]
+        assert (closed.status, closed.method) == ("ok", "closed_cycle")
+        assert (corrected.status, corrected.method) == ("ok", "soc_corrected")
+        assert closed.round_trip_efficiency_pct == pytest.approx(90.25)
+        assert corrected.round_trip_efficiency_pct == pytest.approx(90.25)
+
+    def test_a_window_before_the_data_has_no_value(self):
+        # the first hour's 6 h lookback has one power reading and one SoC reading
+        first = self.rolling()[0].round_trip
+        assert (first.status, first.charged_kwh, first.round_trip_efficiency_pct) == (
+            "missing_soc_data",
+            0.0,
+            None,
+        )
+
+    def test_no_readings_give_missing_soc_data_every_hour(self):
+        results = common_functions.spf_common_bess_rolling_round_trip_efficiency(
+            [],
+            [],
+            RTE_SETTINGS,
+            start_time=START,
+            end_time=START + timedelta(hours=2),
+            lookback=timedelta(hours=1),
+            step=timedelta(hours=1),
+        )
+        assert [result.round_trip.status for result in results] == ["missing_soc_data"] * 3
 
 
 INVERTER_POWER = phase_point(51, "active_power", unit="W", device_id=3)
@@ -345,8 +364,12 @@ class TestEnergyKwhSeriesByDevice:
     async def test_matches_the_energy_summary_total(self, monkeypatch: pytest.MonkeyPatch):
         values = {51: [2000.0, 500.0, 3500.0, 1200.0]}
         fake_timeseries(monkeypatch, values)
-        series = await common_functions.spf_common_energy_kwh_series_by_device(context(), [INVERTER_POWER], WINDOW)
-        summary = await common_functions.spf_common_energy_kwh_by_device(context(), [INVERTER_POWER], WINDOW)
+        series = await common_functions.spf_common_energy_kwh_series_by_device(
+            context(), [INVERTER_POWER], WINDOW
+        )
+        summary = await common_functions.spf_common_energy_kwh_by_device(
+            context(), [INVERTER_POWER], WINDOW
+        )
         assert series.energy_kwh == pytest.approx(summary.energy_kwh)
         assert series.series[0].timeseries[-1].value == pytest.approx(summary.energy_kwh)
 
@@ -354,11 +377,16 @@ class TestEnergyKwhSeriesByDevice:
         second_power = phase_point(61, "active_power", unit="kW", device_id=4)
         ctx = SiteContext(
             site=make_site(),
-            devices=[make_device(3, [INVERTER_POWER], device_type="PV"), make_device(4, [second_power], device_type="BESS")],
+            devices=[
+                make_device(3, [INVERTER_POWER], device_type="PV"),
+                make_device(4, [second_power], device_type="BESS"),
+            ],
         )
         fake_timeseries(monkeypatch, {51: [1000.0, 1000.0, 1000.0], 61: [3.0, 3.0, 3.0]})
 
-        result = await common_functions.spf_common_energy_kwh_series_by_device(ctx, [INVERTER_POWER, second_power], WINDOW)
+        result = await common_functions.spf_common_energy_kwh_series_by_device(
+            ctx, [INVERTER_POWER, second_power], WINDOW
+        )
 
         total, *devices = result.series
         assert [series.name for series in devices] == ["device_3 energy", "device_4 energy"]
@@ -367,7 +395,9 @@ class TestEnergyKwhSeriesByDevice:
 
     async def test_no_points_gives_an_empty_site_total(self, monkeypatch: pytest.MonkeyPatch):
         fake_timeseries(monkeypatch, {})
-        result = await common_functions.spf_common_energy_kwh_series_by_device(context(), [], WINDOW)
+        result = await common_functions.spf_common_energy_kwh_series_by_device(
+            context(), [], WINDOW
+        )
         (total,) = result.series
         assert (total.timeseries, result.energy_kwh) == ([], 0.0)
 
@@ -382,4 +412,6 @@ class TestEnergyKwhSeriesByDevice:
         fake_timeseries(monkeypatch, {53: [1.0, 1.0]})
         energy_point = phase_point(53, "energy_total", unit="kWh", device_id=3)
         with pytest.raises(SiteProfileConfigError, match="can't be integrated"):
-            await common_functions.spf_common_energy_kwh_series_by_device(context(), [energy_point], WINDOW)
+            await common_functions.spf_common_energy_kwh_series_by_device(
+                context(), [energy_point], WINDOW
+            )

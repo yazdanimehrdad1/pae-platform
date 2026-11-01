@@ -300,25 +300,6 @@ RoundTripStatus = Literal[
 ]
 
 
-class RoundTripPowerSource(BaseModel):
-    """Energy from one net power point at the boundary, split into charge and discharge by sign."""
-
-    kind: Literal["power"] = "power"
-    power_point: DevicePointResponse
-    sign_convention: BessPowerSignConvention = "positive_is_discharge"
-
-
-class RoundTripCounterSource(BaseModel):
-    """Energy from two cumulative counters: energy charged and energy discharged."""
-
-    kind: Literal["counters"] = "counters"
-    charged_counter_point: DevicePointResponse
-    discharged_counter_point: DevicePointResponse
-    counter_rollover: float | None = Field(
-        None, gt=0, description="Value the counters wrap at, in their unit; None if they never wrap"
-    )
-
-
 class RoundTripEfficiencySettings(BaseModel):
     """What a site declares once per BESS for its round trip efficiency."""
 
@@ -340,7 +321,6 @@ class RoundTripEfficiencyResult(BaseModel):
     """Round trip efficiency of one BESS over a window, and the terms it was computed from."""
 
     boundary: RoundTripBoundary
-    energy_source: Literal["power", "counters"]
     status: RoundTripStatus
     round_trip_efficiency_pct: float | None = Field(
         ..., description="Set when status is ok or above_100_percent, else None"
@@ -350,14 +330,18 @@ class RoundTripEfficiencyResult(BaseModel):
     )
     charged_kwh: float = Field(..., description="Energy in (E_ch)")
     discharged_kwh: float = Field(..., description="Energy out (E_dis)")
-    aux_kwh: float | None = Field(
-        ..., description="Auxiliary energy added to E_ch (system boundary only)"
-    )
     soc_start_pct: float | None
     soc_end_pct: float | None
     stored_energy_change_kwh: float | None = Field(
         ..., description="Delta S = (SoC end - start) / 100 * usable"
     )
+
+
+class RoundTripEfficiencyAtTime(BaseModel):
+    """One value of a rolling round trip efficiency: the result over the lookback ending at `time`."""
+
+    time: datetime
+    round_trip: RoundTripEfficiencyResult
 
 
 # --- Profile alarms ------------------------------------------------------------------------

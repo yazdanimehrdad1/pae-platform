@@ -44,6 +44,21 @@ SPF_PV1_REACTIVE_POWER = SpfPoint(
     device="2bess_1pv-pv1", point="Var", category="NATIVE", scale=1.0, sign=1
 )
 
+SPF_BESS1_STATE_OF_CHARGE = SpfPoint(
+    device="2bess_1pv-bess1",
+    point="BESS_STATE_OF_CHARGE",
+    category="STANDARDIZED",
+    scale=1.0,
+    sign=1,
+)
+SPF_BESS2_STATE_OF_CHARGE = SpfPoint(
+    device="2bess_1pv-bess2",
+    point="BESS_STATE_OF_CHARGE",
+    category="STANDARDIZED",
+    scale=1.0,
+    sign=1,
+)
+
 # The points each site function sums.
 SITE_POI_ACTIVE_POWER = (SPF_POI_ACTIVE_POWER,)
 SITE_POI_REACTIVE_POWER = (SPF_POI_REACTIVE_POWER,)
