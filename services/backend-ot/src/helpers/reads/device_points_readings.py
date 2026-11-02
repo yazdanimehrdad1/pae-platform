@@ -12,10 +12,10 @@ A chart's request (max_points) is sampled by helpers.sampling: every reading of 
 3 days, plot values beyond, with gap markers either way (README.md there).
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, and_, select, true
+from sqlalchemy import ColumnElement, Row, and_, select, true
 from sqlalchemy import func as sql_func
 
 from db.session import get_session
@@ -221,7 +221,7 @@ async def _chart_stored(
         statement = plot_values_statement(_POINT_COLUMNS, conditions, start_time, end_time, max_points, max_gap)
         async with get_session() as session:
             result = await session.execute(statement)
-            return [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
+            return _as_point_readings(result.all())
     stored = await _select_timeseries(
         point_ids, site_id=site_id, device_id=device_id, start_time=start_time,
         end_time=end_time, limit=None, exclude_point_ids=exclude_point_ids,
@@ -400,7 +400,7 @@ async def _select_latest(
     )
     async with get_session() as session:
         result = await session.execute(statement)
-        return [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
+        return _as_point_readings(result.all())
 
 
 def _reading_conditions(
@@ -475,4 +475,10 @@ async def _select_timeseries(
     )
     async with get_session() as session:
         result = await session.execute(statement)
-        return [PointReading.model_validate(row, from_attributes=True) for row in result.all()]
+        return _as_point_readings(result.all())
+
+
+def _as_point_readings(rows: Sequence[Row[tuple[object, ...]]]) -> list[PointReading]:
+    """A readings query's rows as PointReadings, unvalidated: the columns are labelled as its
+    fields and typed by the database. Validating every row of a days-long window took seconds."""
+    return [PointReading.model_construct(**row._mapping) for row in rows]
