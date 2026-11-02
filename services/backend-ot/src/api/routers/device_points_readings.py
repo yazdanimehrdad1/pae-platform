@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from helpers.common.date_time import TimeRange, resolve_time_range
 from helpers.reads.calculate_reads import translate_bitfield_to_named_map, translate_reading
@@ -145,18 +145,19 @@ async def get_timeseries_readings(
                         translate_bitfield_to_named_map(0.0, reading.bitfield_detail).keys()
                     )
             readings[key] = series
-        readings[key].timeseries.append(TimeseriesPoint.model_validate({
-            **reading.model_dump(),
-            "timestamp": in_display_tz(reading.timestamp, display_tz),
-            "translated_value": translate_reading(
+        # Unvalidated: the reading is already typed, and a window holds tens of thousands of them.
+        readings[key].timeseries.append(TimeseriesPoint.model_construct(
+            time=in_display_tz(reading.timestamp, display_tz),
+            value=reading.derived_value,
+            translated_value=translate_reading(
                 reading.derived_value,
                 reading.bitfield_detail,
                 reading.enum_detail,
             ) if translate else None,
-        }))
+        ))
         readings[key].count += 1
 
-    return TimeseriesResponse(
+    response = TimeseriesResponse(
         meta=TimeseriesMeta(
             site_id=site_id,
             device_id=device_id,
@@ -167,3 +168,6 @@ async def get_timeseries_readings(
         ),
         readings=readings,
     )
+    # Serialized here as FastAPI would (by alias, without None), so it doesn't validate the whole
+    # response again first; response_model still documents it.
+    return Response(response.model_dump_json(by_alias=True, exclude_none=True), media_type="application/json")

@@ -170,6 +170,9 @@ def get_async_engine() -> AsyncEngine:
                 pool_pre_ping=True,  # Verify connections before using
                 pool_recycle=3600,   # Recycle connections after 1 hour
                 echo=False,  # Set to True for SQL query logging (debug only)
+                # No JIT: it compiles any query the planner costs high (a chart window over
+                # days), and on a small VM the compile took 4 of a 6 s query and saved nothing.
+                connect_args={"server_settings": {"jit": "off"}},
             )
 
             logger.info("SQLAlchemy async engine created successfully")
