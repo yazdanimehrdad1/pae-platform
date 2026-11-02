@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { forecastApi, toForecastSeries } from '@/api/forecast';
 import { historianApi } from '@/api/historian';
@@ -52,19 +52,26 @@ const windowArgs = (timeWindow: TimeWindow) => ({
   ...('preset' in timeWindow ? { timeRange: timeWindow.preset } : { startTime: timeWindow.startTime, endTime: timeWindow.endTime }),
 });
 
+type BuiltSeries = {
+  data: ChartRow[];
+  lines: Record<string, LinePoint[]>;
+  functionSeries: Map<string, PointTimeseries>;
+  forecastSeries: Map<string, PointTimeseries>;
+};
+
 // `timeWindow` is what the chart shows: the selected window, or the zoomed range (so zooming in
-// refetches, and a zoom of 3 days or less gets every reading). While a new window loads, the
-// previous data stays on screen.
+// refetches, and a zoom of 3 days or less gets every reading). While a new selection, window or
+// zoom loads, the last chart stays on screen (isFetching, not isLoading): a query with a new key
+// starts empty (useQueries keeps no previous data across keys), so the hook keeps it itself.
+// `shownPoints` are the selections that chart has: a removed one leaves at once, a new one joins
+// when its readings arrive.
 export function useHistorianSeries(
   siteId: string | null,
   selectedPoints: string[],
   timeWindow: TimeWindow,
   { autoRefresh = false, forecastAheadHours = 0 }: { autoRefresh?: boolean; forecastAheadHours?: number } = {},
-): {
-  data: ChartRow[];
-  lines: Record<string, LinePoint[]>;
-  functionSeries: Map<string, PointTimeseries>;
-  forecastSeries: Map<string, PointTimeseries>;
+): BuiltSeries & {
+  shownPoints: string[];
   isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
@@ -135,14 +142,14 @@ export function useHistorianSeries(
   });
 
   const results = [...pointResults, ...functionResults, ...(forecastSelections.length > 0 ? [forecastResult] : [])];
-  const isLoading = devicesLoading || results.some(r => r.isLoading);
-  const isFetching = results.some(r => r.isFetching);
+  const isPending = devicesLoading || results.some(r => r.isLoading);
+  const isFetching = isPending || results.some(r => r.isFetching);
   const isError = results.some(r => r.isError);
 
   // Rebuilt only when a fetch returns or the selection changes: a 3-day window is ~26k readings
   // per point, too many to merge on every render.
   const dataVersion = results.map(result => result.dataUpdatedAt).join(',');
-  const { data, lines, functionSeries, forecastSeries } = useMemo(() => {
+  const built: BuiltSeries = useMemo(() => {
     const seriesByFunction = new Map<string, PointTimeseries>();
     functionSelections.forEach(({ selectionId, selection }, index) => {
       const series = functionResults[index]?.data?.[selection.seriesIndex];
@@ -166,5 +173,25 @@ export function useHistorianSeries(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataVersion, selectedPoints, functionSelections, forecastSelections]);
 
-  return { data, lines, functionSeries, forecastSeries, isLoading, isFetching, isError };
+  // The last complete chart of this site, kept while the next one loads (only one with data: an
+  // empty one would read as "no data" in the meantime).
+  const shownRef = useRef<{ siteId: string | null; points: string[]; series: BuiltSeries } | null>(null);
+  if (!isPending) shownRef.current = { siteId, points: selectedPoints, series: built };
+  const kept = isPending && shownRef.current?.siteId === siteId && shownRef.current.series.data.length > 0
+    ? shownRef.current
+    : null;
+  if (!kept) return { ...built, shownPoints: selectedPoints, isLoading: isPending, isFetching, isError };
+
+  const shownPoints = kept.points.filter(selectionId => selectedPoints.includes(selectionId));
+  const keepShown = <T>(entries: Iterable<[string, T]>) => [...entries].filter(([key]) => shownPoints.includes(key));
+  return {
+    data: kept.series.data,
+    lines: Object.fromEntries(keepShown(Object.entries(kept.series.lines))),
+    functionSeries: new Map(keepShown(kept.series.functionSeries)),
+    forecastSeries: new Map(keepShown(kept.series.forecastSeries)),
+    shownPoints,
+    isLoading: false,
+    isFetching,
+    isError,
+  };
 }

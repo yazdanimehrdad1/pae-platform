@@ -65,6 +65,64 @@ describe('useHistorianSeries refresh', () => {
   });
 });
 
+describe('useHistorianSeries while a new selection loads', () => {
+  const TWO_POINT_DEVICE = { ...DEVICE, points: [{ id: 7, name: 'soc' }, { id: 8, name: 'power' }] } as unknown as DevicePointsEntry;
+  const readingsOf = (pointIds: string[]) => ({
+    meta: {},
+    readings: Object.fromEntries(pointIds.map(pointId => [pointId, { timeseries: [{ time: '2026-10-21T12:00:00Z', value: Number(pointId) }] }])),
+  });
+
+  function renderSelection(initialPoints: string[]) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return renderHook(({ points }) => useHistorianSeries('1001', points, { preset: '1H' }), { wrapper, initialProps: { points: initialPoints } });
+  }
+
+  it('keeps the last chart (fetching, not loading) until the new point arrives, then shows both', async () => {
+    vi.mocked(devicesApi.getBySiteWithPoints).mockResolvedValue([TWO_POINT_DEVICE]);
+    let release: () => void = () => {};
+    vi.mocked(historianApi.getDevicePointReadings).mockImplementation(({ pointIds }) => (pointIds.length === 1
+      ? Promise.resolve(readingsOf(pointIds))
+      : new Promise(resolve => { release = () => resolve(readingsOf(pointIds)); })) as never);
+
+    const { result, rerender } = renderSelection(['7']);
+    await waitFor(() => expect(result.current.lines['7']).toHaveLength(1));
+
+    rerender({ points: ['7', '8'] });
+    await waitFor(() => expect(fetches()).toBe(2));
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isFetching).toBe(true);
+    expect(result.current.shownPoints).toEqual(['7']);
+    expect(result.current.lines['7']).toHaveLength(1);
+
+    await act(async () => release());
+    await waitFor(() => expect(result.current.shownPoints).toEqual(['7', '8']));
+    expect(result.current.lines['8']).toHaveLength(1);
+  });
+
+  it('drops a removed point at once, while the rest refetch', async () => {
+    vi.mocked(devicesApi.getBySiteWithPoints).mockResolvedValue([TWO_POINT_DEVICE]);
+    vi.mocked(historianApi.getDevicePointReadings).mockImplementation(({ pointIds }) => (pointIds.length === 2
+      ? Promise.resolve(readingsOf(pointIds))
+      : new Promise(() => {})) as never);
+
+    const { result, rerender } = renderSelection(['7', '8']);
+    await waitFor(() => expect(result.current.lines['8']).toHaveLength(1));
+
+    rerender({ points: ['7'] });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.shownPoints).toEqual(['7']);
+    expect(Object.keys(result.current.lines)).toEqual(['7']);
+  });
+
+  it('is loading on the first fetch, with nothing to keep', async () => {
+    vi.mocked(historianApi.getDevicePointReadings).mockImplementation(() => new Promise(() => {}) as never);
+    const { result } = renderSelection(['7']);
+    await waitFor(() => expect(fetches()).toBe(1));
+    expect(result.current.isLoading).toBe(true);
+  });
+});
+
 describe('useHistorianSeries PV forecast', () => {
   const FORECAST = {
     site_id: 1001, provider: 'open_meteo', source_kind: 'weather_model', fallback_used: false,

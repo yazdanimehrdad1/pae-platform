@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw, Maximize2, Minimize2, Smartphone } from "lucide-react";
+import { Network, TrendingUp, Table, ChevronRight, ChevronDown, Check, PanelLeftClose, PanelLeftOpen, ArrowLeft, Plus, Pencil, Trash2, X, ZoomIn, RotateCcw, Maximize2, Minimize2, Smartphone, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useHistorianSeries } from "./hooks/useHistorianSeries";
 import type { LinePoint } from "./sampling/chartRows";
@@ -138,11 +138,13 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
   const viewWindow: TimeWindow = zoomRange
     ? { startTime: new Date(zoomRange.start).toISOString(), endTime: new Date(zoomRange.end).toISOString() }
     : timeWindow;
-  const { data, lines, functionSeries, forecastSeries, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow, { autoRefresh, forecastAheadHours });
+  // While a new selection or window loads, the hook keeps the last chart: `shownPoints` are its
+  // selections (a new one joins when its readings arrive).
+  const { data, lines, functionSeries, forecastSeries, shownPoints, isLoading, isFetching, isError } = useHistorianSeries(siteId, selectedPoints, viewWindow, { autoRefresh, forecastAheadHours });
   const { pointsById } = usePointCatalog(siteId);
   // Zoomed, the fetched window is the zoomed one, so its newest reading says nothing about how live
   // the data is: the page keeps the last one reported for the whole window (and while loading).
-  const latestReading = useMemo(() => latestReadingTime(lines, selectedPoints), [lines, selectedPoints]);
+  const latestReading = useMemo(() => latestReadingTime(lines, shownPoints), [lines, shownPoints]);
   useEffect(() => {
     if (!zoomRange && !isLoading) onLatestReading(latestReading);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,11 +162,11 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
   const colorByKey = new Map([...styleByKey].map(([key, style]) => [key, style.color]));
 
   // Enum points and bitfield bits are drawn by the chosen discrete renderer; the rest are analog lines.
-  const discreteSeries = selectedPoints
+  const discreteSeries = shownPoints
     .map(key => describeDiscreteSeries(key, pointsById, chartData, { name: pointLabels[key] ?? key, ...styleByKey.get(key) }, functionSeries))
     .filter(Boolean);
   const discreteKeys = new Set(discreteSeries.map(series => series.key));
-  const analogKeys = selectedPoints.filter(key => !discreteKeys.has(key));
+  const analogKeys = shownPoints.filter(key => !discreteKeys.has(key));
   const showLanes = discreteMode === 'lanes' && discreteSeries.length > 0;
   const stepLayout = discreteMode === 'steps' && discreteSeries.length > 0 ? buildStepLayout(discreteSeries) : null;
   const showLineChart = analogKeys.length > 0 || stepLayout !== null;
@@ -254,7 +256,11 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
     <div className="space-y-2">
       {selectedPoints.length > 0 && (
         <div className="flex items-center justify-end gap-4">
-          {isFetching && <span className="text-xs text-muted-foreground">Updating...</span>}
+          {isFetching && (
+            <span role="status" className="mr-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />Updating...
+            </span>
+          )}
           <SeriesStylePopover keys={selectedPoints} labels={pointLabels} resolved={styleByKey} styles={styles} onChange={onStylesChange} />
           {analogKeys.length > 1 && <AxisScaleToggle scale={scale} onChange={onScaleChange} />}
           {discreteSeries.length > 0 && <DiscreteModeToggle mode={discreteMode} onChange={onDiscreteModeChange} />}

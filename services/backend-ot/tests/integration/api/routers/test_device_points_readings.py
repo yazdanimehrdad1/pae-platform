@@ -92,6 +92,13 @@ class TestLatest:
         assert latest.readings[str(power.id)].value == 30.0
         assert latest.readings[str(state.id)].value == 1.0
 
+    async def test_newest_by_timestamp_not_by_insert_order(self, client, db):
+        site_id, device_id, power, _ = await arrange_readings(client, db)
+        await insert_reading(db, power, BASE_TIME + timedelta(minutes=10), 99.0, 99.0)
+        await insert_reading(db, power, BASE_TIME - timedelta(minutes=10), 5.0, 5.0)
+        latest = await get_latest(client, latest_url(site_id, device_id))
+        assert latest.readings[str(power.id)].value == 99.0
+
     async def test_point_ids_filter(self, client, db):
         site_id, device_id, power, _ = await arrange_readings(client, db)
         latest = await get_latest(client, latest_url(site_id, device_id), point_ids=str(power.id))

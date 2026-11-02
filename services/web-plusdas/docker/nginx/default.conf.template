@@ -14,6 +14,15 @@ server {
     resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
     resolver_timeout 5s;
 
+    # Compress JSON (readings are 1+ MB for a day's window) and the app's text assets. Not
+    # text/event-stream: gzip would buffer the live stream's events.
+    gzip on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_types application/json application/javascript text/css text/plain image/svg+xml;
+
     set $api_upstream ${API_UPSTREAM};
     set $powerflow_upstream ${POWERFLOW_UPSTREAM};
     set $intelli_gateway_upstream ${INTELLI_GATEWAY_UPSTREAM};
