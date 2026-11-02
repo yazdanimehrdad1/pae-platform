@@ -201,6 +201,19 @@ class TestCommsStale:
         (event,) = await events(client, site_id)
         assert (event.raised_at, event.cleared_at, event.message) == (at(60), at(100), "comms_lost")
 
+    async def test_last_success_is_the_newest_valued_reading_of_any_point(self, client, db):
+        site_id, device_id, (power, other, _) = await site_with_points(client)
+        await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
+            name="comms_lost", severity="fault",
+            rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id, stale_after_sec=60),
+        ))
+        await reading(db, power, 0, 1)
+        await reading(db, other, 20, 1)  # the device's newest success is this point's
+        await insert_reading(db, power, at(40), None, None)  # a failed poll is not a success
+        assert await evaluate_site_alarms(site_id, at(70)) == []
+        (raised,) = await evaluate_site_alarms(site_id, at(90))
+        assert (raised.kind, raised.at) == ("raise", at(80))
+
 
 class TestCondition:
     async def test_all_group_raises_and_clears(self, client, db):

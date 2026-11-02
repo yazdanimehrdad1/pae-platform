@@ -15,7 +15,7 @@ A chart's request (max_points) is sampled by helpers.sampling: every reading of 
 from collections.abc import Collection
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, and_, select
+from sqlalchemy import ColumnElement, and_, select, true
 from sqlalchemy import func as sql_func
 
 from db.session import get_session
@@ -77,19 +77,34 @@ async def get_latest_readings_by_point_ids(
     return readings
 
 
-async def get_device_last_reading_time(device_id: int) -> datetime | None:
-    """When the device's newest NATIVE reading with a value was stored (its last successful poll);
-    None if it has never reported."""
-    async with get_session() as session:
-        return await session.scalar(
-            select(sql_func.max(DevicePointsReading.timestamp))
-            .join(DevicePoint, DevicePoint.id == DevicePointsReading.device_point_id)
-            .where(
-                DevicePointsReading.device_id == device_id,
-                DevicePoint.category == "NATIVE",
-                DevicePointsReading.derived_value.is_not(None),
-            )
+async def get_last_successful_poll_times(device_ids: Collection[int]) -> dict[int, datetime]:
+    """Per device: when its newest NATIVE reading with a value was stored (its last successful
+    poll). A device that has never reported is missing from the result.
+
+    The newest valued reading of each NATIVE point (LATERAL ... LIMIT 1, a backward index step),
+    then the newest of those per device, so the cost doesn't grow with the history stored."""
+    if not device_ids:
+        return {}
+    newest_valued = (
+        select(DevicePointsReading.timestamp)
+        .where(
+            DevicePointsReading.device_point_id == DevicePoint.id,
+            DevicePointsReading.derived_value.is_not(None),
         )
+        .order_by(DevicePointsReading.timestamp.desc())
+        .limit(1)
+        .lateral("newest_valued")
+    )
+    statement = (
+        select(DevicePoint.device_id, sql_func.max(newest_valued.c.timestamp))
+        .select_from(DevicePoint)
+        .join(newest_valued, true())
+        .where(DevicePoint.device_id.in_(device_ids), DevicePoint.category == "NATIVE")
+        .group_by(DevicePoint.device_id)
+    )
+    async with get_session() as session:
+        rows = await session.execute(statement)
+        return dict(rows.tuples().all())
 
 
 async def get_timeseries_by_point_ids(
@@ -355,7 +370,12 @@ async def _select_latest(
     site_id: int | None = None,
     device_id: int | None = None,
 ) -> list[PointReading]:
-    """The newest stored reading per point (LEFT JOIN: a point without readings gets None)."""
+    """The newest stored reading per point (LEFT JOIN: a point without readings gets None).
+
+    One backward index step per point (LATERAL ... LIMIT 1 on (device_point_id, timestamp)), so
+    the cost doesn't grow with the history stored. Joining every reading and keeping the first
+    (DISTINCT ON) scanned the whole table, and the alarm job runs this every poll interval.
+    """
     point_conditions = []
     if point_ids:
         point_conditions.append(DevicePoint.id.in_(point_ids))
@@ -364,12 +384,19 @@ async def _select_latest(
     if site_id is not None:
         point_conditions.append(DevicePoint.site_id == site_id)
 
+    newest_reading = (
+        select(DevicePointsReading.timestamp, DevicePointsReading.derived_value)
+        .where(DevicePointsReading.device_point_id == DevicePoint.id)
+        .order_by(DevicePointsReading.timestamp.desc())
+        .limit(1)
+        .lateral("newest_reading")
+    )
     statement = (
-        select(*_POINT_COLUMNS, DevicePointsReading.timestamp, DevicePointsReading.derived_value)
-        .outerjoin(DevicePointsReading, DevicePoint.id == DevicePointsReading.device_point_id)
-        .where(and_(*point_conditions) if point_conditions else True)
-        .distinct(DevicePoint.id)
-        .order_by(DevicePoint.id, DevicePointsReading.timestamp.desc())
+        select(*_POINT_COLUMNS, newest_reading.c.timestamp, newest_reading.c.derived_value)
+        .select_from(DevicePoint)
+        .outerjoin(newest_reading, true())
+        .where(and_(*point_conditions) if point_conditions else true())
+        .order_by(DevicePoint.id)
     )
     async with get_session() as session:
         result = await session.execute(statement)
@@ -410,27 +437,42 @@ async def _select_timeseries(
     limit: int | None = 1000,
     exclude_point_ids: Collection[int] = (),
 ) -> list[PointReading]:
-    """Stored readings per point, newest-first, the newest `limit` per point."""
-    conditions = _reading_conditions(point_ids, site_id, device_id, start_time, end_time, exclude_point_ids)
+    """Stored readings per point, newest-first, the newest `limit` per point.
 
-    rank_subq = (
-        select(
-            *_POINT_COLUMNS,
-            DevicePointsReading.timestamp,
-            DevicePointsReading.derived_value,
-            sql_func.row_number().over(
-                partition_by=DevicePointsReading.device_point_id,
-                order_by=DevicePointsReading.timestamp.desc(),
-            ).label("rn"),
-        )
-        .select_from(DevicePointsReading)
-        .join(DevicePoint, DevicePointsReading.device_point_id == DevicePoint.id)
-        .where(and_(*conditions) if conditions else True)
-    ).subquery()
+    Per point, one backward index range scan (LATERAL on (device_point_id, timestamp)) that stops
+    after `limit` rows, so a limit without a window costs `limit` rows, not the point's history.
+    """
+    point_conditions: list[ColumnElement[bool]] = []
+    if point_ids:
+        point_conditions.append(DevicePoint.id.in_(point_ids))
+    if exclude_point_ids:
+        point_conditions.append(DevicePoint.id.not_in(exclude_point_ids))
+    if device_id is not None:
+        point_conditions.append(DevicePoint.device_id == device_id)
+    if site_id is not None:
+        point_conditions.append(DevicePoint.site_id == site_id)
+    window_conditions: list[ColumnElement[bool]] = [DevicePointsReading.device_point_id == DevicePoint.id]
+    if start_time is not None:
+        window_conditions.append(DevicePointsReading.timestamp >= start_time)
+    if end_time is not None:
+        window_conditions.append(DevicePointsReading.timestamp <= end_time)
 
-    statement = select(rank_subq).order_by(rank_subq.c.device_point_id, rank_subq.c.timestamp.desc())
+    point_readings = (
+        select(DevicePointsReading.timestamp, DevicePointsReading.derived_value)
+        .where(*window_conditions)
+        .order_by(DevicePointsReading.timestamp.desc())
+    )
     if limit is not None:
-        statement = statement.where(rank_subq.c.rn <= limit)
+        point_readings = point_readings.limit(limit)
+    newest = point_readings.lateral("point_readings")
+
+    statement = (
+        select(*_POINT_COLUMNS, newest.c.timestamp, newest.c.derived_value)
+        .select_from(DevicePoint)
+        .join(newest, true())
+        .where(and_(*point_conditions) if point_conditions else true())
+        .order_by(DevicePoint.id, newest.c.timestamp.desc())
+    )
     async with get_session() as session:
         result = await session.execute(statement)
         return [PointReading.model_validate(row, from_attributes=True) for row in result.all()]

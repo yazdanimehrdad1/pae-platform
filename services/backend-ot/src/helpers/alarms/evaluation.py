@@ -15,7 +15,7 @@ in Active alarms); a disabled one clears its active event. One alarm failing is 
 from collections.abc import Mapping
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import db.devices as devices_db
@@ -32,7 +32,10 @@ from helpers.alarms.engine import (
     step,
 )
 from helpers.device_points.recording_dependents import alarm_rule_point_ids
-from helpers.reads.device_points_readings import get_latest_readings_by_point_ids
+from helpers.reads.device_points_readings import (
+    get_last_successful_poll_times,
+    get_latest_readings_by_point_ids,
+)
 from helpers.virtual_points.resolve import input_max_gap
 from logger import get_logger
 from schemas.api_models.alarms import CommsStaleAlarm, ConditionAlarm, ThresholdAlarm
@@ -41,7 +44,6 @@ from schemas.db_models.orm_models import (
     AlarmEvaluationState,
     AlarmEvent,
     DevicePoint,
-    DevicePointsReading,
 )
 from schemas.site_profiles import AlarmContext
 from site_profiles.declarations.profile import SiteProfile
@@ -76,7 +78,7 @@ async def evaluate_site_alarms(site_id: int, now: datetime) -> list[AlarmTransit
 
         enabled = [alarm for alarm in alarms if alarm.enabled]
         values, device_of = await _point_values(site_id, enabled, now)
-        last_success = await _last_successful_polls(session, enabled)
+        last_success = await _last_successful_polls(enabled)
 
         transitions: list[AlarmTransition] = []
         for alarm in alarms:
@@ -180,22 +182,10 @@ async def _point_values(site_id: int, alarms: list[AlarmDefinition], now: dateti
     return values, device_of
 
 
-async def _last_successful_polls(session: AsyncSession, alarms: list[AlarmDefinition]) -> dict[int, datetime]:
+async def _last_successful_polls(alarms: list[AlarmDefinition]) -> dict[int, datetime]:
     """Per watched device: when its newest NATIVE reading with a value was stored."""
     device_ids = {alarm.rule.device_id for alarm in alarms if isinstance(alarm.rule, CommsStaleAlarm)}
-    if not device_ids:
-        return {}
-    rows = await session.execute(
-        select(DevicePointsReading.device_id, func.max(DevicePointsReading.timestamp))
-        .join(DevicePoint, DevicePoint.id == DevicePointsReading.device_point_id)
-        .where(
-            DevicePointsReading.device_id.in_(device_ids),
-            DevicePoint.category == "NATIVE",
-            DevicePointsReading.derived_value.is_not(None),
-        )
-        .group_by(DevicePointsReading.device_id)
-    )
-    return dict(rows.tuples().all())
+    return await get_last_successful_poll_times(device_ids)
 
 
 async def evaluate_all_sites_alarms(now: datetime) -> None:
