@@ -8,8 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import type { SiteRecord, SiteCreateRequest } from "@/api/types/sites";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { SiteRecord, SiteCreateRequest, SiteProfileInfo } from "@/api/types/sites";
 import { BROWSER_TIME_ZONE } from "@/shared/hooks/useDisplayTimeZone";
+import { FieldLabel, FieldMarkerLegend } from "./components/FieldLabel";
 import { TimeZoneCombobox } from "./components/TimeZoneCombobox";
 import { isTimeZone } from "./lib/timeZones";
 
@@ -30,6 +32,8 @@ const formSchema = z.object({
   elevation_m: z.string(),
   // The site's local time: its reports' days and schedules, and how its times are shown.
   timezone: z.string().trim().min(1, "Required").refine(isTimeZone, "Choose a time zone from the list"),
+  // The site's code in backend-ot (its functions, alarms, virtual points); NO_PROFILE for none.
+  profile: z.string(),
 }).superRefine((values, ctx) => {
   if (values.lat.trim() === "" && values.lng.trim() === "") {
     if (values.elevation_m.trim() !== "") {
@@ -50,6 +54,9 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+// The select's value for "no profile" (a Select item can't have an empty value).
+const NO_PROFILE = "none";
+
 const emptyValues: FormValues = {
   client_id: "",
   name: "",
@@ -64,6 +71,7 @@ const emptyValues: FormValues = {
   lng: "",
   elevation_m: "",
   timezone: BROWSER_TIME_ZONE,
+  profile: NO_PROFILE,
 };
 
 function fromSite(site: SiteRecord): FormValues {
@@ -81,6 +89,7 @@ function fromSite(site: SiteRecord): FormValues {
     lng: site.coordinates ? String(site.coordinates.lng) : "",
     elevation_m: site.coordinates?.elevation_m != null ? String(site.coordinates.elevation_m) : "",
     timezone: site.timezone,
+    profile: site.profile ?? NO_PROFILE,
   };
 }
 
@@ -100,15 +109,22 @@ function toRequest(values: FormValues): SiteCreateRequest {
         ...(values.elevation_m.trim() !== "" ? { elevation_m: Number(values.elevation_m) } : {}),
       },
     timezone: values.timezone.trim(),
+    profile: values.profile === NO_PROFILE ? null : values.profile,
   };
 }
 
-export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
+export function SiteFormDialog({ open, onOpenChange, site, profiles, onSubmit }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   site?: SiteRecord;
+  /** The registered profiles; one held by another site is shown but can't be chosen. */
+  profiles: SiteProfileInfo[];
   onSubmit: (payload: SiteCreateRequest) => Promise<void>;
 }) {
+  // The site's own profile stays listed even before the profiles have loaded.
+  const profileOptions = site?.profile && !profiles.some(profile => profile.key === site.profile)
+    ? [{ key: site.profile, site_id: site.site_id }, ...profiles]
+    : profiles;
   const { register, control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     values: site ? fromSite(site) : emptyValues,
@@ -129,16 +145,17 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{site ? "Edit Site" : "Add Site"}</DialogTitle>
+          <FieldMarkerLegend markers={["required", "recommended"]} />
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="client_id">Client ID</Label>
+              <FieldLabel htmlFor="client_id" marker="required">Client ID</FieldLabel>
               <Input id="client_id" {...register("client_id")} />
               {errors.client_id && <p className="text-xs text-destructive">{errors.client_id.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="name">Name</Label>
+              <FieldLabel htmlFor="name" marker="required">Name</FieldLabel>
               <Input id="name" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
@@ -146,19 +163,19 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="operator">Operator</Label>
+              <FieldLabel htmlFor="operator" marker="required">Operator</FieldLabel>
               <Input id="operator" {...register("operator")} />
               {errors.operator && <p className="text-xs text-destructive">{errors.operator.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="capacity">Capacity</Label>
+              <FieldLabel htmlFor="capacity" marker="required">Capacity</FieldLabel>
               <Input id="capacity" placeholder="e.g. 100kW" {...register("capacity")} />
               {errors.capacity && <p className="text-xs text-destructive">{errors.capacity.message}</p>}
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="timezone">Time zone</Label>
+            <FieldLabel htmlFor="timezone" marker="required">Time zone</FieldLabel>
             <Controller control={control} name="timezone" render={({ field }) => (
               <TimeZoneCombobox id="timezone" value={field.value} onChange={field.onChange} invalid={Boolean(errors.timezone)} />
             )} />
@@ -167,29 +184,50 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
           </div>
 
           <div className="space-y-1">
+            <FieldLabel htmlFor="profile" marker="recommended">Site profile</FieldLabel>
+            <Controller control={control} name="profile" render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger id="profile"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PROFILE}>None</SelectItem>
+                  {profileOptions.map(profile => {
+                    const heldElsewhere = profile.site_id !== null && profile.site_id !== site?.site_id;
+                    return (
+                      <SelectItem key={profile.key} value={profile.key} disabled={heldElsewhere}>
+                        {profile.key}{heldElsewhere ? ` (used by site ${profile.site_id})` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )} />
+            <p className="text-xs text-muted-foreground">The site's own code: its site functions, profile alarms and virtual points.</p>
+          </div>
+
+          <div className="space-y-1">
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" {...register("description")} />
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="street">Street</Label>
+            <FieldLabel htmlFor="street" marker="required">Street</FieldLabel>
             <Input id="street" {...register("street")} />
             {errors.street && <p className="text-xs text-destructive">{errors.street.message}</p>}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="city">City</Label>
+              <FieldLabel htmlFor="city" marker="required">City</FieldLabel>
               <Input id="city" {...register("city")} />
               {errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="state">State</Label>
+              <FieldLabel htmlFor="state" marker="required">State</FieldLabel>
               <Input id="state" {...register("state")} />
               {errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="zip_code">Zip Code</Label>
+              <FieldLabel htmlFor="zip_code" marker="required">Zip Code</FieldLabel>
               <Input id="zip_code" type="number" {...register("zip_code")} />
               {errors.zip_code && <p className="text-xs text-destructive">{errors.zip_code.message}</p>}
             </div>
@@ -197,20 +235,21 @@ export function SiteFormDialog({ open, onOpenChange, site, onSubmit }: {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="lat">Latitude</Label>
+              <FieldLabel htmlFor="lat" marker="recommended">Latitude</FieldLabel>
               <Input id="lat" type="number" step="any" {...register("lat")} />
               {errors.lat && <p className="text-xs text-destructive">{errors.lat.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="lng">Longitude</Label>
+              <FieldLabel htmlFor="lng" marker="recommended">Longitude</FieldLabel>
               <Input id="lng" type="number" step="any" {...register("lng")} />
               {errors.lng && <p className="text-xs text-destructive">{errors.lng.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="elevation_m">Elevation (m, optional)</Label>
+              <FieldLabel htmlFor="elevation_m" marker="recommended">Elevation (m)</FieldLabel>
               <Input id="elevation_m" type="number" step="any" {...register("elevation_m")} />
               {errors.elevation_m && <p className="text-xs text-destructive">{errors.elevation_m.message}</p>}
             </div>
+            <p className="text-xs text-muted-foreground sm:col-span-3">The PV forecast needs the site's location (and uses its elevation).</p>
           </div>
 
           <DialogFooter>

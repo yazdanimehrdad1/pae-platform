@@ -28,6 +28,11 @@ export default function ManageSitesPage() {
     queryKey: ["sites", "manage"],
     queryFn: sitesApi.list,
   });
+  // Under "sites", so a site change (which can take or free a profile) refreshes it too.
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["sites", "profiles"],
+    queryFn: sitesApi.listProfiles,
+  });
 
   const activeSites = sites.filter((s) => !s.deleted_at);
   const deletedSites = sites.filter((s) => s.deleted_at);
@@ -246,7 +251,7 @@ export default function ManageSitesPage() {
         </Tabs>
       </div>
 
-      <SiteFormDialog open={formOpen} onOpenChange={setFormOpen} site={editingSite} onSubmit={handleFormSubmit} />
+      <SiteFormDialog open={formOpen} onOpenChange={setFormOpen} site={editingSite} profiles={profiles} onSubmit={handleFormSubmit} />
 
       <AlertDialog open={deletingSite !== null} onOpenChange={closeDeleteDialog}>
         <AlertDialogContent>

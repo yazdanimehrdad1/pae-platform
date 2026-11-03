@@ -6403,6 +6403,33 @@
         "title": "SiteHealthResponse",
         "type": "object"
       },
+      "SiteProfileInfo": {
+        "properties": {
+          "key": {
+            "description": "The profile key, the value of a site's `profile`",
+            "title": "Key",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The site holding it (soft-deleted ones included); null if no site has it",
+            "title": "Site Id"
+          }
+        },
+        "required": [
+          "key",
+          "site_id"
+        ],
+        "title": "SiteProfileInfo",
+        "type": "object"
+      },
       "SiteResponse": {
         "description": "Response model for site data.",
         "properties": {
@@ -13869,6 +13896,32 @@
         "tags": [
           "site-functions",
           "site-functions"
+        ]
+      }
+    },
+    "/api/site-profiles": {
+      "get": {
+        "operationId": "get_site_profiles_api_site_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteProfileInfo"
+                  },
+                  "title": "Response Get Site Profiles Api Site Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List the registered site profiles and the site holding each",
+        "tags": [
+          "site-profiles",
+          "site-profiles"
         ]
       }
     },

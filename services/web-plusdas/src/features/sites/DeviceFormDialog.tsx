@@ -13,6 +13,7 @@ import {
 import type {
   DeviceRecord, DeviceCreateRequest, DeviceType, PvArrayConfig, PvArrayConfigRequest,
 } from "@/api/types/devices";
+import { FieldLabel, FieldMarkerLegend } from "./components/FieldLabel";
 import { supportsPvArray } from "./hooks/useDevicePvArray";
 
 // Every device type backend-ot accepts (its contract enum). A Record, so adding or removing
@@ -213,16 +214,17 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{device ? "Edit Device" : "Add Device"}</DialogTitle>
+          <FieldMarkerLegend markers={["required"]} />
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="name">Name</Label>
+              <FieldLabel htmlFor="name" marker="required">Name</FieldLabel>
               <Input id="name" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label>Type</Label>
+              <FieldLabel marker="required">Type</FieldLabel>
               <Controller control={control} name="type" render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -254,17 +256,17 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="host">Host</Label>
+              <FieldLabel htmlFor="host" marker="required">Host</FieldLabel>
               <Input id="host" {...register("host")} />
               {errors.host && <p className="text-xs text-destructive">{errors.host.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="port">Port</Label>
+              <FieldLabel htmlFor="port" marker="required">Port</FieldLabel>
               <Input id="port" type="number" {...register("port")} />
               {errors.port && <p className="text-xs text-destructive">{errors.port.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="server_address">Server Address</Label>
+              <FieldLabel htmlFor="server_address" marker="required">Server Address</FieldLabel>
               <Input id="server_address" type="number" {...register("server_address")} />
               {errors.server_address && <p className="text-xs text-destructive">{errors.server_address.message}</p>}
             </div>
@@ -272,7 +274,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label>Protocol</Label>
+              <FieldLabel marker="required">Protocol</FieldLabel>
               <Controller control={control} name="protocol" render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -284,7 +286,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
               )} />
             </div>
             <div className="space-y-1">
-              <Label>Address Mode</Label>
+              <FieldLabel marker="required">Address Mode</FieldLabel>
               <Controller control={control} name="modbus_address_mode" render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -296,7 +298,7 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
               )} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="timeout">Timeout (s, optional)</Label>
+              <Label htmlFor="timeout">Timeout (s)</Label>
               <Input id="timeout" type="number" step="any" {...register("timeout")} />
             </div>
           </div>
@@ -320,7 +322,8 @@ export function DeviceFormDialog({ open, onOpenChange, device, pvArray, onSubmit
             <fieldset className="space-y-3 rounded-md border p-3">
               <legend className="px-1 text-sm font-medium">PV array (for the PV forecast)</legend>
               <p className="text-xs text-muted-foreground">
-                Leave blank if this device has no PV array. Azimuth is clockwise from north (180 = south).
+                Leave blank if this device has no PV array; otherwise the * fields are required. Azimuth is
+                clockwise from north (180 = south).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <PvInput id="pv_tilt_deg" label="Tilt (deg)" register={register} error={errors.pv_tilt_deg?.message} />
@@ -351,7 +354,7 @@ function PvInput({ id, label, register, error }: {
 }) {
   return (
     <div className="space-y-1">
-      <Label htmlFor={id}>{label}</Label>
+      <FieldLabel htmlFor={id} marker={PV_FIELD_RULES[id].required ? "required" : undefined}>{label}</FieldLabel>
       <Input id={id} type="number" step="any" {...register(id)} />
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

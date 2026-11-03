@@ -1368,6 +1368,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/site-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the registered site profiles and the site holding each */
+        get: operations["get_site_profiles_api_site_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites": {
         parameters: {
             query?: never;
@@ -4382,6 +4399,19 @@ export interface components {
              * @default 0
              */
             unknown_count: number;
+        };
+        /** SiteProfileInfo */
+        SiteProfileInfo: {
+            /**
+             * Key
+             * @description The profile key, the value of a site's `profile`
+             */
+            key: string;
+            /**
+             * Site Id
+             * @description The site holding it (soft-deleted ones included); null if no site has it
+             */
+            site_id: number | null;
         };
         /**
          * SiteResponse
@@ -7981,6 +8011,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_profiles_api_site_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteProfileInfo"][];
                 };
             };
         };
