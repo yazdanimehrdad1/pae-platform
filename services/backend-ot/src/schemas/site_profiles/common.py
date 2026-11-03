@@ -150,6 +150,13 @@ class SiteEndpointInfo(BaseModel):
     )
 
 
+class SiteProfileInfo(BaseModel):
+    key: str = Field(..., description="The profile key, the value of a site's `profile`")
+    site_id: int | None = Field(
+        ..., description="The site holding it (soft-deleted ones included); null if no site has it"
+    )
+
+
 class SiteEndpointsResponse(BaseModel):
     site_id: int
     profile: str | None = Field(..., description="The site's profile key; null if the site has no profile (then no endpoints)")

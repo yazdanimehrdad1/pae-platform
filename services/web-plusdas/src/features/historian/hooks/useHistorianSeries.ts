@@ -46,7 +46,7 @@ const windowKey = (timeWindow: TimeWindow) => 'preset' in timeWindow
   ? ['preset', timeWindow.preset]
   : ['custom', timeWindow.startTime, timeWindow.endTime];
 
-// Every request is a chart's (max_points): every reading up to 3 days, plot values beyond.
+// Every request is a chart's (max_points): every reading up to 24 hours, plot values beyond.
 const windowArgs = (timeWindow: TimeWindow) => ({
   maxPoints: PLOT_POINTS,
   ...('preset' in timeWindow ? { timeRange: timeWindow.preset } : { startTime: timeWindow.startTime, endTime: timeWindow.endTime }),
@@ -60,7 +60,7 @@ type BuiltSeries = {
 };
 
 // `timeWindow` is what the chart shows: the selected window, or the zoomed range (so zooming in
-// refetches, and a zoom of 3 days or less gets every reading). While a new selection, window or
+// refetches, and a zoom of 24 hours or less gets every reading). While a new selection, window or
 // zoom loads, the last chart stays on screen (isFetching, not isLoading): a query with a new key
 // starts empty (useQueries keeps no previous data across keys), so the hook keeps it itself.
 // `shownPoints` are the selections that chart has: a removed one leaves at once, a new one joins
@@ -146,7 +146,7 @@ export function useHistorianSeries(
   const isFetching = isPending || results.some(r => r.isFetching);
   const isError = results.some(r => r.isError);
 
-  // Rebuilt only when a fetch returns or the selection changes: a 3-day window is ~26k readings
+  // Rebuilt only when a fetch returns or the selection changes: a 24-hour window is up to ~8.6k readings
   // per point, too many to merge on every render.
   const dataVersion = results.map(result => result.dataUpdatedAt).join(',');
   const built: BuiltSeries = useMemo(() => {

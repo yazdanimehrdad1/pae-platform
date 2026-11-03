@@ -369,26 +369,26 @@ def doubled_request(point: DevicePointResponse) -> VirtualPointCreateRequest:
     )
 
 
-class TestChartSamplingUpToThreeDays:
+class TestChartSamplingUpToTwentyFourHours:
     async def test_every_reading_at_its_actual_timestamp_past_the_10000_cap(self, client, db):
-        samples = every(timedelta(seconds=14), 12_000)  # ~1.9 days, more than the limit cap
+        samples = every(timedelta(seconds=7), 12_000)  # ~23 hours, more than the limit cap
         site_id, device_id, point = await dense_point(client, db, samples)
 
         result = await get_timeseries(
             client,
             timeseries_url(site_id, device_id),
-            **window_params(timedelta(days=2), max_points=2000, limit=10),
+            **window_params(timedelta(days=1), max_points=2000, limit=10),
         )
 
         series = result.readings[str(point.id)]
         assert series.count == 12_000
         assert [(sample.time, sample.value) for sample in reversed(series.timeseries)] == samples
 
-    async def test_exactly_three_days_is_still_raw(self, client, db):
-        samples = every(timedelta(seconds=30), 8_640)  # 3 days
+    async def test_exactly_twenty_four_hours_is_still_raw(self, client, db):
+        samples = every(timedelta(seconds=10), 8_640)  # 24 hours
         site_id, device_id, point = await dense_point(client, db, samples)
         result = await get_timeseries(
-            client, timeseries_url(site_id, device_id), **window_params(timedelta(days=3), max_points=100)
+            client, timeseries_url(site_id, device_id), **window_params(timedelta(days=1), max_points=100)
         )
         assert result.readings[str(point.id)].count == 8_640
 
@@ -402,14 +402,14 @@ class TestChartSamplingUpToThreeDays:
         assert [sample.value for sample in timeseries] == [7.0, None, 2.0, 1.0, 0.0]
 
     async def test_a_virtual_point_gets_every_computed_value(self, client, db):
-        samples = every(timedelta(seconds=14), 12_000)
+        samples = every(timedelta(seconds=7), 12_000)
         site_id, device_id, point = await dense_point(client, db, samples)
         doubled = await create_virtual_point(client, site_id, device_id, doubled_request(point))
         result = await get_timeseries(
             client,
             timeseries_url(site_id, device_id),
             point_ids=str(doubled.id),
-            **window_params(timedelta(days=2), max_points=2000),
+            **window_params(timedelta(days=1), max_points=2000),
         )
         series = result.readings[str(doubled.id)]
         assert series.count == 12_000
@@ -418,7 +418,7 @@ class TestChartSamplingUpToThreeDays:
         ]
 
 
-class TestChartSamplingBeyondThreeDays:
+class TestChartSamplingBeyondTwentyFourHours:
     async def test_plot_values_are_real_readings_bounded_by_max_points(self, client, db):
         # a week at 10 s with one spike
         samples = every(STEP, 60_480, value=lambda index: 900.0 if index == 31_337 else float(index % 50))
@@ -436,6 +436,15 @@ class TestChartSamplingBeyondThreeDays:
         times = [sample.time for sample in series.timeseries]
         assert times == sorted(times, reverse=True)
         assert (times[0], times[-1]) == (samples[-1][0], samples[0][0])  # the whole week
+
+    async def test_one_second_past_twenty_four_hours_takes_plot_values(self, client, db):
+        samples = every(timedelta(seconds=10), 8_641)  # 24 hours and one reading
+        site_id, device_id, point = await dense_point(client, db, samples)
+        result = await get_timeseries(
+            client, timeseries_url(site_id, device_id),
+            **window_params(timedelta(days=1, seconds=1), max_points=100),
+        )
+        assert 0 < result.readings[str(point.id)].count <= 100
 
     async def test_an_outage_keeps_both_edges_and_gets_a_marker(self, client, db):
         before = every(STEP, 30_000)
@@ -577,7 +586,7 @@ class TestLinkedStandardizedPoints:
         timeseries = await get_timeseries(client, timeseries_url(bess.site_id, bess.device_id))
         assert str(bess.active_power.id) not in timeseries.readings
 
-    async def test_a_chart_beyond_three_days_reduces_the_source_and_scales_it(self, client, db):
+    async def test_a_chart_beyond_twenty_four_hours_reduces_the_source_and_scales_it(self, client, db):
         bess = await create_linked_bess(client)
         samples = every(STEP, 60_480, value=lambda index: float(index % 50) * 1000)
         await insert_readings(db, bess.power, samples)
@@ -592,7 +601,7 @@ class TestLinkedStandardizedPoints:
         stored = dict(samples)
         assert all((stored[sample.time] or 0.0) / 1000 == sample.value for sample in series.timeseries)
 
-    async def test_a_chart_up_to_three_days_returns_every_source_reading_scaled(self, client, db):
+    async def test_a_chart_up_to_twenty_four_hours_returns_every_source_reading_scaled(self, client, db):
         bess = await create_linked_bess(client)
         samples = [*every(STEP, 3, value=lambda index: 1000.0 * (index + 1)), (BASE_TIME + timedelta(minutes=10), 7000.0)]
         await insert_readings(db, bess.power, samples)

@@ -84,3 +84,15 @@ describe('sitesApi.getHealth', () => {
     expect(url).toBe('/api/sites/1001/health?severity=HIGH&severity=LOW&device_ids=3&device_ids=7');
   });
 });
+
+describe('sitesApi.listProfiles', () => {
+  it('gets the registered profiles from /api/site-profiles', async () => {
+    const profiles = [{ key: 'alpha_solar', site_id: 1001 }, { key: 'powerflow_2bess_1pv', site_id: null }];
+    stubSites(profiles);
+
+    expect(await sitesApi.listProfiles()).toEqual(profiles);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toBe('/api/site-profiles');
+    expect(init?.method ?? 'GET').toBe('GET');
+  });
+});

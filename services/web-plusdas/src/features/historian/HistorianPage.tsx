@@ -133,7 +133,7 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
   onLatestReading: (timestamp: number | null) => void;
 }) {
   const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
-  // The window the chart shows is fetched: zooming in refetches, so a zoom of 3 days or less gets
+  // The window the chart shows is fetched: zooming in refetches, so a zoom of 24 hours or less gets
   // every reading again (see sampling/README.md).
   const viewWindow: TimeWindow = zoomRange
     ? { startTime: new Date(zoomRange.start).toISOString(), endTime: new Date(zoomRange.end).toISOString() }
@@ -195,7 +195,7 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
     UNIT_AXIS_COLORS[theme],
   );
   // Each axis as wide as its numbers (and its label), so the label sits next to its ticks.
-  // Memoised: a 3-day line is ~26k samples, and dragging to zoom re-renders on every mouse move.
+  // Memoised: a 24-hour line is up to ~8.6k samples (10 s polling), and dragging to zoom re-renders on every mouse move.
   const axesSignature = axes.map(axis => `${axis.id}:${axis.keys.join(",")}:${axis.label !== ""}`).join("|");
   const widthOf = useMemo(
     () => new Map(axes.map(axis => [axis.id, axisWidth(valueRange(lines, axis.keys), axis.label !== "")])),
@@ -332,8 +332,8 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
                   />
                 )}
                 {analogKeys.map(point => {
-                  // Each line draws its own samples (every reading up to 3 days, plot values beyond),
-                  // breaking only at its own gap markers. Linear and unanimated: up to ~26k points a line.
+                  // Each line draws its own samples (every reading up to 24 hours, plot values beyond),
+                  // breaking only at its own gap markers. Linear and unanimated: up to ~8.6k points a line.
                   // A PV forecast value is the mean of its 15-minute interval: drawn as a step (dashed
                   // by default), so it never blends into (or resamples) the seconds-level points next to it.
                   const isForecast = parseForecastSelectionId(point) !== null;

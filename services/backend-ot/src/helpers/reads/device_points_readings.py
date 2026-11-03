@@ -9,7 +9,7 @@ point (source_point_id, set through PUT .../link) returns its source's stored re
 own id and metadata, each value x its scale_factor.
 
 A chart's request (max_points) is sampled by helpers.sampling: every reading of a window up to
-3 days, plot values beyond, with gap markers either way (README.md there).
+24 hours, plot values beyond, with gap markers either way (README.md there).
 """
 
 from collections.abc import Collection, Sequence
@@ -120,7 +120,7 @@ async def get_timeseries_by_point_ids(
     Get time-series readings per point, ordered by (device_point_id, timestamp DESC).
 
     max_points with a start_time and end_time is a chart's request, sampled by helpers.sampling:
-    `limit` is ignored, a window up to 3 days returns every reading, a longer one plot values,
+    `limit` is ignored, a window up to 24 hours returns every reading, a longer one plot values,
     and both get gap markers (readings with derived_value None). Without a window it is ignored.
 
     Each point yields its most recent `limit` readings, newest-first. This holds whether

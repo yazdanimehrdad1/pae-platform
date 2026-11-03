@@ -133,6 +133,14 @@ async def get_site_id_by_profile(profile: str) -> int | None:
         return result.scalar_one_or_none()
 
 
+async def get_site_ids_by_profile() -> dict[str, int]:
+    """Each profile held by a site (soft-deleted ones included), mapped to that site's id."""
+    session_factory = get_async_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Site.profile, Site.id).where(Site.profile.is_not(None)))
+        return dict(result.tuples().all())
+
+
 def _profile_conflict(error: IntegrityError, profile: str | None) -> ConflictError | None:
     """A ConflictError if the integrity error is the one-site-per-profile constraint."""
     if "sites_profile_key" in str(error):

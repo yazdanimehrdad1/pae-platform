@@ -24,6 +24,7 @@ export type SiteRecord = Schemas['SiteResponse'];
 export type SiteCreateRequest = Schemas['SiteCreateRequest'];
 export type SiteUpdateRequest = Schemas['SiteUpdateRequest'];
 export type SiteDeleteResponse = Schemas['SiteDeleteResponse'];
+export type SiteProfileInfo = Schemas['SiteProfileInfo'];
 export type SiteHealth = Schemas['SiteHealthResponse'];
 export type DeviceAlarmStatus = Schemas['DeviceAlarmStatus'];
 export type ActivePointAlarm = Schemas['ActivePointAlarm'];

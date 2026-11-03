@@ -6403,6 +6403,33 @@
         "title": "SiteHealthResponse",
         "type": "object"
       },
+      "SiteProfileInfo": {
+        "properties": {
+          "key": {
+            "description": "The profile key, the value of a site's `profile`",
+            "title": "Key",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The site holding it (soft-deleted ones included); null if no site has it",
+            "title": "Site Id"
+          }
+        },
+        "required": [
+          "key",
+          "site_id"
+        ],
+        "title": "SiteProfileInfo",
+        "type": "object"
+      },
       "SiteResponse": {
         "description": "Response model for site data.",
         "properties": {
@@ -9064,7 +9091,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -9079,7 +9106,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -12290,7 +12317,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -12305,7 +12332,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -12438,7 +12465,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -12453,7 +12480,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -12586,7 +12613,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -12601,7 +12628,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -12876,7 +12903,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -12891,7 +12918,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -13166,7 +13193,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -13181,7 +13208,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -13442,7 +13469,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -13457,7 +13484,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -13590,7 +13617,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -13605,7 +13632,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -13738,7 +13765,7 @@
             }
           },
           {
-            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+            "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
             "in": "query",
             "name": "max_points",
             "required": false,
@@ -13753,7 +13780,7 @@
                   "type": "null"
                 }
               ],
-              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
+              "description": "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its actual timestamp; a longer one returns plot values: real readings only, each slice's first, last, lowest and highest (enum and bit points: every change). Either way an outage longer than 3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint.",
               "title": "Max Points"
             }
           },
@@ -13869,6 +13896,32 @@
         "tags": [
           "site-functions",
           "site-functions"
+        ]
+      }
+    },
+    "/api/site-profiles": {
+      "get": {
+        "operationId": "get_site_profiles_api_site_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteProfileInfo"
+                  },
+                  "title": "Response Get Site Profiles Api Site Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List the registered site profiles and the site holding each",
+        "tags": [
+          "site-profiles",
+          "site-profiles"
         ]
       }
     },

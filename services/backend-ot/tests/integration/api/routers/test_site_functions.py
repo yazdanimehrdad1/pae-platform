@@ -405,11 +405,11 @@ class TestSeriesChartSampling:
         await insert_readings(db, poi, [(BASE_TIME + step * index, float(index % 40)) for index in range(count)])
         return site, poi
 
-    async def test_up_to_three_days_one_sample_per_stored_reading(self, client, db):
-        site, _ = await self.poi_site(client, db, 12_000, timedelta(seconds=14))
+    async def test_up_to_twenty_four_hours_one_sample_per_stored_reading(self, client, db):
+        site, _ = await self.poi_site(client, db, 12_000, timedelta(seconds=7))
         params = {
             "start_time": BASE_TIME.isoformat(),
-            "end_time": (BASE_TIME + timedelta(days=2)).isoformat(),
+            "end_time": (BASE_TIME + timedelta(days=1)).isoformat(),
             "max_points": 2000,
         }
         response = await client.get(url(site.site_id, "site-poi-power"), params=params)
@@ -417,7 +417,7 @@ class TestSeriesChartSampling:
         series = PoiPowerResult.model_validate(response.json()).series
         assert series.count == len(series.timeseries) == 12_000
 
-    async def test_beyond_three_days_plot_values_with_the_function_on_all_readings(self, client, db):
+    async def test_beyond_twenty_four_hours_plot_values_with_the_function_on_all_readings(self, client, db):
         site, _ = await self.poi_site(client, db, 60_480, timedelta(seconds=10))
         params = {
             "start_time": BASE_TIME.isoformat(),

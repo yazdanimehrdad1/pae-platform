@@ -1,6 +1,6 @@
 """Unit tests for helpers.sampling.policy.
 
-Invariant guarded: a chart gets every reading for any window up to 3 days (exactly 3 days
+Invariant guarded: a chart gets every reading for any window up to 24 hours (exactly 24 hours
 included) and plot values only for a longer window, decided by the window's length alone, and
 nothing is sampled unless a chart asked (max_points) over a full window.
 """
@@ -13,12 +13,12 @@ START = datetime(2026, 1, 15, tzinfo=UTC)
 
 
 class TestUsePlotValues:
-    def test_three_days_is_raw(self):
-        assert RAW_WINDOW_MAX == timedelta(days=3)
-        assert use_plot_values(START, START + timedelta(days=3), 2000) is False
+    def test_twenty_four_hours_is_raw(self):
+        assert RAW_WINDOW_MAX == timedelta(days=1)
+        assert use_plot_values(START, START + timedelta(days=1), 2000) is False
 
-    def test_one_second_past_three_days_takes_plot_values(self):
-        assert use_plot_values(START, START + timedelta(days=3, seconds=1), 2000) is True
+    def test_one_second_past_twenty_four_hours_takes_plot_values(self):
+        assert use_plot_values(START, START + timedelta(days=1, seconds=1), 2000) is True
 
     def test_short_windows_are_raw(self):
         assert use_plot_values(START, START + timedelta(hours=1), 2000) is False

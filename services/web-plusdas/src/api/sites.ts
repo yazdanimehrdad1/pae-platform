@@ -1,5 +1,5 @@
 import type {
-  Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse, SiteHealth, PointSeverity,
+  Site, SiteRecord, SiteCreateRequest, SiteUpdateRequest, SiteDeleteResponse, SiteHealth, SiteProfileInfo, PointSeverity,
 } from './types/sites';
 import { client, request } from './client';
 
@@ -43,6 +43,9 @@ export const sitesApi = {
   },
 
   restore: (siteId: number): Promise<SiteRecord> => client.post(`/sites/${siteId}/restore`, {}),
+
+  // The registered site profiles, each with the site holding it (a profile belongs to one site).
+  listProfiles: (): Promise<SiteProfileInfo[]> => client.get<SiteProfileInfo[]>('/site-profiles'),
 
   // The site's ALARM-class points that are set, per device. No filter = all severities / all devices.
   getHealth: (

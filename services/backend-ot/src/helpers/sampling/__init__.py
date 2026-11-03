@@ -2,7 +2,7 @@
 
 - alignment: lines up series from several devices at their own sample times (virtual points,
   site functions that combine devices).
-- policy: up to RAW_WINDOW_MAX (3 days) every reading; beyond it, plot values.
+- policy: up to RAW_WINDOW_MAX (24 hours) every reading; beyond it, plot values.
 - plot_values / plot_values_sql: the plot-value rule and gap markers, in Python and in Postgres.
 """
 
