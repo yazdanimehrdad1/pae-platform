@@ -1,7 +1,7 @@
 """Unit tests for helpers.sampling.plot_values (sampling one series for a chart).
 
 Invariants guarded:
-- up to 3 days a chart gets every sample, unchanged;
+- up to 24 hours a chart gets every sample, unchanged;
 - beyond, plot values are a subset of the real samples (nothing averaged or invented), at most
   max_points of them, keeping each slice's first, last, lowest and highest (so spikes survive)
   and, for enum/bit points, every change of value;
@@ -42,9 +42,9 @@ def markers(samples: list[TimeseriesPoint]) -> list[TimeseriesPoint]:
 
 
 class TestRawWindows:
-    def test_up_to_three_days_every_sample_is_kept_unchanged(self):
-        samples = dense(25_920)  # 3 days at 10 s
-        sampled = sample_series(samples, START, START + timedelta(days=3), 2000, GAP, discrete=False)
+    def test_up_to_twenty_four_hours_every_sample_is_kept_unchanged(self):
+        samples = dense(8_640)  # 24 hours at 10 s
+        sampled = sample_series(samples, START, START + timedelta(days=1), 2000, GAP, discrete=False)
         assert sampled == samples
 
     def test_without_max_points_samples_are_returned_as_given(self):

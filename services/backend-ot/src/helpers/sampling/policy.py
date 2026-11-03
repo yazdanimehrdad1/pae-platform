@@ -6,7 +6,7 @@ RAW_WINDOW_MAX always returns every reading at its actual timestamp, at any poll
 
 from datetime import datetime, timedelta
 
-RAW_WINDOW_MAX = timedelta(days=3)
+RAW_WINDOW_MAX = timedelta(days=1)
 
 # Bounds of the `max_points` query parameter (how many plot values a chart can use).
 MIN_PLOT_POINTS = 100
@@ -14,7 +14,7 @@ MAX_PLOT_POINTS = 5000
 
 MAX_POINTS_DESCRIPTION = (
     "For a chart: how many plot values a series may use (about the chart's width in pixels). Needs a "
-    "time window (and overrides `limit` where the route has one). A window up to 3 days returns every reading at its "
+    "time window (and overrides `limit` where the route has one). A window up to 24 hours returns every reading at its "
     "actual timestamp; a longer one returns plot values: real readings only, each slice's first, "
     "last, lowest and highest (enum and bit points: every change). Either way an outage longer than "
     "3 poll intervals gets a gap marker, a sample with no value at the gap's midpoint."

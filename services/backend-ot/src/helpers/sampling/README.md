@@ -68,7 +68,7 @@ So a function's line sits on the same timestamps as the raw points charted next 
   don't share timestamps (as with plot values, below). A line breaks only at its own gap markers.
 - **Tooltip.** For the hovered time it shows each series' latest sample at or before it.
 
-## 6. Long windows: every reading up to 3 days, plot values beyond
+## 6. Long windows: every reading up to 24 hours, plot values beyond
 
 A chart asks with `max_points` (about its width in pixels; the historian sends 2000). The
 decision is made by **window length only**, in `policy.py::use_plot_values`, so it holds at any
@@ -76,8 +76,8 @@ poll rate:
 
 | Window | What a chart gets |
 |---|---|
-| up to and including 3 days (`RAW_WINDOW_MAX`) | **Every reading at its actual timestamp.** `limit` is ignored, so nothing is capped (not even past the endpoint's 10,000). |
-| longer than 3 days | **Plot values** (below). |
+| up to and including 24 hours (`RAW_WINDOW_MAX`) | **Every reading at its actual timestamp.** `limit` is ignored, so nothing is capped (not even past the endpoint's 10,000). |
+| longer than 24 hours | **Plot values** (below). |
 
 **Plot values** are a subset of the real readings, as OSIsoft PI plots long ranges. Nothing is
 averaged, interpolated or invented:
@@ -92,13 +92,13 @@ averaged, interpolated or invented:
 at the gap's midpoint. A chart breaks the line there instead of bridging the outage. (The
 readings endpoint leaves null fields out of its JSON, so a marker arrives as `{"time": ...}`.)
 
-**Zoom refetches.** The historian sends the zoomed range as the window, so zooming in to 3 days
+**Zoom refetches.** The historian sends the zoomed range as the window, so zooming in to 24 hours
 or less returns every reading again.
 
 Where it runs:
-- **Stored readings, over 3 days:** in Postgres (`plot_values_sql.py`). Only the kept rows and
+- **Stored readings, over 24 hours:** in Postgres (`plot_values_sql.py`). Only the kept rows and
   the markers reach Python.
-- **Stored readings, up to 3 days:** read in full, markers added in Python
+- **Stored readings, up to 24 hours:** read in full, markers added in Python
   (`plot_values.py::sample_readings`).
 - **Virtual points:** computed in full from their inputs, then sampled in Python. Reducing the
   inputs first would be wrong: the minimum of a sum isn't the sum of the minimums.
@@ -108,18 +108,19 @@ Where it runs:
 
 ## 7. Known limits
 
-- **A raw 3-day window is heavy for the chart:** up to 26k readings per point at 10 s polling,
-  130k for a 5-point trend, more at faster polling. The historian draws SVG (Recharts). If that is
-  too slow, the next step is a canvas chart, not fewer readings.
+- **A raw 24-hour window can still be heavy at fast polling:** 1,440 readings per point at 60 s
+  (dev and prod), 8,640 at 10 s (local), more at faster polling. The historian draws SVG
+  (Recharts). The raw window was 3 days until 2026-11-02; on the dev VM a whole device's 3 days
+  took ~30 s to serve and the chart couldn't zoom, so it is now 24 hours.
 - **Postgres still scans every reading in the window.** device_points_readings is a plain table
   (no TimescaleDB hypertable); a hypertable is the later fix for long windows.
 - **Virtual points and site functions compute on all raw readings in Python** before sampling,
   so 1M/3M windows on them are slow.
 
 Improvement steps (not done yet):
-1. **Chart speed for raw 3-day windows:** measure the historian with a dense 3-day trend. If it
-   is too slow, move its analog lines to a canvas chart (e.g. uPlot) rather than returning fewer
-   readings. Tracked in web-plusdas `src/features/historian/sampling/README.md`.
+1. **Chart speed for raw windows at fast polling:** if a 24-hour trend at 10 s is too slow, move
+   its analog lines to a canvas chart (e.g. uPlot) or base the raw window on the poll interval.
+   Tracked in web-plusdas `src/features/historian/sampling/README.md`.
 2. **Database side of long windows:** make device_points_readings a TimescaleDB hypertable, so a
    1M/3M plot-values query doesn't scan every row.
 3. **Virtual points and site functions over long windows:** they compute on every raw reading in
@@ -130,7 +131,7 @@ Improvement steps (not done yet):
 | Constant | backend-ot | web-plusdas |
 |---|---|---|
 | One poll cycle | `alignment.py::ALIGN_TOLERANCE` = 1 s | `sampling/constants.ts::ROW_TOLERANCE_MS` = 1000 |
-| Raw window | `policy.py::RAW_WINDOW_MAX` = 3 days | (decided by backend-ot only) |
+| Raw window | `policy.py::RAW_WINDOW_MAX` = 24 hours | (decided by backend-ot only) |
 | Plot values per series | `policy.py::MIN_PLOT_POINTS`..`MAX_PLOT_POINTS` = 100..5000 | `sampling/constants.ts::PLOT_POINTS` = 2000 |
 
 ## 9. Files and hooks
@@ -140,7 +141,7 @@ In this folder:
 | File | What |
 |---|---|
 | `alignment.py` | Lining up series across devices (section 3). |
-| `policy.py` | The 3-day rule and the `max_points` bounds and description. |
+| `policy.py` | The 24-hour rule and the `max_points` bounds and description. |
 | `plot_values.py` | Plot values and gap markers in Python: `sample_series`, `sample_readings`, `sample_point_timeseries`, `sample_series_response`. |
 | `plot_values_sql.py` | The same rule in Postgres: `plot_values_statement`. |
 

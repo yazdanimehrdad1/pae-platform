@@ -76,6 +76,7 @@ services:
       - REDIS_DB=0
       - AGGREGATOR_MODBUS_HOST=${AGGREGATOR_MODBUS_HOST}
       - AGGREGATOR_MODBUS_PORT=${AGGREGATOR_MODBUS_PORT}
+      - POLL_INTERVAL_SECONDS=${POLL_INTERVAL_SECONDS:-10}
     depends_on:
       backend-ot-postgres: {condition: service_healthy}
     logging: *logging
