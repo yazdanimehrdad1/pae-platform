@@ -5,12 +5,14 @@ Invariant guarded: seeding powerflow's 2bess_1pv site creates its site (with its
 devices with their served points and scan ranges, and its single line diagram whose links all
 resolve; the seeded devices carry the same STANDARDIZED points as API-created ones, linked to
 their served registers as the link endpoint would (a link changed through the API survives a
-reseed); reseeding adds nothing; the PV inverter gets its PV array config and the site its dev
+reseed); reseeding adds nothing; --replace deletes the site (only one powerflow seeded) and
+seeds it fresh with only the demo points; the PV inverter gets its PV array config and the site its dev
 location; and it coexists with the mock-modbus site (devices are matched within their site).
 """
 
+import pytest
 from pydantic import TypeAdapter
-from seed_db.seed_db import powerflow_seed_data, seed
+from seed_db.seed_db import NotAPowerflowSiteError, powerflow_seed_data, seed
 
 from helpers.sites.sld import sld_link_errors
 from integration.factories import create_device, create_site, link_url, standardized_points_by_name
@@ -187,3 +189,39 @@ class TestPowerflowSeed:
         await seed(data)
         after = PvArrayConfigResponse.model_validate((await client.get(url)).json())
         assert after.tilt_deg == 5.0
+
+
+class TestReplace:
+    async def test_replace_deletes_the_site_and_seeds_it_fresh(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        await seed(data)
+        old = await site_named(client, data.sites[0].name)
+        extra = await create_device(client, old.site_id, name="added-by-hand")
+
+        await seed(powerflow_seed_data(POWERFLOW_SITE), replace=True)
+
+        new = await site_named(client, data.sites[0].name)
+        assert new.site_id != old.site_id
+        devices = {device.name: device for device in await devices_of(client, new)}
+        assert extra.name not in devices
+        assert set(devices) == {seed_device.device.name for seed_device in data.devices}
+        for name, device in devices.items():
+            assert sorted(point.name for point in device.points.native) == sorted(
+                point.name for point in data.device_points[name]
+            )
+            assert len(device.points.native) <= 15
+        assert (await client.get(f"/api/sites/{old.site_id}")).status_code == 404
+        stored = SiteSldResponse.model_validate((await client.get(f"/api/sites/{new.site_id}/sld")).json())
+        assert sld_link_errors(stored.sld, list(devices.values())) == []
+
+    async def test_replace_on_an_empty_database_just_seeds(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        await seed(data, replace=True)
+        assert (await site_named(client, data.sites[0].name)).profile == "powerflow_2bess_1pv"
+
+    async def test_replace_refuses_a_site_powerflow_did_not_seed(self, client):
+        data = powerflow_seed_data(POWERFLOW_SITE)
+        real = await create_site(client, name=data.sites[0].name, description="A real site")
+        with pytest.raises(NotAPowerflowSiteError):
+            await seed(data, replace=True)
+        assert (await site_named(client, data.sites[0].name)).site_id == real.site_id

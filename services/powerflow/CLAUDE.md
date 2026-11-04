@@ -11,7 +11,7 @@ sign conventions.
 - The network and its solver (pandapower, Newton-Raphson).
 - The real-time simulation engine and its in-memory measurement history.
 - The protocol-neutral point lists (`src/powerflow/points/`): HTTP, history and PointRegistry names.
-- The PAE point standard (`docs/point-standard/*.csv`) and the Modbus TCP server that serves it (`src/powerflow/point_standard/` maps and calculates every point; `interfaces/modbus/` serves the image).
+- The PAE point standard (`docs/point-standard/*.csv`; its `demo` column marks the ≤ 15 points per device a demo historian polls) and the Modbus TCP server that serves it (`src/powerflow/point_standard/` maps and calculates every point; `interfaces/modbus/` serves the image).
 - The HTTP API under `/api`.
 
 **Does NOT own**

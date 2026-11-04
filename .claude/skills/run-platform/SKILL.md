@@ -56,10 +56,12 @@ isn't a platform project; otherwise override the port.
    - `make seed-mock-modbus`: the mock-modbus dev site (Alpha Solar Farm). Its devices and points
      are built from mock-modbus's published contract (`contracts/modbus/mock-modbus.devices.json`).
    - `make seed-2bess-1pv`: powerflow's 2bess_1pv site as a real site ("Powerflow 2BESS 1PV"): the
-     site, 9 devices (plant controller, 2 BESS, PV, load, POI and 3 feeder meters), their served
-     registers and the SLD, built from `contracts/powerflow/sites.json` and
+     site, 9 devices (plant controller, 2 BESS, PV, load, POI and 3 feeder meters), their demo
+     registers (at most 15 per device, the `demo` column of powerflow's point standard) and the SLD, built from `contracts/powerflow/sites.json` and
      `contracts/modbus/powerflow.registers.json`. Its devices read `powerflow:502` directly. It
-     then makes 2bess_1pv powerflow's active site and starts it.
+     then makes 2bess_1pv powerflow's active site and starts it. Reseeding only adds; to apply a
+     changed point list, `make seed-2bess-1pv REPLACE=1` deletes the site first (its history, alarms
+     and reports too; a new site id) and seeds it fresh. It refuses a site powerflow didn't seed.
 4. Check: `make e2e` waits for polling, then checks every seeded mock point reads inside the range
    mock-modbus declares for it (expect `RESULT: AGREE` for all 3 mock devices).
    `make e2e-2bess-1pv` pauses powerflow, waits for a fresh poll, and checks every seeded point

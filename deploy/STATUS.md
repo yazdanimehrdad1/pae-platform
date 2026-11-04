@@ -27,7 +27,7 @@ Done stages (details in `PLAN.md`): 0 cleanup, 1 deployment readiness, 2 CI, 3 i
 | Check dev | `make status env=dev` (release + container health), `make logs env=dev svc=backend-ot`, `make stats env=dev` |
 | Deploy by hand | `make deploy env=dev` (newest `main`) or `make deploy env=dev RELEASE=<sha>` |
 | Back up now | `make backup env=dev` (all databases to `gs://pae-development-backups`; weekly runs are automatic) |
-| Load a simulated site | `make cloud-seed-site env=dev SITE=2bess_1pv` (dev only) |
+| Load a simulated site | `make cloud-seed-site env=dev SITE=2bess_1pv` (dev only; `REPLACE=1` deletes the site and its history first, to apply a changed point list) |
 | Shell on the server | `make ssh env=dev` |
 | Log in (first time) | dev `admin@plusdas.dev`, prod `admin@plusdas.local` (`BOOTSTRAP_ADMIN_EMAIL` in `cloud/config/<env>.env`); its password: `make admin-password env=dev` (or `env=prod`; the secret `intelli-gateway-bootstrap-admin-password`). Then set your own in Settings, and add everyone else on the Users page |
 | Demo login (dev only) | `demo@plusdas.dev` / `demo-password` (the dev secret `intelli-gateway-demo-user-password`; to change it: add a new version, then redeploy) |

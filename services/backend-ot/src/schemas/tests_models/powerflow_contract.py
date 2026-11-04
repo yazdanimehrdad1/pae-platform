@@ -42,6 +42,7 @@ class PowerflowRegister(_Strict):
     powerflow_server: Literal["yes", "calc", "no"]
     enum_detail: dict[str, str] | None
     bitfield_detail: dict[str, str] | None
+    demo: bool = Field(..., description="One of the few points per device (at most 15) a demo historian polls")
 
 
 class PowerflowDeviceType(_Strict):
@@ -74,6 +75,7 @@ class PowerflowRegistersContract(_Strict):
     unit_id: int
     chunk_registers: int
     address: str
+    demo: str
     groups: list[PowerflowGroup]
     device_types: dict[PowerflowDeviceKind, PowerflowDeviceType]
     default_sites: dict[str, list[PowerflowDeviceRef]]

@@ -104,7 +104,7 @@ seed-site: require-env
 	@# directory inside the container (gone when the container is next recreated).
 	$(SSH) "set -e; c=\"$(COMPOSE_ON_VM)\"; d=/tmp/pae-seed-\$$(date +%s); \
 		\$$c cp pae-seed/$(notdir $(BUNDLE)) backend-ot:\$$d; \
-		\$$c exec -T backend-ot sh \$$d/run_in_container.sh $(SITE); \
+		\$$c exec -T backend-ot sh \$$d/run_in_container.sh $(SITE)$(if $(filter 1,$(REPLACE)), --replace); \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/stop; \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sites/$(SITE)/activate; \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/start; \

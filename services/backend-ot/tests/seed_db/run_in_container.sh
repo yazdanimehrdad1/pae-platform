@@ -3,9 +3,10 @@
 # cloud VM's seed path: the root `make cloud-seed-site env=dev SITE=...`). The bundle may be copied
 # anywhere in the container: seed_db.py finds its sibling modules and the contract files next to
 # itself, and the image puts /app/src on PYTHONPATH. Nothing is written under /app.
-#   sh <bundle>/run_in_container.sh <powerflow site>
+#   sh <bundle>/run_in_container.sh <powerflow site> [--replace]
 set -eu
-site="${1:?usage: run_in_container.sh <powerflow site>}"
+site="${1:?usage: run_in_container.sh <powerflow site> [--replace]}"
+shift
 bundle="$(cd "$(dirname "$0")" && pwd)"
 cd /app
-exec python "$bundle/seed_db.py" powerflow "$site"
+exec python "$bundle/seed_db.py" powerflow "$site" "$@"

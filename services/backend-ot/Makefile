@@ -202,7 +202,7 @@ seed-db-powerflow:
 	$(COMPOSE) cp $(MOCK_MODBUS_CONTRACT) $(APP):/app/tests/seed_db/
 	$(COMPOSE) cp $(POWERFLOW_REGISTERS_CONTRACT) $(APP):/app/tests/seed_db/
 	$(COMPOSE) cp $(POWERFLOW_SITES_CONTRACT) $(APP):/app/tests/seed_db/
-	$(COMPOSE) exec -T $(APP) python tests/seed_db/seed_db.py powerflow $(SITE)
+	$(COMPOSE) exec -T $(APP) python tests/seed_db/seed_db.py powerflow $(SITE)$(if $(filter 1,$(REPLACE)), --replace)
 
 # The seeder and the contracts it reads, copied into OUT (a new or empty directory), for running
 # the seed inside a backend-ot container elsewhere (tests/seed_db/run_in_container.sh). The root

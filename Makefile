@@ -151,14 +151,14 @@ seed-powerflow-site:
 	@test -n "$(SITE)" || { echo "usage: make seed-powerflow-site SITE=<powerflow site>"; exit 2; }
 	@curl -fsS -o /dev/null $(POWERFLOW_API)/health || { \
 		echo "powerflow isn't reachable at $(POWERFLOW_API): run make up first"; exit 1; }
-	$(MAKE) -C services/backend-ot seed-db-powerflow SITE=$(SITE) COMPOSE="$(DEV_COMPOSE)"
+	$(MAKE) -C services/backend-ot seed-db-powerflow SITE=$(SITE) COMPOSE="$(DEV_COMPOSE)" REPLACE=$(REPLACE)
 	curl -fsS -o /dev/null -X POST $(POWERFLOW_API)/sim/stop
 	curl -fsS -o /dev/null -X POST $(POWERFLOW_API)/sites/$(SITE)/activate
 	curl -fsS -o /dev/null -X POST $(POWERFLOW_API)/sim/start
 	@echo "powerflow is running $(SITE); backend-ot polls it at powerflow:502"
 
 seed-2bess-1pv:
-	$(MAKE) seed-powerflow-site SITE=2bess_1pv
+	$(MAKE) seed-powerflow-site SITE=2bess_1pv REPLACE=$(REPLACE)
 
 # PlusDAS user accounts, kept by intelli-gateway (no self-signup), in the dev stack.
 USER_TARGETS := create-user set-password disable-user enable-user
@@ -237,5 +237,5 @@ cloud-seed-site:
 	@test -n "$(SITE)" || { echo "usage: make cloud-seed-site env=dev SITE=<powerflow site, e.g. 2bess_1pv>" >&2; exit 2; }
 	@tmp="$$(mktemp -d)"; \
 	$(MAKE) --no-print-directory -s -C services/backend-ot seed-bundle OUT="$$tmp/seed_db" && \
-	$(MAKE) --no-print-directory -C deploy/cloud seed-site env=dev SITE=$(SITE) BUNDLE="$$tmp/seed_db"; \
+	$(MAKE) --no-print-directory -C deploy/cloud seed-site env=dev SITE=$(SITE) BUNDLE="$$tmp/seed_db" REPLACE=$(REPLACE); \
 	status=$$?; rm -rf "$$tmp"; exit $$status
