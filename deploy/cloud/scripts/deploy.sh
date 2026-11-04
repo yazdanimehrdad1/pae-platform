@@ -77,6 +77,11 @@ gateway_pw="$(secret intelli-gateway-postgres-password)"
 powerflow_pw="$(secret powerflow-postgres-password)"
 anthropic_key="$(secret intelli-gateway-anthropic-api-key optional)"
 open_meteo_key="$(secret intelli-gateway-open-meteo-api-key optional)"
+# The first admin (created by intelli-gateway only while it has no users); the public demo login
+# on dev only: prod never reads or has that secret.
+bootstrap_admin_pw="$(secret intelli-gateway-bootstrap-admin-password)"
+demo_user_pw=""
+if [ "$env_name" = dev ]; then demo_user_pw="$(secret intelli-gateway-demo-user-password)"; fi
 printf 'POSTGRES_PASSWORD=%s\n' "$backend_pw" >"${PAE_DIR}/env/backend-ot-postgres.env"
 printf 'POSTGRES_PASSWORD=%s\n' "$backend_pw" >"${PAE_DIR}/env/backend-ot.env"
 printf 'POSTGRES_PASSWORD=%s\n' "$gateway_pw" >"${PAE_DIR}/env/intelli-gateway-postgres.env"
@@ -84,11 +89,13 @@ printf 'POSTGRES_PASSWORD=%s\n' "$gateway_pw" >"${PAE_DIR}/env/intelli-gateway-p
 	printf 'DATABASE_URL=postgresql+asyncpg://intelli_gateway:%s@intelli-gateway-postgres:5432/intelli_gateway\n' "$gateway_pw"
 	[ -n "$anthropic_key" ] && printf 'ANTHROPIC_API_KEY=%s\n' "$anthropic_key"
 	[ -n "$open_meteo_key" ] && printf 'OPEN_METEO_API_KEY=%s\n' "$open_meteo_key"
+	printf 'BOOTSTRAP_ADMIN_PASSWORD=%s\n' "$bootstrap_admin_pw"
+	[ -n "$demo_user_pw" ] && printf 'DEMO_USER_PASSWORD=%s\n' "$demo_user_pw"
 	true
 } >"${PAE_DIR}/env/intelli-gateway.env"
 printf 'POSTGRES_PASSWORD=%s\n' "$powerflow_pw" >"${PAE_DIR}/env/powerflow-postgres.env"
 printf 'DATABASE_URL=postgresql+asyncpg://powerflow:%s@powerflow-postgres:5432/powerflow\n' "$powerflow_pw" >"${PAE_DIR}/env/powerflow.env"
-unset backend_pw gateway_pw powerflow_pw anthropic_key open_meteo_key
+unset backend_pw gateway_pw powerflow_pw anthropic_key open_meteo_key bootstrap_admin_pw demo_user_pw
 [ -s "${PAE_DIR}/env/intelli-gateway.env" ] && ! grep -q '^ANTHROPIC_API_KEY=' "${PAE_DIR}/env/intelli-gateway.env" &&
 	log "note: intelli-gateway-anthropic-api-key has no value yet; the assistant answers 503 until it does"
 umask 022

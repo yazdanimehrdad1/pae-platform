@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, Settings as SettingsIcon, UserPlus, Palette, Bell, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ChangePasswordCard } from "./components/ChangePasswordCard";
 
 const Settings = () => {
   return (
@@ -14,6 +15,8 @@ const Settings = () => {
       </div>
 
       <div className="flex-1 space-y-6">
+        <ChangePasswordCard />
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">

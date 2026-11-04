@@ -39,7 +39,9 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
   for a test that needs a DOM; setup in `tests/setup.ts`. `tests/` is typechecked and linted but not
   shipped (`.dockerignore`). No Docker. `make test-integration` runs `scripts/check_same_origin.mjs`
   against the **running** container (SPA fallback, cache headers, `/config.js`, `/api/healthz` +
-  `/api/sites` through the web origin, plus `/powerflow-api/health` and `/intelli-gateway-api/healthz`).
+  `/api/sites` through the web origin (401 without a session; 200 after logging in as the dev
+  stack's demo user, `demo@plusdas.local`, which the gateway creates at startup), plus `/powerflow-api/health` and
+  `/intelli-gateway-api/healthz`).
   It needs the dev stack up.
 - Layout: `make test-layout` (Playwright, `tests/layout/`, Chromium only) opens every page at phone,
   tablet and laptop widths and fails when the page itself scrolls sideways or content sticks out
@@ -61,7 +63,7 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
 
 ## Layout
 Dependencies point one way: `app` → `features` → `api` / `shared` / `components` / `lib`.
-`src/mocks` is imported only by features (and `shared/contexts/auth.tsx`).
+`src/mocks` is imported only by features.
 - `src/main.tsx`: entry. `src/app/`: the shell. `App.tsx` composes `providers.tsx` (React Query,
   theme, auth, notes sidebar, toasters) and `routes.tsx` (lazy pages, wrapped in an
   `ErrorBoundary` keyed on the path). Also `layout/` (`DashboardLayout`, `AppSidebar`) and
@@ -74,7 +76,7 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
   `add-api-call` skill.
 - `src/features/<feature>/`: page(s) plus their `components/`, `hooks/`, `lib/` and `types.ts`
   (types only that feature uses). A type used by one file stays in that file.
-- `src/mocks/`: **all** fake data and fake behavior (auth, tasks).
+- `src/mocks/`: **all** fake data and fake behavior (tasks).
   `grep -r "@/mocks" src` shows what is still mocked, and `src/mocks/README.md` lists each mock
   with the backend gap it waits on. ESLint blocks `@/mocks` in `src/api` and `src/components`.
 - `src/shared/`: what 2+ features use: `components/` (asset tree, spreadsheet grid, theme, severity indicator, time zone toggle), `lib/` (alarm severity, site time, zoned wall time),
@@ -96,7 +98,7 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
 - **API calls are same-origin only:** backend-ot at `/api/...` (`client`) and the powerflow
   simulator at `/powerflow-api/...` (`powerflowClient`, forwarded to powerflow's `/api`; the
   Simulation page), and intelli-gateway at `/intelli-gateway-api/...` (`intelliGatewayClient`,
-  forwarded to its `/api`; the PV forecast in the Historian). Never an absolute URL, never CORS. Never put a trailing slash on an API path
+  forwarded to its `/api`; login, the user's data, the PV forecast). Never an absolute URL, never CORS. Never put a trailing slash on an API path
   (backend-ot 307s it).
 - A new **streaming** route needs its own nginx location with `proxy_buffering off` (like
   `/api/modbus-live-stream-raw-registers/`).
@@ -139,8 +141,19 @@ too, which `md:` alone can't see: phone-only behaviour that must hold sideways u
 ## Gotchas
 - `strict: false` and `noImplicitAny: false` in tsconfig (inherited): the compiler won't catch
   nulls, and `z.infer` marks every zod field optional (hence the cast in `ModbusStreamForm.toRequest`).
-- Mocked, not wired to backend-ot (the backend has no API for them yet): auth and the Task
-  Builder list, both from `src/mocks/` (see its README), and Notes (localStorage). See `docs/backend-gaps.md`.
+- Login is real: PlusDAS users live in intelli-gateway (`shared/contexts/auth.tsx`, `src/api/me.ts`). The
+  session is an HttpOnly cookie (code never sees a token); any 401 sends the user to `/login`. nginx
+  checks the session before `/api` and `/powerflow-api` (`auth_request` to the gateway's `/api/v1/me`,
+  60 s cache; `/api/healthz` and `/powerflow-api/health` stay open). The Vite dev server (`make run`)
+  has no such check.
+- The user's data is on the server, not in localStorage: trends (`features/historian/hooks/useSavedTrends.ts`),
+  notes (`features/notes/hooks/useNotes.ts`) and preferences (`shared/hooks/usePreference.ts`: time zone
+  mode, last site, discrete mode, Live Data configs). Only per-browser things stay in localStorage
+  (theme, sidebar and notes panel collapsed). The first login in a browser imports its old
+  localStorage data once (`app/useBrowserDataImport.ts`).
+- Accounts: admins manage them on the Users page (`features/users/`, `usersApi`); everyone changes
+  their own password in Settings. No self-signup.
+- Still mocked: the Task Builder list (`src/mocks/`, see its README and `docs/backend-gaps.md`).
 - Times of a site show in the site's time zone (`site.timezone`), or the user's own when they flip
   "My time" (`useDisplayTimeZone`, remembered per browser, one switch for Historian, Alarms and
   Reports). Never format a site's time with the browser's zone directly.

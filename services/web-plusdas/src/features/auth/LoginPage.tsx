@@ -1,58 +1,41 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth, UserRole } from "@/shared/contexts/auth";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/shared/contexts/auth";
+import { getErrorMessage, isUnauthorized } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, BarChart3 } from "lucide-react";
-import { toast } from "@/shared/hooks/use-toast";
 
+// Accounts are created by an admin (no self-signup); the role comes with the account.
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole | "">("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { login } = useAuth();
+  const { user, login, isLoading } = useAuth();
   const navigate = useNavigate();
+  // Where the user was going when they were sent here (DashboardLayout passes it).
+  const from = (useLocation().state as { from?: string } | null)?.from ?? "/sites";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (!isLoading && user) return <Navigate to={from} replace />;
 
-    if (!email || !password || !role) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
     try {
-      const success = await login(email, password, role as UserRole);
-
-      if (success) {
-        toast({ title: "Welcome", description: "Successfully logged in" });
-        navigate('/sites');
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid credentials",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "An error occurred during login",
-        variant: "destructive",
-      });
+      await login(email.trim(), password);
+      navigate(from, { replace: true });
+    } catch (loginError) {
+      setPassword("");
+      setError(isUnauthorized(loginError)
+        ? "Wrong email or password."
+        : `Could not sign in: ${getErrorMessage(loginError)}`);
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -72,9 +55,7 @@ export default function Login() {
         <Card className="card-industrial">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Sign In</CardTitle>
-            <CardDescription>
-              Enter your credentials and select your role
-            </CardDescription>
+            <CardDescription>Use the account your administrator gave you</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -83,9 +64,10 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="engineer@company.com"
+                  autoComplete="username"
+                  autoCapitalize="none"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(event) => setEmail(event.target.value)}
                   required
                 />
               </div>
@@ -95,44 +77,17 @@ export default function Login() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  autoComplete="current-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   required
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="engineer">
-                      <div className="flex flex-col">
-                        <span className="font-medium">Engineer</span>
-                        <span className="text-xs text-muted-foreground">Access to historian and analysis tools</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="monitor">
-                      <div className="flex flex-col">
-                        <span className="font-medium">Monitor</span>
-                        <span className="text-xs text-muted-foreground">Focus on health and real-time status</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex flex-col">
-                        <span className="font-medium">Administrator</span>
-                        <span className="text-xs text-muted-foreground">Full access to users and settings</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-              <Button type="submit" className="w-full btn-industrial" disabled={isLoading}>
-                {isLoading ? (
+              <Button type="submit" className="w-full btn-industrial" disabled={isSubmitting}>
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing In...
@@ -142,15 +97,6 @@ export default function Login() {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 p-4 bg-muted/30 rounded-lg">
-              <p className="text-xs text-muted-foreground text-center mb-2">Demo Credentials:</p>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <div>Any email address</div>
-                <div>Any password</div>
-                <div>Select any role to see role-specific features</div>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

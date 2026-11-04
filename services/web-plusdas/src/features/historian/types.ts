@@ -10,7 +10,7 @@ export type TimeWindow =
   | { preset: TimeRange }
   | { startTime: string; endTime: string };
 
-// A saved set of points, kept in localStorage per user (lib/trendStorage.ts).
+// A saved set of points, kept by intelli-gateway for the user (hooks/useSavedTrends.ts).
 export interface Trend {
   id: string;
   name: string;

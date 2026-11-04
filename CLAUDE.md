@@ -11,14 +11,16 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
   mock-modbus/       DEV-ONLY Modbus TCP simulator standing in for the site devices
   web-plusdas/       the UI: Vite + React SPA served by nginx, /api proxied same-origin to backend-ot
                      /powerflow-api to powerflow (the Simulation page) and /intelli-gateway-api
-                     to intelli-gateway (the PV forecast in the Historian)
+                     to intelli-gateway (login, the user's data, the PV forecast in the Historian);
+                     /api and /powerflow-api need a login (nginx asks the gateway)
   powerflow/         microgrid power flow simulator (pandapower) for EMS development: setpoints in,
                      measurements out; sites in its own Postgres (the only store), via the API
   mobile-plusdas/    Expo / React Native phone app (iOS + Android): bare-bones: lists backend-ot's
                      sites (alarms, push, reports, AI later); not containerized
   intelli-gateway/   AI helper for site engineers: Claude answers questions about a site through
                      read-only tools (tool-use loop, MCP-ready tool layer); also the PV forecast
-                     (replaceable weather source, Open-Meteo now), stored in its own Postgres
+                     (replaceable weather source, Open-Meteo now), stored in its own Postgres;
+                     and PlusDAS users: accounts, login sessions, per-user data
 contracts/           the ONLY shared surface: generated OpenAPI specs + mock register map
 deploy/compose/      dev stack: includes every service's compose.yaml (`make up`)
 deploy/PLAN.md       staged production plan (one GCP VM + Docker Compose); deploy/cloud/ (stack,

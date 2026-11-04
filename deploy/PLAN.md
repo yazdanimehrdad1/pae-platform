@@ -270,6 +270,7 @@ deploy/
 |---|---|---|---|---|
 | backend-ot `POSTGRES_PASSWORD` (Redis runs without AUTH, reachable only on the VM's internal Docker network) | `services/backend-ot/.env` (gitignored) | `backend-ot-postgres-password` | written by `deploy.sh` to `/opt/pae/secrets/backend-ot.env` (root, 0600) | none |
 | intelli-gateway `ANTHROPIC_API_KEY`, `OPEN_METEO_API_KEY`, its DB password | `services/intelli-gateway/.env` | `intelli-gateway-anthropic-api-key`, `intelli-gateway-open-meteo-api-key`, `intelli-gateway-postgres-password` | `/opt/pae/secrets/intelli-gateway.env` | none |
+| intelli-gateway `BOOTSTRAP_ADMIN_PASSWORD` (the first admin, created only while there are no users; its address is `BOOTSTRAP_ADMIN_EMAIL` in `config/<env>.env`: dev `admin@plusdas.dev`, prod `admin@plusdas.local`) and, dev only, `DEMO_USER_PASSWORD` (the public demo login, `demo@plusdas.dev`: `DEMO_USER_EMAIL` in `config/dev.env`) | the dev stack sets both in intelli-gateway's compose.yaml (`admin-password`, `plusdas-demo`) | `intelli-gateway-bootstrap-admin-password` (both); `intelli-gateway-demo-user-password` (dev project only) | `/opt/pae/secrets/intelli-gateway.env` | none |
 | powerflow DB password | `services/powerflow/.env` | `powerflow-postgres-password` | `/opt/pae/secrets/powerflow.env` | none |
 | Image pulls | none | none: the VM service account has `artifactregistry.reader` | none | none |
 | Backups to GCS | none | none: the VM service account has `storage.objectAdmin` on the backup bucket only | none | none |

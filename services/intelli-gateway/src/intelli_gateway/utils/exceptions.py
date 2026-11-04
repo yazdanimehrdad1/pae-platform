@@ -13,6 +13,14 @@ class ForbiddenError(GatewayError):
     pass
 
 
+class UnauthorizedError(GatewayError):
+    """No valid session (or wrong login): the API maps it to 401."""
+
+
+class ConflictError(GatewayError):
+    """The request clashes with what is stored (e.g. a email that is taken): 409."""
+
+
 class LLMUnavailableError(GatewayError):
     """Claude could not be reached or rejected the request (auth, rate limit, outage)."""
 

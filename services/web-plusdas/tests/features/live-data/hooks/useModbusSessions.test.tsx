@@ -2,10 +2,10 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { modbusStreamApi } from '@/api';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { meApi, modbusStreamApi } from '@/api';
 import type { SseEvent } from '@/api/sse';
 import type { ModbusLiveStreamRequest, ModbusSessionSummary } from '@/api/types/modbusStream';
-import { AuthProvider } from '@/shared/contexts/auth';
 import { useModbusSessions } from '@/features/live-data/hooks/useModbusSessions';
 
 const request = {
@@ -36,10 +36,16 @@ function fakeStream() {
   return { open, emit: (evt: SseEvent) => act(() => emit(evt)) };
 }
 
-const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+// The sessions' slots are a user preference (saved through intelli-gateway).
+function wrapper({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
 
 describe('useModbusSessions stop and resume', () => {
   it('stops through the stop endpoint before closing the stream, then resumes and can stop again', async () => {
+    vi.spyOn(meApi, 'listPreferences').mockResolvedValue([]);
+    vi.spyOn(meApi, 'putPreference').mockImplementation(async (key, value) => ({ key, value, updated_at: '2026-11-01T00:00:00Z' }) as never);
     let serverStatus = 'active';
     vi.spyOn(modbusStreamApi, 'list').mockImplementation(async () => [summary(serverStatus)]);
     const calls: string[] = [];

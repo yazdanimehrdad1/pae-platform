@@ -69,7 +69,10 @@ VM_SA_EMAIL="${VM_SA}@${PROJECT}.iam.gserviceaccount.com"
 CI_SA_EMAIL="${CI_SA}@${REGISTRY_PROJECT}.iam.gserviceaccount.com"
 
 # Secrets: generated ones get a random value once; owner ones are created empty.
-GENERATED_SECRETS=(backend-ot-postgres-password intelli-gateway-postgres-password powerflow-postgres-password)
+GENERATED_SECRETS=(backend-ot-postgres-password intelli-gateway-postgres-password powerflow-postgres-password
+	intelli-gateway-bootstrap-admin-password)
+# The public demo login exists on dev only (prod never gets the secret).
+[ "$ENV" = dev ] && GENERATED_SECRETS+=(intelli-gateway-demo-user-password)
 OWNER_SECRETS=(intelli-gateway-anthropic-api-key intelli-gateway-open-meteo-api-key)
 
 gc() { gcloud --project "$PROJECT" --quiet "$@"; }

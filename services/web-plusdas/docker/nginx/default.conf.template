@@ -8,6 +8,20 @@
 # Each proxy_pass goes through a variable, so nginx resolves the upstream per request (cached for
 # `valid`) instead of once at start: nginx starts even while an upstream is down or not deployed,
 # and that route answers 502 until it is back.
+
+# Login check for backend-ot and powerflow (/api, /powerflow-api): nginx asks intelli-gateway, which
+# owns PlusDAS users, whether the session cookie is valid (GET /api/v1/me), and answers 401 if not.
+# A valid answer is cached per session for 60 s (so a revoked session can reach these APIs for up to
+# a minute), never a 401. While intelli-gateway is down, sessions it confirmed in the last hour are
+# still let through (stale cache); new logins wait for it. The cookie is intelli-gateway's
+# `plusdas_session`. The cache lives in /var/cache/nginx (writable in the nginx image; a read-only
+# or unprivileged container needs a tmpfs there).
+proxy_cache_path /var/cache/nginx/auth levels=1 keys_zone=auth_sessions:1m max_size=10m inactive=1h use_temp_path=off;
+map $cookie_plusdas_session $no_session {
+    ""      1;
+    default 0;
+}
+
 server {
     listen 80;
     root /usr/share/nginx/html;
@@ -27,9 +41,50 @@ server {
     set $powerflow_upstream ${POWERFLOW_UPSTREAM};
     set $intelli_gateway_upstream ${INTELLI_GATEWAY_UPSTREAM};
 
-    # Same-origin API: the browser calls /api/* here and nginx forwards it unchanged (with a
+    # The login check (see the top of this file). Internal: only auth_request reaches it.
+    location = /_auth {
+        internal;
+        proxy_pass $intelli_gateway_upstream/api/v1/me;
+        proxy_http_version 1.1;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Host $host;
+        proxy_cache auth_sessions;
+        proxy_cache_key $cookie_plusdas_session;
+        proxy_cache_valid 200 60s;
+        proxy_cache_bypass $no_session;
+        proxy_no_cache $no_session;
+        proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+        # /me re-issues the cookie when it slides the session; that answer is still cacheable.
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+    }
+
+    # Health and readiness checks stay open (no session needed): the deploy checks /api/readyz
+    # through this origin.
+    location = /api/healthz {
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location = /api/readyz {
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location = /powerflow-api/health {
+        rewrite ^/powerflow-api/(.*)$ /api/$1 break;
+        proxy_pass $powerflow_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Same-origin API, logged-in users only: the browser calls /api/* here and nginx forwards it
+    # unchanged (with a
     # variable and no URI part, proxy_pass sends the request URI as is). No CORS needed.
     location /api/ {
+        auth_request /_auth;
         proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -41,6 +96,7 @@ server {
     # The powerflow simulator's API, same origin too: /powerflow-api/x is forwarded as /api/x
     # (the rewrite does the prefix swap; query strings are kept). Used by the Simulation page.
     location /powerflow-api/ {
+        auth_request /_auth;
         rewrite ^/powerflow-api/(.*)$ /api/$1 break;
         proxy_pass $powerflow_upstream;
         proxy_http_version 1.1;
@@ -50,7 +106,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # intelli-gateway's API (the PV forecast in the Historian), same origin: /intelli-gateway-api/x
+    # intelli-gateway's API (login, the user's data, the PV forecast), same origin, checked by the
+    # gateway itself: /intelli-gateway-api/x
     # is forwarded as /api/x.
     location /intelli-gateway-api/ {
         rewrite ^/intelli-gateway-api/(.*)$ /api/$1 break;
@@ -65,6 +122,7 @@ server {
     # Live register stream: server-sent events read with fetch (src/api/sse.ts). Buffering
     # would hold events back until the buffer fills, so pass them straight through.
     location /api/modbus-live-stream-raw-registers/ {
+        auth_request /_auth;
         proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

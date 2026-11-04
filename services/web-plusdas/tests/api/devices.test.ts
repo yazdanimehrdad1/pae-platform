@@ -156,7 +156,7 @@ describe('devicesApi.getBySite', () => {
   it('rethrows any other error', async () => {
     stubFetch(500, { detail: 'database unavailable' });
 
-    await expect(devicesApi.getBySite('1001')).rejects.toEqual({ detail: 'database unavailable' });
+    await expect(devicesApi.getBySite('1001')).rejects.toEqual({ detail: 'database unavailable', status: 500 });
   });
 });
 

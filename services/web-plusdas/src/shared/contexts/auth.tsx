@@ -1,7 +1,14 @@
-import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { mockLogin } from '@/mocks/auth';
+import React, { useCallback, useEffect, useState, createContext, useContext, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { authApi } from '@/api/me';
+import { isUnauthorized, onUnauthorized } from '@/api/client';
+import type { MeResponse } from '@/api/types/me';
 
-export type UserRole = 'engineer' | 'admin' | 'monitor';
+// PlusDAS users live in intelli-gateway. The session is an HttpOnly cookie set by its login
+// route, so this context never sees a token: it asks /v1/me who is logged in, and any 401 from
+// any API (an expired or ended session) sends the user back to the login page.
+
+export type UserRole = MeResponse['role'];
 
 export interface User {
   id: string;
@@ -12,8 +19,9 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: UserRole) => Promise<boolean>;
-  logout: () => void;
+  /** Rejects with the API error (e.g. 401 "wrong email or password"). */
+  login: (email: string, password: string) => Promise<User>;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -27,38 +35,51 @@ export const useAuth = () => {
   return context;
 };
 
+function toUser(me: MeResponse): User {
+  return { id: String(me.id), email: me.email, name: me.display_name, role: me.role };
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // A session ended elsewhere (expired, logged out in another tab, user disabled): drop
+  // everything cached for that user so the next login starts clean.
+  const endSession = useCallback(() => {
+    setUser(null);
+    queryClient.clear();
+  }, [queryClient]);
+
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    let cancelled = false;
+    authApi.me()
+      .then(me => { if (!cancelled) setUser(toUser(me)); })
+      .catch(error => {
+        // Not logged in is the normal answer here; anything else (the gateway down) also shows
+        // the login page, which reports the error when the user tries.
+        if (!isUnauthorized(error)) console.warn('Could not check the session', error);
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
-    setIsLoading(true);
-    // TODO: replace with real auth (Keycloak / OAuth)
-    const user = await mockLogin(email, password, role);
+  useEffect(() => onUnauthorized(endSession), [endSession]);
 
-    if (user) {
-      setUser(user);
-      localStorage.setItem('user', JSON.stringify(user));
-      setIsLoading(false);
-      return true;
+  const login = useCallback(async (email: string, password: string) => {
+    queryClient.clear();
+    const loggedIn = toUser(await authApi.login({ email, password }));
+    setUser(loggedIn);
+    return loggedIn;
+  }, [queryClient]);
+
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } finally {
+      endSession();
     }
-
-    setIsLoading(false);
-    return false;
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-  };
+  }, [endSession]);
 
   return React.createElement(
     AuthContext.Provider,

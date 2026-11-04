@@ -18,12 +18,12 @@ import { latestAtOrBefore } from "./sampling/tooltip";
 import type { ChartRow, TimeWindow, Trend } from "./types";
 import type { TimeRange } from "@/api/types/historian";
 import { toast } from "@/shared/hooks/use-toast";
-import { useAuth } from "@/shared/contexts/auth";
-import { loadTrendsFromStorage, saveTrendsToStorage } from "./lib/trendStorage";
-import { loadDiscreteMode, saveDiscreteMode } from "./lib/discreteModeStorage";
+import { getErrorMessage } from "@/api/client";
+import { useSavedTrends } from "./hooks/useSavedTrends";
+import { PREFERENCE_KEYS, usePreference } from "@/shared/hooks/usePreference";
 import { describeDiscreteSeries } from "./lib/discreteSeries";
 import { usePointCatalog } from "./hooks/usePointCatalog";
-import { DEFAULT_DISCRETE_MODE, type DiscreteModeId } from "./components/discrete/discreteModes";
+import { DEFAULT_DISCRETE_MODE, isDiscreteModeId, type DiscreteModeId } from "./components/discrete/discreteModes";
 import { DiscreteModeToggle } from "./components/discrete/DiscreteModeToggle";
 import { AutoRefreshToggle } from "./components/AutoRefreshToggle";
 import { AxisGroupedLegend } from "./components/AxisGroupedLegend";
@@ -55,6 +55,10 @@ const PRESET_LABELS: [TimeRange | 'custom', string][] = [
   ['1W', 'Last Week'], ['1M', 'Last Month'], ['3M', 'Last 3 Months'],
   ['custom', 'Custom range'],
 ];
+
+// How many trends a user may save, and how many charts the layout shows at once.
+const MAX_TRENDS = 8;
+const LAYOUT_COUNTS = Array.from({ length: MAX_TRENDS }, (_, index) => index + 1);
 
 // Chart times are in the display zone: the site's, or the user's own (useDisplayTimeZone).
 function formatTimestamp(ts: number, spanMs: number, timeZone: string): string {
@@ -373,9 +377,9 @@ function TrendChart({ selectedPoints, timeWindow, timeZone, autoRefresh, forecas
 export default function Historian() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { isNotesCollapsed, setIsNotesCollapsed } = useNotesSidebar();
-  const [trends, setTrends] = useState<Trend[]>([]);
+  // The user's saved trends (intelli-gateway): edited here like local state, saved in the background.
+  const { trends, setTrends, createTrend, isLoaded: areTrendsLoaded } = useSavedTrends();
   const [currentTrendId, setCurrentTrendId] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   // Wide = 1.5x the default panel width (20rem → 30rem), for long device and point names.
@@ -440,7 +444,7 @@ export default function Historian() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   // How far past now the PV forecast runs on a preset window (the "Forecast ahead" select).
   const [forecastAhead, setForecastAhead] = useState<ForecastAheadHours>(0);
-  // A trend's axis choice is saved with the trend (localStorage, like its points).
+  // A trend's axis choice is saved with the trend (on the server, like its points).
   const scaleOf = (trendId: string | null): AxisScale => trends.find(trend => trend.id === trendId)?.scale ?? DEFAULT_AXIS_SCALE;
   const setTrendScale = (trendId: string | null, scale: AxisScale) =>
     setTrends(previous => previous.map(trend => (trend.id === trendId ? { ...trend, scale } : trend)));
@@ -481,7 +485,7 @@ export default function Historian() {
       setPointLabels({});
     }
     previousSiteIdRef.current = selectedSiteId;
-  }, [selectedSiteId]);
+  }, [selectedSiteId, setTrends]);
 
   const timeWindow: TimeWindow = timeRange === 'custom'
     ? { startTime: customStart, endTime: customEnd }
@@ -514,19 +518,19 @@ export default function Historian() {
     ? new Date(Math.max(...latestReadings)).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone })
     : 'No data';
 
+  // Once the saved trends are in: show the first ones.
+  const hasPlacedTrendsRef = useRef(false);
   useEffect(() => {
-    if (user?.id) {
-      const loadedTrends = loadTrendsFromStorage(user.id);
-      setTrends(loadedTrends);
-      if (loadedTrends.length > 0) {
-        setCurrentTrendId(loadedTrends[0].id);
-        setTopTrendId(prev => prev || loadedTrends[0].id);
-        setMiddleTrendId(prev => prev || (loadedTrends.length > 1 ? loadedTrends[1].id : null));
-        setBottomTrendId(prev => prev || (loadedTrends.length > 2 ? loadedTrends[2].id : null));
-        setFourthTrendId(prev => prev || (loadedTrends.length > 3 ? loadedTrends[3].id : null));
-      }
+    if (areTrendsLoaded && !hasPlacedTrendsRef.current && trends.length > 0) {
+      hasPlacedTrendsRef.current = true;
+      setCurrentTrendId(trends[0].id);
+      setTopTrendId(prev => prev || trends[0].id);
+      setMiddleTrendId(prev => prev || (trends.length > 1 ? trends[1].id : null));
+      setBottomTrendId(prev => prev || (trends.length > 2 ? trends[2].id : null));
+      setFourthTrendId(prev => prev || (trends.length > 3 ? trends[3].id : null));
     }
-  }, [user?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areTrendsLoaded, trends.length]);
 
   useEffect(() => {
     if (trends.length > 0) {
@@ -538,17 +542,11 @@ export default function Historian() {
     } else { setTopTrendId(null); setMiddleTrendId(null); setBottomTrendId(null); setFourthTrendId(null); }
   }, [layoutCount, trends]);
 
-  useEffect(() => { if (user?.id && trends.length > 0) saveTrendsToStorage(user.id, trends); }, [trends, user?.id]);
-
   const [pointLabels, setPointLabels] = useState<Record<string, string>>({});
-  const [discreteMode, setDiscreteMode] = useState<DiscreteModeId>(DEFAULT_DISCRETE_MODE);
-
-  useEffect(() => { if (user?.id) setDiscreteMode(loadDiscreteMode(user.id)); }, [user?.id]);
-
-  const handleDiscreteModeChange = (mode: DiscreteModeId) => {
-    setDiscreteMode(mode);
-    if (user?.id) saveDiscreteMode(user.id, mode);
-  };
+  // The way status points are drawn: one of the user's preferences.
+  const [discreteMode, handleDiscreteModeChange] = usePreference<DiscreteModeId>(
+    PREFERENCE_KEYS.discreteMode, DEFAULT_DISCRETE_MODE, isDiscreteModeId,
+  );
 
   const updateCurrentTrendPoints = (points: string[], labels: Record<string, string>) => {
     setPointLabels(prev => ({ ...prev, ...labels }));
@@ -574,18 +572,21 @@ export default function Historian() {
     }
   };
 
-  const handleCreateTrend = () => {
+  const handleCreateTrend = async () => {
     const trimmedName = newTrendName.trim();
     if (!trimmedName) { toast({ title: "Invalid Trend Name", description: "Trend name cannot be empty.", variant: "destructive" }); return; }
     if (trimmedName.length > 15) { toast({ title: "Trend Name Too Long", description: "Trend name cannot exceed 15 characters.", variant: "destructive" }); return; }
     if (trends.length >= 4) { toast({ title: "Maximum Trends Reached", description: "You can have a maximum of 4 trends.", variant: "destructive" }); return; }
 
-    const newTrend: Trend = { id: Date.now().toString(), name: trimmedName, points: [] };
-    setTrends(prev => [...prev, newTrend]);
-    setCurrentTrendId(newTrend.id);
-    setNewTrendName('');
-    setIsCreateDialogOpen(false);
-    toast({ title: "Trend Created", description: `Trend "${trimmedName}" has been created successfully.` });
+    try {
+      const newTrend = await createTrend(trimmedName);
+      setCurrentTrendId(newTrend.id);
+      setNewTrendName('');
+      setIsCreateDialogOpen(false);
+      toast({ title: "Trend Created", description: `Trend "${trimmedName}" has been created successfully.` });
+    } catch (error) {
+      toast({ title: "Trend Not Created", description: getErrorMessage(error), variant: "destructive" });
+    }
   };
 
   const handleEditTrend = (trendId: string) => {

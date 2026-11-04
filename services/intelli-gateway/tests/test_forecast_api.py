@@ -32,7 +32,7 @@ BASE = f"/api/v1/sites/{SITE.site_id}/forecast"
 
 
 def make_client(sources: list[PvForecastSource] | None = None) -> httpx.AsyncClient:
-    settings = make_settings(ANTHROPIC_API_KEY="test-key")
+    settings = make_settings(ANTHROPIC_API_KEY="test-key", AUTH_DEV_HEADERS="true")
     services = build_services(
         settings,
         llm=ScriptedLLMClient(),

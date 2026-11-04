@@ -66,7 +66,9 @@ class TestReadEndpoints:
         ]
 
     async def test_forecast_tool_not_registered_when_forecast_disabled(self) -> None:
-        settings = make_settings(ANTHROPIC_API_KEY="test-key", FORECAST_ENABLED="false")
+        settings = make_settings(
+            ANTHROPIC_API_KEY="test-key", FORECAST_ENABLED="false", AUTH_DEV_HEADERS="true"
+        )
         async with make_client(settings, ScriptedLLMClient()) as client:
             response_ = await client.get("/api/v1/tools")
         names = [ToolSpecResponse.model_validate(spec).name for spec in response_.json()]

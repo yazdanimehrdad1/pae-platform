@@ -11,7 +11,8 @@ backlog. Remove an item when it's done; the commit that closes it records the de
   in `tsconfig.json` / `tsconfig.app.json`) **and 13 lint warnings** (`react-refresh/only-export-components`,
   two `react-hooks/exhaustive-deps` in `HistorianPage.tsx`). Turn on `strict` and fix what it
   finds, then clear the warnings.
-- **Auth, Health, the SLD page and Notes still run on mock data** in web-plusdas.
+- **Health and the SLD page still run on mock or partial data** in web-plusdas (login and Notes
+  are real now, in intelli-gateway).
   `services/web-plusdas/docs/backend-gaps.md` lists what backend-ot needs to add for each. It's
   backend-ot work first (`add-endpoint` skill, `make contract`), then the UI (`make -C services/web-plusdas api-types`,
   `add-api-call` skill).
@@ -29,6 +30,11 @@ Assistant tabs say "coming soon". The backend work comes first, then the app:
   has `notify_mobile` on alarm rules but sends nothing; a push channel (e.g. Expo Push) and
   device registration are backend-ot work. A first version was built and removed on 2026-10-06.
 - **Reports** (needs a backend-ot report API) and **Assistant** (the AI agent).
+- **Login in the app.** Pointed at the cloud (the web origin, port 80), the app now gets 401 on
+  `/api`: nginx there needs a PlusDAS session (intelli-gateway, web-plusdas step 3, 2026-11-02).
+  Locally it reads backend-ot on :8000 directly and is unaffected. The app needs the same login
+  (`/intelli-gateway-api/v1/auth/login` sets an HttpOnly cookie; React Native keeps cookies per
+  host) before it can use the cloud again.
 - **Auth and a public gateway before real operators use the app.** backend-ot has no auth and
   is cluster-internal. The app must not point at an internet-reachable server until both exist.
 - **Release builds over HTTP.** `preview`/production builds block cleartext. Serve backend-ot over

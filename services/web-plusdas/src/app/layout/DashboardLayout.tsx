@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Loader2 } from "lucide-react";
 import { useNotesSidebar } from "@/shared/contexts/NotesSidebarContext";
 import { useBreakpoint } from "@/shared/hooks/use-mobile";
+import { useBrowserDataImport } from "../useBrowserDataImport";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -26,13 +27,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isNotesCollapsed, setIsNotesCollapsed } = useNotesSidebar();
   const breakpoint = useBreakpoint();
   const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState(false);
+  // The first login in a browser copies its old localStorage data to the account first.
+  const isBrowserDataImported = useBrowserDataImport(user?.id);
 
   // The drawer belongs to the smaller layouts; it never stays open across a resize or a page change.
   useEffect(() => {
     setIsNotesDrawerOpen(false);
   }, [breakpoint, location.pathname]);
 
-  if (isLoading) {
+  if (isLoading || (user && !isBrowserDataImported)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -44,7 +47,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   const showNotes = !isNotesPage;

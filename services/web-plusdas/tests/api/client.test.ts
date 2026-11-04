@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { client, getErrorMessage } from '@/api/client';
+import { client, getErrorMessage, isUnauthorized, onUnauthorized } from '@/api/client';
 
 function stubFetch(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue(
@@ -40,14 +40,14 @@ describe('client', () => {
 
     const error = await client.get('/sites/9').catch((caught: unknown) => caught);
 
-    expect(error).toEqual({ detail: 'Site 9 not found' });
+    expect(error).toEqual({ detail: 'Site 9 not found', status: 404 });
     expect(getErrorMessage(error)).toBe('Site 9 not found');
   });
 
   it('throws a code/message fallback when the error body is not JSON', async () => {
     stubFetch(502, '<html>Bad Gateway</html>');
 
-    await expect(client.get('/sites')).rejects.toEqual({ code: '502', message: 'Error' });
+    await expect(client.get('/sites')).rejects.toEqual({ code: '502', message: 'Error', status: 502 });
   });
 });
 
@@ -59,5 +59,33 @@ describe('getErrorMessage', () => {
 
   it('falls back when the error has no usable message', () => {
     expect(getErrorMessage({ something: 'else' }, 'Save failed')).toBe('Save failed');
+  });
+});
+
+describe('client and an ended session', () => {
+  it('tells the listeners about a 401 and marks the error, on any API', async () => {
+    stubFetch(401, { detail: 'not logged in' });
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    const error = await client.get('/sites').catch((caught: unknown) => caught);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(isUnauthorized(error)).toBe(true);
+    unsubscribe();
+    await client.get('/sites').catch(() => undefined);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call them for other errors', async () => {
+    stubFetch(403, { detail: 'requires the admin role' });
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    const error = await client.get('/sites').catch((caught: unknown) => caught);
+
+    expect(listener).not.toHaveBeenCalled();
+    expect(isUnauthorized(error)).toBe(false);
+    unsubscribe();
   });
 });

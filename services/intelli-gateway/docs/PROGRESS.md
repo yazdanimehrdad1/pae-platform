@@ -119,7 +119,59 @@ tools, and gives a hint about the likely issue and the checks to make.
 - Postgres pinned to `postgres:16.15-alpine` (dev and tests), the same image as prod.
 - `DevicePointResponse` gained `source_point_id`, catching up with backend-ot's contract.
 
+### 6. PlusDAS users, step 1: accounts, sessions, login (uncommitted, 2026-11-02)
+Plan: `~/.claude/plans/we-want-to-work-foamy-kay.md`. This service now owns PlusDAS users.
+- **Migration `003_users`:** `users` (lower-case unique email, scrypt hash, role
+  engineer | admin | monitor, disabled) and `user_sessions` (SHA-256 of the cookie token only,
+  sliding `expires_at`, `last_seen_at`).
+- **`auth/`:** `passwords.py` (stdlib `hashlib.scrypt`, per-user salt, no new dependency) and
+  `AuthService` (login, authenticate with a sliding 30-day expiry written at most once a
+  minute, logout; disabling a user or changing their password ends their sessions). The store is
+  `interfaces/user_store.py`: Postgres in `services/postgres/user_store.py`, in memory in
+  `fake_data/user_store.py` (no `DATABASE_URL`), both checked by `tests/user_store_contract.py`.
+- **API:** `POST /api/v1/auth/login` (sets an HttpOnly, SameSite=Lax, path `/`, Max-Age cookie;
+  `Secure` with `SESSION_COOKIE_SECURE`), `POST /api/v1/auth/logout`, `GET /api/v1/me`.
+  `get_request_context` takes the user from the cookie. `/me` never accepts the dev headers.
+  Contract change, additive.
+- **`AUTH_DEV_HEADERS` (default off since step 3):** when on, a request without a cookie uses the `X-*`
+  headers or the dev user. Only tests and host experiments turn it on; the cloud needs no setting.
+- **Accounts:** `python -m intelli_gateway.manage_users` (create, set-password, disable, enable)
+  in the container; root `make create-user EMAIL=... ROLE=...`.
+- **Step 2, per-user data (uncommitted, 2026-11-02):** migration `004_user_data`
+  (`user_preferences` key → JSONB, `user_saved_trends` with the user's order, `user_notes`;
+  all `ON DELETE CASCADE` from `users`). `UserDataService` (`user_data/service.py`) over
+  `interfaces/user_data_store.py` (Postgres + in memory, one shared contract in
+  `tests/user_data_store_contract.py`). Routes under `/api/v1/me`, session only (never the dev
+  headers): `preferences` (list, get/put/delete by key, any JSON ≤ 64 KiB, ≤ 100 keys),
+  `trends` (list, create, put, delete, `PUT trends/order`; ≤ 50; only the definition: name,
+  points, scale, styles), `notes` (list newest first, create (an imported note may keep its
+  dates, never future ones), put, delete; ≤ 200). Another user's id is a 404. Contract, additive.
+- **Step 3, web-plusdas switch-over (uncommitted, 2026-11-02):** a real login page (email +
+  password; the mock and its role picker are gone); trends, notes and preferences come from
+  `/api/v1/me`; the first login in a browser imports its old localStorage data once; nginx checks
+  the session before `/api` and `/powerflow-api` (`auth_request` to `/api/v1/me`, 60 s cache,
+  stale answers while this service is down). `AUTH_DEV_HEADERS` now defaults to off.
+- **Accounts in the cloud (uncommitted, 2026-11-02):** the first admin comes from the secret
+  `intelli-gateway-bootstrap-admin-password` (`BOOTSTRAP_ADMIN_PASSWORD`; dev `admin@plusdas.dev`, prod and local `admin@plusdas.local`, created at
+  startup only while there are no users); the dev cloud also keeps a `demo@plusdas.dev` engineer (`DEMO_USER_EMAIL`; locally `demo@plusdas.local`) from
+  `intelli-gateway-demo-user-password` (`DEMO_USER_PASSWORD`; never in prod). Admins manage
+  accounts at `/api/v1/users` (list, add, rename, role, disable, reset password; never their own
+  role or disabled state), and everyone changes their own password at `PUT /api/v1/me/password`.
+  web-plusdas: the Users page and an Account card in Settings.
+- **Sign in with an email address (uncommitted, 2026-11-03):** the account name is the email
+  (`email`, not `username`, in the API and the `users` table; checked as name@domain.tld, stored
+  lower-case; 003_users edited in place since it never left the laptop). Built-in accounts use the
+  reserved `.local` domain. The dev stack's compose.yaml sets `BOOTSTRAP_ADMIN_PASSWORD=admin-password`
+  and `DEMO_USER_PASSWORD=plusdas-demo`, so `make up` gives `admin@plusdas.local` (on an empty
+  database) and `demo@plusdas.local` with no extra step; `seed-demo`, `make seed-demo-user` and
+  `ALLOW_DEMO_USER` are gone.
+- **Next:** 4. persistent conversations, per-site grants. Before real cloud accounts: login rate
+  limiting and HTTPS (`SESSION_COOKIE_SECURE=true`).
+
 ## Decisions made with the user (don't change without asking)
+- **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
+  backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no
+  self-signup. Session = opaque token in an HttpOnly cookie, only its hash stored.
 - **Engineer knowledge lives in this service** (in memory now, its own Postgres next), not in
   backend-ot. Guides are scoped **per site device**: (site_id, device_id, point name).
 - **Every backend-ot call goes in `services/backend_ot/`.**
@@ -169,8 +221,8 @@ tools, and gives a hint about the likely issue and the checks to make.
 - **Conversations are lost on restart,** and concurrent requests to the same conversation are
   not serialized.
 - **Not built yet:**
-  - real authentication (OIDC/JWT), which only needs to replace
-    `api/dependencies.py::get_request_context`
+  - SSO / an external identity provider (OIDC); local accounts exist (step 6), and only
+    `api/dependencies.py::get_request_context` would change. No login rate limiting yet.
   - OpenTelemetry (`utils/telemetry.py` is a no-op hook)
   - tools that perform actions; any such tool needs explicit human approval
 

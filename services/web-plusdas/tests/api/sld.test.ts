@@ -40,7 +40,7 @@ describe('sldApi.getBySite', () => {
   it('throws any other error, e.g. an unknown site, whatever its message says', async () => {
     const detail = { error: 'NotFoundError', message: 'Site 9 has no single line diagram' };
     stubFetch(404, { detail });
-    await expect(sldApi.getBySite(9)).rejects.toEqual({ detail });
+    await expect(sldApi.getBySite(9)).rejects.toEqual({ detail, status: 404 });
   });
 });
 

@@ -29,10 +29,24 @@ Done stages (details in `PLAN.md`): 0 cleanup, 1 deployment readiness, 2 CI, 3 i
 | Back up now | `make backup env=dev` (all databases to `gs://pae-development-backups`; weekly runs are automatic) |
 | Load a simulated site | `make cloud-seed-site env=dev SITE=2bess_1pv` (dev only) |
 | Shell on the server | `make ssh env=dev` |
+| Log in (first time) | dev `admin@plusdas.dev`, prod `admin@plusdas.local` (`BOOTSTRAP_ADMIN_EMAIL` in `cloud/config/<env>.env`); its password is the secret `intelli-gateway-bootstrap-admin-password` (Console → Security → Secret Manager → View secret value). Add everyone else on the Users page |
+| Demo login (dev only) | `demo@plusdas.dev` (`DEMO_USER_EMAIL` in `cloud/config/dev.env`); password in the dev secret `intelli-gateway-demo-user-password` (rotate: add a new version, then redeploy) |
 | Logs in the Console | https://console.cloud.google.com/logs/query?project=pae-development, query `log_id("pae_containers")` |
 | Servers in the Console | https://console.cloud.google.com/compute/instances?project=pae-development (and `?project=pae-platform-prod`) |
 
 Plain `make logs` (no `env=`) still follows the local stack.
+
+## Before merging the PlusDAS login (once)
+
+The login change reads two new secrets at deploy time. A deploy may only read secrets (the VM's
+account has no right to create them), so `infra-up` creates them first; otherwise the next deploy of
+that environment stops at "secrets" (safely: the running release is not touched):
+
+1. `make infra-up env=dev`: creates `intelli-gateway-bootstrap-admin-password` and
+   `intelli-gateway-demo-user-password` (random, never shown) and lets the VM read them.
+2. `make infra-up env=prod`: creates `intelli-gateway-bootstrap-admin-password` only.
+3. Merge. After the deploy, log in as `admin@plusdas.dev` on dev, `admin@plusdas.local` on prod (password: that secret, in the Console) and add
+   people on the Users page. Delete this section once both environments have deployed.
 
 ## What is left
 
@@ -72,9 +86,11 @@ on the owner's website keeps working), for demos. Set by `PUBLIC_HTTP=true` for 
 VM only) and the static IP `pae-dev-public-ip` (about $3.65/month). SSH stays IAP-only; prod
 stays private.
 
-What that means while there is no login (Stage 4):
-- Anyone with the link can use everything, including changing dev's (simulated) data and asking
-  the AI assistant (it spends the Anthropic key's budget; a budget limit is set on the key).
-- Plain HTTP: browsers show "Not secure". A domain with HTTPS comes with Stage 4.
+What that means (login exists since 2026-11; HTTPS and login rate limiting are still Stage 4):
+- Everything needs a PlusDAS login (intelli-gateway). Anyone you give the dev `demo@plusdas.dev` password can
+  use everything as an engineer, including changing dev's (simulated) data and asking the AI
+  assistant (it spends the Anthropic key's budget; a budget limit is set on the key).
+- Plain HTTP: browsers show "Not secure", and passwords cross the network unencrypted. A domain
+  with HTTPS comes with Stage 4 (then set `SESSION_COOKIE_SECURE=true`).
 - To make dev private again: `PUBLIC_HTTP=false make infra-up env=dev` (removes the rule, the
   public IP and its reservation; the link stops working).

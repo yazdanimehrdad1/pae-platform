@@ -1,11 +1,21 @@
 # Same-origin API calls (no CORS)
 
 The browser only ever calls the APIs on **its own origin**: backend-ot under `/api`, the
-powerflow simulator (the Simulation page) under `/powerflow-api`, and intelli-gateway (the PV
-forecast in the Historian) under `/intelli-gateway-api`. Something on that origin forwards them
+powerflow simulator (the Simulation page) under `/powerflow-api`, and intelli-gateway (login, the
+user's data, the PV forecast) under `/intelli-gateway-api`. Something on that origin forwards them
 server-side (`/powerflow-api/x` becomes powerflow's `/api/x`, `/intelli-gateway-api/x`
 intelli-gateway's `/api/x`), so the browser never makes a cross-origin request and no backend
-needs CORS configuration (none has any).
+needs CORS configuration (none has any). Same origin is also what makes the login work: the
+session is a cookie the browser sends to all three by itself.
+
+## The login check (container only)
+PlusDAS users live in intelli-gateway. Its login sets an HttpOnly, SameSite=Lax cookie (path `/`).
+nginx checks it before forwarding `/api` and `/powerflow-api` (`auth_request` to the gateway's
+`/api/v1/me`): no valid session, 401. A valid answer is cached per session for 60 s (a revoked
+session can reach those APIs for up to a minute), never a 401; while the gateway is down, sessions
+it confirmed in the last hour still pass (stale cache), but nobody can log in. `/api/healthz` and
+`/powerflow-api/health` stay open. `/intelli-gateway-api` is checked by the gateway itself. The Vite
+dev server (`make run`) has no login check on `/api`.
 
 | Where | Serves the SPA | Forwards `/api/*` to backend-ot |
 |---|---|---|
