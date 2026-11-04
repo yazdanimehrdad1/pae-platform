@@ -23,7 +23,7 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration test-llm contract build rebuild up down down-all restart \
-	logs ps clean run
+	logs ps clean run create-user set-password disable-user enable-user
 
 # Standalone stack (the gateway + its Postgres). Host ports: INTELLI_GATEWAY_HTTP_PORT (8030),
 # INTELLI_GATEWAY_POSTGRES_PORT (5437).
@@ -56,6 +56,10 @@ help:
 	@echo "  build / rebuild  build the image (rebuild = no cache)"
 	@echo "  up / down / restart / logs / ps / clean"
 	@echo "  down-all         DESTRUCTIVE: down + delete volumes, images, network"
+	@echo ""
+	@echo "Users (in the running container; from the repo root for the dev stack):"
+	@echo "  create-user EMAIL=... [ROLE=engineer|admin|monitor] [DISPLAY_NAME=...]"
+	@echo "  set-password / disable-user / enable-user EMAIL=..."
 
 # ---------------------------------------------------------------------------
 # Develop
@@ -137,3 +141,21 @@ ps:
 # Removes this project's containers and the images it built (volumes are kept).
 clean:
 	$(COMPOSE) down --rmi local
+
+# ---------------------------------------------------------------------------
+# User accounts (there is no self-signup). Run in the running container, against its Postgres;
+# the root Makefile passes the dev stack's COMPOSE. The password is asked for interactively.
+# ---------------------------------------------------------------------------
+MANAGE_USERS := $(COMPOSE) exec $(APP) python -m intelli_gateway.manage_users
+
+create-user:
+	@test -n "$(EMAIL)" || { echo "usage: make create-user EMAIL=<email> [ROLE=engineer|admin|monitor] [DISPLAY_NAME=...]"; exit 2; }
+	$(MANAGE_USERS) create --email "$(EMAIL)" --role "$(or $(ROLE),engineer)" --display-name "$(DISPLAY_NAME)"
+
+set-password:
+	@test -n "$(EMAIL)" || { echo "usage: make set-password EMAIL=<email>"; exit 2; }
+	$(MANAGE_USERS) set-password --email "$(EMAIL)"
+
+disable-user enable-user:
+	@test -n "$(EMAIL)" || { echo "usage: make $@ EMAIL=<email>"; exit 2; }
+	$(MANAGE_USERS) $(subst -user,,$@) --email "$(EMAIL)"

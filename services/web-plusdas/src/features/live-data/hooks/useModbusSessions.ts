@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { modbusStreamApi } from "@/api";
 import type { SseEvent } from "@/api/sse";
-import { useAuth } from "@/shared/contexts/auth";
-import {
-  clearModbusSessionCache,
-  loadModbusSessionCache,
-  saveModbusSessionCache,
-  type CachedSessionMeta,
-} from "../lib/modbusSessionStorage";
+import { PREFERENCE_KEYS, usePreference } from "@/shared/hooks/usePreference";
+import { isModbusSessionCache, type ModbusSessionCache } from "../lib/modbusSessionCache";
 import type {
   ModbusAddressMode,
   ModbusConnectedEvent,
@@ -18,20 +13,21 @@ import type {
 } from "@/api/types/modbusStream";
 import type { ModbusSessionState, ModbusViewMode } from "../types";
 
+const NO_SESSIONS: ModbusSessionCache = {};
+
 export function useModbusSessions() {
-  const { user } = useAuth();
   const [sessions, setSessions] = useState<ModbusSessionState[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const cacheRef = useRef<Record<string, CachedSessionMeta>>({});
+  // The sessions' slots and settings, kept as one of the user's preferences. The ref is the
+  // working copy the callbacks read and update; every change is saved.
+  const [savedCache, saveCache, { isLoaded: isCacheLoaded }] = usePreference<ModbusSessionCache>(
+    PREFERENCE_KEYS.liveDataSessions, NO_SESSIONS, isModbusSessionCache,
+  );
+  const cacheRef = useRef<ModbusSessionCache>(savedCache);
+  useEffect(() => { cacheRef.current = savedCache; }, [savedCache]);
 
-  useEffect(() => {
-    if (user?.id) cacheRef.current = loadModbusSessionCache(user.id);
-  }, [user?.id]);
-
-  const persistCache = () => {
-    if (user?.id) saveModbusSessionCache(user.id, cacheRef.current);
-  };
+  const persistCache = () => saveCache(cacheRef.current);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -84,9 +80,10 @@ export function useModbusSessions() {
     }
   }, []);
 
+  // Once the saved slots are known, so running sessions keep their slots and view modes.
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (isCacheLoaded) refresh();
+  }, [refresh, isCacheLoaded]);
 
   useEffect(() => {
     const controllers = abortControllersRef.current;
@@ -226,7 +223,7 @@ export function useModbusSessions() {
     await modbusStreamApi.deleteAll().catch(() => {});
     setSessions([]);
     cacheRef.current = {};
-    if (user?.id) clearModbusSessionCache(user.id);
+    persistCache();
   };
 
   return { sessions, refresh, isLoading, relaunchSlot, resumeSession, stopSession, deleteSession, deleteAllSessions };

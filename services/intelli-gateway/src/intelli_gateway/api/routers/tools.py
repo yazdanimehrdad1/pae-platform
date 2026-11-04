@@ -3,10 +3,11 @@
 from fastapi import APIRouter, Depends
 
 from intelli_gateway.agent.service import GatewayService
-from intelli_gateway.api.dependencies import get_service
+from intelli_gateway.api.dependencies import get_request_context, get_service
 from intelli_gateway.schemas.api_models.responses import ToolSpecResponse
 
-router = APIRouter(prefix="/v1", tags=["v1"])
+# Login required like every other /v1 route.
+router = APIRouter(prefix="/v1", tags=["v1"], dependencies=[Depends(get_request_context)])
 
 
 @router.get(

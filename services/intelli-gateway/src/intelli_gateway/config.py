@@ -6,8 +6,10 @@ This is the only place configuration is read. The Claude model name lives here a
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from intelli_gateway.schemas.users import BOOTSTRAP_ADMIN_EMAIL, DEMO_EMAIL
 
 # services/intelli-gateway/.env, anchored to this file so it loads the same way from any CWD.
 # Never a parent directory's .env.
@@ -67,6 +69,27 @@ class Settings(BaseSettings):
     # Unset: forecasts are kept in memory (lost on restart). In the dev stack compose sets it.
     database_url: SecretStr | None = Field(default=None, alias="DATABASE_URL")
 
+    # --- Users and login (auth/) ---
+    # Dev only: a request without a session cookie is taken from the X-User-Id / X-Roles /
+    # X-Site-Ids headers (or the dev user). Off = every /api/v1 route except login needs a session.
+    # Off by default (and in the cloud): web-plusdas logs in. Tests and host experiments turn it on.
+    auth_dev_headers: bool = Field(default=False, alias="AUTH_DEV_HEADERS")
+    # Sliding: each use (written at most once a minute) pushes the expiry this far ahead.
+    session_ttl_days: float = Field(default=30, gt=0, alias="SESSION_TTL_DAYS")
+    # true once the site is served over HTTPS: the browser then sends the cookie only over HTTPS.
+    session_cookie_secure: bool = Field(default=False, alias="SESSION_COOKIE_SECURE")
+    # A fresh environment's first admin: created at startup while there are no users at all (the
+    # cloud deploy writes the password from Secret Manager). That admin adds the others in the UI.
+    bootstrap_admin_email: str = Field(default=BOOTSTRAP_ADMIN_EMAIL, alias="BOOTSTRAP_ADMIN_EMAIL")
+    bootstrap_admin_password: SecretStr | None = Field(
+        default=None, alias="BOOTSTRAP_ADMIN_PASSWORD"
+    )
+    # The demo login (the local stack and the dev cloud; never prod): when set, startup keeps a
+    # demo_user_email engineer account with this password. Nobody can change its password from
+    # inside it (many people share it).
+    demo_user_password: SecretStr | None = Field(default=None, alias="DEMO_USER_PASSWORD")
+    demo_user_email: str = Field(default=DEMO_EMAIL, alias="DEMO_USER_EMAIL")
+
     # --- PV forecast (solar_forecast/; sources in services/<name>/) ---
     forecast_enabled: bool = Field(default=True, alias="FORECAST_ENABLED")
     # A registered source name (solar_forecast/registry.py): open_meteo, noaa_hrrr, fake.
@@ -98,6 +121,14 @@ class Settings(BaseSettings):
     open_meteo_max_calls_per_minute: int = Field(
         default=500, ge=1, alias="OPEN_METEO_MAX_CALLS_PER_MINUTE"
     )
+
+    @field_validator("bootstrap_admin_email", "demo_user_email", mode="before")
+    @classmethod
+    def _default_when_empty(cls, value: object, info: ValidationInfo) -> object:
+        # The cloud compose passes these from config/<env>.env; one left out arrives empty.
+        if isinstance(value, str) and not value.strip():
+            return cls.model_fields[info.field_name or ""].default
+        return value
 
     @field_validator("forecast_fallback_sources", mode="before")
     @classmethod

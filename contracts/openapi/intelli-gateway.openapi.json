@@ -259,6 +259,228 @@
         "type": "object"
       },
       "JsonValue": {},
+      "LoginRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "Case-insensitive.",
+            "maxLength": 254,
+            "minLength": 1,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "MeResponse": {
+        "description": "The logged-in user.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "engineer",
+              "admin",
+              "monitor"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role"
+        ],
+        "title": "MeResponse",
+        "type": "object"
+      },
+      "Note": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Note",
+        "type": "object"
+      },
+      "NoteCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only to keep the dates of a note imported from the browser.",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "As created_at.",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "NoteCreateRequest",
+        "type": "object"
+      },
+      "NoteUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "NoteUpdateRequest",
+        "type": "object"
+      },
+      "PasswordChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "current_password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "minLength": 10,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordChangeRequest",
+        "type": "object"
+      },
+      "PasswordResetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "maxLength": 1024,
+            "minLength": 10,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "PasswordResetRequest",
+        "type": "object"
+      },
+      "Preference": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "updated_at"
+        ],
+        "title": "Preference",
+        "type": "object"
+      },
+      "PreferenceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Any JSON value, at most 64 KiB serialized."
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "PreferenceRequest",
+        "type": "object"
+      },
       "PvForecastResponse": {
         "properties": {
           "fallback_used": {
@@ -371,6 +593,135 @@
           "sites"
         ],
         "title": "RefreshResponse",
+        "type": "object"
+      },
+      "SavedTrend": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "description": "Historian selection ids, as web-plusdas builds them.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Points",
+            "type": "array"
+          },
+          "position": {
+            "description": "The user's order, 0 first.",
+            "title": "Position",
+            "type": "integer"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "enum": [
+                  "per-unit",
+                  "per-point",
+                  "shared"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: the default (per unit).",
+            "title": "Scale"
+          },
+          "styles": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/SeriesStyle"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "By selection id; null or a missing entry: the defaults.",
+            "title": "Styles"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "position",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavedTrend",
+        "type": "object"
+      },
+      "SeriesStyle": {
+        "additionalProperties": false,
+        "description": "What the user changed in how one selection is drawn; a missing field uses the default.",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "dash": {
+            "anyOf": [
+              {
+                "enum": [
+                  "solid",
+                  "dashed",
+                  "dotted"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dash"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "maximum": 3.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "title": "SeriesStyle",
         "type": "object"
       },
       "SiteForecastHealthResponse": {
@@ -608,6 +959,81 @@
         "title": "ToolSpecResponse",
         "type": "object"
       },
+      "TrendDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "description": "Historian selection ids, as web-plusdas builds them.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Points",
+            "type": "array"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "enum": [
+                  "per-unit",
+                  "per-point",
+                  "shared"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: the default (per unit).",
+            "title": "Scale"
+          },
+          "styles": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/SeriesStyle"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "By selection id; null or a missing entry: the defaults.",
+            "title": "Styles"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "TrendDefinition",
+        "type": "object"
+      },
+      "TrendOrderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "trend_ids": {
+            "description": "Every one of your trend ids, in the new order.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Trend Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "trend_ids"
+        ],
+        "title": "TrendOrderRequest",
+        "type": "object"
+      },
       "UsageResponse": {
         "properties": {
           "cache_creation_input_tokens": {
@@ -634,6 +1060,154 @@
           "cache_creation_input_tokens"
         ],
         "title": "UsageResponse",
+        "type": "object"
+      },
+      "UserCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "description": "The sign-in name; stored lower-case (name@domain.tld)",
+            "maxLength": 254,
+            "minLength": 1,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "minLength": 10,
+            "title": "Password",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "engineer",
+              "admin",
+              "monitor"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name",
+          "role",
+          "password"
+        ],
+        "title": "UserCreateRequest",
+        "type": "object"
+      },
+      "UserResponse": {
+        "description": "An account, as an admin sees it (never its password).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "role": {
+            "enum": [
+              "engineer",
+              "admin",
+              "monitor"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "disabled",
+          "created_at",
+          "last_login_at"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "UserUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Only the fields given change.",
+        "properties": {
+          "disabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "true also ends the user's sessions.",
+            "title": "Disabled"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "engineer",
+                  "admin",
+                  "monitor"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "UserUpdateRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -739,12 +1313,77 @@
         ]
       }
     },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Wrong email or password"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Log in: sets the session cookie",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Log out: ends the session and clears the cookie",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/forecast/health": {
       "get": {
         "operationId": "forecast_health_api_v1_forecast_health_get",
         "parameters": [
           {
-            "description": "Dev auth: user id.",
+            "description": "Dev auth only: user id.",
             "in": "header",
             "name": "x-user-id",
             "required": false,
@@ -757,12 +1396,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: user id.",
+              "description": "Dev auth only: user id.",
               "title": "X-User-Id"
             }
           },
           {
-            "description": "Dev auth: comma-separated roles.",
+            "description": "Dev auth only: comma-separated roles.",
             "in": "header",
             "name": "x-roles",
             "required": false,
@@ -775,12 +1414,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated roles.",
+              "description": "Dev auth only: comma-separated roles.",
               "title": "X-Roles"
             }
           },
           {
-            "description": "Dev auth: comma-separated site ids the user may access.",
+            "description": "Dev auth only: comma-separated site ids the user may access.",
             "in": "header",
             "name": "x-site-ids",
             "required": false,
@@ -793,7 +1432,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated site ids the user may access.",
+              "description": "Dev auth only: comma-separated site ids the user may access.",
               "title": "X-Site-Ids"
             }
           }
@@ -849,7 +1488,7 @@
             }
           },
           {
-            "description": "Dev auth: user id.",
+            "description": "Dev auth only: user id.",
             "in": "header",
             "name": "x-user-id",
             "required": false,
@@ -862,12 +1501,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: user id.",
+              "description": "Dev auth only: user id.",
               "title": "X-User-Id"
             }
           },
           {
-            "description": "Dev auth: comma-separated roles.",
+            "description": "Dev auth only: comma-separated roles.",
             "in": "header",
             "name": "x-roles",
             "required": false,
@@ -880,12 +1519,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated roles.",
+              "description": "Dev auth only: comma-separated roles.",
               "title": "X-Roles"
             }
           },
           {
-            "description": "Dev auth: comma-separated site ids the user may access.",
+            "description": "Dev auth only: comma-separated site ids the user may access.",
             "in": "header",
             "name": "x-site-ids",
             "required": false,
@@ -898,7 +1537,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated site ids the user may access.",
+              "description": "Dev auth only: comma-separated site ids the user may access.",
               "title": "X-Site-Ids"
             }
           }
@@ -961,12 +1600,783 @@
         ]
       }
     },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          }
+        },
+        "summary": "The logged-in user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/me/notes": {
+      "get": {
+        "operationId": "list_notes_api_v1_me_notes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Note"
+                  },
+                  "title": "Response List Notes Api V1 Me Notes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          }
+        },
+        "summary": "Your notes, most recently updated first",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "operationId": "create_note_api_v1_me_notes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid, or over a per-user limit"
+          }
+        },
+        "summary": "Add a note",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/notes/{note_id}": {
+      "delete": {
+        "operationId": "delete_note_api_v1_me_notes__note_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "title": "Note Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not one of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a note",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "update_note_api_v1_me_notes__note_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "title": "Note Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not one of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit a note",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/password": {
+      "put": {
+        "operationId": "change_password_api_v1_me_password_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The current password is wrong"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change your own password (your other sessions end; this one stays)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/me/preferences": {
+      "get": {
+        "operationId": "list_preferences_api_v1_me_preferences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Preference"
+                  },
+                  "title": "Response List Preferences Api V1 Me Preferences Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          }
+        },
+        "summary": "All your preferences",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/preferences/{key}": {
+      "delete": {
+        "operationId": "delete_preference_api_v1_me_preferences__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not one of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove a preference",
+        "tags": [
+          "me"
+        ]
+      },
+      "get": {
+        "operationId": "get_preference_api_v1_me_preferences__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not one of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One preference",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "put_preference_api_v1_me_preferences__key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid, or over a per-user limit"
+          }
+        },
+        "summary": "Set a preference (any JSON value)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/trends": {
+      "get": {
+        "operationId": "list_trends_api_v1_me_trends_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SavedTrend"
+                  },
+                  "title": "Response List Trends Api V1 Me Trends Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          }
+        },
+        "summary": "Your saved trends, in your order",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "operationId": "create_trend_api_v1_me_trends_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrendDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedTrend"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid, or over a per-user limit"
+          }
+        },
+        "summary": "Save a trend (added last)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/trends/order": {
+      "put": {
+        "operationId": "reorder_trends_api_v1_me_trends_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrendOrderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SavedTrend"
+                  },
+                  "title": "Response Reorder Trends Api V1 Me Trends Order Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid, or over a per-user limit"
+          }
+        },
+        "summary": "Reorder your trends",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/trends/{trend_id}": {
+      "delete": {
+        "operationId": "delete_trend_api_v1_me_trends__trend_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trend_id",
+            "required": true,
+            "schema": {
+              "title": "Trend Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not one of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a trend",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "update_trend_api_v1_me_trends__trend_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trend_id",
+            "required": true,
+            "schema": {
+              "title": "Trend Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrendDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedTrend"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not one of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace a trend's name, points, scale and styles",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/v1/sites": {
       "get": {
         "operationId": "list_sites_api_v1_sites_get",
         "parameters": [
           {
-            "description": "Dev auth: user id.",
+            "description": "Dev auth only: user id.",
             "in": "header",
             "name": "x-user-id",
             "required": false,
@@ -979,12 +2389,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: user id.",
+              "description": "Dev auth only: user id.",
               "title": "X-User-Id"
             }
           },
           {
-            "description": "Dev auth: comma-separated roles.",
+            "description": "Dev auth only: comma-separated roles.",
             "in": "header",
             "name": "x-roles",
             "required": false,
@@ -997,12 +2407,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated roles.",
+              "description": "Dev auth only: comma-separated roles.",
               "title": "X-Roles"
             }
           },
           {
-            "description": "Dev auth: comma-separated site ids the user may access.",
+            "description": "Dev auth only: comma-separated site ids the user may access.",
             "in": "header",
             "name": "x-site-ids",
             "required": false,
@@ -1015,7 +2425,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated site ids the user may access.",
+              "description": "Dev auth only: comma-separated site ids the user may access.",
               "title": "X-Site-Ids"
             }
           }
@@ -1066,7 +2476,7 @@
             }
           },
           {
-            "description": "Dev auth: user id.",
+            "description": "Dev auth only: user id.",
             "in": "header",
             "name": "x-user-id",
             "required": false,
@@ -1079,12 +2489,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: user id.",
+              "description": "Dev auth only: user id.",
               "title": "X-User-Id"
             }
           },
           {
-            "description": "Dev auth: comma-separated roles.",
+            "description": "Dev auth only: comma-separated roles.",
             "in": "header",
             "name": "x-roles",
             "required": false,
@@ -1097,12 +2507,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated roles.",
+              "description": "Dev auth only: comma-separated roles.",
               "title": "X-Roles"
             }
           },
           {
-            "description": "Dev auth: comma-separated site ids the user may access.",
+            "description": "Dev auth only: comma-separated site ids the user may access.",
             "in": "header",
             "name": "x-site-ids",
             "required": false,
@@ -1115,7 +2525,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated site ids the user may access.",
+              "description": "Dev auth only: comma-separated site ids the user may access.",
               "title": "X-Site-Ids"
             }
           }
@@ -1227,7 +2637,7 @@
             }
           },
           {
-            "description": "Dev auth: user id.",
+            "description": "Dev auth only: user id.",
             "in": "header",
             "name": "x-user-id",
             "required": false,
@@ -1240,12 +2650,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: user id.",
+              "description": "Dev auth only: user id.",
               "title": "X-User-Id"
             }
           },
           {
-            "description": "Dev auth: comma-separated roles.",
+            "description": "Dev auth only: comma-separated roles.",
             "in": "header",
             "name": "x-roles",
             "required": false,
@@ -1258,12 +2668,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated roles.",
+              "description": "Dev auth only: comma-separated roles.",
               "title": "X-Roles"
             }
           },
           {
-            "description": "Dev auth: comma-separated site ids the user may access.",
+            "description": "Dev auth only: comma-separated site ids the user may access.",
             "in": "header",
             "name": "x-site-ids",
             "required": false,
@@ -1276,7 +2686,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Dev auth: comma-separated site ids the user may access.",
+              "description": "Dev auth only: comma-separated site ids the user may access.",
               "title": "X-Site-Ids"
             }
           }
@@ -1332,6 +2742,62 @@
     "/api/v1/tools": {
       "get": {
         "operationId": "list_tools_api_v1_tools_get",
+        "parameters": [
+          {
+            "description": "Dev auth only: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -1346,11 +2812,292 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Tool specs Claude can call (mirrors MCP list_tools; for debugging)",
         "tags": [
           "v1"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "list_users_api_v1_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserResponse"
+                  },
+                  "title": "Response List Users Api V1 Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          }
+        },
+        "summary": "Every account, by email",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "create_user_api_v1_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The email is taken"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add an account",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "patch": {
+        "operationId": "update_user_api_v1_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such user"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "e.g. demoting or disabling yourself"
+          }
+        },
+        "summary": "Change an account's name, role, or disabled state",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/password": {
+      "put": {
+        "operationId": "reset_password_api_v1_users__user_id__password_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such user"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set an account's password (ends its sessions)",
+        "tags": [
+          "users"
         ]
       }
     }

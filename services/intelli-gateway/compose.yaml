@@ -39,6 +39,10 @@ services:
       - USE_FAKE_DATA=${INTELLI_GATEWAY_USE_FAKE_DATA:-false}
       - BACKEND_OT_URL=http://backend-ot:8000
       - DATABASE_URL=postgresql+asyncpg://intelli_gateway:${INTELLI_GATEWAY_POSTGRES_PASSWORD:-intelli_gateway}@intelli-gateway-postgres:5432/intelli_gateway
+      # Local only (the cloud stack never uses this file; there they come from Secret Manager):
+      # startup creates admin@plusdas.local on an empty database and keeps demo@plusdas.local.
+      - BOOTSTRAP_ADMIN_PASSWORD=admin-password
+      - DEMO_USER_PASSWORD=plusdas-demo
     depends_on:
       intelli-gateway-postgres:
         condition: service_healthy

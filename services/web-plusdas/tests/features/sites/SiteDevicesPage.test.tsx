@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { devicesApi, sitesApi } from '@/api';
+import { devicesApi, meApi, sitesApi } from '@/api';
 import type { Device } from '@/api/types/devices';
 import type { Site } from '@/api/types/sites';
 import SiteDevices from '@/features/sites/SiteDevicesPage';
@@ -47,6 +47,8 @@ const heading = () => screen.findByRole('heading', { level: 1 });
 
 beforeEach(() => {
   localStorage.clear();
+  vi.spyOn(meApi, 'listPreferences').mockResolvedValue([]);
+  vi.spyOn(meApi, 'putPreference').mockImplementation(async (key, value) => ({ key, value, updated_at: '2026-11-01T00:00:00Z' }) as never);
   vi.spyOn(sitesApi, 'getAll').mockResolvedValue(SITES);
   vi.spyOn(devicesApi, 'getBySite').mockResolvedValue([DEVICE]);
 });
@@ -81,10 +83,16 @@ describe('SiteDevices site', () => {
     expect((await heading()).textContent).toBe('Beta Storage Devices');
   });
 
-  it('reopens the last site viewed', async () => {
-    localStorage.setItem('site_devices_last_site', '1002');
+  it('reopens the last site viewed (a preference of the user)', async () => {
+    vi.spyOn(meApi, 'listPreferences').mockResolvedValue([{ key: 'site-devices.last-site', value: '1002', updated_at: '2026-11-01T00:00:00Z' }]);
     renderPage('/site-devices');
     expect((await heading()).textContent).toBe('Beta Storage Devices');
+  });
+
+  it('remembers the site shown for next time', async () => {
+    renderPage('/site-devices?siteId=1002');
+    await heading();
+    await waitFor(() => expect(meApi.putPreference).toHaveBeenCalledWith('site-devices.last-site', '1002'));
   });
 
   it('goes to Sites when there are none', async () => {

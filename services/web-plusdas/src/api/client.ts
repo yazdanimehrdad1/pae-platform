@@ -8,6 +8,18 @@ export const BASE_URL = getRuntimeConfig().apiBaseUrl;
 export const POWERFLOW_BASE_URL = getRuntimeConfig().powerflowBaseUrl;
 export const INTELLI_GATEWAY_BASE_URL = getRuntimeConfig().intelliGatewayBaseUrl;
 
+const unauthorizedListeners = new Set<() => void>();
+
+/** Called whenever a request answers 401. Returns the unsubscribe function. */
+export function onUnauthorized(listener: () => void): () => void {
+  unauthorizedListeners.add(listener);
+  return () => { unauthorizedListeners.delete(listener); };
+}
+
+export function isUnauthorized(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as ApiError).status === 401;
+}
+
 async function send(baseUrl: string, path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(`${baseUrl}${path}`, {
     cache: 'no-store',
@@ -16,11 +28,14 @@ async function send(baseUrl: string, path: string, init?: RequestInit): Promise<
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
+    const body: ApiError = await response.json().catch(() => ({
       code: String(response.status),
       message: response.statusText,
     }));
-    throw error;
+    // No valid session (it expired, or the user was logged out or disabled): every API answers
+    // 401, through nginx's login check or intelli-gateway itself. The auth context listens.
+    if (response.status === 401) unauthorizedListeners.forEach(listener => listener());
+    throw { ...body, status: response.status };
   }
   return response;
 }
@@ -44,6 +59,11 @@ export function createClient(baseUrl: string) {
       json<T>(path, { method: 'POST', body: JSON.stringify(body) }),
     put: <T>(path: string, body: unknown) =>
       json<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+    // A PUT answered with no body (204).
+    putNoContent: (path: string, body: unknown) =>
+      nothing(path, { method: 'PUT', body: JSON.stringify(body) }),
+    patch: <T>(path: string, body: unknown) =>
+      json<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
     delete: (path: string) => nothing(path, { method: 'DELETE' }),
     action: (path: string, method: 'GET' | 'POST' = 'GET') => nothing(path, { method }),
   };

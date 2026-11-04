@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 
 from intelli_gateway.schemas.tools import JSONValue
 
@@ -63,3 +63,24 @@ class ReadinessResponse(BaseModel):
             "Its own Postgres: not_configured when DATABASE_URL is unset (forecasts in memory)."
         )
     )
+
+
+class MeResponse(BaseModel):
+    """The logged-in user."""
+
+    id: int
+    email: str
+    display_name: str
+    role: Literal["engineer", "admin", "monitor"]
+
+
+class UserResponse(BaseModel):
+    """An account, as an admin sees it (never its password)."""
+
+    id: int
+    email: str
+    display_name: str
+    role: Literal["engineer", "admin", "monitor"]
+    disabled: bool
+    created_at: AwareDatetime
+    last_login_at: AwareDatetime | None

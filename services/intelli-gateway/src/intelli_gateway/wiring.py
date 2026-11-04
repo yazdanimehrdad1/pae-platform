@@ -3,23 +3,28 @@ and the PV forecast (its site configs, sources, storage and refresh job)."""
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from intelli_gateway.agent.conversations import InMemoryConversationStore
 from intelli_gateway.agent.loop import AgentLoop
 from intelli_gateway.agent.service import GatewayService
+from intelli_gateway.auth.service import AuthService, SessionSettings
 from intelli_gateway.config import Settings
 from intelli_gateway.fake_data.forecast import FakeSiteConfigSource, InMemoryForecastRepository
 from intelli_gateway.fake_data.knowledge_store import InMemoryKnowledgeStore
 from intelli_gateway.fake_data.site_data import FakeSiteDataConnector
+from intelli_gateway.fake_data.user_data_store import InMemoryUserDataStore
+from intelli_gateway.fake_data.user_store import InMemoryUserStore
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.llm_client import LLMClient
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.interfaces.site_config_source import SiteConfigSource
 from intelli_gateway.interfaces.site_data import SiteDataConnector
+from intelli_gateway.interfaces.user_data_store import UserDataStore
+from intelli_gateway.interfaces.user_store import UserStore
 from intelli_gateway.knowledge.loader import KnowledgeLoader
 from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_config import BackendOtSiteConfigSource
@@ -27,6 +32,8 @@ from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConne
 from intelli_gateway.services.claude.client import AnthropicLLMClient
 from intelli_gateway.services.postgres.database import create_database_engine
 from intelli_gateway.services.postgres.forecast_repository import PostgresForecastRepository
+from intelli_gateway.services.postgres.user_data_store import PostgresUserDataStore
+from intelli_gateway.services.postgres.user_store import PostgresUserStore
 from intelli_gateway.solar_forecast.registry import build_sources
 from intelli_gateway.solar_forecast.scheduler import ForecastRefreshJob
 from intelli_gateway.solar_forecast.service import ForecastService, ForecastSettings
@@ -35,6 +42,7 @@ from intelli_gateway.tools.catalog import build_local_tools
 from intelli_gateway.tools.common import SiteToolLimits
 from intelli_gateway.tools.forecast_tools import build_forecast_tools
 from intelli_gateway.tools.local_provider import LocalToolProvider
+from intelli_gateway.user_data.service import UserDataService
 
 
 @dataclass
@@ -44,7 +52,9 @@ class Services:
     llm: LLMClient
     forecast: ForecastService
     forecast_job: ForecastRefreshJob
-    # This service's Postgres; None keeps forecasts in memory. Migrated at startup.
+    auth: AuthService
+    user_data: UserDataService
+    # This service's Postgres; None keeps forecasts and users in memory. Migrated at startup.
     database: AsyncEngine | None = None
     backend_ot_client: BackendOtClient | None = None
 
@@ -52,7 +62,9 @@ class Services:
         await self.forecast_job.stop()
         await self.llm.aclose()
         await self.site_data.aclose()
-        await self.forecast.aclose()  # also disposes the database engine
+        await self.forecast.aclose()
+        if self.database is not None:
+            await self.database.dispose()  # safe after the forecast repository disposed it
         if self.backend_ot_client is not None:
             await self.backend_ot_client.aclose()
 
@@ -96,6 +108,8 @@ def build_services(
     site_configs: SiteConfigSource | None = None,
     forecast_sources: Sequence[PvForecastSource] | None = None,
     forecast_repository: ForecastRepository | None = None,
+    user_store: UserStore | None = None,
+    user_data_store: UserDataStore | None = None,
 ) -> Services:
     # One backend-ot client for every backend-ot reader (only with real data).
     backend_ot = None if settings.use_fake_data else _backend_ot_client(settings)
@@ -104,12 +118,24 @@ def build_services(
     llm = llm or AnthropicLLMClient(settings)
 
     database: AsyncEngine | None = None
+    needs_database = forecast_repository is None or user_store is None or user_data_store is None
+    if needs_database and settings.database_url is not None:
+        database = create_database_engine(settings.database_url.get_secret_value())
     if forecast_repository is None:
-        if settings.database_url is not None:
-            database = create_database_engine(settings.database_url.get_secret_value())
-            forecast_repository = PostgresForecastRepository(database)
-        else:
-            forecast_repository = InMemoryForecastRepository()
+        forecast_repository = (
+            PostgresForecastRepository(database) if database else InMemoryForecastRepository()
+        )
+    if user_store is None:
+        user_store = PostgresUserStore(database) if database else InMemoryUserStore()
+    if user_data_store is None:
+        user_data_store = PostgresUserDataStore(database) if database else InMemoryUserDataStore()
+    user_data = UserDataService(user_data_store, clock)
+    auth = AuthService(
+        user_store,
+        clock,
+        SessionSettings(ttl=timedelta(days=settings.session_ttl_days)),
+        demo_email=settings.demo_user_email,
+    )
     if site_configs is None:
         site_configs = (
             FakeSiteConfigSource() if backend_ot is None else BackendOtSiteConfigSource(backend_ot)
@@ -165,6 +191,8 @@ def build_services(
         llm=llm,
         forecast=forecast,
         forecast_job=forecast_job,
+        auth=auth,
+        user_data=user_data,
         database=database,
         backend_ot_client=backend_ot,
     )

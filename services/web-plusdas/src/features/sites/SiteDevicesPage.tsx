@@ -11,29 +11,14 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import type { Device } from "@/api/types/devices";
 import { devicesApi, sitesApi } from "@/api";
 import type { Site } from "@/api/types/sites";
+import { PREFERENCE_KEYS, usePreference } from "@/shared/hooks/usePreference";
 import { deviceTypeConfig } from "@/shared/config/device-types";
 import {
   Search, Activity, Filter, ArrowLeft, BarChart3,
   AlertTriangle, CheckCircle, Clock, Settings, XCircle, Info, ChevronDown
 } from "lucide-react";
 
-const LAST_SITE_STORAGE_KEY = "site_devices_last_site";
-
-function readLastSiteId(): string | null {
-  try {
-    return localStorage.getItem(LAST_SITE_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function rememberSiteId(siteId: string) {
-  try {
-    localStorage.setItem(LAST_SITE_STORAGE_KEY, siteId);
-  } catch {
-    // Storage blocked: the page opens on the first site next time.
-  }
-}
+const isSiteId = (value: unknown): value is string | null => value === null || typeof value === "string";
 
 function DeviceListItem({ device, onDataMetadata }: { device: Device; onDataMetadata: (device: Device) => void }) {
   const deviceConfig = deviceTypeConfig[device.type];
@@ -121,11 +106,16 @@ export default function SiteDevices() {
   });
 
   // The site shown: ?siteId, else the one the link passed (Sites > Devices), else the last one
-  // viewed here, else the first. Opened from the navigation there is no link state.
+  // viewed here (a user preference, so it waits for those to load), else the first. Opened
+  // from the navigation there is no link state.
+  const [lastSiteId, setLastSiteId, { isLoaded: isLastSiteLoaded }] = usePreference<string | null>(
+    PREFERENCE_KEYS.lastSite, null, isSiteId,
+  );
   const siteIdParam = searchParams.get('siteId');
   const stateSite: Site | undefined = location.state?.selectedSite;
-  const selectedSite: Site | undefined = sites
-    ? [siteIdParam, stateSite?.id, readLastSiteId()]
+  const canChoose = Boolean(siteIdParam || stateSite || isLastSiteLoaded);
+  const selectedSite: Site | undefined = sites && canChoose
+    ? [siteIdParam, stateSite?.id, lastSiteId]
         .map(siteId => siteId && sites.find(site => site.id === siteId))
         .find(Boolean) || sites[0]
     : stateSite;
@@ -133,11 +123,11 @@ export default function SiteDevices() {
   // Keep the site in the URL (refresh and shared links) and remember it for next time.
   useEffect(() => {
     if (!selectedSite) return;
-    rememberSiteId(selectedSite.id);
+    if (lastSiteId !== selectedSite.id) setLastSiteId(selectedSite.id);
     if (siteIdParam !== selectedSite.id) {
       setSearchParams({ siteId: selectedSite.id }, { replace: true, state: location.state });
     }
-  }, [selectedSite, siteIdParam, setSearchParams, location.state]);
+  }, [selectedSite, siteIdParam, setSearchParams, location.state, lastSiteId, setLastSiteId]);
 
   useEffect(() => {
     if (sites && sites.length === 0) navigate('/sites');

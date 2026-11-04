@@ -35,7 +35,7 @@ DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildca
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
 # Cloud environments dev and prod (deploy/PLAN.md): delegated to deploy/cloud/Makefile, always with env=prod|dev.
 CLOUD_TARGETS := infra-up ssh ui host-setup deploy status stats backup
-.PHONY: help cloud-seed-site up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(CLOUD_TARGETS) $(FANOUT_TARGETS)
+.PHONY: help cloud-seed-site up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv create-user set-password disable-user enable-user seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(CLOUD_TARGETS) $(FANOUT_TARGETS)
 
 help:
 	@echo "pae-platform — monorepo root"
@@ -58,6 +58,9 @@ help:
 	@echo "  seed-powerflow-site SITE=<site>  the same for any powerflow default site"
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
 	@echo "  e2e-2bess-1pv      check backend-ot's readings of 2bess_1pv agree with powerflow"
+	@echo "  (logins: admin@plusdas.local / admin-password and demo@plusdas.local / plusdas-demo, created by make up)"
+	@echo "  create-user EMAIL=... [ROLE=engineer|admin|monitor] [DISPLAY_NAME=...]  (asks for the password)"
+	@echo "  set-password / disable-user / enable-user EMAIL=..."
 	@echo ""
 	@echo "Mobile app on a phone (Expo Go, same Wi-Fi):"
 	@echo "  mobile-dev         start the stack and seed 2bess_1pv only if needed (no reset), print the"
@@ -155,6 +158,11 @@ seed-powerflow-site:
 
 seed-2bess-1pv:
 	$(MAKE) seed-powerflow-site SITE=2bess_1pv
+
+# PlusDAS user accounts, kept by intelli-gateway (no self-signup), in the dev stack.
+USER_TARGETS := create-user set-password disable-user enable-user
+$(USER_TARGETS):
+	$(MAKE) -C services/intelli-gateway $@ COMPOSE="$(DEV_COMPOSE)" EMAIL="$(EMAIL)" ROLE="$(ROLE)" DISPLAY_NAME="$(DISPLAY_NAME)"
 
 # E2E against the running dev stack: backend-ot polls mock-modbus and agrees with the contract.
 E2E_API := http://localhost:$(or $(BACKEND_OT_HTTP_PORT),8000)/api

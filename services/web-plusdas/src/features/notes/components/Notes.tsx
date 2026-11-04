@@ -1,13 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Plus, Edit2, Trash2, X, Save, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  loadNotesFromStorage,
-  addNote,
-  updateNote,
-  deleteNote,
-} from "../lib/notesStorage";
+import { getErrorMessage } from "@/api/client";
+import { MAX_NOTES, useNotes } from "../hooks/useNotes";
 import type { Note } from "../types";
 import { cn } from "@/lib/utils";
 
@@ -20,30 +16,29 @@ export const Notes: React.FC<NotesProps> = ({
   className,
   maxHeight = "100%"
 }) => {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const { notes, addNote, updateNote, deleteNote } = useNotes();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setNotes(loadNotesFromStorage());
-  }, []);
-
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (!newNoteContent.trim()) {
+      return;
+    }
+    if (notes.length >= MAX_NOTES) {
+      setError(`Maximum of ${MAX_NOTES} notes allowed. Please delete a note first.`);
       return;
     }
 
     try {
-      addNote(newNoteContent);
-      setNotes(loadNotesFromStorage());
+      await addNote.mutateAsync(newNoteContent);
       setNewNoteContent("");
       setIsAdding(false);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add note");
+      setError(`Failed to add note: ${getErrorMessage(err)}`);
     }
   };
 
@@ -53,18 +48,17 @@ export const Notes: React.FC<NotesProps> = ({
     setError(null);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingId || !editContent.trim()) {
       return;
     }
 
-    const updated = updateNote(editingId, editContent);
-    if (updated) {
-      setNotes(loadNotesFromStorage());
+    try {
+      await updateNote.mutateAsync({ id: editingId, content: editContent });
       setEditingId(null);
       setEditContent("");
       setError(null);
-    } else {
+    } catch {
       setError("Failed to update note");
     }
   };
@@ -75,26 +69,25 @@ export const Notes: React.FC<NotesProps> = ({
     setError(null);
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
 
     if (window.confirm("Are you sure you want to delete this note?")) {
-      const success = deleteNote(id);
-      if (success) {
-        setNotes(loadNotesFromStorage());
+      try {
+        await deleteNote.mutateAsync(id);
         if (editingId === id) {
           setEditingId(null);
           setEditContent("");
         }
         setError(null);
-      } else {
+      } catch {
         setError("Failed to delete note");
       }
     }
   };
 
-  const canAddMore = notes.length < 10;
+  const canAddMore = notes.length < MAX_NOTES;
 
   return (
     <div className={cn("flex flex-col h-full", className)} style={{ maxHeight }}>
@@ -104,7 +97,7 @@ export const Notes: React.FC<NotesProps> = ({
           Notes
         </h3>
         <span className="text-xs text-muted-foreground ml-auto">
-          {notes.length}/10
+          {notes.length}/{MAX_NOTES}
         </span>
       </div>
 
@@ -236,7 +229,7 @@ export const Notes: React.FC<NotesProps> = ({
 
         {!canAddMore && !isAdding && (
           <div className="text-center text-xs text-muted-foreground p-2">
-            Maximum of 10 notes reached. Delete a note to add more.
+            Maximum of {MAX_NOTES} notes reached. Delete a note to add more.
           </div>
         )}
       </div>

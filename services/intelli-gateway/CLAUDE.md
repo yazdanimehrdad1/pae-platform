@@ -12,6 +12,10 @@ MCP-ready.
   fault code: message, severity, causes, checks, safety note), manuals, IM scripts and
   experience notes. In memory for now, its own Postgres later. Guides are keyed per site device.
 - the HTTP API under `/api/v1`
+- **PlusDAS users** (`auth/`, migration `003_users`): accounts (signed in by email address; admin-created with
+  `manage_users`, no self-signup), login and sessions (an opaque token in an HttpOnly cookie; only
+  its SHA-256 is stored), and per-user data next. `get_request_context` takes the user from the
+  cookie; the `X-*` dev headers work only while `AUTH_DEV_HEADERS` is on.
 - the **PV forecast** (`solar_forecast/`, see its README.md): per-site PV power forecasts with a
   replaceable source (Open-Meteo now), refreshed by a lifespan task, stored in this service's
   own Postgres (`services/postgres/`, numbered SQL migrations applied at startup)

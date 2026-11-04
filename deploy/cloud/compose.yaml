@@ -126,6 +126,10 @@ services:
       - API_PORT=8000
       - USE_FAKE_DATA=false
       - BACKEND_OT_URL=http://backend-ot:8000
+      # The first admin's address (its password: the secret intelli-gateway-bootstrap-admin-password).
+      - BOOTSTRAP_ADMIN_EMAIL=${BOOTSTRAP_ADMIN_EMAIL}
+      # The demo login's address (dev only: prod has no demo password, so no demo account).
+      - DEMO_USER_EMAIL=${DEMO_USER_EMAIL:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/readyz')"]
       interval: 10s

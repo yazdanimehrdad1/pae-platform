@@ -241,7 +241,7 @@ async def test_api_returns_503_when_backend_ot_is_down(backend: FakeBackendOt) -
 
     backend.override = down
     client = BackendOtClient("http://backend-ot.test", 1, 1, transport=backend.transport())
-    settings = make_settings(USE_FAKE_DATA="false")
+    settings = make_settings(USE_FAKE_DATA="false", AUTH_DEV_HEADERS="true")  # acts as the dev user
     services = build_services(
         settings,
         llm=ScriptedLLMClient(),

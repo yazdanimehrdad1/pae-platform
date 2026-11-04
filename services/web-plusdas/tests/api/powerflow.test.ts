@@ -90,6 +90,6 @@ describe('powerflowApi', () => {
 
   it('throws the error body (409 with a detail)', async () => {
     stubFetch(409, { detail: 'stop the simulation first' });
-    await expect(powerflowApi.activateSite('a')).rejects.toEqual({ detail: 'stop the simulation first' });
+    await expect(powerflowApi.activateSite('a')).rejects.toEqual({ detail: 'stop the simulation first', status: 409 });
   });
 });

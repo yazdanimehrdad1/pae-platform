@@ -1,46 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/shared/contexts/auth";
-import {
-  clearModbusConfigCache,
-  loadModbusConfigCache,
-  saveModbusConfigCache,
-  type ModbusConfigCache,
-} from "../lib/modbusConfigStorage";
+import { useCallback, useMemo } from "react";
+import { PREFERENCE_KEYS, usePreference } from "@/shared/hooks/usePreference";
+import { isModbusConfigCache, type ModbusConfigCache } from "../lib/modbusConfigCache";
 import type { ModbusLiveStreamRequest } from "@/api/types/modbusStream";
 import type { ModbusViewMode } from "../types";
 
 export const MAX_MODBUS_SLOTS = 5;
 
-export function useModbusConfigSlots() {
-  const { user } = useAuth();
-  const [configsBySlot, setConfigsBySlot] = useState<ModbusConfigCache>({});
+const NO_CONFIGS: ModbusConfigCache = {};
 
-  useEffect(() => {
-    if (user?.id) setConfigsBySlot(loadModbusConfigCache(user.id));
-  }, [user?.id]);
+// The saved stream configs per slot, kept as one of the user's preferences.
+export function useModbusConfigSlots() {
+  const [configsBySlot, saveConfigs] = usePreference<ModbusConfigCache>(
+    PREFERENCE_KEYS.liveDataConfigs, NO_CONFIGS, isModbusConfigCache,
+  );
 
   const saveConfig = useCallback((slot: number, request: ModbusLiveStreamRequest, alias: string, viewMode: ModbusViewMode) => {
-    setConfigsBySlot(prev => {
-      const next = { ...prev, [slot]: { alias, request, viewMode } };
-      if (user?.id) saveModbusConfigCache(user.id, next);
-      return next;
-    });
-  }, [user?.id]);
+    saveConfigs({ ...configsBySlot, [slot]: { alias, request, viewMode } });
+  }, [configsBySlot, saveConfigs]);
 
   const removeConfig = useCallback((slot: number) => {
-    setConfigsBySlot(prev => {
-      if (!(slot in prev)) return prev;
-      const next = { ...prev };
-      delete next[slot];
-      if (user?.id) saveModbusConfigCache(user.id, next);
-      return next;
-    });
-  }, [user?.id]);
+    if (!(slot in configsBySlot)) return;
+    const next = { ...configsBySlot };
+    delete next[slot];
+    saveConfigs(next);
+  }, [configsBySlot, saveConfigs]);
 
-  const clearAllConfigs = useCallback(() => {
-    setConfigsBySlot({});
-    if (user?.id) clearModbusConfigCache(user.id);
-  }, [user?.id]);
+  const clearAllConfigs = useCallback(() => saveConfigs({}), [saveConfigs]);
 
   const nextFreeSlot = useMemo(() => {
     const used = new Set(Object.keys(configsBySlot).map(Number));

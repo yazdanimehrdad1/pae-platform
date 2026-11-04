@@ -11,7 +11,8 @@ from intelli_gateway.tools.local_provider import LocalToolProvider
 
 @pytest.fixture
 def settings() -> Settings:
-    return make_settings(ANTHROPIC_API_KEY="test-key")
+    # The API tests act as the dev user (X-* headers); tests/test_auth_api.py covers real logins.
+    return make_settings(ANTHROPIC_API_KEY="test-key", AUTH_DEV_HEADERS="true")
 
 
 @pytest.fixture
