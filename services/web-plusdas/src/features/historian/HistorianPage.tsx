@@ -56,6 +56,10 @@ const PRESET_LABELS: [TimeRange | 'custom', string][] = [
   ['custom', 'Custom range'],
 ];
 
+// How many trends a user may save, and how many charts the layout shows at once.
+const MAX_TRENDS = 8;
+const LAYOUT_COUNTS = Array.from({ length: MAX_TRENDS }, (_, index) => index + 1);
+
 // Chart times are in the display zone: the site's, or the user's own (useDisplayTimeZone).
 function formatTimestamp(ts: number, spanMs: number, timeZone: string): string {
   const d = new Date(ts);
