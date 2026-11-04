@@ -42,7 +42,7 @@ services:
       # Local only (the cloud stack never uses this file; there they come from Secret Manager):
       # startup creates admin@plusdas.local on an empty database and keeps demo@plusdas.local.
       - BOOTSTRAP_ADMIN_PASSWORD=admin-password
-      - DEMO_USER_PASSWORD=plusdas-demo
+      - DEMO_USER_PASSWORD=demo-password
     depends_on:
       intelli-gateway-postgres:
         condition: service_healthy

@@ -34,7 +34,7 @@ DEV_COMPOSE := docker compose -f $(CURDIR)/deploy/compose/dev.yaml $(if $(wildca
 
 FANOUT_TARGETS := install lint format typecheck test test-integration build contract
 # Cloud environments dev and prod (deploy/PLAN.md): delegated to deploy/cloud/Makefile, always with env=prod|dev.
-CLOUD_TARGETS := infra-up ssh ui host-setup deploy status stats backup
+CLOUD_TARGETS := infra-up admin-password ssh ui host-setup deploy status stats backup
 .PHONY: help cloud-seed-site up down down-all stop-all restart logs ps seed seed-mock-modbus seed-2bess-1pv create-user set-password disable-user enable-user seed-powerflow-site e2e e2e-2bess-1pv mobile-dev check check-boundaries contracts-check hooks $(CLOUD_TARGETS) $(FANOUT_TARGETS)
 
 help:
@@ -58,7 +58,7 @@ help:
 	@echo "  seed-powerflow-site SITE=<site>  the same for any powerflow default site"
 	@echo "  e2e                check backend-ot is polling mock-modbus and agrees with the contract"
 	@echo "  e2e-2bess-1pv      check backend-ot's readings of 2bess_1pv agree with powerflow"
-	@echo "  (logins: admin@plusdas.local / admin-password and demo@plusdas.local / plusdas-demo, created by make up)"
+	@echo "  (logins: admin@plusdas.local / admin-password and demo@plusdas.local / demo-password, created by make up)"
 	@echo "  create-user EMAIL=... [ROLE=engineer|admin|monitor] [DISPLAY_NAME=...]  (asks for the password)"
 	@echo "  set-password / disable-user / enable-user EMAIL=..."
 	@echo ""
@@ -75,6 +75,7 @@ help:
 	@echo ""
 	@echo "Cloud environments (env=prod: pae-platform-prod, env=dev: pae-development; see deploy/PLAN.md):"
 	@echo "  infra-up env=...   create or complete that environment's GCP infrastructure (idempotent)"
+	@echo "  admin-password env=...  the first admin's login and its password (from Secret Manager)"
 	@echo "  ssh env=...        shell on that environment's VM through IAP"
 	@echo "  ui env=...         that environment's UI through an IAP tunnel on http://localhost:8080"
 	@echo "  host-setup env=... one-time VM setup (data disk, Docker, Ops Agent, backup timer)"

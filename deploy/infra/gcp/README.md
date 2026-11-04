@@ -21,7 +21,8 @@ make ssh env=prod                 # shell on the VM through IAP (no external IP,
 | Service accounts | `pae-prod-vm`, `pae-ci` | No keys. VM: log/metric writer, registry reader, backup bucket object admin, accessor on each secret. CI: registry writer, used through WIF |
 | Artifact Registry | `pae` (docker) | `us-central1-docker.pkg.dev/pae-platform-prod/pae/pae-<service>:<git sha>`; keeps the 30 newest versions, deletes older ones after 30 days |
 | Backup bucket | `gs://pae-platform-prod-backups` (us-east1) | Private, uniform access; another region than the VM |
-| Secrets | `backend-ot-postgres-password`, `intelli-gateway-postgres-password`, `powerflow-postgres-password` | Random values generated once, never printed |
+| Secrets | `backend-ot-postgres-password`, `intelli-gateway-postgres-password`, `powerflow-postgres-password`, `intelli-gateway-bootstrap-admin-password` | Random values generated once, never printed (the admin's: `make admin-password env=...`) |
+| Secret (dev only) | `intelli-gateway-demo-user-password` | The shared demo login's password, `demo-password` (a known value on purpose) |
 | Secrets (owner fills) | `intelli-gateway-anthropic-api-key`, `intelli-gateway-open-meteo-api-key` | Created empty |
 | Workload Identity Federation | pool `github`, provider `github-actions` | Only `yazdanimehrdad1/pae-platform` (matched by its numeric repository and owner ids, which can't be re-registered) on `refs/heads/main` can act as `pae-ci`; a re-run re-applies the condition |
 | CD access (each project) | `pae-ci` gets `iap.tunnelResourceAccessor`, `compute.osAdminLogin`, `compute.viewer` and `iam.serviceAccountUser` on the VM's account | Lets `.github/workflows/deploy.yml` reach the VM the same way `make deploy` does (IAP SSH, OS Login with sudo); still no public IP or open port |
