@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Settings as SettingsIcon, UserPlus, Palette, Bell, Globe } from "lucide-react";
+import { Users, Settings as SettingsIcon, UserPlus, Palette, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ChangePasswordCard } from "./components/ChangePasswordCard";
@@ -104,18 +104,6 @@ const Settings = () => {
                 </h4>
                 <div className="bg-muted/20 rounded-lg p-4">
                   <p className="text-xs text-muted-foreground">Configure notification preferences and alert settings</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
-                  Language & Region
-                </h4>
-                <div className="bg-muted/20 rounded-lg p-4">
-                  <p className="text-xs text-muted-foreground">Set your preferred language, timezone, and regional settings</p>
                 </div>
               </div>
 
