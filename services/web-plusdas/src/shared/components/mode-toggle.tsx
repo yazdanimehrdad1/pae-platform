@@ -1,9 +1,10 @@
 import { Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "@/shared/components/theme-provider"
+import { useThemePreference } from "@/shared/hooks/useThemePreference"
 
+// Saved to the logged-in user (it is only shown inside the app, after login).
 export function ModeToggle() {
-    const { theme, setTheme } = useTheme()
+    const [theme, setTheme] = useThemePreference()
 
     return (
         <Button
