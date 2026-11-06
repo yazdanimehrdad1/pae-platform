@@ -731,7 +731,7 @@ export default function DeviceDetails() {
 
 function PingProbeResult({ title, probe, usedForReads }: { title: string; probe: PingProbe; usedForReads: boolean }) {
   return (
-    <div className={`bg-muted/50 rounded-lg p-4 border-2 space-y-2 text-sm ${usedForReads ? 'border-success' : 'border-border'}`}>
+    <div className="bg-muted/50 rounded-lg p-4 border-2 border-border space-y-2 text-sm">
       <div className="flex items-center justify-between border-b border-border/50 pb-1">
         <span className="font-medium text-foreground/80">{title}</span>
         {usedForReads && <Badge variant="outline">Used for reads</Badge>}
