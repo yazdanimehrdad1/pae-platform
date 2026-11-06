@@ -18,7 +18,7 @@ import {
 import { PointCombobox } from "./PointCombobox";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? <p id={id} role="alert" className="text-xs text-alarm-fault">{message}</p> : null;
+  return message ? <p id={id} role="alert" className="text-xs text-alarm-high">{message}</p> : null;
 }
 
 /**

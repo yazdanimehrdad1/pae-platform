@@ -84,7 +84,7 @@ ALPHA_SOLAR_PROFILE = SiteProfile(
         SiteAlarm(
             key="high_severity_alarm_point_active",
             name="high_severity_alarm_point_active",
-            severity="fault",
+            severity="HIGH",
             message="A HIGH-severity alarm point is set on a device (some device reports a fault)",
             evaluate=high_severity_alarm_point_active,
         ),

@@ -11,7 +11,7 @@ export interface paths {
         };
         /**
          * Active alarms across all sites, by severity
-         * @description How many alarm events are active (raised, not cleared) right now: fault and warning totals
+         * @description How many alarm events are active (raised, not cleared) right now: HIGH, MEDIUM and LOW totals
          *     over every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator.
          */
         get: operations["get_active_summary_api_alarms_active_summary_get"];
@@ -380,6 +380,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device-points/csv-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An empty points CSV (the header row) to fill in and import
+         * @description The columns of a device points CSV (NATIVE points only, so no Category), as on the device
+         *     page's points table: Name, Poll Kind, Address and Data Type are required; Record, Size (the
+         *     data type's), Unit, Scale, Byte Order, Word Order, Class, Severity and Enum / Bit Labels are
+         *     optional.
+         */
+        get: operations["points_csv_template_api_device_points_csv_template_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device-points/site/{site_id}/device/{device_id}": {
         parameters: {
             query?: never;
@@ -423,6 +446,51 @@ export interface paths {
          */
         put: operations["bulk_upsert_points_api_device_points_site__site_id__device__device_id__bulk_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device-points/site/{site_id}/device/{device_id}/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A device's NATIVE points as CSV
+         * @description The device's active NATIVE points, one row each, in the format the import reads.
+         */
+        get: operations["export_points_csv_route_api_device_points_site__site_id__device__device_id__csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device-points/site/{site_id}/device/{device_id}/csv-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a device's NATIVE points from CSV (dry run by default)
+         * @description Each row is a whole NATIVE point, matched by name: a new name creates a point, an existing
+         *     one gets every field from the row (a blank optional cell clears it; a deleted point is
+         *     restored). A dry run (the default) returns the plan and every problem of the file; with
+         *     dry_run=false a file without problems is applied in one transaction (with delete_missing, the
+         *     points not in the file go to the deleted points), and one with problems gets 400 and changes
+         *     nothing. The format: GET /device-points/csv-template.
+         */
+        post: operations["import_points_csv_route_api_device_points_site__site_id__device__device_id__csv_import_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -722,8 +790,9 @@ export interface paths {
          * Site Devices Health
          * @description Check Modbus TCP reachability for every active device in a site.
          *
-         *     For devices with read_from_aggregator=true the aggregator host/port is probed;
-         *     otherwise the device's own host/port is used. All devices are checked concurrently.
+         *     Each device gets two probes, the aggregator host/port and its own host/port. The
+         *     top-level result (and the reachable count) is the path the poller uses: the aggregator
+         *     for read_from_aggregator=true, else the device. All devices are checked concurrently.
          */
         get: operations["site_devices_health_api_healthz_site__site_id__get"];
         put?: never;
@@ -743,7 +812,7 @@ export interface paths {
         };
         /**
          * Device Health
-         * @description Check Modbus TCP reachability for a single device.
+         * @description Check Modbus TCP reachability for a single device, via the aggregator and directly.
          */
         get: operations["device_health_api_healthz_site__site_id__device__device_id__get"];
         put?: never;
@@ -1559,20 +1628,25 @@ export interface components {
          */
         ActiveAlarmsSummaryResponse: {
             /**
-             * Fault Count
-             * @description Active fault events across all sites
+             * High Count
+             * @description Active HIGH events across all sites
              */
-            fault_count: number;
+            high_count: number;
+            /**
+             * Low Count
+             * @description Active LOW events across all sites
+             */
+            low_count: number;
+            /**
+             * Medium Count
+             * @description Active MEDIUM events across all sites
+             */
+            medium_count: number;
             /**
              * Sites
              * @description Only sites with at least one active event, by site_id
              */
             sites: components["schemas"]["SiteActiveAlarms"][];
-            /**
-             * Warning Count
-             * @description Active warning events across all sites
-             */
-            warning_count: number;
         };
         /**
          * ActivePointAlarm
@@ -1651,7 +1725,7 @@ export interface components {
              * Severity
              * @enum {string}
              */
-            severity: "fault" | "warning";
+            severity: "HIGH" | "MEDIUM" | "LOW";
         };
         /**
          * AlarmDefinitionResponse
@@ -1696,7 +1770,7 @@ export interface components {
              * Severity
              * @enum {string}
              */
-            severity: "fault" | "warning";
+            severity: "HIGH" | "MEDIUM" | "LOW";
             /** Site Id */
             site_id: number;
             /**
@@ -1729,7 +1803,7 @@ export interface components {
             /** Rule */
             rule?: (components["schemas"]["ThresholdAlarm"] | components["schemas"]["CommsStaleAlarm"] | components["schemas"]["ConditionAlarm-Input"]) | null;
             /** Severity */
-            severity?: ("fault" | "warning") | null;
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
         };
         /**
          * AlarmEventResponse
@@ -1758,7 +1832,7 @@ export interface components {
              * Severity
              * @enum {string}
              */
-            severity: "fault" | "warning";
+            severity: "HIGH" | "MEDIUM" | "LOW";
             /** Site Id */
             site_id: number;
             /** Value At Raise */
@@ -1792,7 +1866,7 @@ export interface components {
              * Severity
              * @enum {string}
              */
-            severity: "fault" | "warning";
+            severity: "HIGH" | "MEDIUM" | "LOW";
             /** Value At Raise */
             value_at_raise?: number | null;
         };
@@ -1823,9 +1897,9 @@ export interface components {
             limit: number;
             /**
              * Severity
-             * @description Only this severity; null for both
+             * @description Only this severity; null for all
              */
-            severity?: ("fault" | "warning") | null;
+            severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
             /** Title */
             title?: string | null;
         };
@@ -1886,7 +1960,7 @@ export interface components {
              * Severity
              * @enum {string}
              */
-            severity: "fault" | "warning";
+            severity: "HIGH" | "MEDIUM" | "LOW";
         };
         /**
          * AlarmSnapshotResponse
@@ -2377,8 +2451,17 @@ export interface components {
              */
             reason?: string | null;
         };
-        /** DeviceHealthStatus */
+        /**
+         * DeviceHealthStatus
+         * @description Reachability of a device. The top-level host/port/reachable/latency_ms/error describe the
+         *     path the poller reads through (the aggregator when read_from_aggregator, else the device);
+         *     `aggregator` and `device` hold both probes.
+         */
         DeviceHealthStatus: {
+            /** @description Probe of the site aggregator */
+            aggregator: components["schemas"]["ReachabilityProbe"];
+            /** @description Probe of the device's own host/port */
+            device: components["schemas"]["ReachabilityProbe"];
             /** Device Id */
             device_id: number;
             /** Error */
@@ -3474,6 +3557,72 @@ export interface components {
             unit?: string | null;
         };
         /**
+         * PointsCsvChange
+         * @description A point the import updates, and which of its CSV columns change.
+         */
+        PointsCsvChange: {
+            /**
+             * Fields
+             * @description Changed CSV columns; "restored" when it was deleted
+             */
+            fields: string[];
+            /** Name */
+            name: string;
+        };
+        /**
+         * PointsCsvImportResult
+         * @description What a points CSV import does (dry run) or did (applied).
+         */
+        PointsCsvImportResult: {
+            /**
+             * Applied
+             * @description False for a dry run (nothing written)
+             */
+            applied: boolean;
+            /**
+             * Created
+             * @description New point names
+             */
+            created: string[];
+            /**
+             * Deleted
+             * @description Points soft-deleted by this import (applied only)
+             */
+            deleted: string[];
+            /**
+             * Errors
+             * @description Problems in the file; an import with any applies nothing
+             */
+            errors: components["schemas"]["PointsCsvProblem"][];
+            /**
+             * Missing
+             * @description The device's NATIVE points that aren't in the file (deleted with delete_missing)
+             */
+            missing: string[];
+            /** Unchanged */
+            unchanged: string[];
+            /** Updated */
+            updated: components["schemas"]["PointsCsvChange"][];
+        };
+        /**
+         * PointsCsvProblem
+         * @description One problem with an imported points CSV.
+         */
+        PointsCsvProblem: {
+            /**
+             * Column
+             * @description The CSV column, when the problem is one cell
+             */
+            column?: string | null;
+            /**
+             * Line
+             * @description Line in the file (1 = the header); null for the whole file
+             */
+            line?: number | null;
+            /** Message */
+            message: string;
+        };
+        /**
          * PowerSeriesResult
          * @description A power series summed from SPF points; export positive, import negative.
          */
@@ -3602,6 +3751,22 @@ export interface components {
              * @description Module tilt from horizontal, degrees (0 = flat)
              */
             tilt_deg: number;
+        };
+        /**
+         * ReachabilityProbe
+         * @description One Modbus TCP connect attempt against a single host:port.
+         */
+        ReachabilityProbe: {
+            /** Error */
+            error?: string | null;
+            /** Host */
+            host: string;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Port */
+            port: number;
+            /** Reachable */
+            reachable: boolean;
         };
         /**
          * RegisterRange
@@ -4107,12 +4272,14 @@ export interface components {
          * @description One site's active alarms (raised, not cleared), by severity.
          */
         SiteActiveAlarms: {
-            /** Fault Count */
-            fault_count: number;
+            /** High Count */
+            high_count: number;
+            /** Low Count */
+            low_count: number;
+            /** Medium Count */
+            medium_count: number;
             /** Site Id */
             site_id: number;
-            /** Warning Count */
-            warning_count: number;
         };
         /**
          * SiteComprehensiveResponse
@@ -5383,7 +5550,7 @@ export interface operations {
                 /** @description End (ISO, with a UTC offset) */
                 end_time: string;
                 device_id?: number | null;
-                severity?: ("fault" | "warning") | null;
+                severity?: ("HIGH" | "MEDIUM" | "LOW") | null;
                 /** @description One alarm's events */
                 definition_id?: number | null;
             };
@@ -5787,6 +5954,26 @@ export interface operations {
             };
         };
     };
+    points_csv_template_api_device_points_csv_template_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     get_points_for_device_api_device_points_site__site_id__device__device_id__get: {
         parameters: {
             query?: {
@@ -5891,6 +6078,114 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DevicePointResponse"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_points_csv_route_api_device_points_site__site_id__device__device_id__csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description No such device */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_points_csv_route_api_device_points_site__site_id__device__device_id__csv_import_post: {
+        parameters: {
+            query?: {
+                /** @description Only report what the import would do */
+                dry_run?: boolean;
+                /** @description Soft-delete the device's NATIVE points that aren't in the file */
+                delete_missing?: boolean;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "text/csv": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointsCsvImportResult"];
+                };
+            };
+            /** @description The file has problems (detail.errors lists them); nothing was imported */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such device */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A point to delete or stop recording is read by another point or an alarm */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The file is larger than 1 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

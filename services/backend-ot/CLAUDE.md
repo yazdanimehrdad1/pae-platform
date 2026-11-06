@@ -2,7 +2,11 @@
 
 Owns: polling Modbus TCP devices (SEL RTACs) on a schedule and storing their
 register/point readings as time-series in PostgreSQL 16, plus the sites → devices →
-device-points CRUD, live register streaming, and CSV export API (all under `/api`).
+device-points CRUD, live register streaming, and CSV export API (all under `/api`). A device's
+NATIVE points also go in and out as CSV (`helpers/device_points/points_csv.py` = the format and rules,
+pure; `points_csv_import.py` = DB): `GET /device-points/csv-template`, `GET .../device/{id}/csv`, and
+`POST .../device/{id}/csv-import` (a `text/csv` body, no python-multipart; a dry run by default; applied
+in one transaction, nothing while the file has a problem).
 Does NOT own: the upstream Modbus aggregator/RTAC itself (external, `AGGREGATOR_MODBUS_HOST`),
 the DAS data-acquisition API (`pae-das-api`), or any downstream dashboard/analytics.
 
@@ -54,9 +58,11 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   Change the mock and run `make -C services/mock-modbus contract`.
 - **Consumes** `contracts/powerflow/sites.json` and `contracts/modbus/powerflow.registers.json` (dev
   seed only): `tests/seed_db/powerflow_seed.py` builds a powerflow site (its profile from `PROFILE_BY_SITE`, one
-  device per point-standard device reading `powerflow:502` directly, zero-based, its served
-  registers as NATIVE points, the SLD). `make seed-db-powerflow SITE=<site>` (dev stack; root
-  `make seed-2bess-1pv`, or `make seed-powerflow-site SITE=<site>`). Strict models: `schemas/tests_models/powerflow_contract.py`.
+  device per point-standard device reading `powerflow:502` directly, zero-based, its `demo`
+  registers (at most 15, checked by `validate_device_registers`) as NATIVE points, the SLD).
+  `make seed-db-powerflow SITE=<site> [REPLACE=1]` (dev stack; root `make seed-2bess-1pv`, or
+  `make seed-powerflow-site SITE=<site>`). `REPLACE=1` (`--replace`) deletes the powerflow site
+  first and seeds it fresh; it refuses any site without powerflow's marker in its description. Strict models: `schemas/tests_models/powerflow_contract.py`.
 - Several seeds can coexist: the seeder matches devices and points within their site.
 - The seeder writes rows directly, not through the API, so **anything `create_device` (or another
   create path) does must be mirrored in `tests/seed_db/seed_db.py`**. Today that's the

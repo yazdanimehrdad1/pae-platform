@@ -91,7 +91,7 @@ describe('RuleBuilder threshold', () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(saved(onSave)).toEqual({
-      name: 'soc_high', severity: 'warning', enabled: true,
+      name: 'soc_high', severity: 'MEDIUM', enabled: true,
       notify_mobile: true, notify_email: true,
       message: 'bess-1 · state_of_charge > 90 %',
       rule: { kind: 'threshold', delay_sec: 0, clear_delay_sec: 0, deadband: 1.5,
@@ -219,7 +219,7 @@ describe('RuleBuilder editing a user rule', () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(saved(onSave)).toEqual({
-      name: 'bess_soc_low', severity: 'fault', message: 'BESS SOC low', enabled: true,
+      name: 'bess_soc_low', severity: 'HIGH', message: 'BESS SOC low', enabled: true,
       notify_mobile: true, notify_email: false, rule: rule.rule,
     });
   });

@@ -130,8 +130,17 @@ async def _observe(
         if declared is None:
             return None, none, none
         check = await declared.evaluate(context)
-        observation = AlarmObservation(holds=check.active, cleared=not check.active, value=check.value, device_id=check.device_id)
-        return observation, none, none
+        observation = AlarmObservation(
+            holds=check.active,
+            cleared=not check.active,
+            value=check.value,
+            device_id=check.device_id,
+        )
+        return (
+            observation,
+            timedelta(seconds=declared.delay_sec),
+            timedelta(seconds=declared.clear_delay_sec),
+        )
     rule = alarm.rule
     match rule:
         case ThresholdAlarm():

@@ -179,7 +179,7 @@ class AlarmEventsTableBlock(_Block):
     """The alarm events that overlap the window, newest raise first."""
 
     kind: Literal["alarm_events_table"]
-    severity: AlarmSeverity | None = Field(None, description="Only this severity; null for both")
+    severity: AlarmSeverity | None = Field(None, description="Only this severity; null for all")
     device_ids: list[int] = Field(default_factory=list, max_length=50, description="Only these devices; empty for all")
     limit: int = Field(200, ge=1, le=MAX_ALARM_ROWS)
 

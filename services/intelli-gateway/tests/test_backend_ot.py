@@ -136,7 +136,7 @@ class TestAlarmsAndComms:
     async def test_active_alarms(self, connector: BackendOtSiteDataConnector) -> None:
         active = await connector.get_active_alarms(7)
         assert [(e.alarm_name, e.severity, e.device_id) for e in active.events] == [
-            ("INV1 over-temperature", "warning", 1)
+            ("INV1 over-temperature", "MEDIUM", 1)
         ]
         (point,) = active.point_alarms
         assert point.point_name == "INV1.alarm_word"

@@ -12,7 +12,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { draftFromPoint, powerScale, toLinkRequest, validateLinkDraft, type PointLinkDraft } from "./lib/pointLink";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? <p id={id} role="alert" className="text-xs text-alarm-fault">{message}</p> : null;
+  return message ? <p id={id} role="alert" className="text-xs text-alarm-high">{message}</p> : null;
 }
 
 /** Link a STANDARDIZED point to one of its device's active NATIVE points (`sources`), or change its link. */

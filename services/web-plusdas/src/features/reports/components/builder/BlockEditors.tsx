@@ -1,5 +1,7 @@
 import { Plus, X } from "lucide-react";
 import type { PointStat, ReportBlock } from "@/api/types/reports";
+import type { AlarmSeverity } from "@/api/types/alarms";
+import { SEVERITY, SEVERITIES_HIGH_FIRST } from "@/shared/lib/alarmSeverity";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -207,12 +209,13 @@ export function AlarmEventsTableEditor({ block, options, onChange }: {
       <div className="flex flex-wrap gap-3">
         <div className="space-y-1">
           <Label htmlFor={`${block.id}-severity`}>Severity</Label>
-          <Select value={block.severity ?? "all"} onValueChange={severity => onChange({ ...block, severity: severity === "all" ? null : severity as "fault" | "warning" })}>
+          <Select value={block.severity ?? "all"} onValueChange={severity => onChange({ ...block, severity: severity === "all" ? null : severity as AlarmSeverity })}>
             <SelectTrigger id={`${block.id}-severity`} className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Faults and warnings</SelectItem>
-              <SelectItem value="fault">Faults only</SelectItem>
-              <SelectItem value="warning">Warnings only</SelectItem>
+              <SelectItem value="all">All severities</SelectItem>
+              {SEVERITIES_HIGH_FIRST.map(value => (
+                <SelectItem key={value} value={value}>{SEVERITY[value].label} only</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

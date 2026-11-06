@@ -16,6 +16,7 @@ export const PREFERENCE_KEYS = {
   discreteMode: "historian.discrete-mode",
   liveDataConfigs: "live-data.configs",
   liveDataSessions: "live-data.sessions",
+  theme: "theme",
 } as const;
 
 type PreferenceMap = Record<string, unknown>;

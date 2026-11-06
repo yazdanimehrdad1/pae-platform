@@ -28,17 +28,17 @@ describe('alarmsApi', () => {
 
   it('queries events with a range and only the filters given', async () => {
     const fetchMock = stubFetch(200, []);
-    await alarmsApi.queryEvents('1001', { startTime: '2026-09-30T00:00:00.000Z', endTime: '2026-09-30T12:00:00.000Z', severity: 'fault', definitionId: 5 });
+    await alarmsApi.queryEvents('1001', { startTime: '2026-09-30T00:00:00.000Z', endTime: '2026-09-30T12:00:00.000Z', severity: 'HIGH', definitionId: 5 });
     const url = new URL(call(fetchMock).url, 'http://host');
     expect(url.pathname).toBe('/api/alarms/site/1001/events');
     expect(Object.fromEntries(url.searchParams)).toEqual({
-      start_time: '2026-09-30T00:00:00.000Z', end_time: '2026-09-30T12:00:00.000Z', severity: 'fault', definition_id: '5',
+      start_time: '2026-09-30T00:00:00.000Z', end_time: '2026-09-30T12:00:00.000Z', severity: 'HIGH', definition_id: '5',
     });
   });
 
   it('creates, updates and deletes definitions', async () => {
     const request: AlarmDefinitionCreateRequest = {
-      name: 'pv_silent', severity: 'fault', message: '', enabled: true, notify_mobile: false, notify_email: false,
+      name: 'pv_silent', severity: 'HIGH', message: '', enabled: true, notify_mobile: false, notify_email: false,
       rule: { kind: 'comms_stale', device_id: 3, stale_after_sec: 60 },
     };
     let fetchMock = stubFetch(201, {});

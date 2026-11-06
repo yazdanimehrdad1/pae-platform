@@ -17,6 +17,7 @@ import type {
   DevicePoint,
   DevicePointCreateRequest,
   DevicePointUpdateRequest,
+  PointsCsvImportResult,
   StandardizedPointLinkRequest,
   VirtualPointCreateRequest,
   VirtualPointUpdateRequest,
@@ -192,6 +193,23 @@ export const devicesApi = {
     const params = new URLSearchParams({ mode: opts.mode, confirm: String(opts.confirm ?? false) });
     for (const pointId of pointIds) params.append('point_ids', String(pointId));
     return request<DevicePoint[]>(`/device-points/site/${siteId}/device/${deviceId}?${params}`, { method: 'DELETE' });
+  },
+
+  // CSV of a device's NATIVE points: the empty template, the export, and the import. The import is a
+  // dry run unless dryRun is false (then nothing is written while the file has problems: 400).
+  pointsCsvTemplate: (): Promise<string> => client.getText('/device-points/csv-template'),
+
+  exportPointsCsv: (siteId: string, deviceId: number): Promise<string> =>
+    client.getText(`/device-points/site/${siteId}/device/${deviceId}/csv`),
+
+  importPointsCsv: (
+    siteId: string,
+    deviceId: number,
+    csv: string,
+    opts: { dryRun: boolean; deleteMissing: boolean },
+  ): Promise<PointsCsvImportResult> => {
+    const params = new URLSearchParams({ dry_run: String(opts.dryRun), delete_missing: String(opts.deleteMissing) });
+    return client.postText(`/device-points/site/${siteId}/device/${deviceId}/csv-import?${params}`, csv);
   },
 
   restorePoint: (siteId: string, deviceId: number, pointId: number): Promise<DevicePoint> =>

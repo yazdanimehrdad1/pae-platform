@@ -25,7 +25,7 @@ async function get(path, cookie) {
 // The dev stack's demo login (demo@plusdas.local, created by make up), or CHECK_EMAIL / CHECK_PASSWORD.
 const LOGIN = {
   email: process.env.CHECK_EMAIL ?? "demo@plusdas.local",
-  password: process.env.CHECK_PASSWORD ?? "plusdas-demo",
+  password: process.env.CHECK_PASSWORD ?? "demo-password",
 };
 
 /** The session cookie ("name=value"), or null when that login doesn't exist here. */

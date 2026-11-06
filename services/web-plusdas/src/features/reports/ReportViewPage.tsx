@@ -9,7 +9,7 @@ import { ReportView } from "./components/ReportView";
 import { RunStatusBadge } from "./components/RunStatusBadge";
 import { useReportMutations, useReportRun } from "./hooks/useReports";
 import { usePrintInLightTheme } from "./hooks/usePrintInLightTheme";
-import { downloadFile, fileName } from "./lib/csv";
+import { downloadFile, fileName } from "@/shared/lib/download";
 
 /** One report at /reports/:siteId/runs/:runId. The PDF exists only when the user exports it: the
  * browser's print dialog ("Save as PDF") prints the report alone, without the app around it. */

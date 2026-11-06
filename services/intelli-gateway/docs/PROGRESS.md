@@ -162,7 +162,7 @@ Plan: `~/.claude/plans/we-want-to-work-foamy-kay.md`. This service now owns Plus
   (`email`, not `username`, in the API and the `users` table; checked as name@domain.tld, stored
   lower-case; 003_users edited in place since it never left the laptop). Built-in accounts use the
   reserved `.local` domain. The dev stack's compose.yaml sets `BOOTSTRAP_ADMIN_PASSWORD=admin-password`
-  and `DEMO_USER_PASSWORD=plusdas-demo`, so `make up` gives `admin@plusdas.local` (on an empty
+  and `DEMO_USER_PASSWORD=demo-password`, so `make up` gives `admin@plusdas.local` (on an empty
   database) and `demo@plusdas.local` with no extra step; `seed-demo`, `make seed-demo-user` and
   `ALLOW_DEMO_USER` are gone.
 - **Next:** 4. persistent conversations, per-site grants. Before real cloud accounts: login rate

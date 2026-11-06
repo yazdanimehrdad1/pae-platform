@@ -10,7 +10,7 @@ class TestGetActiveAlarms:
         result = await provider.call_tool("get_active_alarms", {}, make_ctx(site_id=1))
         events = rows(result.content, "events")
         assert [(e["alarm_name"], e["severity"], e["device_name"]) for e in events] == [
-            ("INV2 over-temperature", "warning", "INV2")
+            ("INV2 over-temperature", "MEDIUM", "INV2")
         ]
         assert "cleared_at" not in events[0]
         point = rows(result.content, "point_alarms")[0]
@@ -21,7 +21,7 @@ class TestGetActiveAlarms:
         result = await provider.call_tool("get_active_alarms", {}, make_ctx(site_id=2))
         events = rows(result.content, "events")
         assert [(e["alarm_name"], e["severity"]) for e in events] == [
-            ("WTG2 communication lost", "fault")
+            ("WTG2 communication lost", "HIGH")
         ]
 
 

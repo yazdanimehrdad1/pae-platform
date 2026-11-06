@@ -47,7 +47,8 @@ dependencies are pinned in `package-lock.json`; host targets run `npm ci` first 
   tablet and laptop widths and fails when the page itself scrolls sideways or content sticks out
   of its box; screenshots land in `test-results/layout/` (gitignored). It needs a running UI
   (`make run`, or `LAYOUT_BASE_URL=http://localhost:5173` for the container) with the dev stack
-  up and seeded. Not part of `make test` or CI.
+  up and seeded. It logs in as the dev stack's admin (`admin@plusdas.local`; `LAYOUT_EMAIL` /
+  `LAYOUT_PASSWORD` for another account). Not part of `make test` or CI.
 - API types: `make api-types` regenerates `src/api/generated/{backend-ot,powerflow,intelli-gateway}.ts` after a
   contract changes (`make test` fails until you do). Then fix whatever `make typecheck` reports.
 - Dev server: `make run` (Vite on http://localhost:**5174**, `/api` proxied to

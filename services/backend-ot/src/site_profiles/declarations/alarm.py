@@ -6,15 +6,17 @@ A profile lists its alarms next to its endpoints:
     SiteAlarm(
         key="high_severity_alarm_point_active",   # stable id; the alarm row is found by it
         name="high_severity_alarm_point_active",  # identifier shown in the UI (like a rule name)
-        severity="fault",
+        severity="HIGH",
         message="A HIGH-severity alarm point is set on a device (some device reports a fault)",
         evaluate=high_severity_alarm_point_active, # async (AlarmContext) -> AlarmCheck
+        delay_sec=0,                               # optional: active this long before it raises
+        clear_delay_sec=0,                         # optional: inactive this long before it clears
     )
 
 Each site whose profile declares it gets one alarm_definitions row (source PROFILE). Its logic,
 name, severity and message come from here and are read-only in the UI; users can enable it, set
 its notifications and pick it for Active alarms. The evaluation job calls `evaluate` every cycle
-and raises/clears the alarm from `AlarmCheck.active`.
+and raises/clears the alarm from `AlarmCheck.active`, after the delays (like a user rule's).
 """
 
 import inspect
@@ -44,6 +46,12 @@ class SiteAlarm(BaseModel):
     severity: AlarmSeverity
     message: str = Field(..., min_length=1, max_length=500)
     evaluate: AlarmEvaluator = Field(..., description="The async check run every evaluation cycle")
+    delay_sec: int = Field(
+        0, ge=0, description="How long the check must stay active before it raises"
+    )
+    clear_delay_sec: int = Field(
+        0, ge=0, description="How long it must stay inactive before an active alarm clears"
+    )
 
     @field_validator("evaluate")
     @classmethod

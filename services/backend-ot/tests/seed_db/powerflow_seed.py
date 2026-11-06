@@ -11,10 +11,12 @@ Mapping (one backend-ot device per point-standard device of the site):
                                load IED, poi_meter / feeder_meter METER
     powerflow Modbus server -> host "powerflow" (compose DNS), port 502, unit id 1, direct
                                reads (not the aggregator), zero-based addresses
-    served register         -> NATIVE point: address = device base + offset, the standard name,
-    (yes / calc)               data type, scale and unit in engineering units (W -> kW, var -> kvar,
-                               VA -> kVA, Wh -> kWh, V -> kV: scale / 1000), enum/bit labels, holding
-                               table, big-endian msw-first. Unserved ("no") rows always read 0: skipped.
+    demo register           -> NATIVE point: address = device base + offset, the standard name,
+    (demo: true, at most       data type, scale and unit in engineering units (W -> kW, var -> kvar,
+    15 per device)             VA -> kVA, Wh -> kWh, V -> kV: scale / 1000), enum/bit labels, holding
+                               table, big-endian msw-first. powerflow serves more registers (for EMS
+                               work); a demo historian polls only these. Checked before seeding:
+                               see validate_device_registers.
     topology                -> the site (its profile from PROFILE_BY_SITE) and its single line diagram
     standardized points     -> linked to the device's served register: active power to W (the
                                load's IED_ACTIVE_POWER too), a BESS's state of charge to SoC,
@@ -68,6 +70,13 @@ from schemas.tests_models.powerflow_contract import (
 
 REGISTERS_CONTRACT = ("modbus", "powerflow.registers.json")
 SITES_CONTRACT = ("powerflow", "sites.json")
+
+# Every site this seeds says so in its description: `--replace` deletes only such sites.
+POWERFLOW_SITE_MARKER = "Simulated by powerflow"
+# A demo historian polls at most this many points per device (powerflow marks them `demo`).
+MAX_DEMO_POINTS = 15
+# Numbers that have no unit on purpose: power factors (pf...) and counts (n_...).
+UNITLESS_QTY_PREFIXES = ("pf", "n_")
 
 # powerflow's Modbus server on the compose network (container port; 1502 on the dev host).
 POWERFLOW_HOST = "powerflow"
@@ -187,6 +196,35 @@ def engineering_unit(register: PowerflowRegister) -> tuple[float, str | None]:
     return register.scale, register.unit or None
 
 
+def validate_device_registers(device: str, registers: list[PowerflowRegister]) -> None:
+    """A device's demo registers are pollable and self-describing; raises ValueError (nothing is
+    seeded) if not: at most MAX_DEMO_POINTS, each served, an enum or bitfield with its labels (bits
+    that fit the type), a number with a scale > 0 and a unit unless it is dimensionless."""
+    problems: list[str] = []
+    if not 0 < len(registers) <= MAX_DEMO_POINTS:
+        problems.append(f"{len(registers)} points (1 to {MAX_DEMO_POINTS} allowed)")
+    for register in registers:
+        name = register.point
+        if register.powerflow_server == "no":
+            problems.append(f"{name} isn't served (it would read 0)")
+        if register.data_type.startswith("enum"):
+            if not register.enum_detail:
+                problems.append(f"{name} is an enum without labels")
+        elif register.data_type.startswith("bitfield"):
+            bits = 16 * register_size(register.data_type)
+            if not register.bitfield_detail:
+                problems.append(f"{name} is a bitfield without labels")
+            elif not all(key.isdigit() and int(key) < bits for key in register.bitfield_detail):
+                problems.append(f"{name} has bits outside its {bits}-bit type")
+        else:
+            if register.scale <= 0:
+                problems.append(f"{name} has scale {register.scale}")
+            if not register.unit and not register.qty.startswith(UNITLESS_QTY_PREFIXES):
+                problems.append(f"{name} has no unit")
+    if problems:
+        raise ValueError(f"{device}: invalid powerflow registers: " + "; ".join(problems))
+
+
 def build_point(register: PowerflowRegister, base: int) -> DevicePointCreateRequest:
     point_kind = point_class(register)
     scale_factor, unit = engineering_unit(register)
@@ -244,7 +282,7 @@ def build_site(site_key: str, site: PowerflowSite) -> SiteCreateRequest:
         operator="PAE (simulated)",
         capacity=_capacity(site),
         description=(
-            f"{site.display_name}. Simulated by powerflow (site {site_key}); seeded from "
+            f"{site.display_name}. {POWERFLOW_SITE_MARKER} (site {site_key}); seeded from "
             "contracts/powerflow/sites.json and contracts/modbus/powerflow.registers.json"
         ),
         coordinates=DEV_SITE_COORDINATES,
@@ -419,14 +457,12 @@ def build_seed(site_key: str, registers: PowerflowRegistersContract,
     site_request = build_site(site_key, site)
     devices = [build_device(site_key, device, registers, site_request.name) for device in site.devices]
     pv_by_id = {pv.id: pv for pv in site.pv}
-    points = {
-        device_name(site_key, device): [
-            build_point(register, device.base)
-            for register in registers.device_types[device.kind].registers
-            if register.powerflow_server != "no"
-        ]
-        for device in site.devices
-    }
+    points: dict[str, list[DevicePointCreateRequest]] = {}
+    for device in site.devices:
+        name = device_name(site_key, device)
+        demo = [register for register in registers.device_types[device.kind].registers if register.demo]
+        validate_device_registers(name, demo)
+        points[name] = [build_point(register, device.base) for register in demo]
     return SeedData(
         sites=[site_request],
         devices=devices,

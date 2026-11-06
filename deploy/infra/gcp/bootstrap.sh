@@ -71,8 +71,11 @@ CI_SA_EMAIL="${CI_SA}@${REGISTRY_PROJECT}.iam.gserviceaccount.com"
 # Secrets: generated ones get a random value once; owner ones are created empty.
 GENERATED_SECRETS=(backend-ot-postgres-password intelli-gateway-postgres-password powerflow-postgres-password
 	intelli-gateway-bootstrap-admin-password)
-# The public demo login exists on dev only (prod never gets the secret).
-[ "$ENV" = dev ] && GENERATED_SECRETS+=(intelli-gateway-demo-user-password)
+# The public demo login (demo@plusdas.dev) exists on dev only (prod never gets the secret). Its
+# password is meant to be shared, so it is a known value, not a random one.
+DEMO_SECRET=""
+[ "$ENV" = dev ] && DEMO_SECRET=intelli-gateway-demo-user-password
+DEMO_PASSWORD="demo-password"
 OWNER_SECRETS=(intelli-gateway-anthropic-api-key intelli-gateway-open-meteo-api-key)
 
 gc() { gcloud --project "$PROJECT" --quiet "$@"; }
@@ -187,13 +190,20 @@ for secret in "${GENERATED_SECRETS[@]}"; do
 		echo "    created $secret (random value, never shown)"
 	fi
 done
+if [ -n "$DEMO_SECRET" ]; then
+	if exists gc secrets describe "$DEMO_SECRET"; then skip "$DEMO_SECRET"; else
+		printf '%s' "$DEMO_PASSWORD" |
+			gc secrets create "$DEMO_SECRET" --replication-policy automatic --data-file=- >/dev/null
+		echo "    created $DEMO_SECRET (the shared demo password, $DEMO_PASSWORD)"
+	fi
+fi
 for secret in "${OWNER_SECRETS[@]}"; do
 	if exists gc secrets describe "$secret"; then skip "$secret"; else
 		gc secrets create "$secret" --replication-policy automatic >/dev/null
 		echo "    created $secret (empty: the owner adds its value)"
 	fi
 done
-for secret in "${GENERATED_SECRETS[@]}" "${OWNER_SECRETS[@]}"; do
+for secret in "${GENERATED_SECRETS[@]}" $DEMO_SECRET "${OWNER_SECRETS[@]}"; do
 	gc secrets add-iam-policy-binding "$secret" --member "serviceAccount:${VM_SA_EMAIL}" \
 		--role roles/secretmanager.secretAccessor >/dev/null
 done

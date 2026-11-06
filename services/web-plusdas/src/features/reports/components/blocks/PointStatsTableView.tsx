@@ -2,7 +2,8 @@ import { Download } from "lucide-react";
 import type { PointStatsTableResult } from "@/api/types/reports";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { downloadFile, fileName, pointStatsCsv } from "../../lib/csv";
+import { downloadFile, fileName } from "@/shared/lib/download";
+import { pointStatsCsv } from "../../lib/csv";
 import { formatReportTime, formatValue, STAT_LABELS } from "../../lib/format";
 import { BlockSection } from "./BlockSection";
 

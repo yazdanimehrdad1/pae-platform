@@ -11,6 +11,13 @@ import { Loader2 } from "lucide-react";
 import { useNotesSidebar } from "@/shared/contexts/NotesSidebarContext";
 import { useBreakpoint } from "@/shared/hooks/use-mobile";
 import { useBrowserDataImport } from "../useBrowserDataImport";
+import { useThemePreference } from "@/shared/hooks/useThemePreference";
+
+// Applies the logged-in user's dark/light choice (dark by default) once their preferences load.
+function ThemeFromAccount() {
+  useThemePreference();
+  return null;
+}
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -61,6 +68,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       // breakpoint, not width alone: a sideways phone is a phone.
       className={`h-dvh bg-background flex ${breakpoint === "phone" ? "flex-col" : "flex-row"} w-full overflow-hidden print:block print:h-auto print:overflow-visible`}
     >
+      <ThemeFromAccount />
       {breakpoint === "phone" ? (
         <MobileTopBar onOpenNotes={showNotes ? openNotesDrawer : undefined} />
       ) : (

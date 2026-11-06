@@ -16,7 +16,7 @@ NOW = datetime(2026, 9, 30, 12, 0, tzinfo=UTC)
 
 def event(event_id: int, raised_hours_ago: float, cleared_hours_ago: float | None) -> AlarmEventResponse:
     return AlarmEventResponse(
-        id=event_id, definition_id=10, site_id=1, device_id=None, severity="warning",
+        id=event_id, definition_id=10, site_id=1, device_id=None, severity="MEDIUM",
         raised_at=NOW - timedelta(hours=raised_hours_ago),
         cleared_at=None if cleared_hours_ago is None else NOW - timedelta(hours=cleared_hours_ago),
         message="Too hot",
@@ -42,13 +42,13 @@ class TestBuildActiveSummary:
     """Active-alarm counts per (site, severity) become totals plus one entry per site."""
 
     def test_totals_and_sites_by_id(self):
-        summary = build_active_summary([(7, "warning", 2), (3, "fault", 1), (7, "fault", 4)])
-        assert (summary.fault_count, summary.warning_count) == (5, 2)
-        assert [(site.site_id, site.fault_count, site.warning_count) for site in summary.sites] == [
-            (3, 1, 0),
-            (7, 4, 2),
+        summary = build_active_summary([(7, "MEDIUM", 2), (3, "HIGH", 1), (7, "HIGH", 4), (3, "LOW", 3)])
+        assert (summary.high_count, summary.medium_count, summary.low_count) == (5, 2, 3)
+        assert [(site.site_id, site.high_count, site.medium_count, site.low_count) for site in summary.sites] == [
+            (3, 1, 0, 3),
+            (7, 4, 2, 0),
         ]
 
     def test_nothing_active_is_all_zero(self):
         summary = build_active_summary([])
-        assert (summary.fault_count, summary.warning_count, summary.sites) == (0, 0, [])
+        assert (summary.high_count, summary.medium_count, summary.low_count, summary.sites) == (0, 0, 0, [])

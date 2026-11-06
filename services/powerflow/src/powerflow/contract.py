@@ -90,6 +90,8 @@ def render_registers_contract(standard: PointStandard, sites: dict[str, SiteConf
             "unit_id": DEFAULT_MODBUS_UNIT_ID,
             "chunk_registers": CHUNK_REGISTERS,
             "address": "device base + register offset",
+            "demo": "a demo historian polls only the registers with demo true (at most 15 per "
+            "device); the server fills every served register either way",
             "groups": GROUPS,
             "device_types": {
                 str(kind): {
@@ -110,6 +112,7 @@ def render_registers_contract(standard: PointStandard, sites: dict[str, SiteConf
                             "qty": register.row.qty,
                             "tier": register.row.tier,
                             "record": register.row.record,
+                            "demo": register.row.demo,
                         }
                         for register in device_template(standard, kind)
                     ],

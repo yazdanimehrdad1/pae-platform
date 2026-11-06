@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConditionGroup } from "@/shared/components/conditions/ConditionGroup";
 import { ConditionRow } from "@/shared/components/conditions/ConditionRow";
+import { SEVERITY, SEVERITIES_HIGH_FIRST } from "@/shared/lib/alarmSeverity";
 import {
   describeConditionDraft,
   describeGroupDraft,
@@ -45,7 +46,7 @@ function parseNumber(raw: string, { min }: { min?: number } = {}): number | stri
 }
 
 function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? <p id={id} role="alert" className="text-xs text-alarm-fault">{message}</p> : null;
+  return message ? <p id={id} role="alert" className="text-xs text-alarm-high">{message}</p> : null;
 }
 
 /** The form's starting values: empty for a new rule, the rule's own for an edit. */
@@ -111,7 +112,7 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
   const [customClearDelay, setCustomClearDelay] = useState(form.customClearDelay);
   const [deadband, setDeadband] = useState(form.deadband);
   const [staleAfter, setStaleAfter] = useState(form.staleAfter);
-  const [severity, setSeverity] = useState<Severity>(initial?.severity ?? "warning");
+  const [severity, setSeverity] = useState<Severity>(initial?.severity ?? "MEDIUM");
   const [message, setMessage] = useState(initial?.message ?? "");
   const [notify, setNotify] = useState<NotificationSettings>(initial?.notify ?? { mobile: true, email: false });
   const canEnableThis = canEnable || !!initial?.enabled;
@@ -339,14 +340,12 @@ export function RuleBuilder({ initial, points, devices, existingNames, canEnable
         <div className="space-y-1 md:col-span-2">
           <Label>Severity</Label>
           <RadioGroup value={severity} onValueChange={value => setSeverity(value as Severity)} className="flex h-10 items-center gap-6">
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="warning" id="rule-severity-warning" />
-              <Label htmlFor="rule-severity-warning" className="font-normal">Warning</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="fault" id="rule-severity-fault" />
-              <Label htmlFor="rule-severity-fault" className="font-normal">Fault</Label>
-            </div>
+            {SEVERITIES_HIGH_FIRST.map(value => (
+              <div key={value} className="flex items-center gap-2">
+                <RadioGroupItem value={value} id={`rule-severity-${value.toLowerCase()}`} />
+                <Label htmlFor={`rule-severity-${value.toLowerCase()}`} className="font-normal">{SEVERITY[value].label}</Label>
+              </div>
+            ))}
           </RadioGroup>
         </div>
         <div className="space-y-1 md:col-span-4">

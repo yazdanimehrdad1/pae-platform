@@ -206,3 +206,31 @@ describe('devicesApi PV array', () => {
     expect(deleteInit.method).toBe('DELETE');
   });
 });
+
+describe('devicesApi points CSV', () => {
+  const plan = { applied: false, created: ['New'], updated: [], unchanged: [], missing: [], deleted: [], errors: [] };
+
+  it('downloads the template and the export as text', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response('name,poll_kind\r\n', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await devicesApi.pointsCsvTemplate()).toBe('name,poll_kind\r\n');
+    await devicesApi.exportPointsCsv('1001', 4);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/device-points/csv-template',
+      '/api/device-points/site/1001/device/4/csv',
+    ]);
+  });
+
+  it('posts the file as text/csv, a dry run unless told otherwise', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify(plan), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await devicesApi.importPointsCsv('1001', 4, 'a,b\r\n', { dryRun: true, deleteMissing: false })).toEqual(plan);
+    await devicesApi.importPointsCsv('1001', 4, 'a,b\r\n', { dryRun: false, deleteMissing: true });
+    const [dryUrl, dryInit] = fetchMock.mock.calls[0];
+    expect(dryUrl).toBe('/api/device-points/site/1001/device/4/csv-import?dry_run=true&delete_missing=false');
+    expect(dryInit.method).toBe('POST');
+    expect(dryInit.body).toBe('a,b\r\n');
+    expect(dryInit.headers['Content-Type']).toBe('text/csv');
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/device-points/site/1001/device/4/csv-import?dry_run=false&delete_missing=true');
+  });
+});

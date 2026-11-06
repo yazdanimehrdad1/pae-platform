@@ -32,7 +32,7 @@ GCLOUD_VM := --project $(PROJECT) --zone $(ZONE) --tunnel-through-iap --quiet --
 SSH := gcloud compute ssh $(VM) $(GCLOUD_VM) --command
 COMPOSE_ON_VM := sudo docker compose -p pae
 
-.PHONY: require-env infra-up ssh ui host-setup deploy status logs stats backup seed-site
+.PHONY: require-env infra-up admin-password ssh ui host-setup deploy status logs stats backup seed-site
 
 require-env:
 	@case "$(env)" in prod|dev) ;; *) echo "pass env=prod or env=dev" >&2; exit 2 ;; esac
@@ -40,6 +40,14 @@ require-env:
 # Create or complete the environment's GCP infrastructure (idempotent).
 infra-up: require-env
 	ENV=$(env) bash "$(REPO_ROOT)/deploy/infra/gcp/bootstrap.sh"
+
+# The first admin's login: its address (config/<env>.env) and the password from Secret Manager,
+# printed in this terminal only. It stays valid until that admin changes it in Settings.
+admin-password: require-env
+	@echo "login: $$(sed -n 's/^BOOTSTRAP_ADMIN_EMAIL=//p' config/$(env).env)"
+	@printf 'password: '
+	@gcloud secrets versions access latest --secret intelli-gateway-bootstrap-admin-password --project $(PROJECT)
+	@echo
 
 # A shell on the VM through IAP (OS Login; no external IP, no keys to manage).
 ssh: require-env
@@ -96,7 +104,7 @@ seed-site: require-env
 	@# directory inside the container (gone when the container is next recreated).
 	$(SSH) "set -e; c=\"$(COMPOSE_ON_VM)\"; d=/tmp/pae-seed-\$$(date +%s); \
 		\$$c cp pae-seed/$(notdir $(BUNDLE)) backend-ot:\$$d; \
-		\$$c exec -T backend-ot sh \$$d/run_in_container.sh $(SITE); \
+		\$$c exec -T backend-ot sh \$$d/run_in_container.sh $(SITE)$(if $(filter 1,$(REPLACE)), --replace); \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/stop; \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sites/$(SITE)/activate; \
 		curl -fsS -o /dev/null -X POST http://localhost/powerflow-api/sim/start; \

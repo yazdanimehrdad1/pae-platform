@@ -56,12 +56,38 @@ class TestDeviceReachability:
         device_health = DeviceHealthStatus.model_validate(response.json())
         assert device_health.reachable is False
         assert device_health.error
+        # Both targets are probed; the direct device's own probe is the one reported on top.
+        assert (device_health.device.host, device_health.device.port) == ("127.0.0.1", 1)
+        assert device_health.device.reachable is False
+        assert (device_health.aggregator.host, device_health.aggregator.port) == (
+            settings.modbus_host,
+            settings.modbus_port,
+        )
+        assert (device_health.host, device_health.port) == ("127.0.0.1", 1)
 
         site_health = SiteDevicesHealthResponse.model_validate(
             (await client.get(f"/api/healthz/site/{site.site_id}")).json()
         )
         assert site_health.total == 1
         assert site_health.unreachable == 1
+
+    async def test_aggregator_device_reports_the_aggregator_path(self, client):
+        site = await create_site(client)
+        device = await create_device(
+            client, site.site_id, host="127.0.0.1", port=1, timeout=1, read_from_aggregator=True
+        )
+
+        response = await client.get(f"/api/healthz/site/{site.site_id}/device/{device.device_id}")
+        assert response.status_code == 200
+        device_health = DeviceHealthStatus.model_validate(response.json())
+        assert device_health.read_from_aggregator is True
+        assert (device_health.host, device_health.port) == (
+            settings.modbus_host,
+            settings.modbus_port,
+        )
+        assert device_health.reachable == device_health.aggregator.reachable
+        assert (device_health.device.host, device_health.device.port) == ("127.0.0.1", 1)
+        assert device_health.device.reachable is False
 
     async def test_unknown_device_is_404(self, client):
         site = await create_site(client)

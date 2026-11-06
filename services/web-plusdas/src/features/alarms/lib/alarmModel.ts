@@ -30,13 +30,15 @@ export interface AlarmModel {
   /** Alarms cleared within the recent window, newest first. */
   recentlyCleared: AlarmView[];
   deviceStatus: Map<string, DeviceStatus>;
-  /** Devices worst first (fault, warning, normal), then by name. */
+  /** Devices worst first (HIGH, MEDIUM, LOW, normal), then by name. */
   sortedDevices: Device[];
   /** Devices without an active alarm that had one in the recent window. */
   devicesWithRecentEvents: Set<string>;
+  /** The newest last poll of any device of the site (a site-level alarm's last poll); null if none polled. */
+  siteLastPollAt: string | null;
 }
 
-const STATUS_ORDER: Record<DeviceStatus, number> = { fault: 0, warning: 1, normal: 2 };
+const STATUS_ORDER: Record<DeviceStatus, number> = { HIGH: 0, MEDIUM: 1, LOW: 2, normal: 3 };
 
 /** The point a threshold rule watches. */
 export function watchedPointId(rule: Rule): string | null {
@@ -53,6 +55,19 @@ export function ruleDeviceId(rule: Rule, pointsById: Map<string, Point>): string
     : flattenConditions(groupFromWire(spec.when)).map(condition => condition.pointId ?? "");
   const deviceIds = new Set(pointIds.map(pointId => pointsById.get(pointId)?.deviceId ?? null));
   return deviceIds.size === 1 ? [...deviceIds][0] : null;
+}
+
+function newestTimestamp(timestamps: (string | null)[]): string | null {
+  let newest: string | null = null;
+  for (const timestamp of timestamps) {
+    if (timestamp && (!newest || Date.parse(timestamp) > Date.parse(newest))) newest = timestamp;
+  }
+  return newest;
+}
+
+/** When the alarm's data was last polled: its device's last poll, or the site's newest for a site-level alarm. */
+export function lastPollOf(view: AlarmView, model: AlarmModel): string | null {
+  return view.device ? view.device.lastPollAt : model.siteLastPollAt;
 }
 
 export function buildAlarmModel(snapshot: AlarmSnapshot): AlarmModel {
@@ -88,9 +103,11 @@ export function buildAlarmModel(snapshot: AlarmSnapshot): AlarmModel {
   const statusRank = (device: Device) => STATUS_ORDER[deviceStatus.get(device.id) ?? "normal"];
   const sortedDevices = [...snapshot.devices].sort((a, b) => statusRank(a) - statusRank(b) || a.name.localeCompare(b.name));
 
+  const siteLastPollAt = newestTimestamp(snapshot.devices.map(device => device.lastPollAt));
+
   return {
     devicesById, pointsById, rulesById, active,
-    recentlyCleared, deviceStatus, sortedDevices, devicesWithRecentEvents,
+    recentlyCleared, deviceStatus, sortedDevices, devicesWithRecentEvents, siteLastPollAt,
   };
 }
 

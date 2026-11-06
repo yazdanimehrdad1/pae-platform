@@ -2,15 +2,16 @@
 
 Invariant guarded: every point-standard device of a powerflow default site
 (`contracts/powerflow/sites.json`) becomes one seeded device that reads powerflow's Modbus
-server directly (host powerflow, port 502, unit 1, zero-based), and every register it serves
-(`contracts/modbus/powerflow.registers.json`, powerflow_server yes/calc) becomes one NATIVE point
-at base + offset with the contract's type and labels, its scale and unit converted to engineering
-units (kW, kvar, kVA, kWh, kV; others as published); unserved registers are not
-seeded. The site's single line diagram validates and links only points the seed creates.
+server directly (host powerflow, port 502, unit 1, zero-based), and every demo register
+(`contracts/modbus/powerflow.registers.json`, demo: true; at most 15 per device) becomes one NATIVE
+point at base + offset with the contract's type and labels, its scale and unit converted to
+engineering units (kW, kvar, kVA, kWh, kV; others as published); other registers are not seeded,
+and a device whose demo registers aren't valid (too many, unserved, an enum or bitfield without
+labels, bits outside the type, no unit or scale) stops the seed. The site's single line diagram validates and links only points the seed creates.
 Its standardized point links (load, BESS, PV, meters) join a template point to a served register
 of the same device, with a scale that converts the register's stored unit.
-Each point records exactly when the point standard labels its register record = yes, some served
-registers are labelled no, and none of those is an SLD role or a link source.
+Each point records exactly when the point standard labels its register record = yes (every demo
+point does).
 Every PV device gets a PV array config with the contract's DC/AC ratings, and the site has a
 location (coordinates with elevation) so it can be forecast. The
 committed contracts are read as static fixtures (no DB/network).
@@ -20,6 +21,7 @@ import pytest
 from seed_db.powerflow_seed import (
     DEVICE_TYPES,
     KILO_UNITS,
+    MAX_DEMO_POINTS,
     POWERFLOW_HOST,
     PROFILE_BY_SITE,
     REGISTERS_CONTRACT,
@@ -31,6 +33,7 @@ from seed_db.powerflow_seed import (
     load_registers,
     load_sites,
     site_display_name,
+    validate_device_registers,
 )
 
 from helpers.device_points.address_overlap import NativePointRange, validate_no_register_overlap
@@ -39,6 +42,7 @@ from helpers.device_points.standardized_point_links import power_scale_error
 from schemas.api_models import SiteSld
 from schemas.api_models.types import register_size
 from schemas.tests_models import (
+    PowerflowRegister,
     PowerflowRegistersContract,
     PowerflowSitesContract,
     SeedData,
@@ -118,15 +122,11 @@ class TestDevices:
 
 
 class TestPoints:
-    def test_every_served_register_is_one_point_at_base_plus_offset(
+    def test_every_demo_register_is_one_point_at_base_plus_offset(
         self, seed: SeedData, registers, sites
     ) -> None:
         for ref in sites.sites[SITE].devices:
-            served = [
-                register
-                for register in registers.device_types[ref.kind].registers
-                if register.powerflow_server != "no"
-            ]
+            served = [register for register in registers.device_types[ref.kind].registers if register.demo]
             points = seed.device_points[device_name(SITE, ref)]
             assert [point.name for point in points] == [register.point for register in served]
             for point, register in zip(points, served, strict=True):
@@ -138,14 +138,10 @@ class TestPoints:
                 assert point.bitfield_detail == register.bitfield_detail
                 assert point.poll_kind == "holding" and point.word_order == "msw_first"
 
-    def test_unserved_registers_are_not_seeded(self, seed: SeedData, registers) -> None:
-        unserved = {
-            register.point
-            for register in registers.device_types["bess"].registers
-            if register.powerflow_server == "no"
-        }
+    def test_other_registers_are_not_seeded(self, seed: SeedData, registers) -> None:
+        others = {register.point for register in registers.device_types["bess"].registers if not register.demo}
         seeded = {point.name for point in seed.device_points["2bess_1pv-bess1"]}
-        assert unserved and not unserved & seeded
+        assert {"TotWhInj", "LLV", "TmpCab"} <= others and not others & seeded
 
     def test_no_points_overlap_on_a_device(self, seed: SeedData) -> None:
         for points in seed.device_points.values():
@@ -165,13 +161,12 @@ class TestPoints:
         meter = {point.name: point for point in seed.device_points["2bess_1pv-poi_meter"]}
         assert (bess["W"].unit, bess["W"].scale_factor) == ("kW", 1.0)
         assert (bess["Var"].unit, bess["Var"].scale_factor) == ("kvar", 1.0)
-        assert (bess["VA"].unit, bess["VA"].scale_factor) == ("kVA", 1.0)
-        assert (bess["TotWhInj"].unit, bess["TotWhInj"].scale_factor) == ("kWh", 1.0)
-        assert (bess["TotVarhInj"].unit, bess["TotVarhInj"].scale_factor) == ("kvarh", 1.0)
-        assert (bess["LLV"].unit, bess["LLV"].scale_factor) == ("kV", 0.0001)  # 0.1 V counts
-        assert (meter["PPV"].unit, meter["PPV"].scale_factor) == ("kV", 0.001)  # 1 V counts
-        assert (meter["A"].unit, meter["A"].scale_factor) == ("A", 1.0)
-        assert (bess["Hz"].unit, bess["SoC"].unit) == ("Hz", "%")
+        assert (meter["VA"].unit, meter["VA"].scale_factor) == ("kVA", 1.0)
+        assert (bess["VL1L2"].unit, bess["VL1L2"].scale_factor) == ("kV", 0.0001)  # 0.1 V counts
+        assert (meter["PhVphAB"].unit, meter["PhVphAB"].scale_factor) == ("kV", 0.001)  # 1 V counts
+        assert (bess["AL1"].unit, bess["AL1"].scale_factor) == ("A", 1.0)
+        assert (bess["Hz"].unit, bess["Hz"].scale_factor, bess["SoC"].unit) == ("Hz", 0.01, "%")
+        assert (bess["PF"].unit, bess["PF"].scale_factor) == (None, 0.001)
 
     def test_no_si_power_energy_or_voltage_units_remain(self, seed: SeedData) -> None:
         units = {point.unit for points in seed.device_points.values() for point in points}
@@ -285,8 +280,8 @@ class TestNotRecordedPoints:
             for point in seed.device_points[device_name(SITE, ref)]:
                 assert point.record_enabled == labelled[point.name], (ref.asset_id, point.name)
 
-    def test_some_served_registers_are_labelled_not_recorded(self, seed: SeedData) -> None:
-        assert any(not point.record_enabled for points in seed.device_points.values() for point in points)
+    def test_every_demo_point_records(self, seed: SeedData) -> None:
+        assert all(point.record_enabled for points in seed.device_points.values() for point in points)
 
     def test_no_sld_role_or_link_source_is_unrecorded(self, seed: SeedData) -> None:
         unrecorded = {
@@ -296,3 +291,74 @@ class TestNotRecordedPoints:
         read = {(device, point) for device, points in sld_points.items() for point in points}
         read |= {source for _, source in resolve_links(seed)}
         assert not read & unrecorded, sorted(read & unrecorded)
+
+
+DEMO_POINTS = {
+    "2bess_1pv-plant_controller": [
+        "SiteW", "SiteVar", "SitePF", "SiteHz", "SiteV", "WLoss", "PvW", "PvWAvail", "BessW", "BessSoC",
+        "BessWAvailDisCha", "BessWAvailCha", "NInvFlt", "GridMode", "Alrm",
+    ],
+    "2bess_1pv-bess1": [
+        "W", "Var", "PF", "Hz", "AL1", "AL2", "AL3", "VL1L2", "VL2L3", "VL3L1", "InvSt", "Alrm", "SoC",
+        "ChaSt", "Evt1",
+    ],
+    "2bess_1pv-pv1": [
+        "W", "Var", "PF", "Hz", "AL1", "AL2", "AL3", "VL1L2", "VL2L3", "VL3L1", "InvSt", "ConnSt", "Alrm",
+        "ThrotSrc", "WAvail",
+    ],
+    "2bess_1pv-load1": ["W", "VAR", "VA", "PF", "PPV", "A", "SupplySt", "Alrm"],
+    "2bess_1pv-poi_meter": [
+        "AphA", "AphB", "AphC", "AN", "PhVphAB", "PhVphBC", "PhVphCA", "Hz", "W", "VAR", "VA", "PF", "Evt",
+    ],
+}
+
+
+def register(**fields: object) -> PowerflowRegister:
+    defaults: dict[str, object] = {
+        "offset": 0, "point": "X", "label": "X", "qty": "p_total", "tier": "M", "record": True,
+        "data_type": "int16", "width": 1, "signed": True, "scale": 1000.0, "unit": "W",
+        "powerflow_server": "yes", "enum_detail": None, "bitfield_detail": None, "demo": True,
+    }
+    return PowerflowRegister.model_validate(defaults | fields)
+
+
+class TestDemoPoints:
+    @pytest.mark.parametrize("device", sorted(DEMO_POINTS))
+    def test_each_device_polls_exactly_its_demo_points(self, seed: SeedData, device: str) -> None:
+        names = [point.name for point in seed.device_points[device]]
+        assert sorted(names) == sorted(DEMO_POINTS[device])
+        assert len(names) <= MAX_DEMO_POINTS
+
+    @pytest.mark.parametrize("site", ["1bess_1pv", "2bess_1pv", "3bess_2pv"])
+    def test_no_device_has_more_than_15_points_or_an_energy_counter(self, site: str, registers, sites) -> None:
+        for name, points in build_seed(site, registers, sites).device_points.items():
+            assert 0 < len(points) <= MAX_DEMO_POINTS, name
+            assert not [point.name for point in points if (point.unit or "").endswith("h")], name
+
+    def test_every_enum_and_bitfield_has_its_labels(self, seed: SeedData) -> None:
+        for points in seed.device_points.values():
+            for point in points:
+                if point.data_type.startswith("enum"):
+                    assert point.enum_detail and point.point_class == "BINARY", point.name
+                if point.data_type.startswith("bitfield"):
+                    assert point.bitfield_detail and point.point_class == "ALARM", point.name
+
+    @pytest.mark.parametrize(
+        ("bad", "problem"),
+        [
+            (register(data_type="enum16", unit="", scale=1.0), "enum without labels"),
+            (register(data_type="bitfield16", unit="", scale=1.0), "bitfield without labels"),
+            (register(data_type="bitfield16", unit="", scale=1.0, bitfield_detail={"16": "X"}), "outside its 16-bit"),
+            (register(unit=""), "has no unit"),
+            (register(scale=0.0), "has scale 0.0"),
+            (register(powerflow_server="no"), "isn't served"),
+        ],
+    )
+    def test_an_invalid_register_stops_the_seed(self, bad: PowerflowRegister, problem: str) -> None:
+        with pytest.raises(ValueError, match=problem):
+            validate_device_registers("dev", [bad])
+
+    def test_a_power_factor_needs_no_unit_and_too_many_points_are_refused(self) -> None:
+        validate_device_registers("dev", [register(qty="pf", unit="", scale=0.001)])
+        with pytest.raises(ValueError, match="16 points"):
+            validate_device_registers("dev", [register(point=f"P{n}") for n in range(16)])

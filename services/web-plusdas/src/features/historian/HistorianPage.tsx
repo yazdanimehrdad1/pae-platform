@@ -455,10 +455,8 @@ export default function Historian() {
   // A custom range is kept as UTC instants; the inputs show and take it in the display zone.
   const [customStart, setCustomStart] = useState<string>(() => new Date(Date.now() - 3_600_000).toISOString());
   const [customEnd, setCustomEnd] = useState<string>(() => new Date().toISOString());
-  const [topTrendId, setTopTrendId] = useState<string | null>(null);
-  const [middleTrendId, setMiddleTrendId] = useState<string | null>(null);
-  const [bottomTrendId, setBottomTrendId] = useState<string | null>(null);
-  const [fourthTrendId, setFourthTrendId] = useState<string | null>(null);
+  // The trend picked for the one-chart layout; with more charts, the first trends in order show.
+  const [singleLayoutTrendId, setSingleLayoutTrendId] = useState<string | null>(null);
   const [isCollectionExpanded, setIsCollectionExpanded] = useState<boolean>(true);
   const [isSharedExpanded, setIsSharedExpanded] = useState<boolean>(true);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
@@ -491,10 +489,7 @@ export default function Historian() {
     ? { startTime: customStart, endTime: customEnd }
     : { preset: timeRange };
 
-  const topTrendRef = useRef<HTMLDivElement>(null);
-  const middleTrendRef = useRef<HTMLDivElement>(null);
-  const bottomTrendRef = useRef<HTMLDivElement>(null);
-  const fourthTrendRef = useRef<HTMLDivElement>(null);
+  const trendChartRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const cardContentRef = useRef<HTMLDivElement>(null);
 
   const sites_saved_trends = trends;
@@ -512,35 +507,23 @@ export default function Historian() {
   const [latestReadingByTrend, setLatestReadingByTrend] = useState<Record<string, number | null>>({});
   const handleLatestReading = (trendId: string, timestamp: number | null) =>
     setLatestReadingByTrend(previous => (previous[trendId] === timestamp ? previous : { ...previous, [trendId]: timestamp }));
-  const visibleTrendIds = [topTrendId, middleTrendId, bottomTrendId, fourthTrendId].slice(0, layoutCount).filter(Boolean);
+  const singleLayoutTrend = trends.find(trend => trend.id === singleLayoutTrendId) ?? trends[0];
+  const visibleTrends = layoutCount === 1 ? (singleLayoutTrend ? [singleLayoutTrend] : []) : trends.slice(0, layoutCount);
+  const visibleTrendIds = visibleTrends.map(trend => trend.id);
   const latestReadings = visibleTrendIds.map(trendId => latestReadingByTrend[trendId]).filter((timestamp): timestamp is number => typeof timestamp === 'number');
   const lastDataTimeString = latestReadings.length > 0
     ? new Date(Math.max(...latestReadings)).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone })
     : 'No data';
 
-  // Once the saved trends are in: show the first ones.
+  // Once the saved trends are in: make the first one current.
   const hasPlacedTrendsRef = useRef(false);
   useEffect(() => {
     if (areTrendsLoaded && !hasPlacedTrendsRef.current && trends.length > 0) {
       hasPlacedTrendsRef.current = true;
       setCurrentTrendId(trends[0].id);
-      setTopTrendId(prev => prev || trends[0].id);
-      setMiddleTrendId(prev => prev || (trends.length > 1 ? trends[1].id : null));
-      setBottomTrendId(prev => prev || (trends.length > 2 ? trends[2].id : null));
-      setFourthTrendId(prev => prev || (trends.length > 3 ? trends[3].id : null));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areTrendsLoaded, trends.length]);
-
-  useEffect(() => {
-    if (trends.length > 0) {
-      const n = trends.length;
-      if (layoutCount === 1) { if (!topTrendId) setTopTrendId(currentTrendId || trends[0].id); setMiddleTrendId(null); setBottomTrendId(null); setFourthTrendId(null); }
-      else if (layoutCount === 2) { setTopTrendId(trends[0].id); setMiddleTrendId(n > 1 ? trends[1].id : null); setBottomTrendId(null); setFourthTrendId(null); }
-      else if (layoutCount === 3) { setTopTrendId(trends[0].id); setMiddleTrendId(n > 1 ? trends[1].id : null); setBottomTrendId(n > 2 ? trends[2].id : null); setFourthTrendId(null); }
-      else { setTopTrendId(trends[0].id); setMiddleTrendId(n > 1 ? trends[1].id : null); setBottomTrendId(n > 2 ? trends[2].id : null); setFourthTrendId(n > 3 ? trends[3].id : null); }
-    } else { setTopTrendId(null); setMiddleTrendId(null); setBottomTrendId(null); setFourthTrendId(null); }
-  }, [layoutCount, trends]);
 
   const [pointLabels, setPointLabels] = useState<Record<string, string>>({});
   // The way status points are drawn: one of the user's preferences.
@@ -558,15 +541,10 @@ export default function Historian() {
   };
 
   const scrollToTrend = (trendId: string) => {
-    let targetRef: React.RefObject<HTMLDivElement> | null = null;
-    if (topTrendId === trendId) targetRef = topTrendRef;
-    else if (middleTrendId === trendId) targetRef = middleTrendRef;
-    else if (bottomTrendId === trendId) targetRef = bottomTrendRef;
-    else if (fourthTrendId === trendId) targetRef = fourthTrendRef;
-
-    if (targetRef?.current && cardContentRef.current) {
+    const target = visibleTrendIds.includes(trendId) ? trendChartRefs.current[trendId] : null;
+    if (target && cardContentRef.current) {
       const containerRect = cardContentRef.current.getBoundingClientRect();
-      const targetRect = targetRef.current.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
       const scrollTop = cardContentRef.current.scrollTop;
       cardContentRef.current.scrollTo({ top: targetRect.top - containerRect.top + scrollTop - 20, behavior: 'smooth' });
     }
@@ -576,7 +554,7 @@ export default function Historian() {
     const trimmedName = newTrendName.trim();
     if (!trimmedName) { toast({ title: "Invalid Trend Name", description: "Trend name cannot be empty.", variant: "destructive" }); return; }
     if (trimmedName.length > 15) { toast({ title: "Trend Name Too Long", description: "Trend name cannot exceed 15 characters.", variant: "destructive" }); return; }
-    if (trends.length >= 4) { toast({ title: "Maximum Trends Reached", description: "You can have a maximum of 4 trends.", variant: "destructive" }); return; }
+    if (trends.length >= MAX_TRENDS) { toast({ title: "Maximum Trends Reached", description: `You can have a maximum of ${MAX_TRENDS} trends.`, variant: "destructive" }); return; }
 
     try {
       const newTrend = await createTrend(trimmedName);
@@ -861,7 +839,7 @@ export default function Historian() {
                       <Select value={layoutCount.toString()} onValueChange={(v) => setLayoutCount(Number(v))}>
                         <SelectTrigger className="w-[120px]" id="layout-count"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {[1, 2, 3, 4].map(n => <SelectItem key={n} value={n.toString()}>{n} Trend{n > 1 ? 's' : ''}</SelectItem>)}
+                          {LAYOUT_COUNTS.map(count => <SelectItem key={count} value={count.toString()}>{count} Trend{count > 1 ? 's' : ''}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -869,12 +847,12 @@ export default function Historian() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span>
-                            <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="gap-2" disabled={trends.length >= 4}>
+                            <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="gap-2" disabled={trends.length >= MAX_TRENDS}>
                               <Plus className="w-4 h-4" />New Trend
                             </Button>
                           </span>
                         </TooltipTrigger>
-                        {trends.length >= 4 && <TooltipContent><p>Maximum of 4 trends reached.</p></TooltipContent>}
+                        {trends.length >= MAX_TRENDS && <TooltipContent><p>Maximum of {MAX_TRENDS} trends reached.</p></TooltipContent>}
                       </Tooltip>
                     </TooltipProvider>
                   </div>
@@ -926,38 +904,20 @@ export default function Historian() {
                   </CardHeader>
                   <CardContent ref={cardContentRef} className="p-2 pt-0 sm:p-4 sm:pt-0 md:p-6 md:pt-0 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 [@media(max-height:499px)_and_(max-width:1023px)]:pt-0">
                     <div className="space-y-6">
-                      {layoutCount >= 1 && topTrendId && (
-                        <div ref={topTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
+                      {visibleTrends.map((trend, index) => (
+                        <div key={trend.id} ref={element => { trendChartRefs.current[trend.id] = element; }} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <Label>Trend-1: {trends.find(t => t.id === topTrendId)?.name || ''}</Label>
+                            <Label>Trend-{index + 1}: {trend.name}</Label>
                             {layoutCount === 1 && (
-                              <Select value={topTrendId} onValueChange={(v) => setTopTrendId(v)}>
+                              <Select value={trend.id} onValueChange={setSingleLayoutTrendId}>
                                 <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>{trends.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                               </Select>
                             )}
                           </div>
-                          <TrendChart selectedPoints={trends.find(t => t.id === topTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(topTrendId)} onScaleChange={scale => setTrendScale(topTrendId, scale)} styles={stylesOf(topTrendId)} onStylesChange={styles => setTrendStyles(topTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(topTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(topTrendId, timestamp)} />
+                          <TrendChart selectedPoints={trend.points} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(trend.id)} onScaleChange={scale => setTrendScale(trend.id, scale)} styles={stylesOf(trend.id)} onStylesChange={styles => setTrendStyles(trend.id, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(trend.id, selectionId)} onLatestReading={timestamp => handleLatestReading(trend.id, timestamp)} />
                         </div>
-                      )}
-                      {layoutCount >= 2 && middleTrendId && (
-                        <div ref={middleTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
-                          <Label>Trend-2: {trends.find(t => t.id === middleTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === middleTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(middleTrendId)} onScaleChange={scale => setTrendScale(middleTrendId, scale)} styles={stylesOf(middleTrendId)} onStylesChange={styles => setTrendStyles(middleTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(middleTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(middleTrendId, timestamp)} />
-                        </div>
-                      )}
-                      {layoutCount >= 3 && bottomTrendId && (
-                        <div ref={bottomTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
-                          <Label>Trend-3: {trends.find(t => t.id === bottomTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === bottomTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(bottomTrendId)} onScaleChange={scale => setTrendScale(bottomTrendId, scale)} styles={stylesOf(bottomTrendId)} onStylesChange={styles => setTrendStyles(bottomTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(bottomTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(bottomTrendId, timestamp)} />
-                        </div>
-                      )}
-                      {layoutCount >= 4 && fourthTrendId && (
-                        <div ref={fourthTrendRef} className="border rounded-lg p-2 sm:p-4 [@media(max-height:499px)_and_(max-width:1023px)]:p-2 bg-card space-y-2">
-                          <Label>Trend-4: {trends.find(t => t.id === fourthTrendId)?.name || ''}</Label>
-                          <TrendChart selectedPoints={trends.find(t => t.id === fourthTrendId)?.points || []} timeWindow={timeWindow} timeZone={timeZone} autoRefresh={autoRefresh} forecastAheadHours={forecastAhead} scale={scaleOf(fourthTrendId)} onScaleChange={scale => setTrendScale(fourthTrendId, scale)} styles={stylesOf(fourthTrendId)} onStylesChange={styles => setTrendStyles(fourthTrendId, styles)} pointLabels={pointLabels} siteId={selectedSiteId || null} discreteMode={discreteMode} onDiscreteModeChange={handleDiscreteModeChange} onRevealPoint={selectionId => handleRevealPoint(fourthTrendId, selectionId)} onLatestReading={timestamp => handleLatestReading(fourthTrendId, timestamp)} />
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -971,7 +931,7 @@ export default function Historian() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Trend</DialogTitle>
-            <DialogDescription>Give your trend a name. Maximum 15 characters, up to 4 trends ({trends.length}/4 used).</DialogDescription>
+            <DialogDescription>Give your trend a name. Maximum 15 characters, up to {MAX_TRENDS} trends ({trends.length}/{MAX_TRENDS} used).</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -981,12 +941,12 @@ export default function Historian() {
               </div>
               <Input id="trend-name" placeholder="e.g., Power Analysis" value={newTrendName}
                 onChange={(e) => { if (e.target.value.length <= 15) setNewTrendName(e.target.value); }} maxLength={15}
-                onKeyDown={(e) => { if (e.key === 'Enter' && newTrendName.trim() && newTrendName.length <= 15 && trends.length < 4) handleCreateTrend(); }} />
+                onKeyDown={(e) => { if (e.key === 'Enter' && newTrendName.trim() && newTrendName.length <= 15 && trends.length < MAX_TRENDS) handleCreateTrend(); }} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); setNewTrendName(''); }}>Cancel</Button>
-            <Button onClick={handleCreateTrend} disabled={!newTrendName.trim() || newTrendName.length > 15 || trends.length >= 4}>Create Trend</Button>
+            <Button onClick={handleCreateTrend} disabled={!newTrendName.trim() || newTrendName.length > 15 || trends.length >= MAX_TRENDS}>Create Trend</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/shared/contexts/auth";
 import { activeAlarmsText, useActiveAlarms, worstActiveSeverity } from "@/shared/hooks/useActiveAlarms";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,7 +162,7 @@ function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: 
   const isActive = (item: NavigationItem) =>
     location.pathname === item.path || (item.activePrefixes ?? []).some(prefix => location.pathname.startsWith(prefix));
 
-  // The System alarms bell: red while any site has an active fault, amber while only warnings.
+  // The System alarms bell: colored by the worst active severity (red HIGH, amber MEDIUM, blue LOW).
   const activeAlarms = useActiveAlarms().data;
   const alarmSeverity = worstActiveSeverity(activeAlarms);
   const alarmText = activeAlarmsText(activeAlarms);
@@ -243,7 +244,7 @@ function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: 
                 className={cn(
                   "w-5 h-5",
                   !isCollapsed && "mr-3",
-                  alarming && (alarmSeverity === 'fault' ? "text-alarm-fault" : "text-alarm-warning")
+                  alarming && alarmSeverity && SEVERITY[alarmSeverity].textClass
                 )}
               />
               {!isCollapsed && <span>{item.title}</span>}

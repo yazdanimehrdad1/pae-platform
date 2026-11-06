@@ -2,13 +2,16 @@
 simulated sites.
 
 Idempotent — safe to run multiple times. Skips rows that already exist (devices and points are
-matched within their site, so several seeded sites can coexist).
+matched within their site, so several seeded sites can coexist). It never changes or removes what
+exists, except with --replace (powerflow sites only): the site is deleted first, with its devices,
+points, readings, alarms, SLD and reports, then seeded fresh (a new site id).
 
 Run via:
     make seed-db-mock-modbus                     # copies files into the running container, runs
     make seed-db-powerflow SITE=2bess_1pv        # (dev stack: root `make seed-2bess-1pv`)
     python tests/seed_db/seed_db.py mock-modbus  # run locally (requires DB to be reachable)
     python tests/seed_db/seed_db.py powerflow 2bess_1pv
+    python tests/seed_db/seed_db.py powerflow 2bess_1pv --replace   # (make ... REPLACE=1)
 """
 
 from __future__ import annotations
@@ -18,7 +21,8 @@ import asyncio
 import sys
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
@@ -57,7 +61,7 @@ from dev_mock_data import (  # noqa: E402
     user_alarms,
     virtual_points,
 )
-from powerflow_seed import powerflow_seed_data  # noqa: E402
+from powerflow_seed import POWERFLOW_SITE_MARKER, powerflow_seed_data  # noqa: E402
 
 __all__ = [
     "DEVICES",
@@ -74,10 +78,18 @@ __all__ = [
 logger = get_logger(__name__)
 
 
-async def seed(data: SeedData | None = None) -> None:
-    """Seed one bundle (default: the mock-modbus site)."""
+class NotAPowerflowSiteError(Exception):
+    """--replace was asked for a site this seeder didn't create."""
+
+
+async def seed(data: SeedData | None = None, replace: bool = False) -> None:
+    """Seed one bundle (default: the mock-modbus site). With `replace`, each of the bundle's sites
+    that exists is deleted first (only a powerflow-seeded one; anything else is refused), in the
+    same transaction: a failure leaves the old site as it was."""
     data = data if data is not None else mock_modbus_seed_data()
     async with get_session() as session:
+        if replace:
+            await _delete_sites(session, [site_request.name for site_request in data.sites])
 
         # ------------------------------------------------------------------ #
         # 1. Sites                                                            #
@@ -305,15 +317,37 @@ async def seed(data: SeedData | None = None) -> None:
     logger.info("Seeding complete.")
 
 
+async def _delete_sites(session: AsyncSession, names: list[str]) -> None:
+    for name in names:
+        site = (await session.execute(select(Site).where(Site.name == name))).scalar_one_or_none()
+        if site is None:
+            continue
+        if POWERFLOW_SITE_MARKER not in (site.description or ""):
+            raise NotAPowerflowSiteError(
+                f"site '{name}' (id={site.id}) wasn't seeded from powerflow: not replacing it"
+            )
+        # Everything of the site goes with it (ON DELETE CASCADE: devices, points, readings,
+        # alarms, SLD, reports, PV arrays).
+        await session.execute(delete(Site).where(Site.id == site.id))
+        await session.flush()
+        session.expunge_all()
+        logger.info("Deleted site '%s' (id=%s) to seed it again", name, site.id)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed backend-ot's database with dev data.")
     sources = parser.add_subparsers(dest="source")
     sources.add_parser("mock-modbus", help="the mock-modbus site (Alpha Solar Farm), the default")
     powerflow = sources.add_parser("powerflow", help="one of powerflow's simulated default sites")
     powerflow.add_argument("site", help="powerflow site, e.g. 2bess_1pv")
+    powerflow.add_argument(
+        "--replace",
+        action="store_true",
+        help="delete the site (and its history) first, then seed it fresh",
+    )
     args = parser.parse_args()
     data = powerflow_seed_data(args.site) if args.source == "powerflow" else mock_modbus_seed_data()
-    asyncio.run(seed(data))
+    asyncio.run(seed(data, replace=getattr(args, "replace", False)))
 
 
 if __name__ == "__main__":

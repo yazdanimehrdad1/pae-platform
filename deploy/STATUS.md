@@ -27,10 +27,10 @@ Done stages (details in `PLAN.md`): 0 cleanup, 1 deployment readiness, 2 CI, 3 i
 | Check dev | `make status env=dev` (release + container health), `make logs env=dev svc=backend-ot`, `make stats env=dev` |
 | Deploy by hand | `make deploy env=dev` (newest `main`) or `make deploy env=dev RELEASE=<sha>` |
 | Back up now | `make backup env=dev` (all databases to `gs://pae-development-backups`; weekly runs are automatic) |
-| Load a simulated site | `make cloud-seed-site env=dev SITE=2bess_1pv` (dev only) |
+| Load a simulated site | `make cloud-seed-site env=dev SITE=2bess_1pv` (dev only; `REPLACE=1` deletes the site and its history first, to apply a changed point list) |
 | Shell on the server | `make ssh env=dev` |
-| Log in (first time) | dev `admin@plusdas.dev`, prod `admin@plusdas.local` (`BOOTSTRAP_ADMIN_EMAIL` in `cloud/config/<env>.env`); its password is the secret `intelli-gateway-bootstrap-admin-password` (Console → Security → Secret Manager → View secret value). Add everyone else on the Users page |
-| Demo login (dev only) | `demo@plusdas.dev` (`DEMO_USER_EMAIL` in `cloud/config/dev.env`); password in the dev secret `intelli-gateway-demo-user-password` (rotate: add a new version, then redeploy) |
+| Log in (first time) | dev `admin@plusdas.dev`, prod `admin@plusdas.local` (`BOOTSTRAP_ADMIN_EMAIL` in `cloud/config/<env>.env`); its password: `make admin-password env=dev` (or `env=prod`; the secret `intelli-gateway-bootstrap-admin-password`). Then set your own in Settings, and add everyone else on the Users page |
+| Demo login (dev only) | `demo@plusdas.dev` / `demo-password` (the dev secret `intelli-gateway-demo-user-password`; to change it: add a new version, then redeploy) |
 | Logs in the Console | https://console.cloud.google.com/logs/query?project=pae-development, query `log_id("pae_containers")` |
 | Servers in the Console | https://console.cloud.google.com/compute/instances?project=pae-development (and `?project=pae-platform-prod`) |
 
@@ -43,9 +43,11 @@ account has no right to create them), so `infra-up` creates them first; otherwis
 that environment stops at "secrets" (safely: the running release is not touched):
 
 1. `make infra-up env=dev`: creates `intelli-gateway-bootstrap-admin-password` and
-   `intelli-gateway-demo-user-password` (random, never shown) and lets the VM read them.
+   `intelli-gateway-demo-user-password` (admin: random, never shown; demo: `demo-password`) and
+   lets the VM read them.
 2. `make infra-up env=prod`: creates `intelli-gateway-bootstrap-admin-password` only.
-3. Merge. After the deploy, log in as `admin@plusdas.dev` on dev, `admin@plusdas.local` on prod (password: that secret, in the Console) and add
+3. Merge. After the deploy, `make admin-password env=dev` shows the admin login (`admin@plusdas.dev`;
+   prod: `admin@plusdas.local`); log in, set your own password in Settings, and add
    people on the Users page. Delete this section once both environments have deployed.
 
 ## What is left

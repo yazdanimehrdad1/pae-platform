@@ -704,7 +704,7 @@ async def stop_recording(client: AsyncClient, point: DevicePointResponse) -> Dev
 
 def threshold_alarm(point_id: int) -> AlarmDefinitionCreateRequest:
     return AlarmDefinitionCreateRequest(
-        name="too_high", severity="warning",
+        name="too_high", severity="MEDIUM",
         rule=ThresholdAlarm(kind="threshold", condition=VirtualCondition(point_id=point_id, operator=">", value=10)),
     )
 

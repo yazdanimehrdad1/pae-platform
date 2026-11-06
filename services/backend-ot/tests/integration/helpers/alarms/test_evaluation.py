@@ -58,7 +58,7 @@ async def site_with_points(client: AsyncClient) -> tuple[int, int, list[DevicePo
 
 def threshold_alarm(point_id: int, delay_sec: int = 0, deadband: float = 0, **condition: object) -> AlarmDefinitionCreateRequest:
     return AlarmDefinitionCreateRequest(
-        name="power_high", severity="warning", message="Power too high",
+        name="power_high", severity="MEDIUM", message="Power too high",
         rule=ThresholdAlarm(kind="threshold", delay_sec=delay_sec, deadband=deadband,
                             condition=VirtualCondition.model_validate({"point_id": point_id, "operator": ">", "value": 10} | condition)),
     )
@@ -91,7 +91,7 @@ class TestThreshold:
 
         (event,) = await events(client, site_id)
         assert (event.definition_id, event.device_id, event.value_at_raise) == (alarm.id, device_id, 14)
-        assert (event.raised_at, event.cleared_at, event.message, event.severity) == (at(20), None, "Power too high", "warning")
+        assert (event.raised_at, event.cleared_at, event.message, event.severity) == (at(20), None, "Power too high", "MEDIUM")
 
         await reading(db, power, 30, 9)  # below the limit, inside the deadband
         assert await evaluate_site_alarms(site_id, at(30)) == []
@@ -185,7 +185,7 @@ class TestCommsStale:
     async def test_raises_back_dated_and_clears_on_the_next_reading(self, client, db):
         site_id, device_id, (power, *_) = await site_with_points(client)
         await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
-            name="comms_lost", severity="fault",
+            name="comms_lost", severity="HIGH",
             rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id, stale_after_sec=60),
         ))
         assert await evaluate_site_alarms(site_id, at(0)) == []  # never polled: no data, no alarm
@@ -204,7 +204,7 @@ class TestCommsStale:
     async def test_last_success_is_the_newest_valued_reading_of_any_point(self, client, db):
         site_id, device_id, (power, other, _) = await site_with_points(client)
         await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
-            name="comms_lost", severity="fault",
+            name="comms_lost", severity="HIGH",
             rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id, stale_after_sec=60),
         ))
         await reading(db, power, 0, 1)
@@ -219,7 +219,7 @@ class TestCondition:
     async def test_all_group_raises_and_clears(self, client, db):
         site_id, device_id, (power, _, flags) = await site_with_points(client)
         await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
-            name="trip_while_producing", severity="fault",
+            name="trip_while_producing", severity="HIGH",
             rule=ConditionAlarm(kind="condition", when=VirtualConditionGroup(match="all", items=[
                 VirtualCondition(point_id=flags.id, operator="bit_set", bit=3),
                 VirtualCondition(point_id=power.id, operator=">", value=0),

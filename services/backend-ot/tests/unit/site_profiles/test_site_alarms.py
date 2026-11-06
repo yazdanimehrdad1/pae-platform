@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from schemas.api_models.alarms import MAX_ENABLED_ALARMS
 from schemas.site_profiles import AlarmCheck, AlarmContext
 from site_profiles.declarations.alarm import SiteAlarm
 from site_profiles.declarations.profile import SiteProfile
@@ -32,7 +33,7 @@ def make_check(module: str, returns: type[BaseModel] = AlarmCheck) -> Callable[[
 
 def alarm(key: str = "too_hot", name: str = "too_hot", module: str = "site_profiles.individual_sites.one.alarms",
           returns: type[BaseModel] = AlarmCheck) -> SiteAlarm:
-    return SiteAlarm(key=key, name=name, severity="warning", message="It is too hot", evaluate=make_check(module, returns))
+    return SiteAlarm(key=key, name=name, severity="MEDIUM", message="It is too hot", evaluate=make_check(module, returns))
 
 
 def profile(*alarms: SiteAlarm, key: str = "one") -> SiteProfile:
@@ -45,7 +46,16 @@ class TestSiteAlarmShape:
             return AlarmCheck(active=False)
 
         with pytest.raises(ValidationError, match="async def"):
-            SiteAlarm(key="k", name="k", severity="fault", message="m", evaluate=not_async)
+            SiteAlarm(key="k", name="k", severity="HIGH", message="m", evaluate=not_async)
+
+    def test_delays_default_to_zero(self):
+        assert (alarm().delay_sec, alarm().clear_delay_sec) == (0, 0)
+
+    @pytest.mark.parametrize("field", ["delay_sec", "clear_delay_sec"])
+    def test_negative_delay_is_rejected(self, field: str):
+        check = make_check("site_profiles.individual_sites.one.alarms")
+        with pytest.raises(ValidationError, match=field):
+            SiteAlarm(key="k", name="k", severity="MEDIUM", message="m", evaluate=check, **{field: -1})
 
     @pytest.mark.parametrize(("key", "name"), [("Too_Hot", "ok"), ("too-hot", "ok"), ("ok", "1_bad"), ("ok", "has space")])
     def test_key_is_snake_case_and_name_an_identifier(self, key: str, name: str):
@@ -82,3 +92,8 @@ class TestValidateSiteAlarms:
         assert [declared.key for declared in SITE_PROFILES_BY_KEY["alpha_solar"].alarms] == ["high_severity_alarm_point_active"]
         assert SITE_PROFILES_BY_KEY["alpha_solar"].find_alarm("high_severity_alarm_point_active") is not None
         assert SITE_PROFILES_BY_KEY["alpha_solar"].find_alarm("gone") is None
+
+    def test_powerflow_2bess_1pv_declares_its_15_alarms_within_the_site_limit(self):
+        alarms = SITE_PROFILES_BY_KEY["powerflow_2bess_1pv"].alarms
+        assert len(alarms) == 15 < MAX_ENABLED_ALARMS
+        assert {declared.severity for declared in alarms} == {"HIGH", "MEDIUM", "LOW"}

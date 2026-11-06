@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { useAlarmHistory } from "../hooks/useAlarmsData";
 import { describeCondition, type AlarmModel } from "../lib/alarmModel";
-import { SEVERITY } from "@/shared/lib/alarmSeverity";
+import { SEVERITY, SEVERITIES_HIGH_FIRST } from "@/shared/lib/alarmSeverity";
 import { formatDuration, formatSiteTime } from "@/shared/lib/siteTime";
 import type { AlarmEvent, Device, HistoryFilter, Severity } from "../types";
 import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
@@ -86,7 +86,7 @@ export function HistoryDrawer({ siteId, open, onOpenChange, model, devices, now,
           <FilterSelect id="history-device" label="Device" value={deviceId} onChange={setDeviceId}
             options={[{ value: ALL, label: "All devices" }, ...devices.map(device => ({ value: device.id, label: device.name }))]} />
           <FilterSelect id="history-severity" label="Severity" value={severity} onChange={setSeverity}
-            options={[{ value: ALL, label: "All" }, { value: "fault", label: "Fault" }, { value: "warning", label: "Warning" }]} />
+            options={[{ value: ALL, label: "All" }, ...SEVERITIES_HIGH_FIRST.map(value => ({ value, label: SEVERITY[value].label }))]} />
           <FilterSelect id="history-rule" label="Rule" value={ruleId} onChange={setRuleId}
             options={[{ value: ALL, label: "All rules" }, ...[...model.rulesById.values()].map(rule => ({ value: rule.id, label: rule.name }))]} />
           <FilterSelect id="history-range" label="Time range" value={range} onChange={setRange} options={RANGES} />

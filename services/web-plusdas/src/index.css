@@ -38,8 +38,9 @@
     --success-foreground: 0 0% 100%;
     --warning: 43 96% 56%;
     --warning-foreground: 0 0% 0%;
-    --alarm-fault: 0 72% 45%;
-    --alarm-warning: 38 92% 42%;
+    --alarm-high: 0 72% 45%;
+    --alarm-medium: 38 92% 42%;
+    --alarm-low: 205 85% 40%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
@@ -109,8 +110,9 @@
     --success-foreground: 215 28% 8%;
     --warning: 43 96% 65%;
     --warning-foreground: 215 28% 8%;
-    --alarm-fault: 0 84% 62%;
-    --alarm-warning: 38 92% 55%;
+    --alarm-high: 0 84% 62%;
+    --alarm-medium: 38 92% 55%;
+    --alarm-low: 205 90% 65%;
     --destructive: 0 84% 70%;
     --destructive-foreground: 215 28% 8%;
 

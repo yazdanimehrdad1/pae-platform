@@ -4,6 +4,7 @@ import { BarChart3, Bell, BellRing, Menu, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { activeAlarmsText, useActiveAlarms, worstActiveSeverity } from "@/shared/hooks/useActiveAlarms";
+import { SEVERITY } from "@/shared/lib/alarmSeverity";
 import { NavDrawer } from "./AppSidebar";
 
 interface MobileTopBarProps {
@@ -47,7 +48,7 @@ export function MobileTopBar({ onOpenNotes }: MobileTopBarProps) {
         <AlarmIcon
           className={cn(
             "h-5 w-5",
-            alarmSeverity && (alarmSeverity === "fault" ? "text-alarm-fault" : "text-alarm-warning"),
+            alarmSeverity && SEVERITY[alarmSeverity].textClass,
           )}
         />
       </NavLink>

@@ -70,10 +70,10 @@ class TestBodies:
     @pytest.mark.parametrize("name", ["1_bad", "has space", "", "x" * 151])
     def test_name_is_an_identifier(self, name: str):
         with pytest.raises(ValidationError):
-            AlarmDefinitionCreateRequest.model_validate({"name": name, "severity": "fault", "rule": threshold()})
+            AlarmDefinitionCreateRequest.model_validate({"name": name, "severity": "HIGH", "rule": threshold()})
 
     def test_defaults(self):
-        request = AlarmDefinitionCreateRequest.model_validate({"name": "ok", "severity": "warning", "rule": threshold()})
+        request = AlarmDefinitionCreateRequest.model_validate({"name": "ok", "severity": "MEDIUM", "rule": threshold()})
         assert (request.enabled, request.notify_mobile, request.notify_email, request.message) == (True, False, False, "")
         assert "shown" not in AlarmDefinitionCreateRequest.model_fields  # enabled = evaluated and shown
 

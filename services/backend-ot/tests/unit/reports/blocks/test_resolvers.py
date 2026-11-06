@@ -53,7 +53,7 @@ def series(point_id: int, name: str, values: list[float]) -> PointTimeseries:
     )
 
 
-def event(event_id: int, device_id: int | None, raised_at: datetime, cleared_at: datetime | None, severity: str = "fault") -> AlarmEventResponse:
+def event(event_id: int, device_id: int | None, raised_at: datetime, cleared_at: datetime | None, severity: str = "HIGH") -> AlarmEventResponse:
     return AlarmEventResponse(
         id=event_id, definition_id=5, site_id=1001, device_id=device_id, severity=severity,
         raised_at=raised_at, cleared_at=cleared_at, message="tripped",
@@ -175,10 +175,10 @@ class TestAlarmEventsTable:
         assert (row.event_id, row.alarm_name, row.device_name, row.duration_seconds) == (2, "bess_trip", "device_1", 1800.0)
 
     async def test_severity_filter_and_cleared_duration(self):
-        cleared = event(1, None, WINDOW_START, WINDOW_START + timedelta(minutes=5), severity="warning")
+        cleared = event(1, None, WINDOW_START, WINDOW_START + timedelta(minutes=5), severity="MEDIUM")
         fault = event(2, None, WINDOW_START, None)
         data_source = FakeReportDataSource(events=[fault, cleared])
-        result = await resolve_block(AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", severity="warning"), block_context(data_source))
+        result = await resolve_block(AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", severity="MEDIUM"), block_context(data_source))
         assert isinstance(result, AlarmEventsTableResult)
         assert [(row.event_id, row.alarm_name, row.device_name, row.duration_seconds) for row in result.rows] == [
             (1, "alarm 5", None, 300.0)

@@ -106,9 +106,11 @@ A site profile, for example Alpha Solar, can declare alarms in code:
 SiteAlarm(
     key="high_severity_alarm_point_active",   # stable id, never change it
     name="high_severity_alarm_point_active",
-    severity="fault",
+    severity="HIGH",
     message="A HIGH-severity alarm point is set on a device (some device reports a fault)",
     evaluate=high_severity_alarm_point_active,  # async def (ctx: AlarmContext) -> AlarmCheck
+    delay_sec=0,                                # optional: active this long before it raises
+    clear_delay_sec=0,                          # optional: inactive this long before it clears
 )
 ```
 
@@ -220,7 +222,8 @@ The three rules worth remembering:
    starts over.
 2. **Missing data never raises or clears.** If an input reading is missing or too old, an ACTIVE
    alarm stays active, and a PENDING alarm goes back to IDLE (timer reset).
-3. **Profile alarms and comms-stale have no delay.** They raise on the first cycle the check is true.
+3. **Profile alarms take their delays from code** (`SiteAlarm.delay_sec` / `clear_delay_sec`, default 0:
+   raise on the first cycle the check is true). **Comms-stale has no delay**: its timeout is the delay.
 
 ### Worked example
 
@@ -300,7 +303,9 @@ Solar's `high_severity_alarm_point_active`, which raises while any HIGH point is
 ## 9. Not built yet
 
 - **Notifications are not sent.** On a raise, the job only logs `would notify: mobile, email`.
-- **Only one site has profile alarms.** Alpha Solar has one: `high_severity_alarm_point_active`.
+- **Two sites have profile alarms.** Alpha Solar has one: `high_severity_alarm_point_active`.
+  Powerflow 2BESS 1PV has 15 (unit faults and derates, SoC, POI voltage and frequency, grid,
+  comms, transformer loading, PV performance): `powerflow_2bess_1pv/powerflow_2bess_1pv_alarms.py`.
 - **The two alarm features share little.** Only Alpha Solar's profile alarm reads ALARM-class
   points, reusing the health code's `alarm_points` / `is_alarm_set`.
 

@@ -79,15 +79,20 @@ def build_active_summary(counts: list[tuple[int, AlarmSeverity, int]]) -> Active
     """Pure: (site_id, severity, active count) rows → totals plus one entry per site, by site_id."""
     per_site: dict[int, SiteActiveAlarms] = {}
     for site_id, severity, count in counts:
-        site = per_site.setdefault(site_id, SiteActiveAlarms(site_id=site_id, fault_count=0, warning_count=0))
-        if severity == "fault":
-            site.fault_count += count
+        site = per_site.setdefault(
+            site_id, SiteActiveAlarms(site_id=site_id, high_count=0, medium_count=0, low_count=0)
+        )
+        if severity == "HIGH":
+            site.high_count += count
+        elif severity == "MEDIUM":
+            site.medium_count += count
         else:
-            site.warning_count += count
+            site.low_count += count
     sites = [per_site[site_id] for site_id in sorted(per_site)]
     return ActiveAlarmsSummaryResponse(
-        fault_count=sum(site.fault_count for site in sites),
-        warning_count=sum(site.warning_count for site in sites),
+        high_count=sum(site.high_count for site in sites),
+        medium_count=sum(site.medium_count for site in sites),
+        low_count=sum(site.low_count for site in sites),
         sites=sites,
     )
 

@@ -1,8 +1,8 @@
 """Device point management endpoints."""
 
-from typing import Literal, NoReturn
+from typing import Any, Literal, NoReturn
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
 from api.controllers.devices import get_device_by_id
 from db.devices import lock_device_scan_ranges, reset_device_scan_ranges
@@ -18,8 +18,10 @@ from helpers.device_points import (
     update_device_point,
     update_virtual_point,
 )
+from helpers.device_points.points_csv import template_csv
+from helpers.device_points.points_csv_import import export_points_csv, import_points_csv
 from logger import get_logger
-from schemas.api_models import DevicePointResponse, PointClass, Severity
+from schemas.api_models import DevicePointResponse, PointClass, PointsCsvImportResult, Severity
 from schemas.api_models.requests import (
     DevicePointsBulkRequest,
     DevicePointUpdateRequest,
@@ -171,6 +173,113 @@ async def bulk_upsert_points(
         await get_device_by_id(site_id, device_id)
         points = await bulk_upsert_device_points(site_id, device_id, body)
         return [DevicePointResponse.model_validate(p, from_attributes=True) for p in points]
+    except HTTPException:
+        raise
+    except Exception as e:
+        _point_error(e)
+
+
+CSV_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {"content": {"text/csv": {"schema": {"type": "string"}}}, "description": "The CSV file"}
+}
+MAX_CSV_BYTES = 1_000_000
+
+
+def _csv_file(content: str, filename: str) -> Response:
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/csv-template",
+    response_class=Response,
+    responses=CSV_RESPONSE,
+    summary="An empty points CSV (the header row) to fill in and import",
+)
+async def points_csv_template() -> Response:
+    """The columns of a device points CSV (NATIVE points only, so no Category), as on the device
+    page's points table: Name, Poll Kind, Address and Data Type are required; Record, Size (the
+    data type's), Unit, Scale, Byte Order, Word Order, Class, Severity and Enum / Bit Labels are
+    optional."""
+    return _csv_file(template_csv(), "device-points-template.csv")
+
+
+@router.get(
+    "/site/{site_id}/device/{device_id}/csv",
+    response_class=Response,
+    responses={**CSV_RESPONSE, 404: {"description": "No such device"}},
+    summary="A device's NATIVE points as CSV",
+)
+async def export_points_csv_route(site_id: int, device_id: int) -> Response:
+    """The device's active NATIVE points, one row each, in the format the import reads."""
+    try:
+        device = await get_device_by_id(site_id, device_id)
+        content = await export_points_csv(device_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _point_error(e)
+    safe_name = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in device.name)
+    return _csv_file(content, f"{safe_name}-points.csv")
+
+
+@router.post(
+    "/site/{site_id}/device/{device_id}/csv-import",
+    response_model=PointsCsvImportResult,
+    responses={
+        400: {
+            "description": "The file has problems (detail.errors lists them); nothing was imported"
+        },
+        404: {"description": "No such device"},
+        409: {
+            "description": "A point to delete or stop recording is read by another point or an alarm"
+        },
+        413: {"description": "The file is larger than 1 MB"},
+    },
+    summary="Import a device's NATIVE points from CSV (dry run by default)",
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"text/csv": {"schema": {"type": "string"}}},
+        }
+    },
+)
+async def import_points_csv_route(
+    site_id: int,
+    device_id: int,
+    request: Request,
+    dry_run: bool = Query(True, description="Only report what the import would do"),
+    delete_missing: bool = Query(
+        False, description="Soft-delete the device's NATIVE points that aren't in the file"
+    ),
+) -> PointsCsvImportResult:
+    """Each row is a whole NATIVE point, matched by name: a new name creates a point, an existing
+    one gets every field from the row (a blank optional cell clears it; a deleted point is
+    restored). A dry run (the default) returns the plan and every problem of the file; with
+    dry_run=false a file without problems is applied in one transaction (with delete_missing, the
+    points not in the file go to the deleted points), and one with problems gets 400 and changes
+    nothing. The format: GET /device-points/csv-template."""
+    body = await request.body()
+    if len(body) > MAX_CSV_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail={"error": "PayloadTooLarge", "message": "The CSV is larger than 1 MB"},
+        )
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "ValidationError", "message": "The CSV isn't UTF-8 text"},
+        ) from e
+    try:
+        await get_device_by_id(site_id, device_id)
+        return await import_points_csv(
+            site_id, device_id, text, dry_run=dry_run, delete_missing=delete_missing
+        )
     except HTTPException:
         raise
     except Exception as e:

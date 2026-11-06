@@ -217,7 +217,7 @@ def user_alarms(point_id: Callable[[str, str], int], device_id: Callable[[str], 
             site_name=SITES[0].name,
             alarm=AlarmDefinitionCreateRequest(
                 name="placeholder_user_alarm_1",
-                severity="warning",
+                severity="MEDIUM",
                 message="PLACEHOLDER user alarm 1 (threshold): state_of_charge < 20 %",
                 rule=ThresholdAlarm(
                     kind="threshold",
@@ -231,7 +231,7 @@ def user_alarms(point_id: Callable[[str, str], int], device_id: Callable[[str], 
             site_name=SITES[0].name,
             alarm=AlarmDefinitionCreateRequest(
                 name="placeholder_user_alarm_2",
-                severity="fault",
+                severity="HIGH",
                 message="PLACEHOLDER user alarm 2 (comms stale): no successful poll for 60 s",
                 rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id(bess), stale_after_sec=60),
             ),
