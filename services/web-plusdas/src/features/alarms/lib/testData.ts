@@ -44,14 +44,14 @@ export const LATEST: Map<number, LatestPointReadings> = new Map([
 ]);
 
 const definition = (id: number, name: string, extra: Partial<AlarmDefinitionRecord>): AlarmDefinitionRecord => ({
-  id, site_id: 1001, source: "USER", profile_alarm_key: null, name, kind: "threshold", rule: null, severity: "warning",
+  id, site_id: 1001, source: "USER", profile_alarm_key: null, name, kind: "threshold", rule: null, severity: "MEDIUM",
   message: "", enabled: true, notify_mobile: false, notify_email: false,
   created_at: "2026-09-29T08:00:00Z", updated_at: "2026-09-30T09:00:00Z", deleted_at: null, ...extra,
 });
 
 export const DEFINITIONS: AlarmDefinitionRecord[] = [
   definition(1, "bess_soc_low", {
-    severity: "fault", message: "BESS SOC low", notify_mobile: true,
+    severity: "HIGH", message: "BESS SOC low", notify_mobile: true,
     rule: { kind: "threshold", delay_sec: 60, clear_delay_sec: 0, deadband: 2,
       condition: { type: "condition", point_id: 64, operator: "<", value: 20, compare_point_id: null, bit: null } },
   }),
@@ -72,13 +72,13 @@ export const DEFINITIONS: AlarmDefinitionRecord[] = [
 ];
 
 const event = (id: number, definitionId: number, extra: Partial<AlarmEventRecord>): AlarmEventRecord => ({
-  id, definition_id: definitionId, site_id: 1001, device_id: null, severity: "warning", raised_at: minutesAgo(5),
+  id, definition_id: definitionId, site_id: 1001, device_id: null, severity: "MEDIUM", raised_at: minutesAgo(5),
   cleared_at: null, value_at_raise: null, message: "", ...extra,
 });
 
 export const EVENTS: AlarmEventRecord[] = [
-  event(101, 1, { device_id: 2, severity: "fault", raised_at: minutesAgo(8), value_at_raise: 18, message: "BESS SOC low" }),
-  event(102, 3, { device_id: 3, severity: "warning", raised_at: minutesAgo(20), value_at_raise: 6, message: "PV inverter is not producing" }),
+  event(101, 1, { device_id: 2, severity: "HIGH", raised_at: minutesAgo(8), value_at_raise: 18, message: "BESS SOC low" }),
+  event(102, 3, { device_id: 3, severity: "MEDIUM", raised_at: minutesAgo(20), value_at_raise: 6, message: "PV inverter is not producing" }),
   event(103, 2, { device_id: 3, raised_at: minutesAgo(90), cleared_at: minutesAgo(60), message: "pv-1: no successful poll" }),
 ];
 
@@ -88,8 +88,8 @@ export const SNAPSHOT_RECORD: AlarmSnapshotRecord = {
   definitions: DEFINITIONS,
   events: EVENTS,
   log: [
-    { id: "101:raised", event_id: 101, definition_id: 1, device_id: 2, kind: "raised", severity: "fault", at: minutesAgo(8), message: "BESS SOC low" },
-    { id: "103:cleared", event_id: 103, definition_id: 2, device_id: 3, kind: "cleared", severity: "warning", at: minutesAgo(60), message: "pv_comms_lost cleared" },
+    { id: "101:raised", event_id: 101, definition_id: 1, device_id: 2, kind: "raised", severity: "HIGH", at: minutesAgo(8), message: "BESS SOC low" },
+    { id: "103:cleared", event_id: 103, definition_id: 2, device_id: 3, kind: "cleared", severity: "MEDIUM", at: minutesAgo(60), message: "pv_comms_lost cleared" },
   ],
 };
 

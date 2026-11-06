@@ -234,7 +234,7 @@ class TestGenerateReport:
         await insert_readings(db, power, [(BASE + timedelta(minutes=10 * index), float(index)) for index in range(13)])
         await insert_readings(db, voltage, [(BASE, 230.0), (BASE + timedelta(hours=1), 240.0)])
         alarm = await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
-            name="meter_comms", severity="fault",
+            name="meter_comms", severity="HIGH",
             rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id, stale_after_sec=60),
         ))
         day_before = BASE - timedelta(days=1)
@@ -242,7 +242,7 @@ class TestGenerateReport:
         for raised, cleared in [(BASE + timedelta(minutes=30), BASE + timedelta(minutes=45)), (day_before, day_before + timedelta(minutes=5))]:
             await db.execute(
                 "INSERT INTO alarm_events (definition_id, site_id, device_id, severity, raised_at, cleared_at, message) "
-                "VALUES ($1, $2, $3, 'fault', $4, $5, 'tripped')",
+                "VALUES ($1, $2, $3, 'HIGH', $4, $5, 'tripped')",
                 alarm.id, site_id, device_id, raised, cleared,
             )
 

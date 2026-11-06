@@ -21,7 +21,7 @@ function navTitles(): string[] {
     .filter((title) => title !== '');
 }
 
-const NOTHING_ACTIVE: ActiveAlarmsSummaryRecord = { fault_count: 0, warning_count: 0, sites: [] };
+const NOTHING_ACTIVE: ActiveAlarmsSummaryRecord = { high_count: 0, medium_count: 0, low_count: 0, sites: [] };
 
 beforeEach(() => {
   localStorage.clear(); // the laptop column remembers being collapsed
@@ -147,28 +147,46 @@ describe('AppSidebar', () => {
       expect(alarmsLink().querySelector('svg')?.getAttribute('class')).not.toMatch(/text-alarm-/);
     });
 
-    it('rings red while any site has an active fault, even with warnings', async () => {
+    it('rings red while any site has an active HIGH alarm, whatever else is active', async () => {
       vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue({
-        fault_count: 1,
-        warning_count: 2,
-        sites: [{ site_id: 1, fault_count: 1, warning_count: 0 }, { site_id: 2, fault_count: 0, warning_count: 2 }],
+        high_count: 1,
+        medium_count: 2,
+        low_count: 3,
+        sites: [
+          { site_id: 1, high_count: 1, medium_count: 0, low_count: 3 },
+          { site_id: 2, high_count: 0, medium_count: 2, low_count: 0 },
+        ],
       });
       renderSidebar();
-      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('fault'));
-      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-fault/);
-      expect(alarmsLink().getAttribute('title')).toBe('1 fault, 2 warnings active');
+      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('HIGH'));
+      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-high/);
+      expect(alarmsLink().getAttribute('title')).toBe('1 high, 2 medium, 3 low active');
     });
 
-    it('rings amber while only warnings are active', async () => {
+    it('rings amber while MEDIUM is the worst active severity', async () => {
       vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue({
-        fault_count: 0,
-        warning_count: 1,
-        sites: [{ site_id: 2, fault_count: 0, warning_count: 1 }],
+        high_count: 0,
+        medium_count: 1,
+        low_count: 0,
+        sites: [{ site_id: 2, high_count: 0, medium_count: 1, low_count: 0 }],
       });
       renderSidebar();
-      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('warning'));
-      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-warning/);
-      expect(alarmsLink().getAttribute('title')).toBe('1 warning active');
+      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('MEDIUM'));
+      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-medium/);
+      expect(alarmsLink().getAttribute('title')).toBe('1 medium active');
+    });
+
+    it('rings blue while only LOW alarms are active', async () => {
+      vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue({
+        high_count: 0,
+        medium_count: 0,
+        low_count: 2,
+        sites: [{ site_id: 2, high_count: 0, medium_count: 0, low_count: 2 }],
+      });
+      renderSidebar();
+      await waitFor(() => expect(alarmsLink().getAttribute('data-alarm-severity')).toBe('LOW'));
+      expect(alarmsLink().querySelector('svg')?.getAttribute('class')).toMatch(/text-alarm-low/);
+      expect(alarmsLink().getAttribute('title')).toBe('2 low active');
     });
   });
 });

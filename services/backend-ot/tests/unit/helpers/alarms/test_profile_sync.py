@@ -17,11 +17,11 @@ async def check(ctx: AlarmContext) -> AlarmCheck:
 
 
 def declared(key: str, name: str | None = None, message: str = "m") -> SiteAlarm:
-    return SiteAlarm(key=key, name=name or key, severity="fault", message=message, evaluate=check)
+    return SiteAlarm(key=key, name=name or key, severity="HIGH", message=message, evaluate=check)
 
 
 def stored(key: str, name: str | None = None, message: str = "m", deleted: bool = False) -> ExistingProfileAlarm:
-    return ExistingProfileAlarm(key=key, name=name or key, severity="fault", message=message, deleted=deleted)
+    return ExistingProfileAlarm(key=key, name=name or key, severity="HIGH", message=message, deleted=deleted)
 
 
 class TestPlanProfileAlarmSync:

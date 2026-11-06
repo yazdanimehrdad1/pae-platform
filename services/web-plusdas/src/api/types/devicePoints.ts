@@ -11,6 +11,11 @@ export type DevicePointSeverity = NonNullable<Schemas['DevicePointCreateRequest'
 export type DevicePointCreateRequest = Schemas['DevicePointCreateRequest'];
 export type DevicePointUpdateRequest = Schemas['DevicePointUpdateRequest'];
 
+// A device's NATIVE points as CSV: GET .../csv (export), GET /device-points/csv-template, and
+// POST .../csv-import (a dry run by default) answering what the import does or did.
+export type PointsCsvImportResult = Schemas['PointsCsvImportResult'];
+export type PointsCsvProblem = Schemas['PointsCsvProblem'];
+
 // Standardized points: linked to a NATIVE point on their device through PUT/DELETE .../{point_id}/link.
 export type StandardizedPointLinkRequest = Schemas['StandardizedPointLinkRequest'];
 

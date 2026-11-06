@@ -32,7 +32,7 @@ const RUN: ReportRunRecord = {
         { point_id: 1, point_name: 'active_power', device_id: 2, device_name: 'meter_1', unit: 'kW', values: { max: 42, count: 10 } },
       ] },
       { kind: 'alarm_events_table', block_id: 'alarms', title: 'Alarms', total_count: 3, rows: [
-        { event_id: 5, alarm_name: 'meter_comms', severity: 'fault', device_id: 2, device_name: 'meter_1', raised_at: '2026-10-12T15:00:00Z', cleared_at: null, duration_seconds: 900, message: 'lost' },
+        { event_id: 5, alarm_name: 'meter_comms', severity: 'HIGH', device_id: 2, device_name: 'meter_1', raised_at: '2026-10-12T15:00:00Z', cleared_at: null, duration_seconds: 900, message: 'lost' },
       ] },
       { kind: 'chart', block_id: 'poi', title: 'POI power', style: 'line', error: 'no POI point on this site' },
     ],
@@ -73,7 +73,7 @@ describe('ReportViewPage', () => {
     expect(within(section('Statistics')).getByText('10')).toBeTruthy(); // a count has no unit
     const alarms = within(section('Alarms'));
     expect(alarms.getByText('meter_comms')).toBeTruthy();
-    expect(alarms.getByText('Fault')).toBeTruthy();
+    expect(alarms.getByText('High')).toBeTruthy();
     expect(alarms.getByText('Active')).toBeTruthy();
     expect(alarms.getByText('15 min')).toBeTruthy();
     expect(alarms.getByText('Showing the newest 1 of 3 events.')).toBeTruthy();

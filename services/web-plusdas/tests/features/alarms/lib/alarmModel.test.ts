@@ -10,7 +10,7 @@ const describe_ = (name: string) => describeCondition(rule(name), model.pointsBy
 describe('buildSnapshot (backend-ot records → page model)', () => {
   it('maps ids to strings and keeps every rule field', () => {
     expect(rule('bess_soc_low')).toMatchObject({
-      id: '1', source: 'USER', kind: 'threshold', severity: 'fault', enabled: true, notify: { mobile: true, email: false },
+      id: '1', source: 'USER', kind: 'threshold', severity: 'HIGH', enabled: true, notify: { mobile: true, email: false },
     });
     expect(rule('pv_inverter_offline')).toMatchObject({ source: 'PROFILE', profileKey: 'inverter_offline', rule: null });
     expect(snapshot.now).toBe(Date.parse('2026-09-30T12:00:00Z'));
@@ -27,15 +27,15 @@ describe('buildSnapshot (backend-ot records → page model)', () => {
 });
 
 describe('buildAlarmModel', () => {
-  it('lists active alarms faults first, and recently cleared ones', () => {
+  it('lists active alarms highest severity first, and recently cleared ones', () => {
     expect(model.active.map(view => view.event.id)).toEqual(['101', '102']);
     expect(model.recentlyCleared.map(view => view.event.id)).toEqual(['103']);
     expect(model.active[0].point?.name).toBe('state_of_charge');
   });
 
   it('rates devices by their worst active alarm', () => {
-    expect(model.deviceStatus.get('2')).toBe('fault');
-    expect(model.deviceStatus.get('3')).toBe('warning');
+    expect(model.deviceStatus.get('2')).toBe('HIGH');
+    expect(model.deviceStatus.get('3')).toBe('MEDIUM');
     expect(model.sortedDevices.map(device => device.name)).toEqual(['bess-1', 'pv-1']);
   });
 });

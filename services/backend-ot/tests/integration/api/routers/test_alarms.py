@@ -73,7 +73,7 @@ async def site_with_points(
 
 def threshold_alarm(name: str, point_id: int, **condition: object) -> AlarmDefinitionCreateRequest:
     return AlarmDefinitionCreateRequest(
-        name=name, severity="warning",
+        name=name, severity="MEDIUM",
         rule=ThresholdAlarm(kind="threshold", condition=VirtualCondition.model_validate(
             {"point_id": point_id, "operator": ">", "value": 10} | condition
         )),
@@ -113,14 +113,14 @@ class TestCreateUserAlarm:
     async def test_condition_and_comms_stale(self, client):
         site_id, device_id, (power, _, flags) = await site_with_points(client)
         condition = await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
-            name="trip_while_producing", severity="fault",
+            name="trip_while_producing", severity="HIGH",
             rule=ConditionAlarm(kind="condition", delay_sec=30, when=VirtualConditionGroup(match="all", items=[
                 VirtualCondition(point_id=flags.id, operator="bit_set", bit=3),
                 VirtualCondition(point_id=power.id, operator=">", value=0),
             ])),
         ))
         stale = await create_alarm(client, site_id, AlarmDefinitionCreateRequest(
-            name="comms_lost", severity="fault",
+            name="comms_lost", severity="HIGH",
             rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id, stale_after_sec=60),
         ))
         assert (condition.kind, stale.kind) == ("condition", "comms_stale")
@@ -139,7 +139,7 @@ class TestCreateUserAlarm:
             threshold_alarm("x2", foreign.id),
             threshold_alarm("x3", power.id, value=None, compare_point_id=foreign.id),
             threshold_alarm("x4", power.id, operator="bit_set", value=None, bit=3),
-            AlarmDefinitionCreateRequest(name="x5", severity="fault", rule=CommsStaleAlarm(
+            AlarmDefinitionCreateRequest(name="x5", severity="HIGH", rule=CommsStaleAlarm(
                 kind="comms_stale", device_id=99999, stale_after_sec=60,
             )),
         ):
@@ -187,7 +187,7 @@ class TestProfileAlarms:
         site_id, *_ = await site_with_points(client, profile="alpha_solar")
         (profile_alarm,) = await list_alarms(client, site_id)
         assert (profile_alarm.source, profile_alarm.kind, profile_alarm.profile_alarm_key) == ("PROFILE", "profile", "high_severity_alarm_point_active")
-        assert (profile_alarm.name, profile_alarm.severity, profile_alarm.rule) == ("high_severity_alarm_point_active", "fault", None)
+        assert (profile_alarm.name, profile_alarm.severity, profile_alarm.rule) == ("high_severity_alarm_point_active", "HIGH", None)
 
         # An explicit null removes the site's profile.
         no_profile = await client.put(f"/api/sites/{site_id}", json=SiteUpdateRequest(profile=None).model_dump(mode="json", exclude_unset=True))
@@ -227,7 +227,7 @@ class TestUpdateAndDelete:
                              rule=CommsStaleAlarm(kind="comms_stale", device_id=device_id, stale_after_sec=30))
         assert response.status_code == 200, response.text
         updated = AlarmDefinitionResponse.model_validate(response.json())
-        assert (updated.kind, updated.message, updated.name, updated.severity) == ("comms_stale", "now stale-based", "power_high", "warning")
+        assert (updated.kind, updated.message, updated.name, updated.severity) == ("comms_stale", "now stale-based", "power_high", "MEDIUM")
 
     async def test_null_for_a_field_is_400_and_unknown_alarm_404(self, client):
         site_id, _, (power, *_) = await site_with_points(client)
@@ -244,7 +244,7 @@ class TestUpdateAndDelete:
             (datetime(2026, 9, 30, 10, 0, tzinfo=UTC), None),
         ]:
             await db.execute(
-                "INSERT INTO alarm_events (definition_id, site_id, severity, raised_at, cleared_at) VALUES ($1, $2, 'warning', $3, $4)",
+                "INSERT INTO alarm_events (definition_id, site_id, severity, raised_at, cleared_at) VALUES ($1, $2, 'MEDIUM', $3, $4)",
                 alarm.id, site_id, raised_at, cleared_at,
             )
 
@@ -264,7 +264,7 @@ class TestUpdateAndDelete:
         site_id, _, (power, *_) = await site_with_points(client)
         alarm = await create_alarm(client, site_id, threshold_alarm("power_high", power.id))
         await db.execute(
-            "INSERT INTO alarm_events (definition_id, site_id, severity, raised_at) VALUES ($1, $2, 'warning', now())",
+            "INSERT INTO alarm_events (definition_id, site_id, severity, raised_at) VALUES ($1, $2, 'MEDIUM', now())",
             alarm.id, site_id,
         )
         assert (await put(client, site_id, alarm.id, enabled=False)).status_code == 200
@@ -276,7 +276,7 @@ class TestUpdateAndDelete:
         site_id, _, (power, *_) = await site_with_points(client)
         alarm = await create_alarm(client, site_id, threshold_alarm("power_high", power.id))
         await db.execute(
-            "INSERT INTO alarm_events (definition_id, site_id, severity, raised_at) VALUES ($1, $2, 'warning', now())",
+            "INSERT INTO alarm_events (definition_id, site_id, severity, raised_at) VALUES ($1, $2, 'MEDIUM', now())",
             alarm.id, site_id,
         )
         await db.execute(
@@ -304,7 +304,7 @@ class TestUpdateAndDelete:
 
     async def test_the_same_rule_or_other_fields_keep_the_active_event(self, client, db):
         site_id, alarm = await self.active_alarm_with_timer(client, db)
-        response = await put(client, site_id, alarm.id, rule=alarm.rule, name="power_very_high", severity="fault", message="hot")
+        response = await put(client, site_id, alarm.id, rule=alarm.rule, name="power_very_high", severity="HIGH", message="hot")
         assert response.status_code == 200, response.text
         assert await self.active_and_timer(db, alarm.id) == (1, 1)
 
@@ -314,18 +314,18 @@ class TestSchema:
         site_id, *_ = await site_with_points(client)
         with pytest.raises(asyncpg.CheckViolationError):  # a user alarm needs its rule
             await db.execute(
-                "INSERT INTO alarm_definitions (site_id, source, name, kind, severity) VALUES ($1, 'USER', 'n', 'threshold', 'fault')",
+                "INSERT INTO alarm_definitions (site_id, source, name, kind, severity) VALUES ($1, 'USER', 'n', 'threshold', 'HIGH')",
                 site_id,
             )
         with pytest.raises(asyncpg.CheckViolationError):  # a profile alarm has no rule, and a key
             await db.execute(
-                "INSERT INTO alarm_definitions (site_id, source, name, kind, severity, rule) VALUES ($1, 'PROFILE', 'n', 'profile', 'fault', '{}')",
+                "INSERT INTO alarm_definitions (site_id, source, name, kind, severity, rule) VALUES ($1, 'PROFILE', 'n', 'profile', 'HIGH', '{}')",
                 site_id,
             )
 
 
 async def insert_event(db, definition_id: int, site_id: int, raised_at: datetime, cleared_at: datetime | None,
-                       device_id: int | None = None, severity: str = "warning") -> int:
+                       device_id: int | None = None, severity: str = "MEDIUM") -> int:
     return await db.fetchval(
         "INSERT INTO alarm_events (definition_id, site_id, device_id, severity, raised_at, cleared_at, message)"
         " VALUES ($1, $2, $3, $4, $5, $6, 'Power high') RETURNING id",
@@ -373,7 +373,7 @@ class TestEventHistory:
         second = await create_alarm(client, site_id, threshold_alarm("other_high", other.id))
         hour = timedelta(hours=1)
         spans_start = await insert_event(db, first.id, site_id, self.START - hour, self.START + hour, device_id=device_id)
-        still_active = await insert_event(db, second.id, site_id, self.START - 5 * hour, None, severity="fault")
+        still_active = await insert_event(db, second.id, site_id, self.START - 5 * hour, None, severity="HIGH")
         inside = await insert_event(db, first.id, site_id, self.START + hour, self.START + 2 * hour)
         await insert_event(db, first.id, site_id, self.START - 3 * hour, self.START - 2 * hour)  # before
         await insert_event(db, second.id, site_id, self.END + hour, self.END + 2 * hour)  # after
@@ -385,7 +385,7 @@ class TestEventHistory:
 
         assert await ids() == [inside, spans_start, still_active]
         assert await ids(device_id=device_id) == [spans_start]
-        assert await ids(severity="fault") == [still_active]
+        assert await ids(severity="HIGH") == [still_active]
         assert await ids(definition_id=first.id) == [inside, spans_start]
 
     async def test_bad_range_and_unknown_site(self, client):
@@ -411,19 +411,19 @@ class TestActiveSummary:
         second_alarm = await create_alarm(client, second_site, threshold_alarm("power_high", other.id))
         now = datetime.now(UTC)
         # One active event per alarm at a time.
-        await insert_event(db, first_alarm.id, first_site, now - timedelta(minutes=5), None, severity="fault")
+        await insert_event(db, first_alarm.id, first_site, now - timedelta(minutes=5), None, severity="HIGH")
         await insert_event(db, first_other_alarm.id, first_site, now - timedelta(minutes=3), None)
-        await insert_event(db, second_alarm.id, second_site, now - timedelta(minutes=2), None)
+        await insert_event(db, second_alarm.id, second_site, now - timedelta(minutes=2), None, severity="LOW")
         await insert_event(db, second_alarm.id, second_site, now - timedelta(hours=1), now - timedelta(minutes=30),
-                           severity="fault")  # cleared: not counted
+                           severity="HIGH")  # cleared: not counted
 
         response = await client.get("/api/alarms/active-summary")
         assert response.status_code == 200, response.text
         summary = ActiveAlarmsSummaryResponse.model_validate(response.json())
-        assert (summary.fault_count, summary.warning_count) == (1, 2)
-        assert [(site.site_id, site.fault_count, site.warning_count) for site in summary.sites] == [
-            (first_site, 1, 1),
-            (second_site, 0, 1),
+        assert (summary.high_count, summary.medium_count, summary.low_count) == (1, 1, 1)
+        assert [(site.site_id, site.high_count, site.medium_count, site.low_count) for site in summary.sites] == [
+            (first_site, 1, 1, 0),
+            (second_site, 0, 0, 1),
         ]
         assert quiet_site not in {site.site_id for site in summary.sites}
 
@@ -431,5 +431,5 @@ class TestActiveSummary:
         response = await client.get("/api/alarms/active-summary")
         assert response.status_code == 200, response.text
         assert ActiveAlarmsSummaryResponse.model_validate(response.json()) == ActiveAlarmsSummaryResponse(
-            fault_count=0, warning_count=0, sites=[]
+            high_count=0, medium_count=0, low_count=0, sites=[]
         )

@@ -32,7 +32,7 @@ import {
 } from "./lib/virtualDefinition";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? <p id={id} role="alert" className="text-xs text-alarm-fault">{message}</p> : null;
+  return message ? <p id={id} role="alert" className="text-xs text-alarm-high">{message}</p> : null;
 }
 
 /** Create a virtual point on a device, or edit one (`point`). Inputs can be any point on the site. */

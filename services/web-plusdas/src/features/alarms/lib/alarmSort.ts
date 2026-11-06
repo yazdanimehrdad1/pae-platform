@@ -1,7 +1,7 @@
 import type { AlarmEvent } from "../types";
 import { SEVERITY } from "@/shared/lib/alarmSeverity";
 
-/** Active alarm order: faults before warnings, then longest active first. */
+/** Active alarm order: HIGH, then MEDIUM, then LOW, then longest active first. */
 export function compareActiveAlarms(a: AlarmEvent, b: AlarmEvent): number {
   const severityFirst = SEVERITY[b.severity].rank - SEVERITY[a.severity].rank;
   if (severityFirst !== 0) return severityFirst;

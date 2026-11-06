@@ -2,7 +2,11 @@
 
 Owns: polling Modbus TCP devices (SEL RTACs) on a schedule and storing their
 register/point readings as time-series in PostgreSQL 16, plus the sites → devices →
-device-points CRUD, live register streaming, and CSV export API (all under `/api`).
+device-points CRUD, live register streaming, and CSV export API (all under `/api`). A device's
+NATIVE points also go in and out as CSV (`helpers/device_points/points_csv.py` = the format and rules,
+pure; `points_csv_import.py` = DB): `GET /device-points/csv-template`, `GET .../device/{id}/csv`, and
+`POST .../device/{id}/csv-import` (a `text/csv` body, no python-multipart; a dry run by default; applied
+in one transaction, nothing while the file has a problem).
 Does NOT own: the upstream Modbus aggregator/RTAC itself (external, `AGGREGATOR_MODBUS_HOST`),
 the DAS data-acquisition API (`pae-das-api`), or any downstream dashboard/analytics.
 

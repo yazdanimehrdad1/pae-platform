@@ -28,7 +28,12 @@ const STATIC_ROUTES = [
   "/users",
 ];
 
-const ENGINEER = { id: "layout", email: "layout@example.com", name: "Layout Check", role: "engineer" };
+// A real login through intelli-gateway: the dev stack's admin (created at startup), so the
+// admin-only pages render too. LAYOUT_EMAIL / LAYOUT_PASSWORD point it at another account.
+const LOGIN = {
+  email: process.env.LAYOUT_EMAIL ?? "admin@plusdas.local",
+  password: process.env.LAYOUT_PASSWORD ?? "admin-password",
+};
 
 // The report builder needs a site id from the running backend.
 async function seededRoutes(page: Page): Promise<string[]> {
@@ -91,8 +96,11 @@ for (const viewport of VIEWPORTS) {
   test.describe(viewport.name, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
-    test.beforeEach(async ({ page }) => {
-      await page.addInitScript((user) => localStorage.setItem("user", JSON.stringify(user)), ENGINEER);
+    // The session cookie lands in the page's browser context (page.request shares its cookies).
+    test.beforeEach(async ({ page }, testInfo) => {
+      if (testInfo.title === "login page") return;
+      const response = await page.request.post("/intelli-gateway-api/v1/auth/login", { data: LOGIN });
+      expect(response.ok(), `login as ${LOGIN.email}: HTTP ${response.status()}`).toBe(true);
     });
 
     test("login page", async ({ page }) => {

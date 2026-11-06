@@ -57,6 +57,9 @@ export function createClient(baseUrl: string) {
     getText: async (path: string): Promise<string> => (await send(baseUrl, path)).text(),
     post: <T>(path: string, body: unknown) =>
       json<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+    // A text body sent as is (e.g. a CSV file), answered with JSON.
+    postText: <T>(path: string, text: string, contentType = 'text/csv') =>
+      json<T>(path, { method: 'POST', body: text, headers: { 'Content-Type': contentType } }),
     put: <T>(path: string, body: unknown) =>
       json<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
     // A PUT answered with no body (204).

@@ -33,8 +33,8 @@ export function DeviceDetail({ device, status, rules, log, now, timeZone }: {
         </div>
         {isPollStale ? (
           <span className="inline-flex items-center gap-1.5 text-sm">
-            <SeverityIndicator severity="warning" showLabel={false} />
-            <span className="text-alarm-warning">
+            <SeverityIndicator severity="MEDIUM" showLabel={false} />
+            <span className="text-alarm-medium">
               {polledSecondsAgo === null ? "No successful poll stored" : `Poll stale: last ${polledSecondsAgo} s ago`}
             </span>
           </span>

@@ -49,7 +49,7 @@ def _alarm_error(e: Exception) -> NoReturn:
     summary="Active alarms across all sites, by severity",
 )
 async def get_active_summary() -> ActiveAlarmsSummaryResponse:
-    """How many alarm events are active (raised, not cleared) right now: fault and warning totals
+    """How many alarm events are active (raised, not cleared) right now: HIGH, MEDIUM and LOW totals
     over every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator."""
     try:
         return await get_active_alarm_summary()

@@ -17,7 +17,7 @@ import { RuleManager } from "./components/RuleManager";
 import { SummaryBar } from "./components/SummaryBar";
 import { useAlarmSnapshot, useRuleMutations } from "./hooks/useAlarmsData";
 import { buildAlarmModel, type AlarmView } from "./lib/alarmModel";
-import type { Rule } from "./types";
+import type { Rule, Severity } from "./types";
 
 export default function AlarmsPage() {
   const { data: sites = [], isLoading: areSitesLoading } = useQuery({ queryKey: ["sites"], queryFn: sitesApi.getAll });
@@ -79,7 +79,8 @@ function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) 
 
   const { now, rules, devices, log } = snapshot;
   const selectedDevice = model.devicesById.get(chosenDeviceId ?? "") ?? model.sortedDevices[0] ?? null;
-  const faults = model.active.filter(alarm => alarm.event.severity === "fault").length;
+  const activeBySeverity: Record<Severity, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const alarm of model.active) activeBySeverity[alarm.event.severity] += 1;
   const normalDevices = devices.filter(device => model.deviceStatus.get(device.id) === "normal").length;
   const canEnableMore = rules.filter(rule => rule.enabled).length < MAX_ENABLED_ALARMS;
 
@@ -140,8 +141,7 @@ function SiteAlarms({ siteId, timeZone }: { siteId: string; timeZone: string }) 
   return (
     <>
       <SummaryBar
-        faults={faults}
-        warnings={model.active.length - faults}
+        activeBySeverity={activeBySeverity}
         normalDevices={normalDevices}
         totalDevices={devices.length}
         ruleCount={rules.length}

@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 PointClassName = Literal["ANALOG", "BINARY", "ALARM", "CONTROL"]
 PointSeverityName = Literal["HIGH", "MEDIUM", "LOW"]
-AlarmSeverityName = Literal["fault", "warning"]
+AlarmSeverityName = Literal["HIGH", "MEDIUM", "LOW"]
 # A translated reading: an enum label, or {bit label: 0 | 1} for a bitfield.
 TranslatedValue = str | dict[str, int] | None
 

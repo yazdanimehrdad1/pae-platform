@@ -4,9 +4,19 @@
       "ActiveAlarmsSummaryResponse": {
         "description": "Active alarms across every site: what an app-wide indicator (the sidebar bell) shows.",
         "properties": {
-          "fault_count": {
-            "description": "Active fault events across all sites",
-            "title": "Fault Count",
+          "high_count": {
+            "description": "Active HIGH events across all sites",
+            "title": "High Count",
+            "type": "integer"
+          },
+          "low_count": {
+            "description": "Active LOW events across all sites",
+            "title": "Low Count",
+            "type": "integer"
+          },
+          "medium_count": {
+            "description": "Active MEDIUM events across all sites",
+            "title": "Medium Count",
             "type": "integer"
           },
           "sites": {
@@ -16,16 +26,12 @@
             },
             "title": "Sites",
             "type": "array"
-          },
-          "warning_count": {
-            "description": "Active warning events across all sites",
-            "title": "Warning Count",
-            "type": "integer"
           }
         },
         "required": [
-          "fault_count",
-          "warning_count",
+          "high_count",
+          "medium_count",
+          "low_count",
           "sites"
         ],
         "title": "ActiveAlarmsSummaryResponse",
@@ -159,8 +165,9 @@
           },
           "severity": {
             "enum": [
-              "fault",
-              "warning"
+              "HIGH",
+              "MEDIUM",
+              "LOW"
             ],
             "title": "Severity",
             "type": "string"
@@ -272,8 +279,9 @@
           },
           "severity": {
             "enum": [
-              "fault",
-              "warning"
+              "HIGH",
+              "MEDIUM",
+              "LOW"
             ],
             "title": "Severity",
             "type": "string"
@@ -410,8 +418,9 @@
             "anyOf": [
               {
                 "enum": [
-                  "fault",
-                  "warning"
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
                 ],
                 "type": "string"
               },
@@ -471,8 +480,9 @@
           },
           "severity": {
             "enum": [
-              "fault",
-              "warning"
+              "HIGH",
+              "MEDIUM",
+              "LOW"
             ],
             "title": "Severity",
             "type": "string"
@@ -571,8 +581,9 @@
           },
           "severity": {
             "enum": [
-              "fault",
-              "warning"
+              "HIGH",
+              "MEDIUM",
+              "LOW"
             ],
             "title": "Severity",
             "type": "string"
@@ -633,8 +644,9 @@
             "anyOf": [
               {
                 "enum": [
-                  "fault",
-                  "warning"
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
                 ],
                 "type": "string"
               },
@@ -642,7 +654,7 @@
                 "type": "null"
               }
             ],
-            "description": "Only this severity; null for both",
+            "description": "Only this severity; null for all",
             "title": "Severity"
           },
           "title": {
@@ -766,8 +778,9 @@
           },
           "severity": {
             "enum": [
-              "fault",
-              "warning"
+              "HIGH",
+              "MEDIUM",
+              "LOW"
             ],
             "title": "Severity",
             "type": "string"
@@ -1626,7 +1639,16 @@
         "type": "object"
       },
       "DeviceHealthStatus": {
+        "description": "Reachability of a device. The top-level host/port/reachable/latency_ms/error describe the\npath the poller reads through (the aggregator when read_from_aggregator, else the device);\n`aggregator` and `device` hold both probes.",
         "properties": {
+          "aggregator": {
+            "$ref": "#/components/schemas/ReachabilityProbe",
+            "description": "Probe of the site aggregator"
+          },
+          "device": {
+            "$ref": "#/components/schemas/ReachabilityProbe",
+            "description": "Probe of the device's own host/port"
+          },
           "device_id": {
             "title": "Device Id",
             "type": "integer"
@@ -1685,7 +1707,9 @@
           "port",
           "read_from_aggregator",
           "poll_enabled",
-          "reachable"
+          "reachable",
+          "aggregator",
+          "device"
         ],
         "title": "DeviceHealthStatus",
         "type": "object"
@@ -4254,6 +4278,134 @@
         "title": "PointTimeseries",
         "type": "object"
       },
+      "PointsCsvChange": {
+        "description": "A point the import updates, and which of its CSV columns change.",
+        "properties": {
+          "fields": {
+            "description": "Changed CSV columns; \"restored\" when it was deleted",
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "fields"
+        ],
+        "title": "PointsCsvChange",
+        "type": "object"
+      },
+      "PointsCsvImportResult": {
+        "description": "What a points CSV import does (dry run) or did (applied).",
+        "properties": {
+          "applied": {
+            "description": "False for a dry run (nothing written)",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "created": {
+            "description": "New point names",
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "deleted": {
+            "description": "Points soft-deleted by this import (applied only)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Deleted",
+            "type": "array"
+          },
+          "errors": {
+            "description": "Problems in the file; an import with any applies nothing",
+            "items": {
+              "$ref": "#/components/schemas/PointsCsvProblem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "missing": {
+            "description": "The device's NATIVE points that aren't in the file (deleted with delete_missing)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "unchanged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unchanged",
+            "type": "array"
+          },
+          "updated": {
+            "items": {
+              "$ref": "#/components/schemas/PointsCsvChange"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "created",
+          "updated",
+          "unchanged",
+          "missing",
+          "deleted",
+          "errors"
+        ],
+        "title": "PointsCsvImportResult",
+        "type": "object"
+      },
+      "PointsCsvProblem": {
+        "description": "One problem with an imported points CSV.",
+        "properties": {
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The CSV column, when the problem is one cell",
+            "title": "Column"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Line in the file (1 = the header); null for the whole file",
+            "title": "Line"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "PointsCsvProblem",
+        "type": "object"
+      },
       "PowerSeriesResult": {
         "description": "A power series summed from SPF points; export positive, import negative.",
         "properties": {
@@ -4458,6 +4610,52 @@
           "ac_capacity_kw"
         ],
         "title": "PvArrayConfigUpsertRequest",
+        "type": "object"
+      },
+      "ReachabilityProbe": {
+        "description": "One Modbus TCP connect attempt against a single host:port.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "reachable"
+        ],
+        "title": "ReachabilityProbe",
         "type": "object"
       },
       "RegisterRange": {
@@ -5826,23 +6024,28 @@
       "SiteActiveAlarms": {
         "description": "One site's active alarms (raised, not cleared), by severity.",
         "properties": {
-          "fault_count": {
-            "title": "Fault Count",
+          "high_count": {
+            "title": "High Count",
+            "type": "integer"
+          },
+          "low_count": {
+            "title": "Low Count",
+            "type": "integer"
+          },
+          "medium_count": {
+            "title": "Medium Count",
             "type": "integer"
           },
           "site_id": {
             "title": "Site Id",
             "type": "integer"
-          },
-          "warning_count": {
-            "title": "Warning Count",
-            "type": "integer"
           }
         },
         "required": [
           "site_id",
-          "fault_count",
-          "warning_count"
+          "high_count",
+          "medium_count",
+          "low_count"
         ],
         "title": "SiteActiveAlarms",
         "type": "object"
@@ -8120,13 +8323,13 @@
   "info": {
     "description": "Modbus TCP service for polling and storing time-series data",
     "title": "PAE Backend OT",
-    "version": "3.1.0"
+    "version": "4.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
     "/api/alarms/active-summary": {
       "get": {
-        "description": "How many alarm events are active (raised, not cleared) right now: fault and warning totals\nover every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator.",
+        "description": "How many alarm events are active (raised, not cleared) right now: HIGH, MEDIUM and LOW totals\nover every site, plus the sites that have any. Cheap enough to poll for an app-wide indicator.",
         "operationId": "get_active_summary_api_alarms_active_summary_get",
         "responses": {
           "200": {
@@ -8434,8 +8637,9 @@
               "anyOf": [
                 {
                   "enum": [
-                    "fault",
-                    "warning"
+                    "HIGH",
+                    "MEDIUM",
+                    "LOW"
                   ],
                   "type": "string"
                 },
@@ -9170,6 +9374,29 @@
         ]
       }
     },
+    "/api/device-points/csv-template": {
+      "get": {
+        "description": "The columns of a device points CSV (NATIVE points only, so no Category), as on the device\npage's points table: Name, Poll Kind, Address and Data Type are required; Record, Size (the\ndata type's), Unit, Scale, Byte Order, Word Order, Class, Severity and Enum / Bit Labels are\noptional.",
+        "operationId": "points_csv_template_api_device_points_csv_template_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The CSV file"
+          }
+        },
+        "summary": "An empty points CSV (the header row) to fill in and import",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
     "/api/device-points/site/{site_id}/device/{device_id}": {
       "delete": {
         "description": "Delete one or more device points. Returns the deleted points. Soft delete preserves readings; hard delete is permanent.\nPoints the site profile owns (profile_point_key set) can't be deleted: 409.",
@@ -9467,6 +9694,161 @@
           }
         },
         "summary": "Bulk create/update a device's points",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/csv": {
+      "get": {
+        "description": "The device's active NATIVE points, one row each, in the format the import reads.",
+        "operationId": "export_points_csv_route_api_device_points_site__site_id__device__device_id__csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The CSV file"
+          },
+          "404": {
+            "description": "No such device"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A device's NATIVE points as CSV",
+        "tags": [
+          "device-points",
+          "device-points"
+        ]
+      }
+    },
+    "/api/device-points/site/{site_id}/device/{device_id}/csv-import": {
+      "post": {
+        "description": "Each row is a whole NATIVE point, matched by name: a new name creates a point, an existing\none gets every field from the row (a blank optional cell clears it; a deleted point is\nrestored). A dry run (the default) returns the plan and every problem of the file; with\ndry_run=false a file without problems is applied in one transaction (with delete_missing, the\npoints not in the file go to the deleted points), and one with problems gets 400 and changes\nnothing. The format: GET /device-points/csv-template.",
+        "operationId": "import_points_csv_route_api_device_points_site__site_id__device__device_id__csv_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only report what the import would do",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Only report what the import would do",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Soft-delete the device's NATIVE points that aren't in the file",
+            "in": "query",
+            "name": "delete_missing",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Soft-delete the device's NATIVE points that aren't in the file",
+              "title": "Delete Missing",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointsCsvImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "The file has problems (detail.errors lists them); nothing was imported"
+          },
+          "404": {
+            "description": "No such device"
+          },
+          "409": {
+            "description": "A point to delete or stop recording is read by another point or an alarm"
+          },
+          "413": {
+            "description": "The file is larger than 1 MB"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import a device's NATIVE points from CSV (dry run by default)",
         "tags": [
           "device-points",
           "device-points"
@@ -10621,7 +11003,7 @@
     },
     "/api/healthz/site/{site_id}": {
       "get": {
-        "description": "Check Modbus TCP reachability for every active device in a site.\n\nFor devices with read_from_aggregator=true the aggregator host/port is probed;\notherwise the device's own host/port is used. All devices are checked concurrently.",
+        "description": "Check Modbus TCP reachability for every active device in a site.\n\nEach device gets two probes, the aggregator host/port and its own host/port. The\ntop-level result (and the reachable count) is the path the poller uses: the aggregator\nfor read_from_aggregator=true, else the device. All devices are checked concurrently.",
         "operationId": "site_devices_health_api_healthz_site__site_id__get",
         "parameters": [
           {
@@ -10664,7 +11046,7 @@
     },
     "/api/healthz/site/{site_id}/device/{device_id}": {
       "get": {
-        "description": "Check Modbus TCP reachability for a single device.",
+        "description": "Check Modbus TCP reachability for a single device, via the aggregator and directly.",
         "operationId": "device_health_api_healthz_site__site_id__device__device_id__get",
         "parameters": [
           {

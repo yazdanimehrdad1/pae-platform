@@ -255,7 +255,19 @@ class LatestResponse(BaseModel):
     readings: dict[str, PointLatest]
 
 
+class ReachabilityProbe(BaseModel):
+    """One Modbus TCP connect attempt against a single host:port."""
+    host: str
+    port: int
+    reachable: bool
+    latency_ms: float | None = None
+    error: str | None = None
+
+
 class DeviceHealthStatus(BaseModel):
+    """Reachability of a device. The top-level host/port/reachable/latency_ms/error describe the
+    path the poller reads through (the aggregator when read_from_aggregator, else the device);
+    `aggregator` and `device` hold both probes."""
     device_id: int
     name: str
     host: str
@@ -265,6 +277,8 @@ class DeviceHealthStatus(BaseModel):
     reachable: bool
     latency_ms: float | None = None
     error: str | None = None
+    aggregator: ReachabilityProbe = Field(..., description="Probe of the site aggregator")
+    device: ReachabilityProbe = Field(..., description="Probe of the device's own host/port")
 
 
 class SiteDevicesHealthResponse(BaseModel):
@@ -307,3 +321,39 @@ class PvArrayConfigResponse(BaseModel):
     temp_coefficient_pct_per_c: float = Field(..., description="Module power temperature coefficient, percent per degC")
     created_at: datetime
     updated_at: datetime
+
+
+class PointsCsvProblem(BaseModel):
+    """One problem with an imported points CSV."""
+
+    line: int | None = Field(
+        None, description="Line in the file (1 = the header); null for the whole file"
+    )
+    column: str | None = Field(None, description="The CSV column, when the problem is one cell")
+    message: str
+
+
+class PointsCsvChange(BaseModel):
+    """A point the import updates, and which of its CSV columns change."""
+
+    name: str
+    fields: list[str] = Field(
+        ..., description='Changed CSV columns; "restored" when it was deleted'
+    )
+
+
+class PointsCsvImportResult(BaseModel):
+    """What a points CSV import does (dry run) or did (applied)."""
+
+    applied: bool = Field(..., description="False for a dry run (nothing written)")
+    created: list[str] = Field(..., description="New point names")
+    updated: list[PointsCsvChange]
+    unchanged: list[str]
+    missing: list[str] = Field(
+        ...,
+        description="The device's NATIVE points that aren't in the file (deleted with delete_missing)",
+    )
+    deleted: list[str] = Field(..., description="Points soft-deleted by this import (applied only)")
+    errors: list[PointsCsvProblem] = Field(
+        ..., description="Problems in the file; an import with any applies nothing"
+    )

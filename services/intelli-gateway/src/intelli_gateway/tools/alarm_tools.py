@@ -38,7 +38,7 @@ def build_alarm_tools(site_data: SiteDataConnector, limits: SiteToolLimits) -> l
     @tool(
         name="get_active_alarms",
         description="""
-What is wrong right now. Returns active alarm events (name, severity fault/warning, message,
+What is wrong right now. Returns active alarm events (name, severity HIGH/MEDIUM/LOW, message,
 device, raised time) and alarm points with a non-zero value (alarm words with the labels of
 their set bits, vendor fault codes). Use it early when troubleshooting. Then use
 lookup_fault on an alarm bit or fault code to get its meaning, probable causes and checks.

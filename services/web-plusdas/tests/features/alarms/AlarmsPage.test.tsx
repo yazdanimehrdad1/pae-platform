@@ -54,8 +54,8 @@ const ruleRow = (dialog: HTMLElement, name: string) => within(dialog).getByText(
 describe('AlarmsPage', () => {
   it("summarizes the first site's alarms, lists the active ones and opens on the worst device", async () => {
     renderPage();
-    expect(await screen.findByText('1 active fault')).toBeTruthy();
-    expect(screen.getByText('1 active warning')).toBeTruthy();
+    expect(await screen.findByText('1 active high')).toBeTruthy();
+    expect(screen.getByText('1 active medium')).toBeTruthy();
     expect(screen.getByText('0 of 2 devices normal')).toBeTruthy();
     expect(within(activeAlarms()).getAllByRole('row')).toHaveLength(3); // header + bess_soc_low + pv_inverter_offline
     expect(deviceHeading().textContent).toBe('bess-1');
@@ -65,7 +65,7 @@ describe('AlarmsPage', () => {
 
   it("shows the device's events of the last 6 h, without a trend, points table or full-history link", async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const device = screen.getByRole('region', { name: 'bess-1' });
     expect(within(device).getByRole('heading', { level: 3, name: 'Events, last 6 h' })).toBeTruthy();
     expect(within(device).getByText('BESS SOC low')).toBeTruthy();
@@ -77,7 +77,7 @@ describe('AlarmsPage', () => {
 
   it('opens the alarm device when an alarm row is clicked', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     fireEvent.click(screen.getByRole('option', { name: /pv-1/ }));
     expect(deviceHeading().textContent).toBe('pv-1');
     expect(screen.getByText('No successful poll stored')).toBeTruthy();
@@ -88,7 +88,7 @@ describe('AlarmsPage', () => {
 
   it("saves a notification change to the alarm, so the rules dialog shows it too", async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     fireEvent.click(within(alarmRow('bess-1')).getByRole('button', { name: 'Email' }));
 
     await waitFor(() => expect(alarmsApi.update).toHaveBeenCalledWith('1001', 1, { notify_mobile: true, notify_email: true }));
@@ -100,7 +100,7 @@ describe('AlarmsPage', () => {
 
   it('turns off every notification from the rules dialog after confirming', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const dialog = await openRules();
     expect(within(dialog).getByText(/1 of 4 rules send notifications/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Turn off all notifications' }));
@@ -112,7 +112,7 @@ describe('AlarmsPage', () => {
 
   it('shows every rule in full, with the profile alarm read-only', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const dialog = await openRules();
 
     const soc = ruleRow(dialog, 'bess_soc_low');
@@ -137,7 +137,7 @@ describe('AlarmsPage', () => {
 
   it('enables a disabled rule from the rules dialog, with no separate Shown switch', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const dialog = await openRules();
     expect(within(dialog).queryByRole('columnheader', { name: 'Shown' })).toBeNull();
     expect(within(dialog).getByText(/3 of 20 now/)).toBeTruthy();
@@ -151,7 +151,7 @@ describe('AlarmsPage', () => {
     let rejectSave: (error: unknown) => void = () => {};
     vi.mocked(alarmsApi.update).mockImplementation(() => new Promise((_resolve, reject) => { rejectSave = reject; }));
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const dialog = await openRules();
     const enabled = () => within(ruleRow(dialog, 'bess_soc_low')).getByRole('switch', { name: /bess_soc_low$/ });
     expect(enabled().getAttribute('aria-checked')).toBe('true');
@@ -164,7 +164,7 @@ describe('AlarmsPage', () => {
 
   it('edits a user rule in the prefilled builder and saves it to the alarm', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const dialog = await openRules();
     expect(within(ruleRow(dialog, 'pv_inverter_offline')).queryByRole('button', { name: /^Edit/ })).toBeNull();
     fireEvent.click(within(ruleRow(dialog, 'bess_soc_low')).getByRole('button', { name: 'Edit bess_soc_low' }));
@@ -185,7 +185,7 @@ describe('AlarmsPage', () => {
 
   it('deletes a user rule permanently after confirming', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     const dialog = await openRules();
     fireEvent.click(within(ruleRow(dialog, 'pv_comms_lost')).getByRole('button', { name: 'Delete pv_comms_lost' }));
     const confirm = await screen.findByRole('alertdialog');
@@ -199,12 +199,12 @@ describe('AlarmsPage', () => {
 
   it('switches to another site', async () => {
     renderPage();
-    await screen.findByText('1 active fault');
+    await screen.findByText('1 active high');
     fireEvent.click(screen.getByLabelText('Site'));
     fireEvent.click(await screen.findByRole('option', { name: 'Beta Yard' }));
 
     await waitFor(() => expect(alarmsApi.getSnapshot).toHaveBeenCalledWith('2002'));
     expect(await screen.findByText('This site has no devices.')).toBeTruthy();
-    expect(screen.getByText('0 active faults')).toBeTruthy();
+    expect(screen.getByText('0 active high')).toBeTruthy();
   });
 });

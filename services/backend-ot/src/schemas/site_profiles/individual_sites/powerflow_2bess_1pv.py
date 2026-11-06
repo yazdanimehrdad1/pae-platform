@@ -66,3 +66,12 @@ class BessRollingRoundTripEfficiencyResult(BaseModel):
         ...,
         description="Round trip efficiency (%) at each whole step, oldest first; null where not computed",
     )
+
+
+class LatestPointValue(BaseModel):
+    """A point's latest fresh reading, as the site's alarm checks use it."""
+
+    value: float
+    bits: frozenset[str] = Field(
+        frozenset(), description="A bitfield point's set bits, by label; empty for other points"
+    )

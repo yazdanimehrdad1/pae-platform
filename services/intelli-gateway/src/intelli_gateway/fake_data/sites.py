@@ -552,7 +552,7 @@ SUNFIELD = FakeSite(
     alarm_rules=(
         AlarmRule(
             name="INV1 over-temperature",
-            severity=AlarmSeverity.WARNING,
+            severity=AlarmSeverity.MEDIUM,
             message="INV1 cabinet over temperature: derating",
             device_id=10,
             point="INV1.AlarmWord",
@@ -560,7 +560,7 @@ SUNFIELD = FakeSite(
         ),
         AlarmRule(
             name="INV2 over-temperature",
-            severity=AlarmSeverity.WARNING,
+            severity=AlarmSeverity.MEDIUM,
             message="INV2 cabinet over temperature: derating",
             device_id=11,
             point="INV2.AlarmWord",
@@ -568,7 +568,7 @@ SUNFIELD = FakeSite(
         ),
         AlarmRule(
             name="INV2 tripped",
-            severity=AlarmSeverity.FAULT,
+            severity=AlarmSeverity.HIGH,
             message="INV2 tripped: see INV2.FaultCode",
             device_id=11,
             point="INV2.FaultCode",
@@ -578,7 +578,7 @@ SUNFIELD = FakeSite(
     static_events=(
         StaticAlarmEvent(
             name="WS1 communication lost",
-            severity=AlarmSeverity.FAULT,
+            severity=AlarmSeverity.HIGH,
             message="No data from WS1 for 10 minutes",
             device_id=40,
             raised_hours_ago=51,
@@ -869,7 +869,7 @@ WINDRIDGE = FakeSite(
     static_events=(
         StaticAlarmEvent(
             name="WTG2 communication lost",
-            severity=AlarmSeverity.FAULT,
+            severity=AlarmSeverity.HIGH,
             message="No data from WTG2 for 10 minutes",
             device_id=101,
             raised_hours_ago=2.8,

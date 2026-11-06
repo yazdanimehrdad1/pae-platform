@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SeverityIndicator } from "@/shared/components/SeverityIndicator";
 import { formatDuration } from "@/shared/lib/siteTime";
-import { alarmEventsCsv, downloadFile, fileName } from "../../lib/csv";
+import { downloadFile, fileName } from "@/shared/lib/download";
+import { alarmEventsCsv } from "../../lib/csv";
 import { formatReportTime, formatValue } from "../../lib/format";
 import { BlockSection } from "./BlockSection";
 

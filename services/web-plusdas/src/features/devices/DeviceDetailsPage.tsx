@@ -18,12 +18,13 @@ import { ArrowLeft, Activity, Info, Radio, Pencil, Plus, Trash2, RotateCcw, Save
 import type { Device, DeviceCreateRequest, DeviceScanRanges, PvArrayConfigRequest } from "@/api/types/devices";
 import type { DevicePoint, DevicePointCreateRequest, DevicePointUpdateRequest } from "@/api/types/devicePoints";
 import { devicesApi } from "@/api/devices";
-import type { PingResult } from "@/api/types/devices";
+import type { PingProbe, PingResult } from "@/api/types/devices";
 import { getErrorMessage } from "@/api/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { DeviceFormDialog } from "@/features/sites/DeviceFormDialog";
 import { pvArrayKey, savePvArray, useDevicePvArray } from "@/features/sites/hooks/useDevicePvArray";
 import { DevicePointsGrid } from "@/features/devices/DevicePointsGrid";
+import { PointsCsvActions } from "@/features/devices/csv/PointsCsvActions";
 import { VirtualPointDialog } from "@/features/devices/virtual/VirtualPointDialog";
 import { VirtualPointsList } from "@/features/devices/virtual/VirtualPointsList";
 import { PointLinkDialog } from "@/features/devices/standardized/PointLinkDialog";
@@ -64,6 +65,7 @@ export default function DeviceDetails() {
   const effectiveHost = liveDevice?.host ?? device?.location ?? '';
   const effectiveDescription = liveDevice?.description ?? device?.description ?? '';
   const effectivePollEnabled = liveDevice ? liveDevice.poll_enabled : device?.modbusConfig?.pollEnabled;
+  const effectiveReadFromAggregator = liveDevice ? liveDevice.read_from_aggregator : device?.modbusConfig?.readFromAggregator;
   const effectiveCommStatus = liveDevice ? (liveDevice.poll_enabled ? 'connected' : 'timeout') : (device?.commStatus ?? '');
   const effectiveUpdatedAt = liveDevice?.updated_at ?? device?.lastUpdate ?? '';
   const effectivePointsCount = liveDevice
@@ -283,14 +285,14 @@ export default function DeviceDetails() {
     },
     Connectivity: {
       'Protocol': effectiveProtocol || '—',
-      'Host / IP': effectiveHost,
+      'Device IP': effectiveHost,
       'Communication': effectiveCommStatus,
       ...(isModbus ? {
+        'Read Source': effectiveReadFromAggregator ? 'Aggregator' : 'Device IP (direct)',
         'Port': String(liveDevice?.port ?? device.modbusConfig?.port ?? ''),
         'Server Address': String(liveDevice?.server_address ?? device.modbusConfig?.serverAddress ?? ''),
         'Address Mode': liveDevice?.modbus_address_mode ?? device.modbusConfig?.addressMode ?? '',
         'Poll Enabled': effectivePollEnabled ? 'Yes' : 'No',
-        'Read from Aggregator': (liveDevice ? liveDevice.read_from_aggregator : device.modbusConfig?.readFromAggregator) ? 'Yes' : 'No',
         'Scan Ranges Locked': (liveDevice ? liveDevice.scan_ranges_locked : device.modbusConfig?.scanRangesLocked) ? 'Yes' : 'No',
       } : {}),
     },
@@ -383,7 +385,7 @@ export default function DeviceDetails() {
             </CardHeader>
             <CardContent className="space-y-6">
               {Object.entries(deviceMetadata!).map(([section, data]) => (
-                <div key={section} className="bg-muted/50 rounded-lg p-4 border-2 border-success">
+                <div key={section} className={`bg-muted/50 rounded-lg p-4 border-2 ${section === 'Connectivity' ? 'border-border' : 'border-success'}`}>
                   <h4 className="font-medium mb-3 capitalize text-sm text-foreground/80 border-b border-border/50 pb-1">{section}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     {Object.entries(data).map(([key, value]) => (
@@ -535,27 +537,9 @@ export default function DeviceDetails() {
                 )}
 
                 {pingResult && (
-                  <div className="bg-muted/50 rounded-lg p-4 border-2 border-success space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Reachable</span>
-                      <Badge className={pingResult.reachable ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}>
-                        {pingResult.reachable ? 'Yes' : 'No'}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Latency</span>
-                      <span className="font-medium tabular-nums">{pingResult.latency_ms != null ? `${pingResult.latency_ms.toFixed(2)} ms` : '—'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Host</span>
-                      <span className="font-medium">{pingResult.host}:{pingResult.port}</span>
-                    </div>
-                    {pingResult.error && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Error</span>
-                        <span className="font-medium text-destructive">{pingResult.error}</span>
-                      </div>
-                    )}
+                  <div className="space-y-3">
+                    <PingProbeResult title="Aggregator" probe={pingResult.aggregator} usedForReads={pingResult.read_from_aggregator} />
+                    <PingProbeResult title="Device IP" probe={pingResult.device} usedForReads={!pingResult.read_from_aggregator} />
                   </div>
                 )}
               </div>
@@ -573,10 +557,16 @@ export default function DeviceDetails() {
               </span>
             </CardTitle>
             <HideOnPhone note={EDIT_ON_LARGER_SCREEN}>
+            <div className="flex flex-wrap items-center gap-2">
+            {selectedSite?.id && (
+              <PointsCsvActions siteId={selectedSite.id} deviceId={deviceIdNum} deviceName={effectiveName}
+                disabled={!liveDevice} onImported={invalidatePoints} />
+            )}
             <Button variant="outline" size="sm" className="gap-1" disabled={!liveDevice}
               onClick={() => setVirtualDialog({ open: true, point: null })}>
               <Plus className="w-4 h-4" />Add virtual point
             </Button>
+            </div>
             </HideOnPhone>
           </CardHeader>
           <CardContent>
@@ -735,6 +725,37 @@ export default function DeviceDetails() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function PingProbeResult({ title, probe, usedForReads }: { title: string; probe: PingProbe; usedForReads: boolean }) {
+  return (
+    <div className={`bg-muted/50 rounded-lg p-4 border-2 space-y-2 text-sm ${usedForReads ? 'border-success' : 'border-border'}`}>
+      <div className="flex items-center justify-between border-b border-border/50 pb-1">
+        <span className="font-medium text-foreground/80">{title}</span>
+        {usedForReads && <Badge variant="outline">Used for reads</Badge>}
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Reachable</span>
+        <Badge className={probe.reachable ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}>
+          {probe.reachable ? 'Yes' : 'No'}
+        </Badge>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Latency</span>
+        <span className="font-medium tabular-nums">{probe.latency_ms != null ? `${probe.latency_ms.toFixed(2)} ms` : '—'}</span>
+      </div>
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground">Host</span>
+        <span className="font-medium break-all text-right">{probe.host}:{probe.port}</span>
+      </div>
+      {probe.error && (
+        <div className="flex justify-between gap-2">
+          <span className="text-muted-foreground">Error</span>
+          <span className="font-medium text-destructive text-right">{probe.error}</span>
+        </div>
+      )}
     </div>
   );
 }

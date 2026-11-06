@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { alarmsApi } from "@/api";
 import type { ActiveAlarmsSummaryRecord, AlarmSeverity } from "@/api/types/alarms";
+import { SEVERITY, SEVERITIES_HIGH_FIRST } from "@/shared/lib/alarmSeverity";
 
 // backend-ot evaluates alarms about every poll interval; the alarms page polls at the same pace.
 const ACTIVE_ALARMS_POLL_MS = 10_000;
@@ -15,20 +16,22 @@ export function useActiveAlarms() {
   });
 }
 
-/** The worst active severity: a fault wins over warnings; null when nothing is active. */
-export function worstActiveSeverity(summary: ActiveAlarmsSummaryRecord | undefined): AlarmSeverity | null {
-  if (!summary) return null;
-  if (summary.fault_count > 0) return "fault";
-  if (summary.warning_count > 0) return "warning";
-  return null;
+/** How many events of this severity are active. */
+export function activeCount(summary: ActiveAlarmsSummaryRecord, severity: AlarmSeverity): number {
+  return { HIGH: summary.high_count, MEDIUM: summary.medium_count, LOW: summary.low_count }[severity];
 }
 
-/** "2 faults, 1 warning active" (only the non-zero parts); null when nothing is active. */
+/** The worst active severity (HIGH over MEDIUM over LOW); null when nothing is active. */
+export function worstActiveSeverity(summary: ActiveAlarmsSummaryRecord | undefined): AlarmSeverity | null {
+  if (!summary) return null;
+  return SEVERITIES_HIGH_FIRST.find(severity => activeCount(summary, severity) > 0) ?? null;
+}
+
+/** "2 high, 1 low active" (only the non-zero parts); null when nothing is active. */
 export function activeAlarmsText(summary: ActiveAlarmsSummaryRecord | undefined): string | null {
   if (!summary) return null;
-  const parts = [
-    summary.fault_count > 0 ? `${summary.fault_count} fault${summary.fault_count === 1 ? "" : "s"}` : null,
-    summary.warning_count > 0 ? `${summary.warning_count} warning${summary.warning_count === 1 ? "" : "s"}` : null,
-  ].filter((part): part is string => part !== null);
+  const parts = SEVERITIES_HIGH_FIRST
+    .filter(severity => activeCount(summary, severity) > 0)
+    .map(severity => `${activeCount(summary, severity)} ${SEVERITY[severity].label.toLowerCase()}`);
   return parts.length > 0 ? `${parts.join(", ")} active` : null;
 }

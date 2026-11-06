@@ -115,8 +115,9 @@ class StateChange(BaseModel):
 
 
 class AlarmSeverity(StrEnum):
-    FAULT = "fault"
-    WARNING = "warning"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
 
 
 class AlarmEvent(BaseModel):

@@ -23,6 +23,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.api_models.types import Severity
 from schemas.api_models.virtual_points import (
     BIT_OPERATORS,
     MAX_GROUP_DEPTH,
@@ -30,7 +31,8 @@ from schemas.api_models.virtual_points import (
     VirtualConditionGroup,
 )
 
-AlarmSeverity = Literal["fault", "warning"]
+# The same scale as a point's severity: HIGH, MEDIUM, LOW.
+AlarmSeverity = Severity
 AlarmSource = Literal["USER", "PROFILE"]
 AlarmKind = Literal["threshold", "comms_stale", "condition", "profile"]
 
@@ -210,15 +212,17 @@ class SiteActiveAlarms(BaseModel):
     """One site's active alarms (raised, not cleared), by severity."""
 
     site_id: int
-    fault_count: int
-    warning_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
 
 
 class ActiveAlarmsSummaryResponse(BaseModel):
     """Active alarms across every site: what an app-wide indicator (the sidebar bell) shows."""
 
-    fault_count: int = Field(..., description="Active fault events across all sites")
-    warning_count: int = Field(..., description="Active warning events across all sites")
+    high_count: int = Field(..., description="Active HIGH events across all sites")
+    medium_count: int = Field(..., description="Active MEDIUM events across all sites")
+    low_count: int = Field(..., description="Active LOW events across all sites")
     sites: list[SiteActiveAlarms] = Field(
         ..., description="Only sites with at least one active event, by site_id"
     )

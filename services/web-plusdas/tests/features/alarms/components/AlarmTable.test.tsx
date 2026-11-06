@@ -34,11 +34,28 @@ describe('AlarmTable', () => {
     expect(bodyRows()).toHaveLength(2);
     expect(within(profileRow).getAllByRole('cell')[1].textContent).toBe('PV inverter is not producing');
     const cells = within(row).getAllByRole('cell');
-    expect(within(row).getByText('Fault')).toBeTruthy();
+    expect(within(row).getByText('High')).toBeTruthy();
     expect(cells[1].textContent).toBe('bess-1 · state_of_charge < 20 % for 1 min');
     expect(cells[2].textContent).toBe('bess-1');
     expect(cells[3].textContent).toBe('15.50 % / < 20 %');
     expect(cells[4].textContent).toBe('8 min');
+  });
+
+  it("shows each alarm's last poll: its device's, else never", () => {
+    renderTable();
+    const [bessRow, pvRow] = bodyRows();
+    expect(within(bessRow).getAllByRole('cell')[5].textContent).toBe('11:59:45 UTC (15 s ago)');
+    expect(within(pvRow).getAllByRole('cell')[5].textContent).toBe('never');
+  });
+
+  it("shows a site-level alarm's last poll as the site's newest", () => {
+    const snapshot = testSnapshot();
+    const model = buildAlarmModel(snapshot);
+    const siteLevel = { ...model.active[1], device: null };
+    renderTable({ alarms: [siteLevel], model });
+    const cells = within(bodyRows()[0]).getAllByRole('cell');
+    expect(cells[2].textContent).toBe('Site');
+    expect(cells[5].textContent).toBe('11:59:45 UTC (15 s ago)');
   });
 
   it("changes the rule's channels without selecting the row", () => {

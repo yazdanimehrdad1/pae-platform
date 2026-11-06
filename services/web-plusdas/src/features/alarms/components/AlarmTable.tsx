@@ -2,7 +2,7 @@ import type { KeyboardEvent } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { AlarmModel, AlarmView } from "../lib/alarmModel";
-import { describeCondition, formatLimit, formatPointValue } from "../lib/alarmModel";
+import { describeCondition, formatLimit, formatPointValue, lastPollOf } from "../lib/alarmModel";
 import { SEVERITY } from "@/shared/lib/alarmSeverity";
 import { formatDuration, formatSiteTime } from "@/shared/lib/siteTime";
 import type { NotificationSettings, Rule } from "../types";
@@ -17,7 +17,18 @@ function currentValue(view: AlarmView, now: number): string {
   return view.event.valueAtRaise !== null ? String(view.event.valueAtRaise) : "—";
 }
 
-/** Active alarms of the enabled rules, faults first, then longest active. */
+/** "13:42:10 UTC (8 s ago)" in the site's time; "never" when nothing was polled. */
+function LastPoll({ at, now, timeZone }: { at: string | null; now: number; timeZone: string }) {
+  if (!at) return <span className="text-muted-foreground">never</span>;
+  return (
+    <span title={formatSiteTime(at, timeZone, { withDate: true })}>
+      {formatSiteTime(at, timeZone)}
+      <span className="text-muted-foreground"> ({formatDuration(now - Date.parse(at))} ago)</span>
+    </span>
+  );
+}
+
+/** Active alarms of the enabled rules, highest severity first, then longest active. */
 export function AlarmTable({ alarms, model, now, timeZone, selectedEventId, lastClearedAt, clearedCount, onSelect, onChangeNotify, onOpenHistory }: {
   alarms: AlarmView[];
   model: AlarmModel;
@@ -54,7 +65,7 @@ export function AlarmTable({ alarms, model, now, timeZone, selectedEventId, last
           No active alarms{lastClearedAt && <> · last cleared {formatSiteTime(lastClearedAt, timeZone, { withDate: true })}</>}
         </p>
       ) : (
-        <Table className="min-w-[44rem]">
+        <Table className="min-w-[54rem]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-32">Severity</TableHead>
@@ -62,6 +73,7 @@ export function AlarmTable({ alarms, model, now, timeZone, selectedEventId, last
               <TableHead>Source</TableHead>
               <TableHead className="text-right">Value / limit</TableHead>
               <TableHead className="text-right">Active for</TableHead>
+              <TableHead className="text-right" title="The last successful poll of the alarm's device (of any device for a site-level alarm)">Last poll</TableHead>
               <TableHead className="w-44" title="Where this alarm's rule sends notifications">Notifications</TableHead>
             </TableRow>
           </TableHeader>
@@ -91,6 +103,9 @@ export function AlarmTable({ alarms, model, now, timeZone, selectedEventId, last
                     <span className="text-muted-foreground"> / {formatLimit(rule, model.pointsById)}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatDuration(now - Date.parse(event.raisedAt))}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums">
+                    <LastPoll at={lastPollOf(alarm, model)} now={now} timeZone={timeZone} />
+                  </TableCell>
                   <TableCell onClick={clickEvent => clickEvent.stopPropagation()} onKeyDown={keyEvent => keyEvent.stopPropagation()}>
                     <NotificationToggles value={rule.notify} onChange={notify => onChangeNotify(rule, notify)}
                       label={`Notifications for ${rule.name}`} />

@@ -2,7 +2,7 @@
 
 The `/alarms` page (it replaced Health) follows high-performance HMI practice (ISA-101 / ISA-18.2):
 - Normal is neutral grey, and green never means "OK".
-- Severity always has three cues: color, icon and word (Fault = red octagon, Warning = amber triangle).
+- Severity always has three cues: color, icon and word (High = red octagon, Medium = amber triangle, Low = blue info circle).
 - There is no acknowledgement step: alarms raise and clear.
 
 ## Where the data comes from
