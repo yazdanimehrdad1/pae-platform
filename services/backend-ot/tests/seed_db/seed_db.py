@@ -21,7 +21,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +43,7 @@ from logger import get_logger  # noqa: E402
 from schemas.api_models.responses import DevicePointResponse  # noqa: E402
 from schemas.db_models.orm_models import (  # noqa: E402
     AlarmDefinition,
+    Base,
     Device,
     DevicePoint,
     PvArrayConfigRecord,
@@ -317,6 +318,23 @@ async def seed(data: SeedData | None = None, replace: bool = False) -> None:
     logger.info("Seeding complete.")
 
 
+def site_cascade_tables() -> list[str]:
+    """`sites` and every table that references it, directly or through another such table
+    (read from the ORM's foreign keys), sorted: the rows a site delete can reach."""
+    tables = Base.metadata.tables
+    reached = {Site.__tablename__}
+    grew = True
+    while grew:
+        grew = False
+        for table in tables.values():
+            if table.name not in reached and any(
+                foreign_key.column.table.name in reached for foreign_key in table.foreign_keys
+            ):
+                reached.add(table.name)
+                grew = True
+    return sorted(reached)
+
+
 async def _delete_sites(session: AsyncSession, names: list[str]) -> None:
     for name in names:
         site = (await session.execute(select(Site).where(Site.name == name))).scalar_one_or_none()
@@ -326,6 +344,13 @@ async def _delete_sites(session: AsyncSession, names: list[str]) -> None:
             raise NotAPowerflowSiteError(
                 f"site '{name}' (id={site.id}) wasn't seeded from powerflow: not replacing it"
             )
+        # The delete cascades through the site's whole history, which on a long-running stack
+        # takes minutes. Meanwhile the poller, alarm job and report worker keep inserting rows
+        # that reference rows the cascade is deleting, and the two transactions deadlock. Locking
+        # those tables first makes the writers wait for this commit instead. SHARE ROW EXCLUSIVE
+        # blocks inserts, updates and deletes but not reads or FK checks.
+        tables = ", ".join(site_cascade_tables())
+        await session.execute(text(f"LOCK TABLE {tables} IN SHARE ROW EXCLUSIVE MODE"))
         # Everything of the site goes with it (ON DELETE CASCADE: devices, points, readings,
         # alarms, SLD, reports, PV arrays).
         await session.execute(delete(Site).where(Site.id == site.id))
