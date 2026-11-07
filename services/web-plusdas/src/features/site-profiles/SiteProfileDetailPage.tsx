@@ -47,7 +47,9 @@ export default function SiteProfileDetailPage() {
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">{name}</h1>
         <p className="text-muted-foreground mt-1">
-          {onboarded ? `The AI uses profile version ${profile.data.version}.` : "Not onboarded: the AI doesn't see this site yet."}
+          {profile.isLoading && "Loading the profile..."}
+          {onboarded && `The AI uses profile version ${profile.data.version}.`}
+          {notOnboarded && "Not onboarded: the AI doesn't see this site yet."}
         </p>
       </div>
       {profile.isError && !notOnboarded && (

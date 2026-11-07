@@ -117,4 +117,16 @@ describe('SiteProfileDetailPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /pv1/ }));
     expect(await screen.findByText('AC output power')).toBeTruthy();
   });
+
+  it('does not call an onboarded site "not onboarded" while its profile loads', async () => {
+    let resolveProfile: (profile: ProfileVersion) => void = () => {};
+    vi.spyOn(siteProfilesApi, 'list').mockResolvedValue([]);
+    vi.spyOn(siteProfilesApi, 'get').mockReturnValue(new Promise(resolve => { resolveProfile = resolve; }));
+    vi.spyOn(siteProfilesApi, 'changes').mockResolvedValue({ ...PENDING, approved_version: 1, changes: [] });
+    renderAt('/site-profiles/1001');
+    expect(await screen.findByText('Loading the profile...')).toBeTruthy();
+    expect(screen.queryByText(/Not onboarded/)).toBeNull();
+    resolveProfile(VERSION_1);
+    expect(await screen.findByText('The AI uses profile version 1.')).toBeTruthy();
+  });
 });

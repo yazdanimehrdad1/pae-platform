@@ -232,6 +232,21 @@ The user's decision: the running service never uses fictional data; tests keep t
   description, unit, class, severity, states/bits) and the version history. From now on each
   step builds its web-plusdas UI with it.
 
+### 10. Smoke test on the dev stack, and the real-Claude test (2026-11-07)
+- **Dev stack:** the gateway starts (`/api/readyz` ok, migration 005 in place); site 1002 ("Powerflow
+  2BESS 1PV", 9 devices, 120 points) is onboarded at v1; the AI Site Profiles page works in a real
+  browser (headless Chromium: list, pending changes, what the AI knows, history; no page overflow
+  at phone width). backend-ot's seeded points carry no `profile_point_description`, so there were no
+  description changes to approve.
+- **Found and fixed:** (1) at startup both jobs (site profile sync, forecast refresh) ran before
+  backend-ot accepted connections and then waited the whole interval (15 min): a failed run now
+  retries after 30 s, and "backend-ot unreachable" is a warning, not a traceback (`tests/test_jobs.py`;
+  seen live: failed at :22, succeeded at :52). (2) The site page said "Not onboarded" while the profile
+  was still loading (regression test added).
+- **`make test-llm` passes** (first time it ran): tool use without tool errors, and the follow-up
+  question read the prompt cache. The test itself expected a tool named `get_point_value` (it is
+  `get_point_values`); fixed. Three paid runs.
+
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
   backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no
