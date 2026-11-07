@@ -12,11 +12,12 @@ from datetime import datetime, timedelta
 
 import httpx
 import pytest
+from doubles.services import build_test_services
 from fakes import FIXED_NOW, ScriptedLLMClient, make_settings
 
 from intelli_gateway.app import create_app
 from intelli_gateway.schemas.api_models.responses import MeResponse
-from intelli_gateway.wiring import Services, build_services
+from intelli_gateway.wiring import Services
 
 PASSWORD = "correct horse battery"
 COOKIE = "plusdas_session"
@@ -34,7 +35,7 @@ async def make_client(dev_headers: bool, clock: Clock) -> tuple[httpx.AsyncClien
     settings = make_settings(
         ANTHROPIC_API_KEY="test-key", AUTH_DEV_HEADERS=str(dev_headers).lower()
     )
-    services = build_services(settings, llm=ScriptedLLMClient(), clock=clock)
+    services = build_test_services(settings, llm=ScriptedLLMClient(), clock=clock)
     await services.auth.create_user("ana@example.com", "Ana R", "admin", PASSWORD)
     await services.auth.create_user("bob@example.com", "Bob S", "monitor", PASSWORD)
     app = create_app(settings, services)

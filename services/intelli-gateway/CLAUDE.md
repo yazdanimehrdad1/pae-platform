@@ -12,6 +12,11 @@ MCP-ready.
   fault code: message, severity, causes, checks, safety note), manuals, IM scripts and
   experience notes. In memory for now, its own Postgres later. Guides are keyed per site device.
 - the HTTP API under `/api/v1`
+- **site profiles** (`site_profile/`, migration `005_site_profiles`): the approved copy of each
+  site's facts from backend-ot. The AI reads site data only through `site_profile/gate.py`
+  (approved sites, devices and points); backend-ot changes wait until a site admin approves
+  them (admin API `/api/v1/site-profiles` and `/api/v1/sites/{id}/profile/...`, or the CLI
+  `python -m intelli_gateway.manage_site_profiles`). Plan: [docs/KNOWLEDGE_PLAN.md](docs/KNOWLEDGE_PLAN.md).
 - **PlusDAS users** (`auth/`, migration `003_users`): accounts (signed in by email address; admin-created with
   `manage_users`, no self-signup), login and sessions (an opaque token in an HttpOnly cookie; only
   its SHA-256 is stored), and per-user data next. `get_request_context` takes the user from the
@@ -37,14 +42,14 @@ Recipes run in Git for Windows' sh. `make help` lists every target.
   `uv add --dev`, but ask the user first.
 - **Checks:**
   - `make lint` (ruff, blocking) · `make format`
-  - `make typecheck` (pyright; strict everywhere except `api/`, `fake_data/`, `knowledge/`,
-    `prompts/`)
-  - `make test` (pytest, no Docker, fake data, scripted LLM)
+  - `make typecheck` (pyright; strict everywhere except `api/`, `knowledge/`, `prompts/`)
+  - `make test` (pytest, no Docker, test doubles from `tests/doubles/`, scripted LLM)
 - **`make test-integration`:** Postgres tests on a throwaway container stack
   (`compose.test.yaml`, tmpfs, no host ports, torn down after).
 - **`make test-llm`:** calls the real Claude API, which costs tokens. It needs
   `ANTHROPIC_API_KEY`, and the test is skipped unless `RUN_LLM_TESTS=1` (the target sets it).
-- **`make run`:** the API on the host at http://127.0.0.1:8030.
+- **`make run`:** the API on the host at http://127.0.0.1:8030. It needs `DATABASE_URL` and a
+  reachable backend-ot (the dev stack's, on ports 5437 and 8000): there are no fictional sites.
 - **Running it:** development normally uses the whole platform via `make up` at the repo root.
   `make up` / `down` / `logs` here run the service alone on host port `INTELLI_GATEWAY_HTTP_PORT`
   (8030) with its Postgres on `INTELLI_GATEWAY_POSTGRES_PORT` (5437), and refuse while the root
@@ -59,14 +64,17 @@ Recipes run in Git for Windows' sh. `make help` lists every target.
 ## Rules (from the design; don't change them without asking)
 - **Layout (same as backend-ot):** Pydantic models only in `schemas/`, Protocols only in
   `interfaces/`, external clients only in `services/<system>/`, routers only in `api/routers/`,
-  logging and exceptions in `utils/`, everything fake in `fake_data/`. Feature folders (`agent/`,
-  `tools/`, `knowledge/`, `prompts/`, `solar_forecast/`) hold functions only.
+  logging and exceptions in `utils/`, every test double in `tests/doubles/` (never in `src/`). Feature folders (`agent/`,
+  `tools/`, `knowledge/`, `prompts/`, `solar_forecast/`, `site_profile/`) hold functions only.
 - **PV forecast:** routers and tools call only `ForecastService`. Only `services/<provider>/` (and
   its wire-format models in `schemas/<provider>/`) knows a provider's format. Every source returns
   the normalized `PVForecast`; a new one is a file + a `registry.py` entry + config, and must pass
   `tests/test_forecast_source_contract.py`. The free Open-Meteo API is non-commercial only.
 - **Claude client:** only `services/claude/client.py` imports `anthropic`. The model, effort and
   limits come from `config.py`, never hard-coded elsewhere.
+- **Site profile gate:** tools and the agent service get the gated `SiteDataConnector`
+  (`wiring.py`); only `SiteProfileService` reads the ungated one. Never copy network or Modbus
+  details into a profile, and a sync never changes an approved profile: only an approval does.
 - **Agent loop:** the loop talks to tools only through `ToolProvider` (`list_tools` /
   `call_tool`). Never call tool functions directly.
 - **Tools:**
@@ -83,7 +91,11 @@ Recipes run in Git for Windows' sh. `make help` lists every target.
 - **Keep the three MCP concepts separate:** `tools/` (tools), `knowledge/` (resources),
   `prompts/` (prompts).
 - **No frameworks:** no LangChain/LangGraph, vector DB, MCP server or queue unless asked.
-- **No real plant data** in the repo. Fake data is Pydantic objects in `fake_data/`.
+- **No fake data at runtime** (decided 2026-11-07): the service always reads backend-ot (through
+  the gate) and its own Postgres; `DATABASE_URL` is required; no fake forecast source, no
+  in-memory fallback store, no switch to fictional sites. Fictional sites, in-memory stores and
+  fake sources exist only in `tests/doubles/`, for tests (`doubles/services.py::build_test_services`).
+- **No real plant data** in the repo, tests included.
 
 ## Gotchas
 - **Prompt cache order:** tools (sorted), then the static system block, then the site block
@@ -99,7 +111,7 @@ Recipes run in Git for Windows' sh. `make help` lists every target.
   fallback, `echo_content` drops the declined model's non-text blocks before the marker.
 - **Missing credentials** surface as a 503 on the first `/ask` (the SDK raises `TypeError`),
   not at startup.
-- **Fake data is a plant model** (`fake_data/site_data.py::PlantModel`): derived points read other
+- **The tests' fictional sites are a plant model** (`tests/doubles/site_data.py::PlantModel`): derived points read other
   points (INV2 status from cabinet temperature, POI = sum). Tests assert on its values at
   `tests/fakes.py::FIXED_NOW`, so changing a signal can move many tests.
 - **Conversations are in memory** and process-local. Concurrent requests on the same

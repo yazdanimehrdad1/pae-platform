@@ -2,8 +2,8 @@
 
 from collections.abc import Sequence
 
-from intelli_gateway.fake_data.models import FakeSite
-from intelli_gateway.fake_data.sites import FAKE_SITES
+from doubles.models import FakeSite
+from doubles.sites import FAKE_SITES
 from intelli_gateway.schemas.knowledge import KnowledgeDocument, KnowledgeKind, PointGuide
 
 

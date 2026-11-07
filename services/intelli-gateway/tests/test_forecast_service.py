@@ -11,14 +11,14 @@ the last attempt, the last success and staleness; retention drops old runs.
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from forecast_fakes import FORECAST_NOW, SITE
-
-from intelli_gateway.fake_data.forecast import (
+from doubles.forecast import (
     FakePvPowerSource,
     FakeSiteConfigSource,
     FakeWeatherProvider,
     InMemoryForecastRepository,
 )
+from forecast_fakes import FORECAST_NOW, SITE
+
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.schemas.solar_forecast import PVForecast, SiteConfig
 from intelli_gateway.solar_forecast.pv_model import PvlibPvModel

@@ -68,7 +68,15 @@ DEVICES = [
         1,
         "INV1",
         [
-            _point(11, 1, "active_power", "float32", unit="kW", **{"class": "ANALOG"}),
+            _point(
+                11,
+                1,
+                "active_power",
+                "float32",
+                unit="kW",
+                profile_point_description="AC active power at the inverter output",
+                **{"class": "ANALOG"},
+            ),
             _point(
                 12,
                 1,

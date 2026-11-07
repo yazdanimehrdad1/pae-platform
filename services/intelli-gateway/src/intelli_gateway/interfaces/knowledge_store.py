@@ -1,4 +1,5 @@
-"""Engineer-written knowledge store. Implementations: in memory (fake_data), Postgres next."""
+"""Engineer-written knowledge store. Implementations: knowledge/store.py (empty, until the
+Postgres store), tests/doubles/knowledge_store.py in tests."""
 
 from collections.abc import Sequence
 from typing import Protocol

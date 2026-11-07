@@ -10,6 +10,7 @@ after a password change.
 from datetime import datetime, timedelta
 
 import pytest
+from doubles.user_store import InMemoryUserStore
 from fakes import FIXED_NOW
 
 from intelli_gateway.auth.passwords import hash_password, verify_password
@@ -19,7 +20,6 @@ from intelli_gateway.auth.service import (
     SessionSettings,
     hash_token,
 )
-from intelli_gateway.fake_data.user_store import InMemoryUserStore
 from intelli_gateway.utils.exceptions import (
     ConflictError,
     InvalidRequestError,

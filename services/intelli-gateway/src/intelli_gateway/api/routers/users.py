@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Response, status
 
-from intelli_gateway.api.dependencies import get_auth_service, get_current_user
+from intelli_gateway.api.dependencies import get_auth_service, require_admin
 from intelli_gateway.auth.service import AuthService
 from intelli_gateway.schemas.api_models.requests import (
     PasswordResetRequest,
@@ -15,14 +15,6 @@ from intelli_gateway.schemas.api_models.requests import (
 )
 from intelli_gateway.schemas.api_models.responses import ErrorResponse, UserResponse
 from intelli_gateway.schemas.users import User
-from intelli_gateway.utils.exceptions import ForbiddenError
-
-
-async def require_admin(user: Annotated[User, Depends(get_current_user)]) -> User:
-    if user.role != "admin":
-        raise ForbiddenError("requires the admin role")
-    return user
-
 
 Responses = dict[int | str, dict[str, Any]]
 router = APIRouter(

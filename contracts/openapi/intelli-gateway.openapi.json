@@ -1,6 +1,40 @@
 {
   "components": {
     "schemas": {
+      "ApproveChangesRequest": {
+        "properties": {
+          "change_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pending changes to approve (their change_id). Omit to approve them all.",
+            "title": "Change Ids"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The fetched_at of the pending changes you reviewed. When backend-ot was read again since, nothing is approved (409): review the changes again.",
+            "title": "Fetched At"
+          }
+        },
+        "title": "ApproveChangesRequest",
+        "type": "object"
+      },
       "ArrayIntervalResponse": {
         "properties": {
           "array_id": {
@@ -99,6 +133,81 @@
           "usage"
         ],
         "title": "AskResponse",
+        "type": "object"
+      },
+      "ChangeKind": {
+        "enum": [
+          "added",
+          "removed",
+          "changed"
+        ],
+        "title": "ChangeKind",
+        "type": "string"
+      },
+      "ChangeTarget": {
+        "enum": [
+          "site",
+          "device",
+          "point",
+          "topology"
+        ],
+        "title": "ChangeTarget",
+        "type": "string"
+      },
+      "Device": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "device_id",
+          "name",
+          "type"
+        ],
+        "title": "Device",
         "type": "object"
       },
       "ErrorResponse": {
@@ -444,6 +553,146 @@
         "title": "PasswordResetRequest",
         "type": "object"
       },
+      "PendingChanges": {
+        "properties": {
+          "approved_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved Version"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "fetched_at": {
+            "format": "date-time",
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "fetched_at",
+          "approved_version",
+          "changes"
+        ],
+        "title": "PendingChanges",
+        "type": "object"
+      },
+      "PointClass": {
+        "enum": [
+          "ANALOG",
+          "BINARY",
+          "ALARM",
+          "CONTROL"
+        ],
+        "title": "PointClass",
+        "type": "string"
+      },
+      "PointInfo": {
+        "description": "One data point (tag) in a site's catalog. `name` is unique within a site.",
+        "properties": {
+          "bit_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Bit Labels",
+            "type": "object"
+          },
+          "data_type": {
+            "default": "float32",
+            "title": "Data Type",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "device_name": {
+            "title": "Device Name",
+            "type": "string"
+          },
+          "enum_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Enum Labels",
+            "type": "object"
+          },
+          "equipment": {
+            "title": "Equipment",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "point_class": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PointClass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "name",
+          "device_id",
+          "device_name",
+          "equipment"
+        ],
+        "title": "PointInfo",
+        "type": "object"
+      },
       "Preference": {
         "properties": {
           "key": {
@@ -479,6 +728,152 @@
           "value"
         ],
         "title": "PreferenceRequest",
+        "type": "object"
+      },
+      "ProfileChange": {
+        "description": "One difference between the approved profile and backend-ot's current catalog.\n\nchange_id is stable for the same difference: `site`, `topology`, `device:<device_id>`,\n`point:<device_id>:<point name in its device>`. A device added or removed carries its points\n(they are not listed separately).",
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "fields": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ChangeKind"
+          },
+          "point_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Name"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ChangeTarget"
+          }
+        },
+        "required": [
+          "change_id",
+          "target",
+          "kind",
+          "summary"
+        ],
+        "title": "ProfileChange",
+        "type": "object"
+      },
+      "ProfileVersion": {
+        "description": "One approved version of a site's profile. The highest version is the one the AI uses.",
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "approved_by": {
+            "title": "Approved By",
+            "type": "string"
+          },
+          "catalog": {
+            "$ref": "#/components/schemas/SiteCatalog"
+          },
+          "change_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Ids",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "version",
+          "catalog",
+          "approved_at",
+          "approved_by"
+        ],
+        "title": "ProfileVersion",
+        "type": "object"
+      },
+      "ProfileVersionSummary": {
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "approved_by": {
+            "title": "Approved By",
+            "type": "string"
+          },
+          "change_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Ids",
+            "type": "array"
+          },
+          "devices": {
+            "title": "Devices",
+            "type": "integer"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "version",
+          "approved_at",
+          "approved_by",
+          "change_ids",
+          "devices",
+          "points"
+        ],
+        "title": "ProfileVersionSummary",
         "type": "object"
       },
       "PvForecastResponse": {
@@ -724,6 +1119,109 @@
         "title": "SeriesStyle",
         "type": "object"
       },
+      "Site": {
+        "properties": {
+          "capacity_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Kw"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "timezone": {
+            "default": "UTC",
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "name"
+        ],
+        "title": "Site",
+        "type": "object"
+      },
+      "SiteCatalog": {
+        "description": "A site's facts at one moment: what was fetched from backend-ot, or what was approved.",
+        "properties": {
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Device"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "points": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PointInfo"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology",
+            "default": {
+              "connections": [],
+              "nodes": []
+            }
+          }
+        },
+        "required": [
+          "site"
+        ],
+        "title": "SiteCatalog",
+        "type": "object"
+      },
       "SiteForecastHealthResponse": {
         "properties": {
           "fallback_in_use": {
@@ -795,6 +1293,65 @@
           "stale"
         ],
         "title": "SiteForecastHealthResponse",
+        "type": "object"
+      },
+      "SiteProfileStatus": {
+        "description": "One site as the admin sees it: onboarded or not, and how many changes wait.",
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved Version"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pending_changes": {
+            "default": 0,
+            "title": "Pending Changes",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "name"
+        ],
+        "title": "SiteProfileStatus",
         "type": "object"
       },
       "SiteRefreshResponse": {
@@ -957,6 +1514,81 @@
           "input_schema"
         ],
         "title": "ToolSpecResponse",
+        "type": "object"
+      },
+      "Topology": {
+        "description": "The single-line diagram, condensed: what is connected to what.",
+        "properties": {
+          "connections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TopologyConnection"
+            },
+            "title": "Connections",
+            "type": "array"
+          },
+          "nodes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TopologyNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "title": "Topology",
+        "type": "object"
+      },
+      "TopologyConnection": {
+        "properties": {
+          "from_id": {
+            "title": "From Id",
+            "type": "string"
+          },
+          "to_id": {
+            "title": "To Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_id",
+          "to_id"
+        ],
+        "title": "TopologyConnection",
+        "type": "object"
+      },
+      "TopologyNode": {
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "type",
+          "name"
+        ],
+        "title": "TopologyNode",
         "type": "object"
       },
       "TrendDefinition": {
@@ -2371,6 +3003,106 @@
         ]
       }
     },
+    "/api/v1/site-profiles": {
+      "get": {
+        "operationId": "list_site_profiles_api_v1_site_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteProfileStatus"
+                  },
+                  "title": "Response List Site Profiles Api V1 Site Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          }
+        },
+        "summary": "Every synced or onboarded site: approved version and pending change count",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
+    "/api/v1/site-profiles/sync": {
+      "post": {
+        "operationId": "sync_all_site_profiles_api_v1_site_profiles_sync_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteProfileStatus"
+                  },
+                  "title": "Response Sync All Site Profiles Api V1 Site Profiles Sync Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "backend-ot unreachable"
+          }
+        },
+        "summary": "Read every site from backend-ot now (approves nothing)",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
     "/api/v1/sites": {
       "get": {
         "operationId": "list_sites_api_v1_sites_get",
@@ -2736,6 +3468,400 @@
         "summary": "The PV forecast over a window: AC power and weather (past: as forecast then)",
         "tags": [
           "forecast"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/profile": {
+      "get": {
+        "operationId": "get_site_profile_api_v1_sites__site_id__profile_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not synced or not onboarded yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The site's approved profile: what the AI knows of its facts",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/profile/approve": {
+      "post": {
+        "operationId": "approve_site_profile_changes_api_v1_sites__site_id__profile_approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveChangesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not synced or not onboarded yet"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "backend-ot was read again since"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown change id, or nothing to approve"
+          }
+        },
+        "summary": "Approve pending changes into a new profile version (onboards a new site)",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/profile/changes": {
+      "get": {
+        "operationId": "get_pending_changes_api_v1_sites__site_id__profile_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not synced or not onboarded yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Differences between backend-ot (as last read) and the approved profile",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/profile/sync": {
+      "post": {
+        "operationId": "sync_site_profile_api_v1_sites__site_id__profile_sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not synced or not onboarded yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "backend-ot unreachable"
+          }
+        },
+        "summary": "Read the site from backend-ot now and list the pending changes",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/profile/versions": {
+      "get": {
+        "operationId": "list_site_profile_versions_api_v1_sites__site_id__profile_versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileVersionSummary"
+                  },
+                  "title": "Response List Site Profile Versions Api V1 Sites  Site Id  Profile Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not synced or not onboarded yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every approved version, newest first",
+        "tags": [
+          "site-profiles"
         ]
       }
     },

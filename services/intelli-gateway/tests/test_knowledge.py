@@ -1,8 +1,8 @@
 """Site knowledge: deterministic text (prompt cache), size tracking, cached token counts."""
 
+from doubles.knowledge_store import InMemoryKnowledgeStore
 from fakes import ScriptedLLMClient
 
-from intelli_gateway.fake_data.knowledge_store import InMemoryKnowledgeStore
 from intelli_gateway.knowledge.loader import KnowledgeLoader, estimate_tokens
 
 

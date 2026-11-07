@@ -11,14 +11,14 @@ from typing import cast
 
 import httpx
 import pytest
-from fakes import make_ctx, make_settings
-from forecast_fakes import SITE, fixed_now
-
-from intelli_gateway.fake_data.forecast import (
+from doubles.forecast import (
     FakePvPowerSource,
     FakeSiteConfigSource,
     InMemoryForecastRepository,
 )
+from fakes import make_ctx, make_settings
+from forecast_fakes import SITE, fixed_now
+
 from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_config import BackendOtSiteConfigSource
 from intelli_gateway.services.postgres.database import MIGRATIONS_DIR, split_statements
@@ -32,12 +32,11 @@ from intelli_gateway.utils.exceptions import ConfigurationError
 class TestRegistry:
     def test_primary_then_fallbacks(self) -> None:
         settings = make_settings(
-            FORECAST_SOURCE="open_meteo", FORECAST_FALLBACK_SOURCES="noaa_hrrr, fake, open_meteo"
+            FORECAST_SOURCE="open_meteo", FORECAST_FALLBACK_SOURCES="noaa_hrrr, open_meteo"
         )
         assert [source.name for source in build_sources(settings, fixed_now)] == [
             "open_meteo",
             "noaa_hrrr",
-            "fake",
         ]
 
     def test_unknown_source_is_refused(self) -> None:

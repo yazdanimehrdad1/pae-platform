@@ -1,5 +1,5 @@
 """Stored PV forecasts and the fetch log. Implementations: Postgres (services/postgres/) and in
-memory (fake_data/forecast.py). Each refresh is a new run; saving it prunes the older runs'
+memory (tests/doubles/forecast.py). Each refresh is a new run; saving it prunes the older runs'
 rows it supersedes, so each interval keeps only the forecast that was current when it began."""
 
 from datetime import datetime

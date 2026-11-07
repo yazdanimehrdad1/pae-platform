@@ -181,7 +181,9 @@ it means). Returns at most a fixed number of rows plus the total match count.
 Get the latest values of up to {MAX_VALUES_PER_CALL} points in one call: value, unit,
 timestamp and age in seconds. Status points also return their label; alarm words return the
 labels of the set bits (active_bits). "stale": true means the point has not updated recently:
-its device may have stopped reporting. Ask for all the points you need at once.
+its device may have stopped reporting. "definition_pending_review": true means the point's
+definition (unit, labels, type) changed at the source and is not approved yet: say that its
+meaning may be out of date. Ask for all the points you need at once.
 """,
         input_model=PointValuesInput,
     )

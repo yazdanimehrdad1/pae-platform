@@ -7,15 +7,16 @@ role; nothing stored is 404; a missing or reversed window is 422; the removed ro
 """
 
 import httpx
-from fakes import ScriptedLLMClient, make_settings
-from forecast_fakes import SITE, fixed_now
-
-from intelli_gateway.app import create_app
-from intelli_gateway.fake_data.forecast import (
+from doubles.forecast import (
     FakePvPowerSource,
     FakeSiteConfigSource,
     FakeWeatherProvider,
 )
+from doubles.services import build_test_services
+from fakes import ScriptedLLMClient, make_settings
+from forecast_fakes import SITE, fixed_now
+
+from intelli_gateway.app import create_app
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.schemas.api_models.forecast import (
     ForecastHealthResponse,
@@ -25,7 +26,6 @@ from intelli_gateway.schemas.api_models.forecast import (
 from intelli_gateway.schemas.solar_forecast import INTERVAL_CONVENTION, UNITS
 from intelli_gateway.solar_forecast.pv_model import PvlibPvModel
 from intelli_gateway.solar_forecast.weather_model_source import WeatherModelSource
-from intelli_gateway.wiring import build_services
 
 ADMIN = {"X-Roles": "admin"}
 BASE = f"/api/v1/sites/{SITE.site_id}/forecast"
@@ -33,7 +33,7 @@ BASE = f"/api/v1/sites/{SITE.site_id}/forecast"
 
 def make_client(sources: list[PvForecastSource] | None = None) -> httpx.AsyncClient:
     settings = make_settings(ANTHROPIC_API_KEY="test-key", AUTH_DEV_HEADERS="true")
-    services = build_services(
+    services = build_test_services(
         settings,
         llm=ScriptedLLMClient(),
         clock=fixed_now,

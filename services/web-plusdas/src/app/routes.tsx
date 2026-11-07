@@ -22,6 +22,8 @@ const Optimization = lazy(() => import("@/features/optimization/OptimizationPage
 const NotesPage = lazy(() => import("@/features/notes/NotesPage"));
 const Settings = lazy(() => import("@/features/settings/SettingsPage"));
 const Users = lazy(() => import("@/features/users/UsersPage"));
+const SiteProfiles = lazy(() => import("@/features/site-profiles/SiteProfilesPage"));
+const SiteProfileDetail = lazy(() => import("@/features/site-profiles/SiteProfileDetailPage"));
 const NotFound = lazy(() => import("./NotFoundPage"));
 
 const PageLoader = () => (
@@ -57,6 +59,8 @@ export const AppRoutes = () => {
           <Route path="/simulation" element={<DashboardLayout><Simulation /></DashboardLayout>} />
           <Route path="/optimization" element={<DashboardLayout><Optimization /></DashboardLayout>} />
           <Route path="/users" element={<DashboardLayout><Users /></DashboardLayout>} />
+          <Route path="/site-profiles" element={<DashboardLayout><SiteProfiles /></DashboardLayout>} />
+          <Route path="/site-profiles/:siteId" element={<DashboardLayout><SiteProfileDetail /></DashboardLayout>} />
           <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           <Route path="/notes" element={<DashboardLayout><NotesPage /></DashboardLayout>} />
           <Route path="*" element={<NotFound />} />

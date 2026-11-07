@@ -1,5 +1,8 @@
 """Build the object graph from settings: connectors, tools, LLM client, agent loop, service,
-and the PV forecast (its site configs, sources, storage and refresh job)."""
+the site profiles (the AI's gate to site data) and the PV forecast.
+
+Runtime always uses real systems: site data from backend-ot, storage in this service's
+Postgres (DATABASE_URL is required). Tests pass their doubles (tests/doubles/) as arguments."""
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -12,28 +15,29 @@ from intelli_gateway.agent.loop import AgentLoop
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.auth.service import AuthService, SessionSettings
 from intelli_gateway.config import Settings
-from intelli_gateway.fake_data.forecast import FakeSiteConfigSource, InMemoryForecastRepository
-from intelli_gateway.fake_data.knowledge_store import InMemoryKnowledgeStore
-from intelli_gateway.fake_data.site_data import FakeSiteDataConnector
-from intelli_gateway.fake_data.user_data_store import InMemoryUserDataStore
-from intelli_gateway.fake_data.user_store import InMemoryUserStore
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.llm_client import LLMClient
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.interfaces.site_config_source import SiteConfigSource
 from intelli_gateway.interfaces.site_data import SiteDataConnector
+from intelli_gateway.interfaces.site_profile_store import SiteProfileStore
 from intelli_gateway.interfaces.user_data_store import UserDataStore
 from intelli_gateway.interfaces.user_store import UserStore
 from intelli_gateway.knowledge.loader import KnowledgeLoader
+from intelli_gateway.knowledge.store import EmptyKnowledgeStore
 from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_config import BackendOtSiteConfigSource
 from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConnector
 from intelli_gateway.services.claude.client import AnthropicLLMClient
 from intelli_gateway.services.postgres.database import create_database_engine
 from intelli_gateway.services.postgres.forecast_repository import PostgresForecastRepository
+from intelli_gateway.services.postgres.site_profile_store import PostgresSiteProfileStore
 from intelli_gateway.services.postgres.user_data_store import PostgresUserDataStore
 from intelli_gateway.services.postgres.user_store import PostgresUserStore
+from intelli_gateway.site_profile.gate import ApprovedSiteDataConnector
+from intelli_gateway.site_profile.scheduler import SiteProfileSyncJob
+from intelli_gateway.site_profile.service import SiteProfileService
 from intelli_gateway.solar_forecast.registry import build_sources
 from intelli_gateway.solar_forecast.scheduler import ForecastRefreshJob
 from intelli_gateway.solar_forecast.service import ForecastService, ForecastSettings
@@ -43,6 +47,7 @@ from intelli_gateway.tools.common import SiteToolLimits
 from intelli_gateway.tools.forecast_tools import build_forecast_tools
 from intelli_gateway.tools.local_provider import LocalToolProvider
 from intelli_gateway.user_data.service import UserDataService
+from intelli_gateway.utils.exceptions import ConfigurationError
 
 
 @dataclass
@@ -54,12 +59,15 @@ class Services:
     forecast_job: ForecastRefreshJob
     auth: AuthService
     user_data: UserDataService
-    # This service's Postgres; None keeps forecasts and users in memory. Migrated at startup.
+    site_profiles: SiteProfileService
+    site_profile_job: SiteProfileSyncJob
+    # This service's Postgres (None only when tests passed every store). Migrated at startup.
     database: AsyncEngine | None = None
     backend_ot_client: BackendOtClient | None = None
 
     async def aclose(self) -> None:
         await self.forecast_job.stop()
+        await self.site_profile_job.stop()
         await self.llm.aclose()
         await self.site_data.aclose()
         await self.forecast.aclose()
@@ -77,26 +85,13 @@ def _backend_ot_client(settings: Settings) -> BackendOtClient:
     )
 
 
-def _default_site_data(
-    settings: Settings, client: BackendOtClient | None, clock: Callable[[], datetime]
-) -> SiteDataConnector:
-    if client is None:
-        return FakeSiteDataConnector(clock=clock, stale_after_s=settings.data_stale_after_s)
-    return BackendOtSiteDataConnector(
-        client,
-        stale_after_s=settings.data_stale_after_s,
-        catalog_ttl_s=settings.backend_ot_catalog_ttl_s,
-        clock=clock,
-    )
-
-
-def _default_knowledge_store(settings: Settings) -> KnowledgeStore:
-    # The fictional guides belong to the fake sites only: with real data their site ids could
-    # match a real site and give it wrong guidance. Until the Postgres store exists, real sites
-    # start with no engineer knowledge.
-    if settings.use_fake_data:
-        return InMemoryKnowledgeStore.from_fake_sites()
-    return InMemoryKnowledgeStore([])
+def _database(settings: Settings) -> AsyncEngine:
+    if settings.database_url is None:
+        raise ConfigurationError(
+            "DATABASE_URL is required: users, site profiles and forecasts are stored in this "
+            "service's Postgres"
+        )
+    return create_database_engine(settings.database_url.get_secret_value())
 
 
 def build_services(
@@ -110,36 +105,56 @@ def build_services(
     forecast_repository: ForecastRepository | None = None,
     user_store: UserStore | None = None,
     user_data_store: UserDataStore | None = None,
+    site_profile_store: SiteProfileStore | None = None,
 ) -> Services:
-    # One backend-ot client for every backend-ot reader (only with real data).
-    backend_ot = None if settings.use_fake_data else _backend_ot_client(settings)
-    site_data = site_data or _default_site_data(settings, backend_ot, clock)
-    knowledge_store = knowledge_store or _default_knowledge_store(settings)
+    # One backend-ot client for every backend-ot reader (none when tests passed both readers).
+    backend_ot = None
+    if site_data is None or site_configs is None:
+        backend_ot = _backend_ot_client(settings)
+    # The ungated connector: only the site profile service reads it directly.
+    source_data = site_data
+    if source_data is None:
+        assert backend_ot is not None
+        source_data = BackendOtSiteDataConnector(
+            backend_ot,
+            stale_after_s=settings.data_stale_after_s,
+            catalog_ttl_s=settings.backend_ot_catalog_ttl_s,
+            clock=clock,
+        )
+    if site_configs is None:
+        assert backend_ot is not None
+        site_configs = BackendOtSiteConfigSource(backend_ot)
+    # Engineer knowledge moves to Postgres in KNOWLEDGE_PLAN.md step 2; until then, none.
+    knowledge_store = knowledge_store or EmptyKnowledgeStore()
     llm = llm or AnthropicLLMClient(settings)
 
     database: AsyncEngine | None = None
-    needs_database = forecast_repository is None or user_store is None or user_data_store is None
-    if needs_database and settings.database_url is not None:
-        database = create_database_engine(settings.database_url.get_secret_value())
-    if forecast_repository is None:
-        forecast_repository = (
-            PostgresForecastRepository(database) if database else InMemoryForecastRepository()
-        )
-    if user_store is None:
-        user_store = PostgresUserStore(database) if database else InMemoryUserStore()
-    if user_data_store is None:
-        user_data_store = PostgresUserDataStore(database) if database else InMemoryUserDataStore()
+    if (
+        forecast_repository is None
+        or user_store is None
+        or user_data_store is None
+        or site_profile_store is None
+    ):
+        database = _database(settings)
+        forecast_repository = forecast_repository or PostgresForecastRepository(database)
+        user_store = user_store or PostgresUserStore(database)
+        user_data_store = user_data_store or PostgresUserDataStore(database)
+        site_profile_store = site_profile_store or PostgresSiteProfileStore(database)
     user_data = UserDataService(user_data_store, clock)
+    site_profiles = SiteProfileService(
+        site_profile_store, source_data, clock, cache_ttl_s=settings.site_profile_cache_ttl_s
+    )
+    site_profile_job = SiteProfileSyncJob(
+        site_profiles, settings.site_profile_sync_interval_minutes
+    )
+    # The AI (tools, the agent service) reads only approved sites, devices and points.
+    site_data = ApprovedSiteDataConnector(source_data, site_profiles)
     auth = AuthService(
         user_store,
         clock,
         SessionSettings(ttl=timedelta(days=settings.session_ttl_days)),
         demo_email=settings.demo_user_email,
     )
-    if site_configs is None:
-        site_configs = (
-            FakeSiteConfigSource() if backend_ot is None else BackendOtSiteConfigSource(backend_ot)
-        )
     forecast = ForecastService(
         sites=site_configs,
         sources=forecast_sources or build_sources(settings, clock),
@@ -193,6 +208,8 @@ def build_services(
         forecast_job=forecast_job,
         auth=auth,
         user_data=user_data,
+        site_profiles=site_profiles,
+        site_profile_job=site_profile_job,
         database=database,
         backend_ot_client=backend_ot,
     )

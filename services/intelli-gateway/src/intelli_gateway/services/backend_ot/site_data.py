@@ -5,8 +5,9 @@ Point names: backend-ot names are only unique within a device, so the agent sees
 as `DEVICE.point` (e.g. `INV2.active_power`). This module maps those names back to backend-ot's
 device and point ids. The catalog (devices and their points) is cached per site for a short TTL.
 
-Known gaps in backend-ot, handled here: points have no description, readings carry no quality,
-and there is no poll history, so a device's last reading time stands in for comms health.
+A point's description is its device profile's one-liner (`profile_point_description`), when
+there is one. Known gaps in backend-ot, handled here: readings carry no quality, and there is no
+poll history, so a device's last reading time stands in for comms health.
 """
 
 import asyncio
@@ -325,6 +326,7 @@ class BackendOtSiteDataConnector:
                     point=point,
                     info=PointInfo(
                         name=name,
+                        description=point.profile_point_description or None,
                         unit=point.unit,
                         device_id=device.device_id,
                         device_name=device.name,

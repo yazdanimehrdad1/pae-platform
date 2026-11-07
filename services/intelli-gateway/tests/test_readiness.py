@@ -4,6 +4,7 @@ waits on it, so it must never report ready over a dead database."""
 
 import httpx
 import pytest
+from doubles.services import build_test_services
 from fakes import ScriptedLLMClient, fixed_clock
 
 import intelli_gateway.api.routers.health as health
@@ -11,14 +12,13 @@ from intelli_gateway.app import create_app
 from intelli_gateway.config import Settings
 from intelli_gateway.schemas.api_models.responses import ReadinessResponse
 from intelli_gateway.services.postgres.database import create_database_engine
-from intelli_gateway.wiring import build_services
 
 # Never connected to: the database check is replaced in these tests.
 UNUSED_DATABASE_URL = "postgresql+asyncpg://user:password@db.invalid:5432/intelli_gateway"
 
 
 def make_client(settings: Settings, with_database: bool) -> httpx.AsyncClient:
-    services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+    services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
     if with_database:
         services.database = create_database_engine(UNUSED_DATABASE_URL)
     app = create_app(settings, services)

@@ -269,6 +269,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/site-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every synced or onboarded site: approved version and pending change count */
+        get: operations["list_site_profiles_api_v1_site_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/site-profiles/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read every site from backend-ot now (approves nothing) */
+        post: operations["sync_all_site_profiles_api_v1_site_profiles_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites": {
         parameters: {
             query?: never;
@@ -317,6 +351,91 @@ export interface paths {
          *     future ones the latest forecast. For charting next to measurements.
          */
         get: operations["get_forecast_series_api_v1_sites__site_id__forecast_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The site's approved profile: what the AI knows of its facts */
+        get: operations["get_site_profile_api_v1_sites__site_id__profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/profile/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve pending changes into a new profile version (onboards a new site) */
+        post: operations["approve_site_profile_changes_api_v1_sites__site_id__profile_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/profile/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Differences between backend-ot (as last read) and the approved profile */
+        get: operations["get_pending_changes_api_v1_sites__site_id__profile_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/profile/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read the site from backend-ot now and list the pending changes */
+        post: operations["sync_site_profile_api_v1_sites__site_id__profile_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/profile/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every approved version, newest first */
+        get: operations["list_site_profile_versions_api_v1_sites__site_id__profile_versions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -398,6 +517,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ApproveChangesRequest */
+        ApproveChangesRequest: {
+            /**
+             * Change Ids
+             * @description The pending changes to approve (their change_id). Omit to approve them all.
+             */
+            change_ids?: string[] | null;
+            /**
+             * Fetched At
+             * @description The fetched_at of the pending changes you reviewed. When backend-ot was read again since, nothing is approved (409): review the changes again.
+             */
+            fetched_at?: string | null;
+        };
         /** ArrayIntervalResponse */
         ArrayIntervalResponse: {
             /**
@@ -436,6 +568,31 @@ export interface components {
             /** Tool Calls */
             tool_calls: components["schemas"]["ToolCallResponse"][];
             usage: components["schemas"]["UsageResponse"];
+        };
+        /**
+         * ChangeKind
+         * @enum {string}
+         */
+        ChangeKind: "added" | "removed" | "changed";
+        /**
+         * ChangeTarget
+         * @enum {string}
+         */
+        ChangeTarget: "site" | "device" | "point" | "topology";
+        /** Device */
+        Device: {
+            /** Description */
+            description?: string | null;
+            /** Device Id */
+            device_id: number;
+            /** Model */
+            model?: string | null;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /** Vendor */
+            vendor?: string | null;
         };
         /** ErrorResponse */
         ErrorResponse: {
@@ -574,6 +731,59 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** PendingChanges */
+        PendingChanges: {
+            /** Approved Version */
+            approved_version: number | null;
+            /** Changes */
+            changes: components["schemas"]["ProfileChange"][];
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+            /** Site Id */
+            site_id: number;
+        };
+        /**
+         * PointClass
+         * @enum {string}
+         */
+        PointClass: "ANALOG" | "BINARY" | "ALARM" | "CONTROL";
+        /**
+         * PointInfo
+         * @description One data point (tag) in a site's catalog. `name` is unique within a site.
+         */
+        PointInfo: {
+            /** Bit Labels */
+            bit_labels?: {
+                [key: string]: string;
+            };
+            /**
+             * Data Type
+             * @default float32
+             */
+            data_type: string;
+            /** Description */
+            description?: string | null;
+            /** Device Id */
+            device_id: number;
+            /** Device Name */
+            device_name: string;
+            /** Enum Labels */
+            enum_labels?: {
+                [key: string]: string;
+            };
+            /** Equipment */
+            equipment: string;
+            /** Name */
+            name: string;
+            point_class?: components["schemas"]["PointClass"] | null;
+            /** Severity */
+            severity?: string | null;
+            /** Unit */
+            unit?: string | null;
+        };
         /** Preference */
         Preference: {
             /** Key */
@@ -589,6 +799,74 @@ export interface components {
         PreferenceRequest: {
             /** @description Any JSON value, at most 64 KiB serialized. */
             value: components["schemas"]["JsonValue"];
+        };
+        /**
+         * ProfileChange
+         * @description One difference between the approved profile and backend-ot's current catalog.
+         *
+         *     change_id is stable for the same difference: `site`, `topology`, `device:<device_id>`,
+         *     `point:<device_id>:<point name in its device>`. A device added or removed carries its points
+         *     (they are not listed separately).
+         */
+        ProfileChange: {
+            /** Change Id */
+            change_id: string;
+            /** Device Id */
+            device_id?: number | null;
+            /**
+             * Fields
+             * @default []
+             */
+            fields: string[];
+            kind: components["schemas"]["ChangeKind"];
+            /** Point Name */
+            point_name?: string | null;
+            /** Summary */
+            summary: string;
+            target: components["schemas"]["ChangeTarget"];
+        };
+        /**
+         * ProfileVersion
+         * @description One approved version of a site's profile. The highest version is the one the AI uses.
+         */
+        ProfileVersion: {
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Approved By */
+            approved_by: string;
+            catalog: components["schemas"]["SiteCatalog"];
+            /**
+             * Change Ids
+             * @default []
+             */
+            change_ids: string[];
+            /** Site Id */
+            site_id: number;
+            /** Version */
+            version: number;
+        };
+        /** ProfileVersionSummary */
+        ProfileVersionSummary: {
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Approved By */
+            approved_by: string;
+            /** Change Ids */
+            change_ids: string[];
+            /** Devices */
+            devices: number;
+            /** Points */
+            points: number;
+            /** Site Id */
+            site_id: number;
+            /** Version */
+            version: number;
         };
         /** PvForecastResponse */
         PvForecastResponse: {
@@ -705,6 +983,50 @@ export interface components {
             /** Width */
             width?: number | null;
         };
+        /** Site */
+        Site: {
+            /** Capacity Kw */
+            capacity_kw?: number | null;
+            /** Description */
+            description?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+            /** Name */
+            name: string;
+            /** Site Id */
+            site_id: number;
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone: string;
+        };
+        /**
+         * SiteCatalog
+         * @description A site's facts at one moment: what was fetched from backend-ot, or what was approved.
+         */
+        SiteCatalog: {
+            /**
+             * Devices
+             * @default []
+             */
+            devices: components["schemas"]["Device"][];
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["PointInfo"][];
+            site: components["schemas"]["Site"];
+            /**
+             * @default {
+             *       "connections": [],
+             *       "nodes": []
+             *     }
+             */
+            topology: components["schemas"]["Topology"];
+        };
         /** SiteForecastHealthResponse */
         SiteForecastHealthResponse: {
             /** Fallback In Use */
@@ -721,6 +1043,27 @@ export interface components {
             site_id: number;
             /** Stale */
             stale: boolean;
+        };
+        /**
+         * SiteProfileStatus
+         * @description One site as the admin sees it: onboarded or not, and how many changes wait.
+         */
+        SiteProfileStatus: {
+            /** Approved At */
+            approved_at?: string | null;
+            /** Approved Version */
+            approved_version?: number | null;
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Pending Changes
+             * @default 0
+             */
+            pending_changes: number;
+            /** Site Id */
+            site_id: number;
         };
         /** SiteRefreshResponse */
         SiteRefreshResponse: {
@@ -778,6 +1121,40 @@ export interface components {
             };
             /** Name */
             name: string;
+        };
+        /**
+         * Topology
+         * @description The single-line diagram, condensed: what is connected to what.
+         */
+        Topology: {
+            /**
+             * Connections
+             * @default []
+             */
+            connections: components["schemas"]["TopologyConnection"][];
+            /**
+             * Nodes
+             * @default []
+             */
+            nodes: components["schemas"]["TopologyNode"][];
+        };
+        /** TopologyConnection */
+        TopologyConnection: {
+            /** From Id */
+            from_id: string;
+            /** To Id */
+            to_id: string;
+        };
+        /** TopologyNode */
+        TopologyNode: {
+            /** Device Id */
+            device_id?: number | null;
+            /** Name */
+            name: string;
+            /** Node Id */
+            node_id: string;
+            /** Type */
+            type: string;
         };
         /** TrendDefinition */
         TrendDefinition: {
@@ -1742,6 +2119,91 @@ export interface operations {
             };
         };
     };
+    list_site_profiles_api_v1_site_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteProfileStatus"][];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sync_all_site_profiles_api_v1_site_profiles_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteProfileStatus"][];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description backend-ot unreachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_sites_api_v1_sites_get: {
         parameters: {
             query?: never;
@@ -1904,6 +2366,318 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_site_profile_api_v1_sites__site_id__profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileVersion"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not synced or not onboarded yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_site_profile_changes_api_v1_sites__site_id__profile_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveChangesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileVersion"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not synced or not onboarded yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description backend-ot was read again since */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown change id, or nothing to approve */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_pending_changes_api_v1_sites__site_id__profile_changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingChanges"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not synced or not onboarded yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_site_profile_api_v1_sites__site_id__profile_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingChanges"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not synced or not onboarded yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description backend-ot unreachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_site_profile_versions_api_v1_sites__site_id__profile_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileVersionSummary"][];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not synced or not onboarded yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

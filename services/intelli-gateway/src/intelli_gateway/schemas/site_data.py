@@ -98,6 +98,9 @@ class PointValue(BaseModel):
     age_s: float | None = None
     # No new reading for longer than the stale threshold: the device may have stopped reporting.
     stale: bool = False
+    # The point's definition (unit, labels, type...) changed in backend-ot and waits for a site
+    # admin's approval: the approved meaning of this value may be out of date.
+    definition_pending_review: bool = False
 
 
 class HistorySample(BaseModel):

@@ -1,5 +1,5 @@
-"""Site data interface: what backend-ot serves. Implementations: fake_data/site_data.py now,
-services/backend_ot next. All access is read-only."""
+"""Site data interface: what backend-ot serves. Implementations: services/backend_ot/ (gated by
+site_profile/gate.py), tests/doubles/site_data.py in tests. All access is read-only."""
 
 from collections.abc import Sequence
 from datetime import datetime

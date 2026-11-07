@@ -10,9 +10,9 @@ log answers last attempt / last success / last failure; retention drops old runs
 from collections.abc import Awaitable, Callable
 
 import pytest
+from doubles.forecast import InMemoryForecastRepository
 from forecast_repository_contract import CHECKS, ISSUED, STEP, forecast
 
-from intelli_gateway.fake_data.forecast import InMemoryForecastRepository
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
 
 

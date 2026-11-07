@@ -8,8 +8,8 @@ import math
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
-from intelli_gateway.fake_data.models import AlarmRule, FakePoint, FakeSite, SignalShape
-from intelli_gateway.fake_data.sites import FAKE_SITES
+from doubles.models import AlarmRule, FakePoint, FakeSite, SignalShape
+from doubles.sites import FAKE_SITES
 from intelli_gateway.schemas.site_data import (
     ActiveAlarms,
     ActivePointAlarm,

@@ -4,12 +4,12 @@
 import os
 
 import pytest
+from doubles.services import build_test_services
 from fakes import fixed_clock
 
 from intelli_gateway.config import load_settings
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.services.claude.client import AnthropicLLMClient
-from intelli_gateway.wiring import build_services
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RUN_LLM_TESTS") != "1", reason="set RUN_LLM_TESTS=1 to call the real Claude API"
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(
 async def test_tool_use_and_prompt_caching_against_the_real_api() -> None:
     settings = load_settings()
     llm = AnthropicLLMClient(settings)
-    services = build_services(settings, llm=llm, clock=fixed_clock)
+    services = build_test_services(settings, llm=llm, clock=fixed_clock)
     ctx = RequestContext(
         user_id="integration", roles=frozenset({"engineer"}), site_ids=None, request_id="it"
     )

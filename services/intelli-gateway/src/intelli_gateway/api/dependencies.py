@@ -1,8 +1,9 @@
 """FastAPI dependencies: who is asking (the session cookie), access checks, the wired services."""
 
 from datetime import timedelta
+from typing import Annotated
 
-from fastapi import Header, HTTPException, Request, Response
+from fastapi import Depends, Header, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from intelli_gateway.agent.service import GatewayService
@@ -10,6 +11,7 @@ from intelli_gateway.auth.service import AuthService
 from intelli_gateway.config import Settings
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.users import User
+from intelli_gateway.site_profile.service import SiteProfileService
 from intelli_gateway.solar_forecast.service import ForecastService
 from intelli_gateway.utils.exceptions import ForbiddenError, UnauthorizedError
 from intelli_gateway.utils.logger import request_id_var
@@ -69,6 +71,13 @@ async def get_current_user(request: Request, response: Response) -> User:
     return authenticated.user
 
 
+async def require_admin(user: Annotated[User, Depends(get_current_user)]) -> User:
+    """The logged-in admin (session only, never the dev headers); 401/403 otherwise."""
+    if user.role != "admin":
+        raise ForbiddenError("requires the admin role")
+    return user
+
+
 def _split(header: str | None) -> list[str]:
     return [part.strip() for part in (header or "").split(",") if part.strip()]
 
@@ -118,6 +127,11 @@ def get_service(request: Request) -> GatewayService:
 
 def get_forecast_service(request: Request) -> ForecastService:
     service: ForecastService = request.app.state.services.forecast
+    return service
+
+
+def get_site_profile_service(request: Request) -> SiteProfileService:
+    service: SiteProfileService = request.app.state.services.site_profiles
     return service
 
 

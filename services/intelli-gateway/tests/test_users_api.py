@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import httpx
 import pytest
+from doubles.services import build_test_services
 from fakes import ScriptedLLMClient, fixed_clock, make_settings
 from pydantic import TypeAdapter
 
@@ -21,7 +22,7 @@ from intelli_gateway.app import create_app
 from intelli_gateway.auth.bootstrap import ensure_configured_accounts
 from intelli_gateway.schemas.api_models.responses import UserResponse
 from intelli_gateway.utils.exceptions import ForbiddenError
-from intelli_gateway.wiring import Services, build_services
+from intelli_gateway.wiring import Services
 
 PASSWORD = "correct horse battery"
 NEW_PASSWORD = "a new password"
@@ -50,7 +51,7 @@ class Setup:
 @pytest.fixture
 async def setup() -> AsyncIterator[Setup]:
     settings = make_settings(ANTHROPIC_API_KEY="test-key")
-    services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+    services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
     await services.auth.create_user("root@example.com", "Root", "admin", PASSWORD)
     await services.auth.create_user("ana@example.com", "Ana", "engineer", PASSWORD)
     yield Setup(services, httpx.ASGITransport(app=create_app(settings, services)))
@@ -175,7 +176,7 @@ class TestSharedDemoAccount:
 class TestConfiguredAccounts:
     async def test_the_first_admin_is_created_only_on_an_empty_install(self) -> None:
         settings = make_settings(BOOTSTRAP_ADMIN_PASSWORD="first admin password")
-        services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+        services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
         await ensure_configured_accounts(services.auth, settings)
         users = await services.auth.list_users()
         assert [(user.email, user.role) for user in users] == [("admin@plusdas.local", "admin")]
@@ -187,13 +188,13 @@ class TestConfiguredAccounts:
 
     async def test_no_password_no_admin(self) -> None:
         settings = make_settings()
-        services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+        services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
         await ensure_configured_accounts(services.auth, settings)
         assert await services.auth.list_users() == []
 
     async def test_the_demo_account_follows_its_secret(self) -> None:
         settings = make_settings(DEMO_USER_PASSWORD="demo secret one")
-        services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+        services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
         await ensure_configured_accounts(services.auth, settings)
         user, _ = await services.auth.login("demo@plusdas.local", "demo secret one")
         assert user.role == "engineer"
@@ -207,7 +208,7 @@ class TestConfiguredAccounts:
         settings = make_settings(
             DEMO_USER_PASSWORD="demo secret one", DEMO_USER_EMAIL="demo@plusdas.dev"
         )
-        services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+        services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
         await ensure_configured_accounts(services.auth, settings)
         user, token = await services.auth.login("demo@plusdas.dev", "demo secret one")
         with pytest.raises(ForbiddenError):

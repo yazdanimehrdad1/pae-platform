@@ -9,9 +9,9 @@ that user's sessions and nobody else's.
 from collections.abc import Awaitable, Callable
 
 import pytest
+from doubles.user_store import InMemoryUserStore
 from user_store_contract import CHECKS
 
-from intelli_gateway.fake_data.user_store import InMemoryUserStore
 from intelli_gateway.interfaces.user_store import UserStore
 
 
