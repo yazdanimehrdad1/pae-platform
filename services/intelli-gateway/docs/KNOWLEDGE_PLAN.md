@@ -125,11 +125,11 @@ Each step: provider first, `make contract` (additive), tests, PROGRESS.md update
    migration `005_site_profiles` (profile, pending diffs, approvals),
    the sync task, approval logic with rename handling; `services/backend_ot/` limited to approved
    devices/points and allowlisted queries. Tools read the approved profile.
-2. **Knowledge store:** migration `006_knowledge` (point_definitions, point_states, point_limits,
-   knowledge_documents, knowledge_versions), `KnowledgeService` (validate, draft, publish,
-   rollback), Postgres + in-memory stores under one contract test, tools on published content,
-   code-level seed loader (`make seed-knowledge site=...`, for real sites' knowledge; the
-   service has no fictional sites at runtime).
+2. **Knowledge store** (built 2026-11-07 together with step 3, see PROGRESS.md item 11):
+   migration `006_knowledge` (one draft per site and every published version, the whole
+   knowledge as JSONB), `SiteKnowledgeService` (validate, draft, publish, restore), Postgres +
+   in-memory stores under one contract test, tools on published content, and the code-level way
+   in as JSON export/import (`manage_knowledge`; files kept out of the repo: real plant data).
 3. **Admin API** under `/api/v1/sites/{site_id}/knowledge/...` (profile, diffs, items, publish,
    coverage), admin role only.
 4. **Site functions:** `site_functions/` library, migration `007_site_functions` (enable +

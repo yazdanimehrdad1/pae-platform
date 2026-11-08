@@ -10,3 +10,4 @@ export { reportsApi } from './reports';
 export { forecastApi } from './forecast';
 export { authApi, meApi, usersApi } from './me';
 export { siteProfilesApi } from './siteProfiles';
+export { knowledgeApi } from './knowledge';

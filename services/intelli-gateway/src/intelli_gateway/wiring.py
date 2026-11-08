@@ -16,6 +16,7 @@ from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.auth.service import AuthService, SessionSettings
 from intelli_gateway.config import Settings
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
+from intelli_gateway.interfaces.knowledge_authoring_store import KnowledgeAuthoringStore
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.llm_client import LLMClient
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
@@ -25,13 +26,17 @@ from intelli_gateway.interfaces.site_profile_store import SiteProfileStore
 from intelli_gateway.interfaces.user_data_store import UserDataStore
 from intelli_gateway.interfaces.user_store import UserStore
 from intelli_gateway.knowledge.loader import KnowledgeLoader
-from intelli_gateway.knowledge.store import EmptyKnowledgeStore
+from intelli_gateway.knowledge.published_store import PublishedKnowledgeStore
+from intelli_gateway.knowledge.service import SiteKnowledgeService
 from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_config import BackendOtSiteConfigSource
 from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConnector
 from intelli_gateway.services.claude.client import AnthropicLLMClient
 from intelli_gateway.services.postgres.database import create_database_engine
 from intelli_gateway.services.postgres.forecast_repository import PostgresForecastRepository
+from intelli_gateway.services.postgres.knowledge_authoring_store import (
+    PostgresKnowledgeAuthoringStore,
+)
 from intelli_gateway.services.postgres.site_profile_store import PostgresSiteProfileStore
 from intelli_gateway.services.postgres.user_data_store import PostgresUserDataStore
 from intelli_gateway.services.postgres.user_store import PostgresUserStore
@@ -61,6 +66,7 @@ class Services:
     user_data: UserDataService
     site_profiles: SiteProfileService
     site_profile_job: SiteProfileSyncJob
+    knowledge: SiteKnowledgeService
     # This service's Postgres (None only when tests passed every store). Migrated at startup.
     database: AsyncEngine | None = None
     backend_ot_client: BackendOtClient | None = None
@@ -106,6 +112,7 @@ def build_services(
     user_store: UserStore | None = None,
     user_data_store: UserDataStore | None = None,
     site_profile_store: SiteProfileStore | None = None,
+    knowledge_authoring_store: KnowledgeAuthoringStore | None = None,
 ) -> Services:
     # One backend-ot client for every backend-ot reader (none when tests passed both readers).
     backend_ot = None
@@ -124,8 +131,6 @@ def build_services(
     if site_configs is None:
         assert backend_ot is not None
         site_configs = BackendOtSiteConfigSource(backend_ot)
-    # Engineer knowledge moves to Postgres in KNOWLEDGE_PLAN.md step 2; until then, none.
-    knowledge_store = knowledge_store or EmptyKnowledgeStore()
     llm = llm or AnthropicLLMClient(settings)
 
     database: AsyncEngine | None = None
@@ -134,12 +139,16 @@ def build_services(
         or user_store is None
         or user_data_store is None
         or site_profile_store is None
+        or knowledge_authoring_store is None
     ):
         database = _database(settings)
         forecast_repository = forecast_repository or PostgresForecastRepository(database)
         user_store = user_store or PostgresUserStore(database)
         user_data_store = user_data_store or PostgresUserDataStore(database)
         site_profile_store = site_profile_store or PostgresSiteProfileStore(database)
+        knowledge_authoring_store = knowledge_authoring_store or PostgresKnowledgeAuthoringStore(
+            database
+        )
     user_data = UserDataService(user_data_store, clock)
     site_profiles = SiteProfileService(
         site_profile_store, source_data, clock, cache_ttl_s=settings.site_profile_cache_ttl_s
@@ -149,6 +158,14 @@ def build_services(
     )
     # The AI (tools, the agent service) reads only approved sites, devices and points.
     site_data = ApprovedSiteDataConnector(source_data, site_profiles)
+    # Engineer knowledge: admins edit drafts and publish; the AI reads the published version.
+    knowledge = SiteKnowledgeService(
+        knowledge_authoring_store,
+        site_profiles,
+        clock,
+        cache_ttl_s=settings.site_profile_cache_ttl_s,
+    )
+    knowledge_store = knowledge_store or PublishedKnowledgeStore(knowledge, site_profiles)
     auth = AuthService(
         user_store,
         clock,
@@ -210,6 +227,7 @@ def build_services(
         user_data=user_data,
         site_profiles=site_profiles,
         site_profile_job=site_profile_job,
+        knowledge=knowledge,
         database=database,
         backend_ot_client=backend_ot,
     )

@@ -359,6 +359,213 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The draft (or published) knowledge */
+        get: operations["get_knowledge_api_v1_sites__site_id__knowledge_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which status/alarm points still need a guide, devices without facts, orphans */
+        get: operations["get_coverage_api_v1_sites__site_id__knowledge_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/device-facts/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Write a device's ratings and notes into the draft */
+        put: operations["put_device_facts_api_v1_sites__site_id__knowledge_device_facts__device_id__put"];
+        post?: never;
+        /** Remove a device's ratings and notes in the draft */
+        delete: operations["delete_device_facts_api_v1_sites__site_id__knowledge_device_facts__device_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a document (manual, IM script, procedure, experience note) to the draft */
+        post: operations["create_document_api_v1_sites__site_id__knowledge_documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a document in the draft */
+        put: operations["update_document_api_v1_sites__site_id__knowledge_documents__document_id__put"];
+        post?: never;
+        /** Remove a document in the draft */
+        delete: operations["delete_document_api_v1_sites__site_id__knowledge_documents__document_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Discard the whole draft */
+        delete: operations["discard_draft_api_v1_sites__site_id__knowledge_draft_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/draft/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put some draft changes back as published */
+        post: operations["revert_draft_items_api_v1_sites__site_id__knowledge_draft_revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/point-guides/{device_id}/{point_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Write a point's guide into the draft (point name within its device) */
+        put: operations["put_point_guide_api_v1_sites__site_id__knowledge_point_guides__device_id___point_name__put"];
+        post?: never;
+        /** Remove a point's guide in the draft */
+        delete: operations["delete_point_guide_api_v1_sites__site_id__knowledge_point_guides__device_id___point_name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish the whole draft: the AI uses it from now on */
+        post: operations["publish_api_v1_sites__site_id__knowledge_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every published version, newest first */
+        get: operations["list_versions_api_v1_sites__site_id__knowledge_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One published version */
+        get: operations["get_version_api_v1_sites__site_id__knowledge_versions__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/versions/{version}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish an earlier version's content again, as a new version */
+        post: operations["restore_version_api_v1_sites__site_id__knowledge_versions__version__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/profile": {
         parameters: {
             query?: never;
@@ -594,6 +801,100 @@ export interface components {
             /** Vendor */
             vendor?: string | null;
         };
+        /** DeviceFacts */
+        DeviceFacts: {
+            /** Author */
+            author?: string | null;
+            /** Device Id */
+            device_id: number;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Ratings
+             * @default []
+             */
+            ratings: components["schemas"]["DeviceRating"][];
+            /** Site Id */
+            site_id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** DeviceFactsRequest */
+        DeviceFactsRequest: {
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+            /** Notes */
+            notes?: string | null;
+            /** Ratings */
+            ratings?: components["schemas"]["DeviceRating"][];
+        };
+        /**
+         * DeviceRating
+         * @description One rating of a device, e.g. BESS energy capacity 80 MWh.
+         */
+        DeviceRating: {
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: number;
+        };
+        /** DocumentCreatedResponse */
+        DocumentCreatedResponse: {
+            /**
+             * Changes
+             * @description What publishing the draft would change.
+             */
+            changes: components["schemas"]["KnowledgeChange"][];
+            /** @description The draft, or the published knowledge. */
+            content: components["schemas"]["SiteKnowledge"];
+            /** Document Id */
+            document_id: string;
+            /**
+             * Draft Revision
+             * @description 0 = no draft: the content is the published one.
+             */
+            draft_revision: number;
+            /** Draft Updated At */
+            draft_updated_at: string | null;
+            /** Draft Updated By */
+            draft_updated_by: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
+            /** Published Version */
+            published_version: number | null;
+            /** Site Id */
+            site_id: number;
+        };
+        /** DocumentRequest */
+        DocumentRequest: {
+            /**
+             * Body
+             * @description Pasted text (Markdown).
+             */
+            body: string;
+            /** Device Id */
+            device_id?: number | null;
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+            kind: components["schemas"]["KnowledgeKind"];
+            /** Point Names */
+            point_names?: string[];
+            /** Title */
+            title: string;
+        };
         /** ErrorResponse */
         ErrorResponse: {
             /** Detail */
@@ -644,6 +945,11 @@ export interface components {
             /** Wind Speed Ms */
             wind_speed_ms: number | null;
         };
+        /**
+         * GuideSeverity
+         * @enum {string}
+         */
+        GuideSeverity: "fault" | "warning" | "info";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -655,6 +961,192 @@ export interface components {
             ok: boolean;
         };
         JsonValue: unknown;
+        /**
+         * KnowledgeChange
+         * @description One draft item that differs from the published knowledge. item_key:
+         *     `point:<device_id>:<point name>`, `document:<document_id>` or `device:<device_id>`.
+         */
+        KnowledgeChange: {
+            /** Item Key */
+            item_key: string;
+            item_kind: components["schemas"]["KnowledgeItemKind"];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "added" | "removed" | "changed";
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * KnowledgeCoverage
+         * @description What the site's knowledge covers: the onboarding to-do list (on the draft when there is
+         *     one, otherwise on the published knowledge).
+         */
+        KnowledgeCoverage: {
+            /** Devices */
+            devices: number;
+            /** Devices With Facts */
+            devices_with_facts: number;
+            /** Discrete Points */
+            discrete_points: number;
+            /** Discrete With Guide */
+            discrete_with_guide: number;
+            /** Documents By Kind */
+            documents_by_kind: {
+                [key: string]: number;
+            };
+            /** Guides */
+            guides: number;
+            /** Missing Guides */
+            missing_guides: components["schemas"]["MissingGuide"][];
+            /** Orphaned */
+            orphaned: string[];
+            /** Points */
+            points: number;
+            /** Site Id */
+            site_id: number;
+        };
+        /** KnowledgeDocument */
+        KnowledgeDocument: {
+            /** Author */
+            author?: string | null;
+            /** Body */
+            body: string;
+            /** Device Id */
+            device_id?: number | null;
+            /** Document Id */
+            document_id?: string;
+            kind: components["schemas"]["KnowledgeKind"];
+            /**
+             * Point Names
+             * @default []
+             */
+            point_names: string[];
+            /** Site Id */
+            site_id: number;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * KnowledgeItemKind
+         * @enum {string}
+         */
+        KnowledgeItemKind: "point_guide" | "document" | "device_facts";
+        /**
+         * KnowledgeKind
+         * @enum {string}
+         */
+        KnowledgeKind: "manual" | "im_script" | "procedure" | "experience_note";
+        /**
+         * KnowledgeStateResponse
+         * @description The site's knowledge for an admin: what is published, and the draft (the next publish).
+         */
+        KnowledgeStateResponse: {
+            /**
+             * Changes
+             * @description What publishing the draft would change.
+             */
+            changes: components["schemas"]["KnowledgeChange"][];
+            /** @description The draft, or the published knowledge. */
+            content: components["schemas"]["SiteKnowledge"];
+            /**
+             * Draft Revision
+             * @description 0 = no draft: the content is the published one.
+             */
+            draft_revision: number;
+            /** Draft Updated At */
+            draft_updated_at: string | null;
+            /** Draft Updated By */
+            draft_updated_by: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
+            /** Published Version */
+            published_version: number | null;
+            /** Site Id */
+            site_id: number;
+        };
+        /**
+         * KnowledgeVersion
+         * @description One publish: what the AI uses, from published_at until the next version.
+         */
+        KnowledgeVersion: {
+            /**
+             * Change Ids
+             * @default []
+             */
+            change_ids: string[];
+            content: components["schemas"]["SiteKnowledge"];
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Published By */
+            published_by: string;
+            /** Restored From */
+            restored_from?: number | null;
+            /** Site Id */
+            site_id: number;
+            /** Version */
+            version: number;
+        };
+        /** KnowledgeVersionSummary */
+        KnowledgeVersionSummary: {
+            /** Change Ids */
+            change_ids: string[];
+            /** Device Facts */
+            device_facts: number;
+            /** Documents */
+            documents: number;
+            /** Point Guides */
+            point_guides: number;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Published By */
+            published_by: string;
+            /** Restored From */
+            restored_from: number | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * LimitCondition
+         * @enum {string}
+         */
+        LimitCondition: "above" | "below";
+        /**
+         * LimitGuide
+         * @description A limit on an analog point, e.g. cabinet temperature above 60 degC = derating.
+         */
+        LimitGuide: {
+            /**
+             * Checks
+             * @default []
+             */
+            checks: string[];
+            condition: components["schemas"]["LimitCondition"];
+            /** Message */
+            message: string;
+            /**
+             * Probable Causes
+             * @default []
+             */
+            probable_causes: string[];
+            severity: components["schemas"]["GuideSeverity"];
+            /** Value */
+            value: number;
+        };
         /** LoginRequest */
         LoginRequest: {
             /**
@@ -681,6 +1173,34 @@ export interface components {
              * @enum {string}
              */
             role: "engineer" | "admin" | "monitor";
+        };
+        /**
+         * MissingGuide
+         * @description An approved status, alarm or fault-code point with no guide (in the draft or published).
+         */
+        MissingGuide: {
+            /** Device Id */
+            device_id: number;
+            /** Point Class */
+            point_class?: string | null;
+            /** Point Name */
+            point_name: string;
+            /** Qualified Name */
+            qualified_name: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "alarm" | "states" | "bits";
+        };
+        /** NormalRange */
+        NormalRange: {
+            /** Max */
+            max?: number | null;
+            /** Min */
+            min?: number | null;
+            /** Note */
+            note?: string | null;
         };
         /** Note */
         Note: {
@@ -750,6 +1270,64 @@ export interface components {
          * @enum {string}
          */
         PointClass: "ANALOG" | "BINARY" | "ALARM" | "CONTROL";
+        /**
+         * PointGuide
+         * @description Engineer-written guide for one point of one site device.
+         */
+        PointGuide: {
+            /** Author */
+            author?: string | null;
+            /** Device Id */
+            device_id: number;
+            /**
+             * Limits
+             * @default []
+             */
+            limits: components["schemas"]["LimitGuide"][];
+            /** Meaning */
+            meaning: string;
+            normal_range?: components["schemas"]["NormalRange"] | null;
+            /** Point Name */
+            point_name: string;
+            /**
+             * Related Points
+             * @default []
+             */
+            related_points: string[];
+            /** Site Id */
+            site_id: number;
+            /**
+             * States
+             * @default []
+             */
+            states: components["schemas"]["StateGuide"][];
+            /** Unit Note */
+            unit_note?: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PointGuideRequest */
+        PointGuideRequest: {
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+            /** Limits */
+            limits?: components["schemas"]["LimitGuide"][];
+            /** Meaning */
+            meaning: string;
+            normal_range?: components["schemas"]["NormalRange"] | null;
+            /** Related Points */
+            related_points?: string[];
+            /** States */
+            states?: components["schemas"]["StateGuide"][];
+            /** Unit Note */
+            unit_note?: string | null;
+        };
         /**
          * PointInfo
          * @description One data point (tag) in a site's catalog. `name` is unique within a site.
@@ -868,6 +1446,14 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** PublishRequest */
+        PublishRequest: {
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+        };
         /** PvForecastResponse */
         PvForecastResponse: {
             /**
@@ -931,6 +1517,19 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
+        };
+        /** RevertRequest */
+        RevertRequest: {
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+            /**
+             * Item Keys
+             * @description The draft changes to put back.
+             */
+            item_keys: string[];
         };
         /** SavedTrend */
         SavedTrend: {
@@ -1045,6 +1644,28 @@ export interface components {
             stale: boolean;
         };
         /**
+         * SiteKnowledge
+         * @description Everything engineers wrote for one site. Point guides name the point within its device
+         *     (`point_name` without the `DEVICE.` prefix), so a device rename doesn't orphan them.
+         */
+        SiteKnowledge: {
+            /**
+             * Device Facts
+             * @default []
+             */
+            device_facts: components["schemas"]["DeviceFacts"][];
+            /**
+             * Documents
+             * @default []
+             */
+            documents: components["schemas"]["KnowledgeDocument"][];
+            /**
+             * Point Guides
+             * @default []
+             */
+            point_guides: components["schemas"]["PointGuide"][];
+        };
+        /**
          * SiteProfileStatus
          * @description One site as the admin sees it: onboarded or not, and how many changes wait.
          */
@@ -1093,6 +1714,44 @@ export interface components {
             /** Timezone */
             timezone: string;
         };
+        /**
+         * StateGuide
+         * @description What one enum value, bit or vendor fault code means, and what to do about it.
+         */
+        StateGuide: {
+            /**
+             * Checks
+             * @default []
+             */
+            checks: string[];
+            /** Code */
+            code: number;
+            kind: components["schemas"]["StateKind"];
+            /** Label */
+            label: string;
+            /** Meaning */
+            meaning?: string | null;
+            /** Message */
+            message: string;
+            /**
+             * Probable Causes
+             * @default []
+             */
+            probable_causes: string[];
+            /**
+             * Related Points
+             * @default []
+             */
+            related_points: string[];
+            /** Safety Note */
+            safety_note?: string | null;
+            severity: components["schemas"]["GuideSeverity"];
+        };
+        /**
+         * StateKind
+         * @enum {string}
+         */
+        StateKind: "enum_value" | "bit" | "fault_code";
         /** ToolCallResponse */
         ToolCallResponse: {
             /** Args */
@@ -2360,6 +3019,1009 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_knowledge_api_v1_sites__site_id__knowledge_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_coverage_api_v1_sites__site_id__knowledge_coverage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeCoverage"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_device_facts_api_v1_sites__site_id__knowledge_device_facts__device_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceFactsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_device_facts_api_v1_sites__site_id__knowledge_device_facts__device_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The draft revision you loaded (0 = no draft). */
+                draft_revision?: number | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_document_api_v1_sites__site_id__knowledge_documents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentCreatedResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_document_api_v1_sites__site_id__knowledge_documents__document_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_document_api_v1_sites__site_id__knowledge_documents__document_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The draft revision you loaded (0 = no draft). */
+                draft_revision?: number | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    discard_draft_api_v1_sites__site_id__knowledge_draft_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_draft_items_api_v1_sites__site_id__knowledge_draft_revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_point_guide_api_v1_sites__site_id__knowledge_point_guides__device_id___point_name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PointGuideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_point_guide_api_v1_sites__site_id__knowledge_point_guides__device_id___point_name__delete: {
+        parameters: {
+            query?: {
+                /** @description The draft revision you loaded (0 = no draft). */
+                draft_revision?: number | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                device_id: number;
+                point_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    publish_api_v1_sites__site_id__knowledge_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeVersion"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing to publish */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_versions_api_v1_sites__site_id__knowledge_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeVersionSummary"][];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_version_api_v1_sites__site_id__knowledge_versions__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeVersion"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_version_api_v1_sites__site_id__knowledge_versions__version__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeVersion"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description There is a draft: publish or discard it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description That version is already in use */
             422: {
                 headers: {
                     [name: string]: unknown;

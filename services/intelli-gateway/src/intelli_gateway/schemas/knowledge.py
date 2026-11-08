@@ -1,20 +1,25 @@
-"""Engineer-written knowledge: documents (manuals, IM scripts, notes) and point guides.
-Owned by this service; guides are keyed per site device (site_id, device_id, point name)."""
+"""Engineer-written knowledge: documents (manuals, IM scripts, procedures, notes), point guides
+and admin-added device facts. Owned by this service; guides are keyed per site device
+(site_id, device_id, point name)."""
 
 from enum import StrEnum
+from typing import Literal
+from uuid import uuid4
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class KnowledgeKind(StrEnum):
     MANUAL = "manual"
     IM_SCRIPT = "im_script"
+    PROCEDURE = "procedure"
     EXPERIENCE_NOTE = "experience_note"
 
 
 class KnowledgeDocument(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    document_id: str = Field(default_factory=lambda: uuid4().hex)
     site_id: int
     kind: KnowledgeKind
     title: str
@@ -110,3 +115,120 @@ class PointGuide(BaseModel):
             if label is not None and state.label.lower() == label.lower():
                 return state
         return None
+
+
+# --- Admin-added device facts (what backend-ot doesn't hold) ------------------------------------
+
+
+class DeviceRating(BaseModel):
+    """One rating of a device, e.g. BESS energy capacity 80 MWh."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    value: float
+    unit: str
+
+
+class DeviceFacts(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    site_id: int
+    device_id: int
+    ratings: tuple[DeviceRating, ...] = ()
+    notes: str | None = None
+    author: str | None = None
+    updated_at: AwareDatetime
+
+
+# --- A site's knowledge, its draft and its published versions -----------------------------------
+
+
+class SiteKnowledge(BaseModel):
+    """Everything engineers wrote for one site. Point guides name the point within its device
+    (`point_name` without the `DEVICE.` prefix), so a device rename doesn't orphan them."""
+
+    model_config = ConfigDict(frozen=True)
+
+    point_guides: tuple[PointGuide, ...] = ()
+    documents: tuple[KnowledgeDocument, ...] = ()
+    device_facts: tuple[DeviceFacts, ...] = ()
+
+
+class KnowledgeDraft(BaseModel):
+    """The site's unpublished edits: the whole knowledge as it will be once published.
+    `revision` goes up with every save (an edit made against an older revision is refused)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    site_id: int
+    revision: int
+    content: SiteKnowledge
+    updated_at: AwareDatetime
+    updated_by: str
+
+
+class KnowledgeVersion(BaseModel):
+    """One publish: what the AI uses, from published_at until the next version."""
+
+    model_config = ConfigDict(frozen=True)
+
+    site_id: int
+    version: int
+    content: SiteKnowledge
+    published_at: AwareDatetime
+    published_by: str
+    # The items this publish changed (item keys, see KnowledgeChange).
+    change_ids: tuple[str, ...] = ()
+    # Set when this version restores an earlier one.
+    restored_from: int | None = None
+
+
+class KnowledgeItemKind(StrEnum):
+    POINT_GUIDE = "point_guide"
+    DOCUMENT = "document"
+    DEVICE_FACTS = "device_facts"
+
+
+class KnowledgeChange(BaseModel):
+    """One draft item that differs from the published knowledge. item_key:
+    `point:<device_id>:<point name>`, `document:<document_id>` or `device:<device_id>`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    item_key: str
+    item_kind: KnowledgeItemKind
+    kind: Literal["added", "removed", "changed"]
+    summary: str
+
+
+class MissingGuide(BaseModel):
+    """An approved status, alarm or fault-code point with no guide (in the draft or published)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    device_id: int
+    point_name: str  # within its device
+    qualified_name: str
+    point_class: str | None = None
+    reason: Literal["alarm", "states", "bits"]
+
+
+class KnowledgeCoverage(BaseModel):
+    """What the site's knowledge covers: the onboarding to-do list (on the draft when there is
+    one, otherwise on the published knowledge)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    site_id: int
+    points: int
+    discrete_points: int  # ALARM class, or with enum/bit labels: these need a guide first
+    discrete_with_guide: int
+    missing_guides: tuple[MissingGuide, ...]
+    guides: int
+    documents_by_kind: dict[str, int]
+    devices: int
+    devices_with_facts: int
+    # Guides, documents or facts about devices or points the approved profile no longer has:
+    # kept, but the AI doesn't use them.
+    orphaned: tuple[str, ...]

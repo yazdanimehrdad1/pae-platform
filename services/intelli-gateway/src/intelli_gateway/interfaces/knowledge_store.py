@@ -1,10 +1,11 @@
-"""Engineer-written knowledge store. Implementations: knowledge/store.py (empty, until the
-Postgres store), tests/doubles/knowledge_store.py in tests."""
+"""Engineer-written knowledge the AI reads (published only). Implementations:
+knowledge/published_store.py (the latest published version, through the approved site profile)
+and tests/doubles/knowledge_store.py in tests."""
 
 from collections.abc import Sequence
 from typing import Protocol
 
-from intelli_gateway.schemas.knowledge import KnowledgeDocument, PointGuide
+from intelli_gateway.schemas.knowledge import DeviceFacts, KnowledgeDocument, PointGuide
 
 
 class KnowledgeStore(Protocol):
@@ -26,3 +27,7 @@ class KnowledgeStore(Protocol):
     ) -> PointGuide | None: ...
 
     async def list_point_guides(self, site_id: int) -> list[PointGuide]: ...
+
+    async def list_device_facts(self, site_id: int) -> list[DeviceFacts]:
+        """Admin-added ratings and notes of the site's devices."""
+        ...

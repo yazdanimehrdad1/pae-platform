@@ -9,8 +9,12 @@ MCP-ready.
 - the agent loop and conversation history
 - the tool layer and its authorization
 - engineer-written knowledge: point guides (meaning, limits, and per state, alarm bit or vendor
-  fault code: message, severity, causes, checks, safety note), manuals, IM scripts and
-  experience notes. In memory for now, its own Postgres later. Guides are keyed per site device.
+  fault code: message, severity, causes, checks, safety note), manuals, IM scripts, procedures,
+  experience notes and device ratings, in its own Postgres (`knowledge/`, migration
+  `006_knowledge`). Admins edit a draft and publish the whole site at once; the AI reads only
+  the published version (`knowledge/published_store.py`). Guides are keyed per site device by
+  the point's name within the device. API `/api/v1/sites/{id}/knowledge`, CLI
+  `python -m intelli_gateway.manage_knowledge` (JSON export/import; never commit those files).
 - the HTTP API under `/api/v1`
 - **site profiles** (`site_profile/`, migration `005_site_profiles`): the approved copy of each
   site's facts from backend-ot. The AI reads site data only through `site_profile/gate.py`

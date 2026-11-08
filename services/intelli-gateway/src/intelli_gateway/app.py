@@ -11,6 +11,7 @@ from intelli_gateway.api.routers import (
     auth,
     forecast,
     health,
+    knowledge,
     me,
     site_profiles,
     sites,
@@ -92,6 +93,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app.include_router(users.router, prefix="/api")
     app.include_router(sites.router, prefix="/api")
     app.include_router(site_profiles.router, prefix="/api")
+    app.include_router(knowledge.router, prefix="/api")
     app.include_router(tools.router, prefix="/api")
     app.include_router(forecast.router, prefix="/api")
     return app

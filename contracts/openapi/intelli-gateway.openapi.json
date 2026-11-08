@@ -210,6 +210,282 @@
         "title": "Device",
         "type": "object"
       },
+      "DeviceFacts": {
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "ratings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeviceRating"
+            },
+            "title": "Ratings",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "device_id",
+          "updated_at"
+        ],
+        "title": "DeviceFacts",
+        "type": "object"
+      },
+      "DeviceFactsRequest": {
+        "properties": {
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "ratings": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceRating"
+            },
+            "maxItems": 30,
+            "title": "Ratings",
+            "type": "array"
+          }
+        },
+        "title": "DeviceFactsRequest",
+        "type": "object"
+      },
+      "DeviceRating": {
+        "description": "One rating of a device, e.g. BESS energy capacity 80 MWh.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit"
+        ],
+        "title": "DeviceRating",
+        "type": "object"
+      },
+      "DocumentCreatedResponse": {
+        "properties": {
+          "changes": {
+            "description": "What publishing the draft would change.",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SiteKnowledge",
+            "description": "The draft, or the published knowledge."
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "draft_revision": {
+            "description": "0 = no draft: the content is the published one.",
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "draft_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated At"
+          },
+          "draft_updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated By"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "published_version",
+          "published_at",
+          "published_by",
+          "draft_revision",
+          "draft_updated_at",
+          "draft_updated_by",
+          "changes",
+          "content",
+          "document_id"
+        ],
+        "title": "DocumentCreatedResponse",
+        "type": "object"
+      },
+      "DocumentRequest": {
+        "properties": {
+          "body": {
+            "description": "Pasted text (Markdown).",
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/KnowledgeKind"
+          },
+          "point_names": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Point Names",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "body"
+        ],
+        "title": "DocumentRequest",
+        "type": "object"
+      },
       "ErrorResponse": {
         "properties": {
           "detail": {
@@ -341,6 +617,15 @@
         "title": "ForecastIntervalResponse",
         "type": "object"
       },
+      "GuideSeverity": {
+        "enum": [
+          "fault",
+          "warning",
+          "info"
+        ],
+        "title": "GuideSeverity",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -368,6 +653,452 @@
         "type": "object"
       },
       "JsonValue": {},
+      "KnowledgeChange": {
+        "description": "One draft item that differs from the published knowledge. item_key:\n`point:<device_id>:<point name>`, `document:<document_id>` or `device:<device_id>`.",
+        "properties": {
+          "item_key": {
+            "title": "Item Key",
+            "type": "string"
+          },
+          "item_kind": {
+            "$ref": "#/components/schemas/KnowledgeItemKind"
+          },
+          "kind": {
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_key",
+          "item_kind",
+          "kind",
+          "summary"
+        ],
+        "title": "KnowledgeChange",
+        "type": "object"
+      },
+      "KnowledgeCoverage": {
+        "description": "What the site's knowledge covers: the onboarding to-do list (on the draft when there is\none, otherwise on the published knowledge).",
+        "properties": {
+          "devices": {
+            "title": "Devices",
+            "type": "integer"
+          },
+          "devices_with_facts": {
+            "title": "Devices With Facts",
+            "type": "integer"
+          },
+          "discrete_points": {
+            "title": "Discrete Points",
+            "type": "integer"
+          },
+          "discrete_with_guide": {
+            "title": "Discrete With Guide",
+            "type": "integer"
+          },
+          "documents_by_kind": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Documents By Kind",
+            "type": "object"
+          },
+          "guides": {
+            "title": "Guides",
+            "type": "integer"
+          },
+          "missing_guides": {
+            "items": {
+              "$ref": "#/components/schemas/MissingGuide"
+            },
+            "title": "Missing Guides",
+            "type": "array"
+          },
+          "orphaned": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Orphaned",
+            "type": "array"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "points",
+          "discrete_points",
+          "discrete_with_guide",
+          "missing_guides",
+          "guides",
+          "documents_by_kind",
+          "devices",
+          "devices_with_facts",
+          "orphaned"
+        ],
+        "title": "KnowledgeCoverage",
+        "type": "object"
+      },
+      "KnowledgeDocument": {
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/KnowledgeKind"
+          },
+          "point_names": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Point Names",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "kind",
+          "title",
+          "body",
+          "updated_at"
+        ],
+        "title": "KnowledgeDocument",
+        "type": "object"
+      },
+      "KnowledgeItemKind": {
+        "enum": [
+          "point_guide",
+          "document",
+          "device_facts"
+        ],
+        "title": "KnowledgeItemKind",
+        "type": "string"
+      },
+      "KnowledgeKind": {
+        "enum": [
+          "manual",
+          "im_script",
+          "procedure",
+          "experience_note"
+        ],
+        "title": "KnowledgeKind",
+        "type": "string"
+      },
+      "KnowledgeStateResponse": {
+        "description": "The site's knowledge for an admin: what is published, and the draft (the next publish).",
+        "properties": {
+          "changes": {
+            "description": "What publishing the draft would change.",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SiteKnowledge",
+            "description": "The draft, or the published knowledge."
+          },
+          "draft_revision": {
+            "description": "0 = no draft: the content is the published one.",
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "draft_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated At"
+          },
+          "draft_updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated By"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "published_version",
+          "published_at",
+          "published_by",
+          "draft_revision",
+          "draft_updated_at",
+          "draft_updated_by",
+          "changes",
+          "content"
+        ],
+        "title": "KnowledgeStateResponse",
+        "type": "object"
+      },
+      "KnowledgeVersion": {
+        "description": "One publish: what the AI uses, from published_at until the next version.",
+        "properties": {
+          "change_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Ids",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SiteKnowledge"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "published_by": {
+            "title": "Published By",
+            "type": "string"
+          },
+          "restored_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored From"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "version",
+          "content",
+          "published_at",
+          "published_by"
+        ],
+        "title": "KnowledgeVersion",
+        "type": "object"
+      },
+      "KnowledgeVersionSummary": {
+        "properties": {
+          "change_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Ids",
+            "type": "array"
+          },
+          "device_facts": {
+            "title": "Device Facts",
+            "type": "integer"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "point_guides": {
+            "title": "Point Guides",
+            "type": "integer"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "published_by": {
+            "title": "Published By",
+            "type": "string"
+          },
+          "restored_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored From"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "published_at",
+          "published_by",
+          "change_ids",
+          "restored_from",
+          "point_guides",
+          "documents",
+          "device_facts"
+        ],
+        "title": "KnowledgeVersionSummary",
+        "type": "object"
+      },
+      "LimitCondition": {
+        "enum": [
+          "above",
+          "below"
+        ],
+        "title": "LimitCondition",
+        "type": "string"
+      },
+      "LimitGuide": {
+        "description": "A limit on an analog point, e.g. cabinet temperature above 60 degC = derating.",
+        "properties": {
+          "checks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "condition": {
+            "$ref": "#/components/schemas/LimitCondition"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "probable_causes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Probable Causes",
+            "type": "array"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/GuideSeverity"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "condition",
+          "value",
+          "severity",
+          "message"
+        ],
+        "title": "LimitGuide",
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "properties": {
@@ -424,6 +1155,90 @@
           "role"
         ],
         "title": "MeResponse",
+        "type": "object"
+      },
+      "MissingGuide": {
+        "description": "An approved status, alarm or fault-code point with no guide (in the draft or published).",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "point_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Class"
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "qualified_name": {
+            "title": "Qualified Name",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "alarm",
+              "states",
+              "bits"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "point_name",
+          "qualified_name",
+          "reason"
+        ],
+        "title": "MissingGuide",
+        "type": "object"
+      },
+      "NormalRange": {
+        "properties": {
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "NormalRange",
         "type": "object"
       },
       "Note": {
@@ -601,6 +1416,171 @@
         ],
         "title": "PointClass",
         "type": "string"
+      },
+      "PointGuide": {
+        "description": "Engineer-written guide for one point of one site device.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "limits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/LimitGuide"
+            },
+            "title": "Limits",
+            "type": "array"
+          },
+          "meaning": {
+            "title": "Meaning",
+            "type": "string"
+          },
+          "normal_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NormalRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "related_points": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Related Points",
+            "type": "array"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "states": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StateGuide"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "unit_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Note"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "device_id",
+          "point_name",
+          "meaning",
+          "updated_at"
+        ],
+        "title": "PointGuide",
+        "type": "object"
+      },
+      "PointGuideRequest": {
+        "properties": {
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/LimitGuide"
+            },
+            "maxItems": 20,
+            "title": "Limits",
+            "type": "array"
+          },
+          "meaning": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Meaning",
+            "type": "string"
+          },
+          "normal_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NormalRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "related_points": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Related Points",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/StateGuide"
+            },
+            "maxItems": 256,
+            "title": "States",
+            "type": "array"
+          },
+          "unit_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Note"
+          }
+        },
+        "required": [
+          "meaning"
+        ],
+        "title": "PointGuideRequest",
+        "type": "object"
       },
       "PointInfo": {
         "description": "One data point (tag) in a site's catalog. `name` is unique within a site.",
@@ -876,6 +1856,25 @@
         "title": "ProfileVersionSummary",
         "type": "object"
       },
+      "PublishRequest": {
+        "properties": {
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          }
+        },
+        "title": "PublishRequest",
+        "type": "object"
+      },
       "PvForecastResponse": {
         "properties": {
           "fallback_used": {
@@ -988,6 +1987,37 @@
           "sites"
         ],
         "title": "RefreshResponse",
+        "type": "object"
+      },
+      "RevertRequest": {
+        "properties": {
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          },
+          "item_keys": {
+            "description": "The draft changes to put back.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Item Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_keys"
+        ],
+        "title": "RevertRequest",
         "type": "object"
       },
       "SavedTrend": {
@@ -1295,6 +2325,37 @@
         "title": "SiteForecastHealthResponse",
         "type": "object"
       },
+      "SiteKnowledge": {
+        "description": "Everything engineers wrote for one site. Point guides name the point within its device\n(`point_name` without the `DEVICE.` prefix), so a device rename doesn't orphan them.",
+        "properties": {
+          "device_facts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeviceFacts"
+            },
+            "title": "Device Facts",
+            "type": "array"
+          },
+          "documents": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeDocument"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "point_guides": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PointGuide"
+            },
+            "title": "Point Guides",
+            "type": "array"
+          }
+        },
+        "title": "SiteKnowledge",
+        "type": "object"
+      },
       "SiteProfileStatus": {
         "description": "One site as the admin sees it: onboarded or not, and how many changes wait.",
         "properties": {
@@ -1452,6 +2513,93 @@
         ],
         "title": "SiteResponse",
         "type": "object"
+      },
+      "StateGuide": {
+        "description": "What one enum value, bit or vendor fault code means, and what to do about it.",
+        "properties": {
+          "checks": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StateKind"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "meaning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meaning"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "probable_causes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Probable Causes",
+            "type": "array"
+          },
+          "related_points": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Related Points",
+            "type": "array"
+          },
+          "safety_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Note"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/GuideSeverity"
+          }
+        },
+        "required": [
+          "kind",
+          "code",
+          "label",
+          "severity",
+          "message"
+        ],
+        "title": "StateGuide",
+        "type": "object"
+      },
+      "StateKind": {
+        "enum": [
+          "enum_value",
+          "bit",
+          "fault_code"
+        ],
+        "title": "StateKind",
+        "type": "string"
       },
       "ToolCallResponse": {
         "properties": {
@@ -3468,6 +4616,1391 @@
         "summary": "The PV forecast over a window: AC power and weather (past: as forecast then)",
         "tags": [
           "forecast"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge": {
+      "get": {
+        "operationId": "get_knowledge_api_v1_sites__site_id__knowledge_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The draft (or published) knowledge",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/coverage": {
+      "get": {
+        "operationId": "get_coverage_api_v1_sites__site_id__knowledge_coverage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeCoverage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Which status/alarm points still need a guide, devices without facts, orphans",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/device-facts/{device_id}": {
+      "delete": {
+        "operationId": "delete_device_facts_api_v1_sites__site_id__knowledge_device_facts__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The draft revision you loaded (0 = no draft).",
+            "in": "query",
+            "name": "draft_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The draft revision you loaded (0 = no draft).",
+              "title": "Draft Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Remove a device's ratings and notes in the draft",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "put": {
+        "operationId": "put_device_facts_api_v1_sites__site_id__knowledge_device_facts__device_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceFactsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Write a device's ratings and notes into the draft",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/documents": {
+      "post": {
+        "operationId": "create_document_api_v1_sites__site_id__knowledge_documents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Add a document (manual, IM script, procedure, experience note) to the draft",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/documents/{document_id}": {
+      "delete": {
+        "operationId": "delete_document_api_v1_sites__site_id__knowledge_documents__document_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The draft revision you loaded (0 = no draft).",
+            "in": "query",
+            "name": "draft_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The draft revision you loaded (0 = no draft).",
+              "title": "Draft Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Remove a document in the draft",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "put": {
+        "operationId": "update_document_api_v1_sites__site_id__knowledge_documents__document_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Change a document in the draft",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/draft": {
+      "delete": {
+        "operationId": "discard_draft_api_v1_sites__site_id__knowledge_draft_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard the whole draft",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/draft/revert": {
+      "post": {
+        "operationId": "revert_draft_items_api_v1_sites__site_id__knowledge_draft_revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Put some draft changes back as published",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/point-guides/{device_id}/{point_name}": {
+      "delete": {
+        "operationId": "delete_point_guide_api_v1_sites__site_id__knowledge_point_guides__device_id___point_name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_name",
+            "required": true,
+            "schema": {
+              "title": "Point Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The draft revision you loaded (0 = no draft).",
+            "in": "query",
+            "name": "draft_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The draft revision you loaded (0 = no draft).",
+              "title": "Draft Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Remove a point's guide in the draft",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "put": {
+        "operationId": "put_point_guide_api_v1_sites__site_id__knowledge_point_guides__device_id___point_name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_name",
+            "required": true,
+            "schema": {
+              "title": "Point Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PointGuideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Write a point's guide into the draft (point name within its device)",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/publish": {
+      "post": {
+        "operationId": "publish_api_v1_sites__site_id__knowledge_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Nothing to publish"
+          }
+        },
+        "summary": "Publish the whole draft: the AI uses it from now on",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/versions": {
+      "get": {
+        "operationId": "list_versions_api_v1_sites__site_id__knowledge_versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeVersionSummary"
+                  },
+                  "title": "Response List Versions Api V1 Sites  Site Id  Knowledge Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every published version, newest first",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/versions/{version}": {
+      "get": {
+        "operationId": "get_version_api_v1_sites__site_id__knowledge_versions__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One published version",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/versions/{version}/restore": {
+      "post": {
+        "operationId": "restore_version_api_v1_sites__site_id__knowledge_versions__version__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "There is a draft: publish or discard it"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "That version is already in use"
+          }
+        },
+        "summary": "Publish an earlier version's content again, as a new version",
+        "tags": [
+          "knowledge"
         ]
       }
     },

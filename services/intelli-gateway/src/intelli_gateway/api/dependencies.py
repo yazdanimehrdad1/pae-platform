@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.auth.service import AuthService
 from intelli_gateway.config import Settings
+from intelli_gateway.knowledge.service import SiteKnowledgeService
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.users import User
 from intelli_gateway.site_profile.service import SiteProfileService
@@ -132,6 +133,11 @@ def get_forecast_service(request: Request) -> ForecastService:
 
 def get_site_profile_service(request: Request) -> SiteProfileService:
     service: SiteProfileService = request.app.state.services.site_profiles
+    return service
+
+
+def get_knowledge_service(request: Request) -> SiteKnowledgeService:
+    service: SiteKnowledgeService = request.app.state.services.knowledge
     return service
 
 

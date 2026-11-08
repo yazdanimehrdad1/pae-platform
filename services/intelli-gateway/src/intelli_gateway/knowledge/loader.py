@@ -10,13 +10,14 @@ from dataclasses import dataclass
 
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.llm_client import TokenCounter
-from intelli_gateway.schemas.knowledge import KnowledgeDocument, KnowledgeKind
+from intelli_gateway.schemas.knowledge import DeviceFacts, KnowledgeDocument, KnowledgeKind
 
 logger = logging.getLogger(__name__)
 
 _SECTION_TITLES = {
     KnowledgeKind.MANUAL: "Manuals",
     KnowledgeKind.IM_SCRIPT: "Device information model (IM) scripts",
+    KnowledgeKind.PROCEDURE: "Procedures",
     KnowledgeKind.EXPERIENCE_NOTE: "Engineers' experience notes",
 }
 
@@ -30,9 +31,27 @@ class SiteKnowledge:
     token_count_exact: bool
 
 
-def render_knowledge(documents: list[KnowledgeDocument]) -> str:
+def _render_facts(facts: list[DeviceFacts]) -> str | None:
+    if not facts:
+        return None
+    parts = ["## Device ratings and notes"]
+    for entry in sorted(facts, key=lambda item: item.device_id):
+        lines = [f"### device_id {entry.device_id}"]
+        lines += [f"- {rating.name}: {rating.value:g} {rating.unit}" for rating in entry.ratings]
+        if entry.notes:
+            lines.append(entry.notes)
+        parts.append("\n".join(lines))
+    return "\n\n".join(parts)
+
+
+def render_knowledge(
+    documents: list[KnowledgeDocument], facts: list[DeviceFacts] | None = None
+) -> str:
     """Deterministic text (stable order, no timestamps of the request) so the prompt cache hits."""
     sections: list[str] = []
+    facts_text = _render_facts(facts or [])
+    if facts_text:
+        sections.append(facts_text)
     for kind, heading in _SECTION_TITLES.items():
         docs = sorted(
             (document for document in documents if document.kind is kind),
@@ -64,7 +83,9 @@ class KnowledgeLoader:
         self._token_counts: dict[tuple[int, str], tuple[int, bool]] = {}
 
     async def load(self, site_id: int) -> SiteKnowledge:
-        text = render_knowledge(await self._store.list_documents(site_id))
+        text = render_knowledge(
+            await self._store.list_documents(site_id), await self._store.list_device_facts(site_id)
+        )
         version = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
         key = (site_id, version)
         if key not in self._token_counts:

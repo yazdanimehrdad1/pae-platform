@@ -68,6 +68,8 @@ export function createClient(baseUrl: string) {
     patch: <T>(path: string, body: unknown) =>
       json<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
     delete: (path: string) => nothing(path, { method: 'DELETE' }),
+    // A DELETE answered with JSON (e.g. the knowledge draft's new state).
+    deleteJson: <T>(path: string) => json<T>(path, { method: 'DELETE' }),
     action: (path: string, method: 'GET' | 'POST' = 'GET') => nothing(path, { method }),
   };
 }

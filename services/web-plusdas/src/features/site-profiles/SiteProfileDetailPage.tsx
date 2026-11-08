@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/shared/contexts/auth";
 import { ApprovedProfilePanel } from "./components/ApprovedProfilePanel";
 import { PendingChangesPanel } from "./components/PendingChangesPanel";
+import { KnowledgePanel } from "./knowledge/KnowledgePanel";
 import { SITE_PROFILES_QUERY_KEY, formatDateTime, statusOf } from "./lib/changes";
 
 // One site's AI profile: the backend-ot changes to review and approve, what the AI knows now,
@@ -60,6 +61,7 @@ export default function SiteProfileDetailPage() {
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="changes">Pending changes{status?.pending_changes ? ` (${status.pending_changes})` : ""}</TabsTrigger>
           <TabsTrigger value="profile">What the AI knows</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="changes" className="pt-2">
@@ -67,6 +69,9 @@ export default function SiteProfileDetailPage() {
         </TabsContent>
         <TabsContent value="profile" className="pt-2">
           <ApprovedProfilePanel profile={profile.data} />
+        </TabsContent>
+        <TabsContent value="knowledge" className="pt-2">
+          <KnowledgePanel siteId={siteId} profile={profile.data} />
         </TabsContent>
         <TabsContent value="history" className="pt-2">
           <VersionHistory siteId={siteId} enabled={onboarded} />

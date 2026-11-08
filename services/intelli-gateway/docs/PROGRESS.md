@@ -247,17 +247,49 @@ The user's decision: the running service never uses fictional data; tests keep t
   question read the prompt cache. The test itself expected a tool named `get_point_value` (it is
   `get_point_values`); fixed. Three paid runs.
 
+### 11. Engineer knowledge in Postgres, draft and publish, and its UI (uncommitted, 2026-11-07)
+Step 2 of [KNOWLEDGE_PLAN.md](KNOWLEDGE_PLAN.md).
+- **What is authored** (`schemas/knowledge.py`): point guides (meaning, unit note, normal range,
+  related points, limits, and per enum value / bit / vendor fault code: label, severity, message,
+  meaning, causes, checks, safety note), documents (manual, IM script, procedure, experience note;
+  pasted text) and device facts (ratings, notes). Guides are kept by (device_id, point name within
+  the device), so an approved device rename keeps them.
+- **Storage:** migration `006_knowledge`: `site_knowledge_drafts` (one per site, the whole
+  knowledge as JSONB, a `revision` that goes up with every save) and `site_knowledge_versions`.
+  Stores: Postgres and in memory, one shared contract (`tests/knowledge_authoring_store_contract.py`).
+- **`knowledge/`:** `authoring.py` (pure: item keys, diff, revert, validation, coverage),
+  `service.py` (`SiteKnowledgeService`: edits, revert, discard, publish, restore, import),
+  `published_store.py` (the AI's `KnowledgeStore`: the latest published version, names translated
+  to `DEVICE.point` through the approved profile; knowledge about devices no longer approved is
+  kept but not served), `search.py`. The tools didn't change. The site block now also lists device
+  ratings and notes; documents gained the `procedure` kind and a `document_id`.
+- **Rules on every edit:** approved devices and points only; no credential, private key or IP
+  address in any text; one entry per state/bit/code; an edit or publish naming an older
+  `draft_revision` is a 409.
+- **Admin API** under `/api/v1/sites/{id}/knowledge` (state, coverage, point-guides, documents,
+  device-facts, draft/revert, draft discard, publish, versions, restore). Contract, additive.
+- **CLI (the code-level way in):** `python -m intelli_gateway.manage_knowledge status | export |
+  import | publish` (export/import a site's knowledge as JSON, kept out of the repo).
+- **web-plusdas:** a "Knowledge" tab on each AI Site Profile: point guides (status/alarm points
+  first, "only points that need a guide", an editor prefilled with backend-ot's state and bit
+  labels, vendor fault codes and limits), documents, device ratings, versions (restore), and
+  "Review & publish" (put single changes back, discard, publish).
+- **Left for later:** "this is a rename of X" re-linking on a point rename; the gap log (step 7).
+
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
   backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no
   self-signup. Session = opaque token in an HttpOnly cookie, only its hash stored.
-- **Engineer knowledge lives in this service** (in memory now, its own Postgres next), not in
-  backend-ot. Guides are scoped **per site device**: (site_id, device_id, point name).
+- **Engineer knowledge lives in this service** (its own Postgres), not in backend-ot. Guides are
+  scoped **per site device**: (site_id, device_id, point name within the device).
+- **Knowledge authoring (2026-11-07):** admins only write and publish; edits are a draft; a
+  publish takes the whole site at once (one version; single drafts can be put back first);
+  restore = a new version with an old version's content.
 - **Every backend-ot call goes in `services/backend_ot/`.**
-- **Repo conventions over the original guide:**
-  - Python 3.11 and pyright, strict except `api/`, `knowledge/`, `prompts/`
 - **No fake data at runtime** (2026-11-07): backend-ot and the service's Postgres only; test
   doubles live in `tests/doubles/`.
+- **Repo conventions over the original guide:**
+  - Python 3.11 and pyright, strict except `api/`, `knowledge/`, `prompts/`
   - numbered SQL migrations, not Alembic
   - stdlib JSON logging, not structlog
 - **No frameworks:** no LangChain/LangGraph, vector DB, MCP server or queue. Site knowledge is
@@ -271,9 +303,8 @@ The site knowledge, onboarding and answer-cost plan agreed on 2026-11-06 is
 [KNOWLEDGE_PLAN.md](KNOWLEDGE_PLAN.md). Build it in its order (section 8):
 
 1. ~~Site profile and sync with admin-approved diffs~~ (done, "7." above; leftovers listed there).
-2. Knowledge store in Postgres: point definitions, state and limit guides, documents, versions,
-   draft/publish, code-level seed.
-3. Admin API under `/api/v1/sites/{site_id}/knowledge/...`.
+2. ~~Knowledge store in Postgres, draft/publish, code-level import~~ (done, "11." above).
+3. ~~Admin API under `/api/v1/sites/{site_id}/knowledge/...`~~ (done with step 2).
 4. Site functions: code library + per-site enable and bindings.
 5. web-plusdas Knowledge pages.
 6. Persistent conversations, per-site grants.

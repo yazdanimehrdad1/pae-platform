@@ -4,7 +4,12 @@ from collections.abc import Sequence
 
 from doubles.models import FakeSite
 from doubles.sites import FAKE_SITES
-from intelli_gateway.schemas.knowledge import KnowledgeDocument, KnowledgeKind, PointGuide
+from intelli_gateway.schemas.knowledge import (
+    DeviceFacts,
+    KnowledgeDocument,
+    KnowledgeKind,
+    PointGuide,
+)
 
 
 class InMemoryKnowledgeStore:
@@ -69,3 +74,7 @@ class InMemoryKnowledgeStore:
 
     async def list_point_guides(self, site_id: int) -> list[PointGuide]:
         return [guide for guide in self._guides if guide.site_id == site_id]
+
+    async def list_device_facts(self, site_id: int) -> list[DeviceFacts]:
+        del site_id
+        return []

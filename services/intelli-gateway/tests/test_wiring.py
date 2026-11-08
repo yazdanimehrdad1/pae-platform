@@ -1,15 +1,15 @@
 """What the service runs on when nothing is injected (production wiring).
 
 Invariant guarded: the running service never uses fictional data. It reads site data only from
-backend-ot, through the site profile gate (no setting turns the gate off); it has no engineer
-knowledge until the Postgres store exists; it offers no fake forecast source; and it refuses to
-start without its own Postgres (DATABASE_URL).
+backend-ot, through the site profile gate (no setting turns the gate off); it serves only the
+published engineer knowledge (from its Postgres); it offers no fake forecast source; and it
+refuses to start without its own Postgres (DATABASE_URL).
 """
 
 import pytest
 from fakes import ScriptedLLMClient, make_settings
 
-from intelli_gateway.knowledge.store import EmptyKnowledgeStore
+from intelli_gateway.knowledge.published_store import PublishedKnowledgeStore
 from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConnector
 from intelli_gateway.site_profile.gate import ApprovedSiteDataConnector
 from intelli_gateway.solar_forecast.registry import SOURCES
@@ -35,7 +35,7 @@ async def test_site_data_is_backend_ot_behind_the_gate() -> None:
         assert services.database is not None
         assert services.backend_ot_client is not None
         loader = services.gateway._knowledge  # pyright: ignore[reportPrivateUsage]
-        assert isinstance(loader._store, EmptyKnowledgeStore)  # pyright: ignore[reportPrivateUsage]
+        assert isinstance(loader._store, PublishedKnowledgeStore)  # pyright: ignore[reportPrivateUsage]
     finally:
         await services.aclose()
 
