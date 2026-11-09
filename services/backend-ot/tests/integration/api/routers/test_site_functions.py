@@ -102,6 +102,13 @@ class TestDiscovery:
             "device-plant-inverter-availability": ("scalar", []),
         }
 
+    async def test_alpha_solar_functions_are_for_users_only(self, client):
+        site = await create_site(client, profile="alpha_solar")
+        response = await client.get(f"/api/site-functions/site/{site.site_id}")
+        listing = SiteEndpointsResponse.model_validate(response.json())
+        assert all(not endpoint.ai_assistant and endpoint.user_visible for endpoint in listing.endpoints)
+        assert all(endpoint.parameters == [] for endpoint in listing.endpoints)
+
     async def test_site_without_profile_lists_no_endpoints(self, client):
         site = await create_site(client)
         response = await client.get(f"/api/site-functions/site/{site.site_id}")

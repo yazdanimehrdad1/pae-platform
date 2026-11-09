@@ -10,6 +10,7 @@ from intelli_gateway.schemas.knowledge import (
     LimitGuide,
     NormalRange,
     SiteKnowledge,
+    SiteScriptLinks,
     StateGuide,
 )
 
@@ -39,6 +40,21 @@ class DocumentRequest(BaseModel):
     body: str = Field(min_length=1, max_length=50_000, description="Pasted text (Markdown).")
     device_id: int | None = None
     point_names: list[str] = Field(default_factory=list[str], max_length=50)
+    draft_revision: int | None = DRAFT_REVISION
+
+
+class SiteScriptRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200, description="e.g. 'Overview', 'Startup'.")
+    text: str = Field(
+        min_length=1, max_length=20_000, description="The information for the AI (Markdown)."
+    )
+    links: SiteScriptLinks = Field(
+        default_factory=SiteScriptLinks,
+        description=(
+            "Optional: the approved points, site functions, documents and device ratings this "
+            "prompt is about, so the AI connects them."
+        ),
+    )
     draft_revision: int | None = DRAFT_REVISION
 
 
@@ -75,6 +91,10 @@ class DocumentCreatedResponse(KnowledgeStateResponse):
     document_id: str
 
 
+class SiteScriptCreatedResponse(KnowledgeStateResponse):
+    script_id: str
+
+
 class KnowledgeVersionSummary(BaseModel):
     version: int
     published_at: AwareDatetime
@@ -84,6 +104,7 @@ class KnowledgeVersionSummary(BaseModel):
     point_guides: int
     documents: int
     device_facts: int
+    site_scripts: int
 
     @classmethod
     def of(cls, version: KnowledgeVersion) -> "KnowledgeVersionSummary":
@@ -96,4 +117,5 @@ class KnowledgeVersionSummary(BaseModel):
             point_guides=len(version.content.point_guides),
             documents=len(version.content.documents),
             device_facts=len(version.content.device_facts),
+            site_scripts=len(version.content.site_scripts),
         )

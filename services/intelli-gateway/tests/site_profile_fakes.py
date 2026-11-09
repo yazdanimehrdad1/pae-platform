@@ -9,6 +9,7 @@ event. No signal reads another point, so renaming a device is safe.
 from collections.abc import Mapping
 
 from doubles.models import (
+    FakeFunction,
     FakePoint,
     FakeSite,
     Signal,
@@ -24,6 +25,8 @@ from intelli_gateway.schemas.site_data import (
     PointClass,
     PointInfo,
     Site,
+    SiteFunction,
+    SiteFunctionParameter,
     Topology,
     TopologyConnection,
     TopologyNode,
@@ -72,6 +75,7 @@ def mesa(
     status_labels: Mapping[int, str] = ON_OFF,
     with_m2: bool = False,
     site_name: str = "Mesa Test",
+    functions: tuple[FakeFunction, ...] = (),
 ) -> FakeSite:
     m1 = Device(device_id=1, name=m1_name, type="METER", vendor="Acme", model="PM-1")
     m2 = Device(device_id=2, name="M2", type="METER")
@@ -119,9 +123,63 @@ def mesa(
         )
         if with_m2
         else (),
+        functions=functions,
     )
 
 
 def backend(site: FakeSite) -> FakeSiteDataConnector:
     """backend-ot as it is now: serving this one site."""
     return FakeSiteDataConnector((site,), clock=fixed_clock)
+
+
+# Site functions as backend-ot labels them (results are fixed; nothing is computed).
+RTE = FakeFunction(
+    function=SiteFunction(name="site-rte", kind="site", summary="Round-trip efficiency (%)"),
+    result={"site_id": SITE_ID, "round_trip_efficiency_pct": 88.5},
+)
+POI_POWER = FakeFunction(
+    function=SiteFunction(
+        name="site-poi-power", kind="site", summary="POI power series (kW)", output="series"
+    ),
+    result={
+        "site_id": SITE_ID,
+        "peak_kw": 450.0,
+        "series": {
+            "id": 0,
+            "name": "poi_power",
+            "unit": "kW",
+            "timeseries": [
+                {"time": f"2026-06-15T{hour:02d}:00:00+00:00", "value": float(hour * 50)}
+                for hour in range(10)
+            ],
+        },
+    },
+)
+METER_CHECK = FakeFunction(
+    function=SiteFunction(
+        name="device-meter-check",
+        kind="device",
+        summary="Meter data completeness (%)",
+        device_types=("METER",),
+        parameters=(
+            SiteFunctionParameter(name="lookback_days", type="integer", default=7, minimum=1),
+        ),
+    ),
+    result={"device_id": 1, "completeness_pct": 99.0},
+)
+INVERTER_CHECK = FakeFunction(
+    function=SiteFunction(
+        name="device-inverter-check",
+        kind="device",
+        summary="Inverter availability (%)",
+        device_types=("INVERTER",),
+    ),
+    result={"availability_pct": 97.0},
+)
+# Declared in backend-ot for users only: never reaches the gateway.
+USERS_ONLY = FakeFunction(
+    function=SiteFunction(name="site-users-only", kind="site", summary="Users' trend"),
+    result={},
+    ai_assistant=False,
+)
+ALL_FUNCTIONS = (RTE, POI_POWER, METER_CHECK, INVERTER_CHECK, USERS_ONLY)

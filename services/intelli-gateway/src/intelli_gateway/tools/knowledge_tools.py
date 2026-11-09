@@ -8,6 +8,7 @@ from pydantic import Field, model_validator
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.knowledge.guides import applicable_guidance
+from intelli_gateway.knowledge.prompt_links import local_name, related_prompts
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.knowledge import StateGuide
 from intelli_gateway.schemas.tools import JSONValue, ToolInput
@@ -69,6 +70,11 @@ def _state_summary(state: StateGuide) -> dict[str, JSONValue]:
     }
 
 
+def _prompts(prompts: list[str]) -> dict[str, JSONValue]:
+    """The 'related_prompts' field, only when a site prompt links the item."""
+    return {"related_prompts": list[JSONValue](prompts)} if prompts else {}
+
+
 def build_knowledge_tools(
     site_data: SiteDataConnector, knowledge: KnowledgeStore, limits: SiteToolLimits
 ) -> list[ToolDefinition]:
@@ -92,6 +98,13 @@ point or value.
             "point": dump(point),
             "current": dump(reading) if reading else None,
         }
+        prompts = related_prompts(
+            await knowledge.list_site_scripts(site_id),
+            device_id=point.device_id,
+            point_names=(point.name, local_name(point.name, point.device_name)),
+        )
+        if prompts:
+            result["related_prompts"] = list[JSONValue](prompts)
         if guide is None:
             result["guide"] = None
             result["note"] = (
@@ -153,7 +166,8 @@ Get the information model (IM) script of one device: how its raw registers map t
         input_model=DeviceScriptInput,
     )
     async def get_device_script(args: DeviceScriptInput, ctx: RequestContext) -> JSONValue:
-        document = await knowledge.get_device_script(site_id_of(ctx), args.device_id)
+        site_id = site_id_of(ctx)
+        document = await knowledge.get_device_script(site_id, args.device_id)
         if document is None:
             raise ToolError(
                 "no IM script for this device", hint="call get_site_overview to see device ids"
@@ -163,6 +177,11 @@ Get the information model (IM) script of one device: how its raw registers map t
             "title": document.title,
             "updated_at": document.updated_at.isoformat(),
             "script": truncate_text(document.body, limits.max_text_chars),
+            **_prompts(
+                related_prompts(
+                    await knowledge.list_site_scripts(site_id), document_id=document.document_id
+                )
+            ),
         }
 
     @tool(
@@ -176,9 +195,11 @@ Returns the best-matching notes (title, author, date, text).
         input_model=SearchNotesInput,
     )
     async def search_experience_notes(args: SearchNotesInput, ctx: RequestContext) -> JSONValue:
+        site_id = site_id_of(ctx)
         notes = await knowledge.search_notes(
-            site_id_of(ctx), args.keywords, limits.max_rows, device_id=args.device_id
+            site_id, args.keywords, limits.max_rows, device_id=args.device_id
         )
+        scripts = await knowledge.list_site_scripts(site_id)
         rows: list[JSONValue] = [
             {
                 "title": note.title,
@@ -186,6 +207,7 @@ Returns the best-matching notes (title, author, date, text).
                 "device_id": note.device_id,
                 "updated_at": note.updated_at.isoformat(),
                 "text": truncate_text(note.body, limits.max_text_chars),
+                **_prompts(related_prompts(scripts, document_id=note.document_id)),
             }
             for note in notes
         ]

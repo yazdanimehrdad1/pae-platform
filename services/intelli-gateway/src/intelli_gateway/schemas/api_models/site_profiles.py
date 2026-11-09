@@ -1,7 +1,8 @@
 """Request and response bodies of the site profile admin routes (api/routers/site_profiles.py)."""
 
-from pydantic import AwareDatetime, BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field, JsonValue
 
+from intelli_gateway.schemas.site_data import ParameterValue
 from intelli_gateway.schemas.site_profile import ProfileVersion
 
 
@@ -27,6 +28,7 @@ class ProfileVersionSummary(BaseModel):
     change_ids: list[str]
     devices: int
     points: int
+    functions: int = 0
 
     @classmethod
     def of(cls, profile: ProfileVersion) -> "ProfileVersionSummary":
@@ -38,4 +40,27 @@ class ProfileVersionSummary(BaseModel):
             change_ids=list(profile.change_ids),
             devices=len(profile.catalog.devices),
             points=len(profile.catalog.points),
+            functions=len(profile.catalog.functions),
         )
+
+
+class SiteFunctionTestRunRequest(BaseModel):
+    start: AwareDatetime = Field(description="Start of the window, ISO 8601 with a UTC offset")
+    end: AwareDatetime = Field(description="End of the window, ISO 8601 with a UTC offset")
+    device_id: int | None = Field(
+        default=None, description="Device functions only: the approved device to run it for"
+    )
+    parameters: dict[str, ParameterValue] = Field(
+        default_factory=dict[str, ParameterValue],
+        description="Extra parameters the function declares; omit for their defaults",
+    )
+
+
+class SiteFunctionTestRunResponse(BaseModel):
+    """What the AI's run_site_function tool would return for the same request."""
+
+    function: str
+    start: AwareDatetime
+    end: AwareDatetime
+    device_id: int | None = None
+    result: dict[str, JsonValue]

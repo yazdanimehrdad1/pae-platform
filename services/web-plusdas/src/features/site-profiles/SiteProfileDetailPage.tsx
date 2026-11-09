@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { siteProfilesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
@@ -14,9 +14,15 @@ import { SITE_PROFILES_QUERY_KEY, formatDateTime, statusOf } from "./lib/changes
 // One site's AI profile: the backend-ot changes to review and approve, what the AI knows now,
 // and every approved version.
 
+const TABS = ["changes", "profile", "knowledge", "history"] as const;
+
 export default function SiteProfileDetailPage() {
   const { user } = useAuth();
   const siteId = Number(useParams().siteId);
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") ?? "";
+  // `?tab=knowledge` (the list's site button) opens that tab; anything else opens Pending changes.
+  const initialTab = (TABS as readonly string[]).includes(requestedTab) ? requestedTab : "changes";
   const isAdmin = user?.role === "admin";
   const profile = useQuery({
     queryKey: ["site-profiles", siteId, "profile"],
@@ -57,7 +63,7 @@ export default function SiteProfileDetailPage() {
         <p className="text-destructive">Could not load the profile: {getErrorMessage(profile.error)}</p>
       )}
 
-      <Tabs defaultValue="changes">
+      <Tabs defaultValue={initialTab}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="changes">Pending changes{status?.pending_changes ? ` (${status.pending_changes})` : ""}</TabsTrigger>
           <TabsTrigger value="profile">What the AI knows</TabsTrigger>

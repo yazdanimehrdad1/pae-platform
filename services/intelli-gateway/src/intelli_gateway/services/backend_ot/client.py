@@ -5,12 +5,13 @@ Each call has a timeout and is retried (tenacity) on connection errors, timeouts
 is not retried. Responses are validated against the strict models in schemas/backend_ot/.
 """
 
+import re
 from collections.abc import Sequence
 from datetime import datetime
 from typing import TypeVar
 
 import httpx
-from pydantic import TypeAdapter, ValidationError
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 from intelli_gateway.schemas.backend_ot.responses import (
@@ -19,12 +20,13 @@ from intelli_gateway.schemas.backend_ot.responses import (
     DeviceWithPoints,
     LatestResponse,
     PvArrayConfigResponse,
+    SiteEndpointsResponse,
     SiteHealthResponse,
     SiteResponse,
     SiteSldResponse,
     TimeseriesResponse,
 )
-from intelli_gateway.utils.exceptions import BackendOtError
+from intelli_gateway.utils.exceptions import BackendOtError, InvalidRequestError
 
 T = TypeVar("T")
 QueryValue = str | int | float | bool
@@ -40,6 +42,9 @@ _SNAPSHOT = TypeAdapter(AlarmSnapshotResponse)
 _EVENTS = TypeAdapter(list[AlarmEventResponse])
 _HEALTH = TypeAdapter(SiteHealthResponse)
 _PV_ARRAYS = TypeAdapter(list[PvArrayConfigResponse])
+_SITE_FUNCTIONS = TypeAdapter(SiteEndpointsResponse)
+_FUNCTION_RESULT = TypeAdapter(dict[str, JsonValue])
+_FUNCTION_NAME = re.compile(r"^(common|site|device)-[a-z0-9]+(-[a-z0-9]+)*$")
 # backend-ot clamps `max_points` to this range.
 MAX_POINTS_RANGE = (100, 5000)
 
@@ -62,6 +67,27 @@ def _parse(adapter: TypeAdapter[T], body: bytes) -> T:
 
 def _ids(point_ids: Sequence[int]) -> str:
     return ",".join(str(point_id) for point_id in point_ids)
+
+
+def _error_message(response: httpx.Response) -> str:
+    """backend-ot's reason for refusing a request: its `detail.message`, a validation error's
+    messages, or the status code. Bounded, since it goes to Claude."""
+    try:
+        detail = _FUNCTION_RESULT.validate_json(response.content).get("detail")
+    except ValidationError:
+        detail = None
+    if isinstance(detail, dict) and isinstance(detail.get("message"), str):
+        message = str(detail["message"])
+    elif isinstance(detail, list):
+        message = "; ".join(
+            str(issue.get("msg", issue)) if isinstance(issue, dict) else str(issue)
+            for issue in detail
+        )
+    elif isinstance(detail, str):
+        message = detail
+    else:
+        message = f"backend-ot refused the request ({response.status_code})"
+    return message[:500]
 
 
 class BackendOtClient:
@@ -155,12 +181,40 @@ class BackendOtClient:
         """Active ALARM-class points (non-zero alarm words, fault codes) per device."""
         return _parse(_HEALTH, await self._get(f"/api/sites/{site_id}/health"))
 
+    # --- site functions ---
+
+    async def list_site_functions(self, site_id: int) -> SiteEndpointsResponse:
+        return _parse(_SITE_FUNCTIONS, await self._get(f"/api/site-functions/site/{site_id}"))
+
+    async def run_site_function(
+        self, site_id: int, name: str, device_id: int | None, query: Query
+    ) -> dict[str, JsonValue]:
+        """The function's result as JSON (each function has its own shape). A request backend-ot
+        refuses (4xx: bad window, missing data, unknown device) raises InvalidRequestError with
+        backend-ot's message."""
+        if not _FUNCTION_NAME.match(name):
+            raise InvalidRequestError(f"not a site function name: {name!r}")
+        path = (
+            f"/api/site-functions/site/{site_id}/device/{device_id}/{name}"
+            if device_id is not None
+            else f"/api/site-functions/site/{site_id}/{name}"
+        )
+        return _parse(_FUNCTION_RESULT, await self._get(path, query, client_errors=True))
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
     # --- transport ---
 
-    async def _get(self, path: str, query: Query | None = None, allow_404: bool = False) -> bytes:
+    async def _get(
+        self,
+        path: str,
+        query: Query | None = None,
+        allow_404: bool = False,
+        client_errors: bool = False,
+    ) -> bytes:
+        """client_errors: a 4xx raises InvalidRequestError with backend-ot's message (the
+        request was wrong, backend-ot is fine) instead of BackendOtError."""
         try:
             async for attempt in AsyncRetrying(
                 stop=stop_after_attempt(self._attempts),
@@ -175,6 +229,8 @@ class BackendOtClient:
                     response.raise_for_status()
                     return response.content
         except httpx.HTTPStatusError as error:
+            if client_errors and 400 <= error.response.status_code < 500:
+                raise InvalidRequestError(_error_message(error.response)) from error
             raise BackendOtError(
                 f"backend-ot returned {error.response.status_code} for {path}"
             ) from error

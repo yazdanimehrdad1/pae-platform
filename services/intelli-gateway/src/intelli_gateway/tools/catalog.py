@@ -6,6 +6,7 @@ from intelli_gateway.tools.alarm_tools import build_alarm_tools
 from intelli_gateway.tools.base import ToolDefinition
 from intelli_gateway.tools.common import SiteToolLimits
 from intelli_gateway.tools.knowledge_tools import build_knowledge_tools
+from intelli_gateway.tools.site_function_tools import build_site_function_tools
 from intelli_gateway.tools.site_tools import build_site_tools
 
 
@@ -16,4 +17,5 @@ def build_local_tools(
         *build_site_tools(site_data, knowledge, limits),
         *build_alarm_tools(site_data, limits),
         *build_knowledge_tools(site_data, knowledge, limits),
+        *build_site_function_tools(site_data, knowledge, limits),
     ]

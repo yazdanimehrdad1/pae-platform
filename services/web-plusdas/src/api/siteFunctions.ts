@@ -7,9 +7,12 @@ import type {
 import { client } from './client';
 
 export const siteFunctionsApi = {
-  /** The functions the site's profile declares (none when the site has no profile). */
-  list: (siteId: string): Promise<SiteEndpointsResponse> =>
-    client.get(`/site-functions/site/${siteId}`),
+  /** The functions the site's profile declares for users (none when the site has no profile).
+   * Functions backend-ot marks user_visible=false are written only for the AI assistant and are left out. */
+  list: async (siteId: string): Promise<SiteEndpointsResponse> => {
+    const response = await client.get<SiteEndpointsResponse>(`/site-functions/site/${siteId}`);
+    return { ...response, endpoints: (response.endpoints ?? []).filter(endpoint => endpoint.user_visible !== false) };
+  },
 
   /** Runs a series function over a window; one series or a list, always returned as a list. */
   getSeries: async (req: FunctionSeriesRequest): Promise<PointTimeseries[]> => {

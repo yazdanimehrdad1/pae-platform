@@ -4,6 +4,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, labelsText, localPointName } from "../lib/changes";
+import { SiteFunctionsSection } from "./SiteFunctionsSection";
 
 // What the AI knows of the site's facts right now: the approved profile version. (Engineer
 // knowledge, the meaning, limits and fault guides of each point, comes in a later step.)
@@ -28,7 +29,7 @@ export function ApprovedProfilePanel({ profile }: { profile: ProfileVersion | un
   if (!profile) {
     return <p className="text-muted-foreground">Not onboarded yet: the AI doesn't see this site. Approve its pending changes first.</p>;
   }
-  const { site, devices, points, topology } = profile.catalog;
+  const { site, devices, points, topology, functions = [] } = profile.catalog;
 
   return (
     <div className="space-y-4">
@@ -40,6 +41,7 @@ export function ApprovedProfilePanel({ profile }: { profile: ProfileVersion | un
         <Fact label="Devices" value={String(devices.length)} />
         <Fact label="Points" value={String(points.length)} />
         <Fact label="Topology" value={`${topology?.nodes?.length ?? 0} nodes, ${topology?.connections?.length ?? 0} connections`} />
+        <Fact label="Site functions" value={String(functions.length)} />
       </dl>
 
       <Input
@@ -96,6 +98,8 @@ export function ApprovedProfilePanel({ profile }: { profile: ProfileVersion | un
           );
         })}
       </Accordion>
+
+      <SiteFunctionsSection siteId={profile.site_id} functions={functions} devices={devices} />
     </div>
   );
 }

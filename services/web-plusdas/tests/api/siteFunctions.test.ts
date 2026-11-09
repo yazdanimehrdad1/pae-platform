@@ -19,6 +19,19 @@ describe('siteFunctionsApi.list', () => {
     await siteFunctionsApi.list('1001');
     expect(String(fetchMock.mock.calls[0][0])).toBe('/api/site-functions/site/1001');
   });
+
+  it('leaves out functions written only for the AI assistant', async () => {
+    const endpoint = (name: string, user_visible: boolean, ai_assistant: boolean) => ({
+      name, kind: 'site', method: 'GET', summary: name, output: 'scalar', user_visible, ai_assistant,
+    });
+    stubFetch({
+      site_id: 1002,
+      profile: 'powerflow_2bess_1pv',
+      endpoints: [endpoint('site-shared', true, true), endpoint('site-ai-only', false, true), endpoint('site-users', true, false)],
+    });
+    const listing = await siteFunctionsApi.list('1002');
+    expect(listing.endpoints?.map(e => e.name)).toEqual(['site-shared', 'site-users']);
+  });
 });
 
 describe('siteFunctionsApi.getSeries', () => {

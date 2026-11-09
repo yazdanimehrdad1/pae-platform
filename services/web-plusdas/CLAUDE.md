@@ -161,7 +161,11 @@ too, which `md:` alone can't see: phone-only behaviour that must hold sideways u
   Its Knowledge tab (`features/site-profiles/knowledge/`, `knowledgeApi`) edits the site's engineer
   knowledge (point guides, documents, device ratings) as a draft; "Review & publish" makes the whole
   draft what the AI uses. Every edit sends `draft_revision` and gets the whole new state back; a 409
-  reloads the draft (`useKnowledgeEdit`).
+  reloads the draft (`useKnowledgeEdit`). "What the AI knows" also lists the approved site functions
+  (backend-ot's, labelled for the AI) with "Try it" (`siteProfilesApi.testRunFunction`), which shows
+  the result exactly as the AI gets it.
+- Site functions in the historian: `siteFunctionsApi.list` drops the ones backend-ot marks
+  `user_visible: false` (written only for the AI assistant).
 - Still mocked: the Task Builder list (`src/mocks/`, see its README and `docs/backend-gaps.md`).
 - Times of a site show in the site's time zone (`site.timezone`), or the user's own when they flip
   "My time" (`useDisplayTimeZone`, remembered per browser, one switch for Historian, Alarms and

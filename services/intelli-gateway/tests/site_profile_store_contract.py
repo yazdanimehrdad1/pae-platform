@@ -11,6 +11,8 @@ from intelli_gateway.schemas.site_data import (
     PointClass,
     PointInfo,
     Site,
+    SiteFunction,
+    SiteFunctionParameter,
     Topology,
     TopologyConnection,
     TopologyNode,
@@ -47,6 +49,19 @@ def catalog(site_id: int = 1, name: str = "Mesa", unit: str = "kW") -> SiteCatal
         topology=Topology(
             nodes=(TopologyNode(node_id="m1", type="meter", name="M1", device_id=1),),
             connections=(TopologyConnection(from_id="m1", to_id="poi"),),
+        ),
+        functions=(
+            SiteFunction(
+                name="device-meter-check",
+                kind="device",
+                summary="Meter data completeness (%)",
+                device_types=("METER",),
+                parameters=(
+                    SiteFunctionParameter(
+                        name="lookback_days", type="integer", default=7, minimum=1.0
+                    ),
+                ),
+            ),
         ),
     )
 

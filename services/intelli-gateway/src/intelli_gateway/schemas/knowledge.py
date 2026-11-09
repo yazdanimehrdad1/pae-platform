@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 
 class KnowledgeKind(StrEnum):
@@ -141,6 +141,68 @@ class DeviceFacts(BaseModel):
     updated_at: AwareDatetime
 
 
+class PromptPointLink(BaseModel):
+    """A point a site prompt is about: the site device and the point's name on it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    device_id: int
+    point_name: str = Field(min_length=1)
+
+
+class SiteScriptLinks(BaseModel):
+    """What a site prompt is about, all optional: approved points (and so their guides), site
+    functions (by name), documents (by id) and device ratings (by device). Kept sorted and
+    without repeats so an unchanged prompt never shows as an edit."""
+
+    model_config = ConfigDict(frozen=True)
+
+    points: tuple[PromptPointLink, ...] = ()
+    functions: tuple[str, ...] = ()
+    documents: tuple[str, ...] = ()
+    devices: tuple[int, ...] = ()
+
+    @field_validator("points")
+    @classmethod
+    def _sorted_points(cls, value: tuple[PromptPointLink, ...]) -> tuple[PromptPointLink, ...]:
+        unique = {(point.device_id, point.point_name): point for point in value}
+        return tuple(unique[key] for key in sorted(unique))
+
+    @field_validator("functions", "documents")
+    @classmethod
+    def _sorted_names(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(sorted(set(value)))
+
+    @field_validator("devices")
+    @classmethod
+    def _sorted_devices(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        return tuple(sorted(set(value)))
+
+    def is_empty(self) -> bool:
+        return not (self.points or self.functions or self.documents or self.devices)
+
+
+class SiteScript(BaseModel):
+    """One part of the site's general information for the AI (overview, how the site runs, ...),
+    written by an admin as several named texts instead of one long prompt. Kept in `position`
+    order (the order they were added); the AI reads them all, first, in its site context."""
+
+    model_config = ConfigDict(frozen=True)
+
+    script_id: str = Field(default_factory=lambda: uuid4().hex)
+    site_id: int
+    name: str
+    text: str
+    position: int = Field(ge=1)
+    links: SiteScriptLinks = SiteScriptLinks()
+    author: str | None = None
+    updated_at: AwareDatetime
+
+
+# Any one item of a site's knowledge (what a draft edit adds, changes or removes).
+KnowledgeItem = PointGuide | KnowledgeDocument | DeviceFacts | SiteScript
+
+
 # --- A site's knowledge, its draft and its published versions -----------------------------------
 
 
@@ -153,6 +215,7 @@ class SiteKnowledge(BaseModel):
     point_guides: tuple[PointGuide, ...] = ()
     documents: tuple[KnowledgeDocument, ...] = ()
     device_facts: tuple[DeviceFacts, ...] = ()
+    site_scripts: tuple[SiteScript, ...] = ()
 
 
 class KnowledgeDraft(BaseModel):
@@ -188,11 +251,13 @@ class KnowledgeItemKind(StrEnum):
     POINT_GUIDE = "point_guide"
     DOCUMENT = "document"
     DEVICE_FACTS = "device_facts"
+    SITE_SCRIPT = "site_script"
 
 
 class KnowledgeChange(BaseModel):
     """One draft item that differs from the published knowledge. item_key:
-    `point:<device_id>:<point name>`, `document:<document_id>` or `device:<device_id>`."""
+    `point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or
+    `script:<script_id>`."""
 
     model_config = ConfigDict(frozen=True)
 

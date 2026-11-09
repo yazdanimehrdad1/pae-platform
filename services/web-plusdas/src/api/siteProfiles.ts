@@ -1,5 +1,6 @@
 import type {
-  ApproveChangesRequest, PendingChanges, ProfileVersion, ProfileVersionSummary, SiteProfileStatus,
+  ApproveChangesRequest, PendingChanges, ProfileVersion, ProfileVersionSummary, SiteFunctionTestRunRequest,
+  SiteFunctionTestRunResponse, SiteProfileStatus,
 } from './types/siteProfiles';
 import { intelliGatewayClient } from './client';
 
@@ -21,4 +22,8 @@ export const siteProfilesApi = {
   /** 409 when backend-ot was read again after `fetched_at`: review the changes again. */
   approve: (siteId: number, body: ApproveChangesRequest): Promise<ProfileVersion> =>
     intelliGatewayClient.post(`${profilePath(siteId)}/approve`, body),
+  /** Runs an approved site function exactly as the AI would (backend-ot computes it); the result
+   * is what the AI gets, series summarized. 404: not an approved function; 422: bad request. */
+  testRunFunction: (siteId: number, name: string, body: SiteFunctionTestRunRequest): Promise<SiteFunctionTestRunResponse> =>
+    intelliGatewayClient.post(`/v1/sites/${siteId}/functions/${encodeURIComponent(name)}/test-run`, body),
 };

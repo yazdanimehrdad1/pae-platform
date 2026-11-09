@@ -61,7 +61,9 @@ class TestReadEndpoints:
             "get_pv_forecast",
             "get_site_overview",
             "list_points",
+            "list_site_functions",
             "lookup_fault",
+            "run_site_function",
             "search_experience_notes",
         ]
 

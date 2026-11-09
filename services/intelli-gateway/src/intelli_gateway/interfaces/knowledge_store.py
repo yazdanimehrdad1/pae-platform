@@ -5,7 +5,12 @@ and tests/doubles/knowledge_store.py in tests."""
 from collections.abc import Sequence
 from typing import Protocol
 
-from intelli_gateway.schemas.knowledge import DeviceFacts, KnowledgeDocument, PointGuide
+from intelli_gateway.schemas.knowledge import (
+    DeviceFacts,
+    KnowledgeDocument,
+    PointGuide,
+    SiteScript,
+)
 
 
 class KnowledgeStore(Protocol):
@@ -30,4 +35,8 @@ class KnowledgeStore(Protocol):
 
     async def list_device_facts(self, site_id: int) -> list[DeviceFacts]:
         """Admin-added ratings and notes of the site's devices."""
+        ...
+
+    async def list_site_scripts(self, site_id: int) -> list[SiteScript]:
+        """The admin's general information about the site, in order."""
         ...

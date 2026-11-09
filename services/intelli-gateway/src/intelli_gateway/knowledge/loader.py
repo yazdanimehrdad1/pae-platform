@@ -10,7 +10,12 @@ from dataclasses import dataclass
 
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.llm_client import TokenCounter
-from intelli_gateway.schemas.knowledge import DeviceFacts, KnowledgeDocument, KnowledgeKind
+from intelli_gateway.schemas.knowledge import (
+    DeviceFacts,
+    KnowledgeDocument,
+    KnowledgeKind,
+    SiteScript,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +49,47 @@ def _render_facts(facts: list[DeviceFacts]) -> str | None:
     return "\n\n".join(parts)
 
 
+def _render_links(script: SiteScript, document_titles: dict[str, str]) -> str | None:
+    """The 'Related:' line under a prompt: what it is about, so the AI calls the right tool."""
+    links = script.links
+    related = [f"point {point.point_name} (device_id {point.device_id})" for point in links.points]
+    related += [f"site function {name}" for name in links.functions]
+    related += [
+        f"document '{document_titles[document_id]}'"
+        for document_id in links.documents
+        if document_id in document_titles  # a document not published yet isn't shown
+    ]
+    related += [f"ratings of device_id {device_id}" for device_id in links.devices]
+    return f"Related: {'; '.join(related)}" if related else None
+
+
+def _render_scripts(
+    scripts: list[SiteScript], document_titles: dict[str, str] | None = None
+) -> str | None:
+    if not scripts:
+        return None
+    parts = ["## About this site (from the site admin)"]
+    for script in sorted(scripts, key=lambda item: (item.position, item.script_id)):
+        section = f"### {script.name}\n{script.text}"
+        related = _render_links(script, document_titles or {})
+        if related:
+            section += f"\n{related}"
+        parts.append(section)
+    return "\n\n".join(parts)
+
+
 def render_knowledge(
-    documents: list[KnowledgeDocument], facts: list[DeviceFacts] | None = None
+    documents: list[KnowledgeDocument],
+    facts: list[DeviceFacts] | None = None,
+    scripts: list[SiteScript] | None = None,
 ) -> str:
-    """Deterministic text (stable order, no timestamps of the request) so the prompt cache hits."""
+    """Deterministic text (stable order, no timestamps of the request) so the prompt cache hits.
+    The admin's site scripts come first: the general picture before the details."""
     sections: list[str] = []
+    titles = {document.document_id: document.title for document in documents}
+    scripts_text = _render_scripts(scripts or [], titles)
+    if scripts_text:
+        sections.append(scripts_text)
     facts_text = _render_facts(facts or [])
     if facts_text:
         sections.append(facts_text)
@@ -84,7 +125,9 @@ class KnowledgeLoader:
 
     async def load(self, site_id: int) -> SiteKnowledge:
         text = render_knowledge(
-            await self._store.list_documents(site_id), await self._store.list_device_facts(site_id)
+            await self._store.list_documents(site_id),
+            await self._store.list_device_facts(site_id),
+            await self._store.list_site_scripts(site_id),
         )
         version = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
         key = (site_id, version)

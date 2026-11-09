@@ -6,7 +6,7 @@ version the AI reads (docs/KNOWLEDGE_PLAN.md, step 2).
   it was made against (`draft_revision`, 0 = no draft yet); a ConflictError when it moved since.
 - A publish takes the whole draft as the next version (option A: the site at once). Single
   drafts can be put back as published first (revert). Restore makes a new version with an
-  earlier version's content.
+  earlier version's content. Older versions can be deleted, never the one the AI uses.
 - Every item is checked against the approved site profile (approved devices and points only)
   and for secrets before it reaches the draft.
 """
@@ -18,15 +18,20 @@ from datetime import datetime, timedelta
 
 from intelli_gateway.interfaces.knowledge_authoring_store import KnowledgeAuthoringStore
 from intelli_gateway.knowledge.authoring import (
+    check_script_documents,
     coverage,
     diff_knowledge,
     document_key,
     facts_key,
     find_document,
+    find_script,
     guide_key,
+    next_script_position,
     revert_items,
+    script_key,
     validate_item,
     with_item,
+    without_document_links,
     without_item,
 )
 from intelli_gateway.schemas.knowledge import (
@@ -36,12 +41,15 @@ from intelli_gateway.schemas.knowledge import (
     KnowledgeCoverage,
     KnowledgeDocument,
     KnowledgeDraft,
+    KnowledgeItem,
     KnowledgeKind,
     KnowledgeVersion,
     LimitGuide,
     NormalRange,
     PointGuide,
     SiteKnowledge,
+    SiteScript,
+    SiteScriptLinks,
     StateGuide,
 )
 from intelli_gateway.schemas.site_profile import SiteCatalog
@@ -224,6 +232,57 @@ class SiteKnowledgeService:
     ) -> KnowledgeState:
         key = document_key(document_id)
         return await self._edit(
+            site_id,
+            author,
+            draft_revision,
+            lambda knowledge: without_document_links(without_item(knowledge, key), document_id),
+        )
+
+    async def create_site_script(
+        self,
+        site_id: int,
+        name: str,
+        text: str,
+        author: str,
+        draft_revision: int | None = None,
+        links: SiteScriptLinks | None = None,
+    ) -> tuple[KnowledgeState, str]:
+        """Add a site script after the others."""
+        script = self._script(site_id, name, text, author, links=links)
+
+        def change(knowledge: SiteKnowledge) -> SiteKnowledge:
+            check_script_documents(script, knowledge)
+            placed = script.model_copy(update={"position": next_script_position(knowledge)})
+            return with_item(knowledge, placed)
+
+        state = await self._edit(site_id, author, draft_revision, change, script)
+        return state, script.script_id
+
+    async def update_site_script(
+        self,
+        site_id: int,
+        script_id: str,
+        name: str,
+        text: str,
+        author: str,
+        draft_revision: int | None = None,
+        links: SiteScriptLinks | None = None,
+    ) -> KnowledgeState:
+        """Change a site script's name, text and links; it keeps its place."""
+        script = self._script(site_id, name, text, author, script_id, links)
+
+        def change(knowledge: SiteKnowledge) -> SiteKnowledge:
+            check_script_documents(script, knowledge)
+            position = find_script(knowledge, script_id).position  # NotFoundError: unknown id
+            return with_item(knowledge, script.model_copy(update={"position": position}))
+
+        return await self._edit(site_id, author, draft_revision, change, script)
+
+    async def delete_site_script(
+        self, site_id: int, script_id: str, author: str, draft_revision: int | None = None
+    ) -> KnowledgeState:
+        key = script_key(script_id)
+        return await self._edit(
             site_id, author, draft_revision, lambda knowledge: without_item(knowledge, key)
         )
 
@@ -282,7 +341,7 @@ class SiteKnowledgeService:
         is checked as if edited one by one; ids and the site are taken from here."""
         catalog = await self._catalog(site_id)
         now = self._clock()
-        items: list[PointGuide | KnowledgeDocument | DeviceFacts] = [
+        items: list[KnowledgeItem] = [
             *(
                 g.model_copy(update={"site_id": site_id, "author": author, "updated_at": now})
                 for g in content.point_guides
@@ -295,12 +354,18 @@ class SiteKnowledgeService:
                 f.model_copy(update={"site_id": site_id, "author": author, "updated_at": now})
                 for f in content.device_facts
             ),
+            *(
+                s.model_copy(update={"site_id": site_id, "author": author, "updated_at": now})
+                for s in content.site_scripts
+            ),
         ]
         for item in items:
             validate_item(item, catalog)
         imported = SiteKnowledge()
         for item in items:
             imported = with_item(imported, item)
+        for script in imported.site_scripts:
+            check_script_documents(script, imported)
         return await self._edit(site_id, author, None, lambda knowledge: imported)
 
     # --- publishing ---
@@ -361,6 +426,31 @@ class SiteKnowledgeService:
         self._published.pop(site_id, None)
         return restored
 
+    async def delete_versions(
+        self, site_id: int, versions: Sequence[int], author: str
+    ) -> list[KnowledgeVersion]:
+        """Delete older published versions (history only); never the one the AI uses, so what
+        the AI knows doesn't change. Returns the versions left, newest first."""
+        wanted = sorted(set(versions))
+        if not wanted:
+            raise InvalidRequestError("choose at least one version to delete")
+        stored = {entry.version for entry in await self._store.list_versions(site_id)}
+        missing = [number for number in wanted if number not in stored]
+        if missing:
+            raise NotFoundError(f"no knowledge version {', '.join(map(str, missing))}")
+        live = max(stored)
+        if live in wanted:
+            raise InvalidRequestError(
+                f"version {live} is what the AI uses and can't be deleted; "
+                "restore an older version first to replace it"
+            )
+        deleted = await self._store.delete_versions(site_id, wanted)
+        logger.info(
+            "knowledge_versions_deleted",
+            extra={"fields": {"site_id": site_id, "versions": deleted, "deleted_by": author}},
+        )
+        return await self._store.list_versions(site_id)
+
     # --- helpers ---
 
     async def _catalog(self, site_id: int) -> SiteCatalog:
@@ -386,13 +476,35 @@ class SiteKnowledgeService:
             values["document_id"] = document_id
         return KnowledgeDocument.model_validate(values)
 
+    def _script(
+        self,
+        site_id: int,
+        name: str,
+        text: str,
+        author: str,
+        script_id: str | None = None,
+        links: SiteScriptLinks | None = None,
+    ) -> SiteScript:
+        values: dict[str, object] = {
+            "site_id": site_id,
+            "name": name.strip(),
+            "text": text,
+            "position": 1,  # placed by the edit
+            "links": links or SiteScriptLinks(),
+            "author": author,
+            "updated_at": self._clock(),
+        }
+        if script_id is not None:
+            values["script_id"] = script_id
+        return SiteScript.model_validate(values)
+
     async def _edit(
         self,
         site_id: int,
         author: str,
         draft_revision: int | None,
         change: Callable[[SiteKnowledge], SiteKnowledge],
-        item: PointGuide | KnowledgeDocument | DeviceFacts | None = None,
+        item: KnowledgeItem | None = None,
     ) -> KnowledgeState:
         catalog = await self._catalog(site_id)
         if item is not None:

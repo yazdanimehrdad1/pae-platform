@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.interfaces.site_profile_store import SiteProfileStore
-from intelli_gateway.schemas.site_data import Site
+from intelli_gateway.schemas.site_data import Device, Site, SiteFunction
 from intelli_gateway.schemas.site_profile import (
     CatalogSnapshot,
     PendingChanges,
@@ -53,6 +53,12 @@ class ApprovedView:
     def device_ids(self) -> frozenset[int]:
         return frozenset(device.device_id for device in self.catalog.devices)
 
+    def function(self, name: str) -> SiteFunction | None:
+        return next((entry for entry in self.catalog.functions if entry.name == name), None)
+
+    def device(self, device_id: int) -> Device | None:
+        return next((entry for entry in self.catalog.devices if entry.device_id == device_id), None)
+
 
 class SiteProfileService:
     def __init__(
@@ -76,16 +82,18 @@ class SiteProfileService:
         site = await self._source.get_site(site_id)
         if site is None:
             return None
-        devices, points, topology = await asyncio.gather(
+        devices, points, topology, functions = await asyncio.gather(
             self._source.list_devices(site_id),
             self._source.list_points(site_id),
             self._source.get_topology(site_id),
+            self._source.list_site_functions(site_id),
         )
         return SiteCatalog(
             site=site,
             devices=tuple(sorted(devices, key=lambda device: device.device_id)),
             points=tuple(sorted(points, key=lambda point: point.name)),
             topology=topology,
+            functions=tuple(sorted(functions, key=lambda function: function.name)),
         )
 
     async def sync_site(self, site_id: int) -> PendingChanges:

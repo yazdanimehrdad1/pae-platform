@@ -4427,6 +4427,12 @@ export interface components {
         /** SiteEndpointInfo */
         SiteEndpointInfo: {
             /**
+             * Ai Assistant
+             * @description intelli-gateway's AI assistant may use it; endpoints without it are hidden from the AI
+             * @default false
+             */
+            ai_assistant: boolean;
+            /**
              * Device Types
              * @description Device endpoints only: the device types it applies to; empty means every device
              */
@@ -4454,8 +4460,45 @@ export interface components {
              * @enum {string}
              */
             output: "scalar" | "series";
+            /**
+             * Parameters
+             * @description Query parameters it takes besides the time window (start_time, end_time, time_range, tz) and max_points
+             */
+            parameters?: components["schemas"]["SiteEndpointParameter"][];
             /** Summary */
             summary: string;
+            /**
+             * User Visible
+             * @description Shown to users (historian and reports); False for an endpoint written only for the AI
+             * @default true
+             */
+            user_visible: boolean;
+        };
+        /**
+         * SiteEndpointParameter
+         * @description One extra query parameter of a site function (from its params_model).
+         */
+        SiteEndpointParameter: {
+            /** Default */
+            default?: number | string | boolean | null;
+            /** Description */
+            description?: string | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Minimum */
+            minimum?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+            /**
+             * Type
+             * @description JSON schema type: integer, number, string or boolean
+             */
+            type: string;
         };
         /** SiteEndpointsResponse */
         SiteEndpointsResponse: {

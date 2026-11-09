@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FilePlus2, History, Pencil, Send, Undo2 } from "lucide-react";
+import { FilePlus2, History, Pencil, Send, Trash2, Undo2 } from "lucide-react";
 import { knowledgeApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { DeviceFacts, KnowledgeChange, KnowledgeDocument, KnowledgeState, PointGuide } from "@/api/types/knowledge";
 import type { ProfilePoint, ProfileVersion } from "@/api/types/siteProfiles";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -18,14 +23,15 @@ import { formatDateTime, localPointName, statusOf } from "../lib/changes";
 import { DeviceFactsDialog } from "./DeviceFactsDialog";
 import { DocumentDialog } from "./DocumentDialog";
 import { PointGuideDialog } from "./PointGuideDialog";
+import { SiteScripts } from "./SiteScripts";
 import {
   DOCUMENT_KIND_LABELS, ITEM_STATUS_LABELS, type ItemStatus, documentKey, factsKey, guideKey, isDraftConflict, itemStatus,
   knowledgeQueryKey,
 } from "./lib";
 import { useKnowledge, useKnowledgeEdit } from "./useKnowledge";
 
-// The site's engineer knowledge: what each point means and what to do about each state or fault
-// code, documents, and device ratings. Edits go to a draft; "Review & publish" makes the whole
+// The site's engineer knowledge: site scripts (general information, step by step), what each point
+// means and what to do about each state or fault code, documents, and device ratings. Edits go to a draft; "Review & publish" makes the whole
 // draft the version the AI uses (the site at once).
 
 const STATUS_STYLES: Record<ItemStatus, string> = {
@@ -75,13 +81,15 @@ export function KnowledgePanel({ siteId, profile }: { siteId: number; profile: P
         </HideOnPhone>
       </div>
 
-      <Tabs defaultValue="points">
+      <Tabs defaultValue="site-scripts">
         <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="site-scripts">Site Prompts ({state.content.site_scripts?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="points">Point guides</TabsTrigger>
           <TabsTrigger value="documents">Documents ({state.content.documents?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="devices">Device ratings</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
         </TabsList>
+        <TabsContent value="site-scripts" className="pt-2"><SiteScripts siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="points" className="pt-2"><PointGuides siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="documents" className="pt-2"><Documents siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="devices" className="pt-2"><Devices siteId={siteId} profile={profile} state={state} /></TabsContent>
@@ -93,8 +101,11 @@ export function KnowledgePanel({ siteId, profile }: { siteId: number; profile: P
   );
 }
 
+const ALL_DEVICES = "all";
+
 function PointGuides({ siteId, profile, state }: { siteId: number; profile: ProfileVersion; state: KnowledgeState }) {
   const [filter, setFilter] = useState("");
+  const [deviceFilter, setDeviceFilter] = useState(ALL_DEVICES);
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [editing, setEditing] = useState<ProfilePoint | null>(null);
   const guides = useMemo(() => {
@@ -103,7 +114,11 @@ function PointGuides({ siteId, profile, state }: { siteId: number; profile: Prof
     return byKey;
   }, [state]);
 
+  const deviceNames = new Map(profile.catalog.devices.map(device => [device.device_id, device.name]));
+  const devicesByName = [...profile.catalog.devices].sort((left, right) => left.name.localeCompare(right.name));
+
   const points = profile.catalog.points
+    .filter(point => deviceFilter === ALL_DEVICES || String(point.device_id) === deviceFilter)
     .filter(point => !filter.trim() || point.name.toLowerCase().includes(filter.trim().toLowerCase()))
     .filter(point => !onlyMissing || (needsGuideFirst(point) && !guides.has(guideKey(point.device_id, localPointName(point)))))
     .sort((left, right) => Number(needsGuideFirst(right)) - Number(needsGuideFirst(left)) || left.name.localeCompare(right.name));
@@ -117,6 +132,15 @@ function PointGuides({ siteId, profile, state }: { siteId: number; profile: Prof
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Input placeholder="Filter points" aria-label="Filter points" value={filter} onChange={event => setFilter(event.target.value)} className="w-full sm:w-72" />
+        <select
+          aria-label="Filter by device"
+          value={deviceFilter}
+          onChange={event => setDeviceFilter(event.target.value)}
+          className="flex h-9 w-full sm:w-56 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <option value={ALL_DEVICES}>All devices</option>
+          {devicesByName.map(device => <option key={device.device_id} value={String(device.device_id)}>{device.name}</option>)}
+        </select>
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={onlyMissing} onCheckedChange={setOnlyMissing} aria-label="Only points that need a guide" />
           Only points that need a guide
@@ -126,6 +150,7 @@ function PointGuides({ siteId, profile, state }: { siteId: number; profile: Prof
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Device</TableHead>
               <TableHead>Point</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Guide</TableHead>
@@ -139,7 +164,8 @@ function PointGuides({ siteId, profile, state }: { siteId: number; profile: Prof
               const guide = guides.get(key);
               return (
                 <TableRow key={point.name}>
-                  <TableCell className="font-mono text-xs whitespace-nowrap">{point.name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{deviceNames.get(point.device_id) ?? point.device_name}</TableCell>
+                  <TableCell className="font-mono text-xs whitespace-nowrap">{localPointName(point)}</TableCell>
                   <TableCell>{point.point_class ?? ""}</TableCell>
                   <TableCell><StatusBadge status={itemStatus(key, guide !== undefined, state.changes)} /></TableCell>
                   <TableCell className="max-w-md truncate">{guide?.meaning ?? ""}</TableCell>
@@ -278,32 +304,74 @@ function Versions({ siteId, state }: { siteId: number; state: KnowledgeState }) 
     },
     onError: (restoreError) => toast({ title: "Could not restore", description: getErrorMessage(restoreError), variant: "destructive" }),
   });
+  const [selected, setSelected] = useState<number[]>([]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const deleteVersions = useMutation({
+    mutationFn: (numbers: number[]) => knowledgeApi.deleteVersions(siteId, numbers),
+    onSuccess: (_remaining, numbers) => {
+      toast({ title: `Deleted ${numbers.length} version(s)`, description: "What the AI uses didn't change." });
+      setSelected([]);
+      queryClient.invalidateQueries({ queryKey: ["site-profiles", siteId] });
+    },
+    onError: (deleteError) => toast({ title: "Could not delete", description: getErrorMessage(deleteError), variant: "destructive" }),
+  });
   if (isLoading) return <p className="text-muted-foreground">Loading versions...</p>;
   if (versions.length === 0) return <p className="text-muted-foreground">Nothing published yet.</p>;
   const hasDraft = state.draft_revision > 0;
+  // The version the AI uses can't be deleted; only older ones are selectable.
+  const deletable = versions.map(version => version.version).filter(number => number !== state.published_version);
+  const chosen = selected.filter(number => deletable.includes(number)).sort((left, right) => left - right);
+  const allChosen = deletable.length > 0 && chosen.length === deletable.length;
+  const toggle = (number: number, checked: boolean) =>
+    setSelected(current => (checked ? [...current, number] : current.filter(entry => entry !== number)));
   return (
     <div className="space-y-2">
       {hasDraft && <p className="text-sm text-muted-foreground">Publish or discard the draft before restoring a version.</p>}
+      <HideOnPhone>
+        <Button variant="outline" className="text-destructive" disabled={chosen.length === 0 || deleteVersions.isPending} onClick={() => setConfirmingDelete(true)}>
+          <Trash2 className="w-4 h-4 mr-2" />Delete selected ({chosen.length})
+        </Button>
+      </HideOnPhone>
       <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-8">
+                <Checkbox
+                  aria-label="Select all older versions"
+                  checked={allChosen ? true : chosen.length > 0 ? "indeterminate" : false}
+                  disabled={deletable.length === 0}
+                  onCheckedChange={checked => setSelected(checked === true ? deletable : [])}
+                />
+              </TableHead>
               <TableHead>Version</TableHead>
               <TableHead>Published</TableHead>
               <TableHead>By</TableHead>
               <TableHead>Changes</TableHead>
-              <TableHead>Guides · documents · devices</TableHead>
+              <TableHead>Scripts · guides · documents · devices</TableHead>
               <TableHead className="text-right">Restore</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {versions.map(version => (
               <TableRow key={version.version}>
-                <TableCell className="font-medium">v{version.version}{version.restored_from ? <span className="text-muted-foreground"> (from v{version.restored_from})</span> : null}</TableCell>
+                <TableCell>
+                  {version.version !== state.published_version && (
+                    <Checkbox
+                      aria-label={`Select version ${version.version}`}
+                      checked={chosen.includes(version.version)}
+                      onCheckedChange={checked => toggle(version.version, checked === true)}
+                    />
+                  )}
+                </TableCell>
+                <TableCell className="font-medium">
+                  v{version.version}{version.restored_from ? <span className="text-muted-foreground"> (from v{version.restored_from})</span> : null}
+                  {version.version === state.published_version && <Badge variant="outline" className="ml-2">AI uses this</Badge>}
+                </TableCell>
                 <TableCell className="whitespace-nowrap">{formatDateTime(version.published_at)}</TableCell>
                 <TableCell>{version.published_by}</TableCell>
                 <TableCell>{version.change_ids.length}</TableCell>
-                <TableCell>{version.point_guides} · {version.documents} · {version.device_facts}</TableCell>
+                <TableCell>{version.site_scripts} · {version.point_guides} · {version.documents} · {version.device_facts}</TableCell>
                 <TableCell className="text-right">
                   {version.version !== state.published_version && (
                     <HideOnPhone>
@@ -318,6 +386,21 @@ function Versions({ siteId, state }: { siteId: number; state: KnowledgeState }) 
           </TableBody>
         </Table>
       </div>
+      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {chosen.length} version(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {chosen.map(number => `v${number}`).join(", ")} will be gone for good and can't be restored later.
+              The AI keeps using version {state.published_version}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteVersions.mutate(chosen)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -150,6 +150,24 @@ class TestPowerflow2Bess1PvFunctions:
             ("site-bess2-rolling-round-trip-efficiency", "series"),
         }
 
+    async def test_every_function_is_labelled_for_the_ai_and_users(self, client):
+        site = await create_site(client, profile=PROFILE)
+        response = await client.get(f"/api/site-functions/site/{site.site_id}")
+        listing = SiteEndpointsResponse.model_validate(response.json())
+        assert all(endpoint.ai_assistant and endpoint.user_visible for endpoint in listing.endpoints)
+
+    async def test_rolling_efficiency_lists_its_lookback_parameter(self, client):
+        site = await create_site(client, profile=PROFILE)
+        response = await client.get(f"/api/site-functions/site/{site.site_id}")
+        listing = SiteEndpointsResponse.model_validate(response.json())
+        parameters = {endpoint.name: endpoint.parameters for endpoint in listing.endpoints}
+        [lookback] = parameters["site-bess1-rolling-round-trip-efficiency"]
+        assert (lookback.name, lookback.type, lookback.default, lookback.minimum, lookback.maximum) == (
+            "lookback_days", "integer", 7, 1.0, 90.0,
+        )
+        assert lookback.required is False
+        assert parameters["site-bess1-round-trip-efficiency"] == []
+
     async def test_assets_active_power_is_bess1_plus_bess2_plus_pv1_at_each_poll(self, client, db):
         site = await seeded_site(client, db)
         result = await get_series(client, site.site_id, "site-assets-active-power")

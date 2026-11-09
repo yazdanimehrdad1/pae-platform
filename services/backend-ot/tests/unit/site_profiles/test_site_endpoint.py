@@ -110,6 +110,44 @@ class TestSiteEndpoint:
             )
 
 
+class TestAudienceLabels:
+    def test_defaults_to_users_only(self):
+        endpoint = SiteEndpoint(
+            method="GET",
+            kind="site",
+            name="site-energy-summary",
+            controller=site_energy_summary,
+            response_model=EnergySummaryResult,
+            summary="energy",
+        )
+        assert (endpoint.ai_assistant, endpoint.user_visible) == (False, True)
+
+    def test_ai_only_endpoint_is_allowed(self):
+        endpoint = SiteEndpoint(
+            method="GET",
+            kind="site",
+            name="site-energy-summary",
+            controller=site_energy_summary,
+            response_model=EnergySummaryResult,
+            summary="energy",
+            ai_assistant=True,
+            user_visible=False,
+        )
+        assert (endpoint.ai_assistant, endpoint.user_visible) == (True, False)
+
+    def test_endpoint_for_nobody_is_rejected(self):
+        with pytest.raises(ValidationError, match="used by nobody"):
+            SiteEndpoint(
+                method="GET",
+                kind="site",
+                name="site-energy-summary",
+                controller=site_energy_summary,
+                response_model=EnergySummaryResult,
+                summary="energy",
+                user_visible=False,
+            )
+
+
 class TestFindEndpoint:
     def test_finds_each_declared_endpoint_by_name(self):
         controllers = {

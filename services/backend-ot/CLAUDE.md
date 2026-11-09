@@ -53,6 +53,11 @@ directory). Same Makefile on Windows — it runs recipes in Git for Windows' sh.
   `version=` in `create_app()` (`src/app.py`). Consumers: `services/web-plusdas` and
   `services/mobile-plusdas` (each generates its TypeScript types from it with
   `make -C services/<consumer> api-types`).
+- **Site function labels:** each `SiteEndpoint` in a site's `profile.py` says who uses it:
+  `ai_assistant=True` lets intelli-gateway's AI assistant use it (after the site admin approves it
+  in the gateway); `user_visible=False` hides it from the historian and reports (a function
+  written only for the AI). At least one must be True. intelli-gateway reads the labels from
+  `GET /api/site-functions/site/{site_id}`, so changing one changes what the AI may run.
 - **Consumes** `contracts/modbus/mock-modbus.devices.json` (dev seed only): seed devices and points
   are built from it (`tests/seed_db/mock_modbus_seed.py`). Never hand-edit seeded devices or points.
   Change the mock and run `make -C services/mock-modbus contract`.

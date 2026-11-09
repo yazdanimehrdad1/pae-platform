@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { BookOpen, ChevronRight, RefreshCw } from "lucide-react";
 import { siteProfilesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { SiteProfileStatus } from "@/api/types/siteProfiles";
@@ -91,8 +91,14 @@ function StatusRow({ status }: { status: SiteProfileStatus }) {
   return (
     <TableRow>
       <TableCell className="font-medium">
-        <Link to={`/site-profiles/${status.site_id}`} className="hover:underline">{status.name}</Link>
-        <span className="text-muted-foreground"> #{status.site_id}</span>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+            <Link to={`/site-profiles/${status.site_id}?tab=knowledge`} aria-label={`Open the knowledge base of ${status.name}`}>
+              <BookOpen className="w-4 h-4 mr-2" />{status.name}<ChevronRight className="w-4 h-4 ml-1" />
+            </Link>
+          </Button>
+          <span className="text-muted-foreground">#{status.site_id}</span>
+        </div>
       </TableCell>
       <TableCell>
         {onboarded
@@ -101,7 +107,7 @@ function StatusRow({ status }: { status: SiteProfileStatus }) {
       </TableCell>
       <TableCell>
         {status.pending_changes > 0
-          ? <Link to={`/site-profiles/${status.site_id}`}><Badge variant="secondary">{status.pending_changes} to review</Badge></Link>
+          ? <Link to={`/site-profiles/${status.site_id}?tab=changes`}><Badge variant="secondary">{status.pending_changes} to review</Badge></Link>
           : <span className="text-muted-foreground">None</span>}
       </TableCell>
       <TableCell className="whitespace-nowrap">{formatDateTime(status.approved_at)}</TableCell>

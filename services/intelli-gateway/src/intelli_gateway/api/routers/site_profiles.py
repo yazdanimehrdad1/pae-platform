@@ -5,14 +5,25 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
-from intelli_gateway.api.dependencies import get_site_profile_service, require_admin
+from intelli_gateway.api.dependencies import (
+    get_settings,
+    get_site_data,
+    get_site_profile_service,
+    require_admin,
+)
+from intelli_gateway.config import Settings
+from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.schemas.api_models.responses import ErrorResponse
 from intelli_gateway.schemas.api_models.site_profiles import (
     ApproveChangesRequest,
     ProfileVersionSummary,
+    SiteFunctionTestRunRequest,
+    SiteFunctionTestRunResponse,
 )
+from intelli_gateway.schemas.site_data import SiteFunctionRun
 from intelli_gateway.schemas.site_profile import PendingChanges, ProfileVersion, SiteProfileStatus
 from intelli_gateway.schemas.users import User
+from intelli_gateway.site_profile.functions import run_function
 from intelli_gateway.site_profile.service import SiteProfileService
 
 Responses = dict[int | str, dict[str, Any]]
@@ -26,6 +37,8 @@ router = APIRouter(
 )
 Admin = Annotated[User, Depends(require_admin)]
 Profiles = Annotated[SiteProfileService, Depends(get_site_profile_service)]
+SiteData = Annotated[SiteDataConnector, Depends(get_site_data)]
+AppSettings = Annotated[Settings, Depends(get_settings)]
 NOT_FOUND: Responses = {
     404: {"model": ErrorResponse, "description": "Not synced or not onboarded yet"}
 }
@@ -117,4 +130,45 @@ async def approve_site_profile_changes(
         approved_by=admin.email,
         change_ids=body.change_ids,
         expected_fetched_at=body.fetched_at,
+    )
+
+
+@router.post(
+    "/sites/{site_id}/functions/{name}/test-run",
+    response_model=SiteFunctionTestRunResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "No such approved function or device"},
+        422: {
+            "model": ErrorResponse,
+            "description": "Bad window or parameters, or backend-ot refused it",
+        },
+        **UPSTREAM,
+    },
+    summary="Run an approved site function exactly as the AI would, and see what it gets",
+)
+async def test_run_site_function(
+    site_id: int,
+    name: str,
+    body: SiteFunctionTestRunRequest,
+    admin: Admin,
+    site_data: SiteData,
+    settings: AppSettings,
+) -> SiteFunctionTestRunResponse:
+    del admin
+    run = SiteFunctionRun(
+        name=name,
+        start=body.start,
+        end=body.end,
+        device_id=body.device_id,
+        parameters=body.parameters,
+    )
+    result = await run_function(
+        site_data,
+        site_id,
+        run,
+        max_days=settings.tool_history_max_days,
+        sample_count=settings.tool_history_samples,
+    )
+    return SiteFunctionTestRunResponse(
+        function=name, start=body.start, end=body.end, device_id=body.device_id, result=result
     )

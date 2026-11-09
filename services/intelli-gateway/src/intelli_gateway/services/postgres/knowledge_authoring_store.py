@@ -12,6 +12,7 @@ from sqlalchemy import (
     Table,
     Text,
     delete,
+    func,
     insert,
     select,
     update,
@@ -124,6 +125,24 @@ class PostgresKnowledgeAuthoringStore:
                 .order_by(versions_table.c.version.desc())
             )
             return [_version(row) for row in result.mappings()]
+
+    async def delete_versions(self, site_id: int, versions: list[int]) -> list[int]:
+        latest = (
+            select(func.max(versions_table.c.version))
+            .where(versions_table.c.site_id == site_id)
+            .scalar_subquery()
+        )
+        async with self._engine.begin() as connection:
+            result = await connection.execute(
+                delete(versions_table)
+                .where(
+                    versions_table.c.site_id == site_id,
+                    versions_table.c.version.in_(versions),
+                    versions_table.c.version < latest,
+                )
+                .returning(versions_table.c.version)
+            )
+            return sorted(result.scalars())
 
     async def publish(self, version: KnowledgeVersion, draft_revision: int | None) -> None:
         values: dict[str, Any] = {

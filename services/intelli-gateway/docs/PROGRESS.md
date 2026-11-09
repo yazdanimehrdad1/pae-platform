@@ -247,7 +247,7 @@ The user's decision: the running service never uses fictional data; tests keep t
   question read the prompt cache. The test itself expected a tool named `get_point_value` (it is
   `get_point_values`); fixed. Three paid runs.
 
-### 11. Engineer knowledge in Postgres, draft and publish, and its UI (uncommitted, 2026-11-07)
+### 11. Engineer knowledge in Postgres, draft and publish, and its UI (2026-11-07)
 Step 2 of [KNOWLEDGE_PLAN.md](KNOWLEDGE_PLAN.md).
 - **What is authored** (`schemas/knowledge.py`): point guides (meaning, unit note, normal range,
   related points, limits, and per enum value / bit / vendor fault code: label, severity, message,
@@ -276,6 +276,73 @@ Step 2 of [KNOWLEDGE_PLAN.md](KNOWLEDGE_PLAN.md).
   "Review & publish" (put single changes back, discard, publish).
 - **Left for later:** "this is a rename of X" re-linking on a point rename; the gap log (step 7).
 
+### 12. Site functions from backend-ot, approved per site, and their UI (uncommitted, 2026-11-08)
+Step 4 of [KNOWLEDGE_PLAN.md](KNOWLEDGE_PLAN.md), option B (user's call, 2026-11-08): the gateway
+computes nothing; backend-ot runs its site functions and the gateway decides which the AI may use.
+- **backend-ot (provider, contract additive):** two labels on each `SiteEndpoint` in a site's
+  `profile.py`: `ai_assistant` (default False: the gateway may use it) and `user_visible` (default
+  True: the historian and reports show it; an AI-only function sets False). At least one is True.
+  `GET /api/site-functions/site/{id}` lists both plus each function's extra `parameters`.
+  Reports offer only `user_visible` functions. The 8 functions of the 2BESS 1PV profile are
+  labelled `ai_assistant=True` (still user-visible).
+- **web-plusdas historian:** `siteFunctionsApi.list` leaves out `user_visible=false` functions.
+- **Gateway:** `SiteCatalog.functions` (only `ai_assistant` ones are copied); a function added,
+  removed or changed (summary, kind, output, device types, parameters) is a pending change
+  `function:<name>`, approved one by one like a point (also when onboarding). No migration: the
+  catalog is JSONB, and profiles approved before this show the functions as pending additions.
+  The gate runs only approved functions, a device function only on an approved device of a type
+  it applies to, with only declared parameters (required ones present); it sends `max_points`
+  only for series. `site_profile/functions.py` checks the window (at most
+  `TOOL_HISTORY_MAX_DAYS`) and summarizes each series (count, min, max, avg, first, last,
+  `TOOL_HISTORY_SAMPLES` samples). backend-ot's 4xx reach Claude as its own message.
+- **Tools (14 now):** `list_site_functions` (with the devices each device function applies to)
+  and `run_site_function`. The site block does not list functions (the tool does).
+- **Admin API:** `POST /api/v1/sites/{id}/functions/{name}/test-run`: the same path as the tool,
+  so the admin sees exactly what Claude gets. Contract additive (new routes and fields, a
+  `function` change target).
+- **web-plusdas:** pending changes get a "Site functions" group; "What the AI knows" lists the
+  approved functions with "Try it" (window, device, parameters, the result as the AI gets it).
+- **Verified live (dev stack, site 1002):** the sync showed exactly the 8 labelled functions;
+  a test-run before approval was 404; after approving: BESS 1 RTE (scalar), POI active power
+  (1,351 samples summarized to 12), rolling RTE with `lookback_days=3`; an unknown parameter is
+  a 422 without calling backend-ot. The "Try it" dialog worked in headless Chromium.
+- **Not done:** `make test-llm` (paid) with a site-function question.
+
+### 13. Knowledge: site scripts, delete older versions, point guides by device (uncommitted, 2026-11-09)
+- **Site scripts** (the user's call): the admin's general information about the site, entered
+  step by step as any number of named texts instead of one long prompt. A new knowledge item
+  (`SiteScript`: name, text, position; key `script:<id>`) in the same draft → publish; a new one
+  goes last, an edit keeps its place. Secrets are refused like everywhere. The AI reads them all,
+  in order, first in the cached site block ("About this site"). API
+  `POST/PUT/DELETE /api/v1/sites/{id}/knowledge/site-scripts[/{script_id}]` (read: the knowledge
+  state); version summaries count them. No migration (knowledge is JSONB; old content loads with
+  none). Contract additive. web-plusdas: "Site script" is the first Knowledge tab: numbered
+  steps, each with edit and delete (confirmed), and a form for the next step. No reordering yet.
+- `DELETE /api/v1/sites/{id}/knowledge/versions?version=1&version=2` (admin): deletes older
+  published versions for good and returns the versions left. The version the AI uses can't be
+  deleted (422; the store also never deletes a site's latest), so what the AI knows doesn't
+  change and version numbers are never reused. Store contract check added; contract additive.
+- web-plusdas Knowledge: Versions tab has checkboxes on the older versions, "Delete selected"
+  with a confirm; Point guides tab has a Device column and a device filter.
+- Verified live: the refusals (live version 422, unknown 404, none given 422). An actual delete
+  was not run on the dev stack, so the local site 1002 versions were kept (covered by unit and
+  Postgres integration tests).
+
+### 14. Site prompts link to points, site functions, documents and device ratings (uncommitted, 2026-11-09)
+- Each site prompt has optional `links` (`SiteScriptLinks`: points as device_id + local point
+  name, site function names, document ids, device ids for ratings); empty = not applicable. Kept
+  sorted and without repeats. Checked on save: points, functions and devices must be in the
+  approved profile, documents in the draft. Deleting a document drops it from every prompt's
+  links; a link the approved profile no longer has shows in coverage as `orphaned` (`script:<id>`).
+- The AI, both directions (the user's call): a `Related: ...` line under each prompt in the
+  cached site block (unpublished documents left out), and a `related_prompts` field
+  ("Prompt N: name") in explain_point, list_points, get_device_status, get_device_script,
+  search_experience_notes, list_site_functions and run_site_function when a prompt links the item.
+- API: `links` on the site-script create/update body (optional). Contract additive; no migration.
+- web-plusdas: the prompt form has a "Linked to (optional)" row of four pickers (Points, Site
+  functions, Documents, Device ratings: devices that have ratings), selected links show as
+  removable badges; each prompt shows its links as badges.
+
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
   backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no
@@ -284,8 +351,13 @@ Step 2 of [KNOWLEDGE_PLAN.md](KNOWLEDGE_PLAN.md).
   scoped **per site device**: (site_id, device_id, point name within the device).
 - **Knowledge authoring (2026-11-07):** admins only write and publish; edits are a draft; a
   publish takes the whole site at once (one version; single drafts can be put back first);
-  restore = a new version with an old version's content.
+  restore = a new version with an old version's content. Older versions can be deleted
+  (2026-11-09), never the one the AI uses.
 - **Every backend-ot call goes in `services/backend_ot/`.**
+- **Site functions (2026-11-08):** backend-ot computes them (option B). backend-ot labels each
+  `ai_assistant` (the gateway may use it) and `user_visible` (shown in the historian); the AI uses
+  a labelled function only after the site admin approves it in the site profile. This is the one
+  place backend-ot carries something for the AI (the user's call).
 - **No fake data at runtime** (2026-11-07): backend-ot and the service's Postgres only; test
   doubles live in `tests/doubles/`.
 - **Repo conventions over the original guide:**
@@ -305,7 +377,8 @@ The site knowledge, onboarding and answer-cost plan agreed on 2026-11-06 is
 1. ~~Site profile and sync with admin-approved diffs~~ (done, "7." above; leftovers listed there).
 2. ~~Knowledge store in Postgres, draft/publish, code-level import~~ (done, "11." above).
 3. ~~Admin API under `/api/v1/sites/{site_id}/knowledge/...`~~ (done with step 2).
-4. Site functions: code library + per-site enable and bindings.
+4. ~~Site functions~~ (done, "12." above: backend-ot's functions labelled `ai_assistant`,
+   approved per site; no gateway library, no bindings).
 5. web-plusdas Knowledge pages.
 6. Persistent conversations, per-site grants.
 7. Growth loop: gap log, conversation to note, verified answers.

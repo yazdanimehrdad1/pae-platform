@@ -3,6 +3,7 @@ what backend-ot serves; the fake and backend-ot connectors both map onto them.""
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
@@ -153,6 +154,53 @@ class DeviceComms(BaseModel):
     device_id: int
     last_reading_at: AwareDatetime | None
     stale: bool
+
+
+# --- Site functions (backend-ot's site-function endpoints labelled ai_assistant) -------------
+
+SiteFunctionKind = Literal["common", "site", "device"]
+SiteFunctionOutput = Literal["scalar", "series"]
+ParameterValue = int | float | str | bool
+
+
+class SiteFunctionParameter(BaseModel):
+    """A query parameter a function takes besides the time window."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    type: str  # JSON schema type: integer, number, string, boolean
+    description: str | None = None
+    required: bool = False
+    default: ParameterValue | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+
+class SiteFunction(BaseModel):
+    """A calculation backend-ot runs for a site (e.g. a BESS's round-trip efficiency). kind
+    `device` runs for one device; device_types limits which (empty: any device)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    kind: SiteFunctionKind
+    summary: str
+    output: SiteFunctionOutput = "scalar"
+    device_types: tuple[str, ...] = ()
+    parameters: tuple[SiteFunctionParameter, ...] = ()
+
+
+class SiteFunctionRun(BaseModel):
+    """One run of a site function over a window."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    start: AwareDatetime
+    end: AwareDatetime
+    device_id: int | None = None
+    parameters: dict[str, ParameterValue] = Field(default_factory=dict[str, ParameterValue])
 
 
 # --- Engineer knowledge ---------------------------------------------------------------------

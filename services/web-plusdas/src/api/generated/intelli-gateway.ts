@@ -359,6 +359,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/functions/{name}/test-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run an approved site function exactly as the AI would, and see what it gets */
+        post: operations["test_run_site_function_api_v1_sites__site_id__functions__name__test_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/knowledge": {
         parameters: {
             query?: never;
@@ -515,6 +532,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/knowledge/site-scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a site script (general information about the site) after the others, to the draft */
+        post: operations["create_site_script_api_v1_sites__site_id__knowledge_site_scripts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/knowledge/site-scripts/{script_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a site script's name, text and links in the draft */
+        put: operations["update_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__put"];
+        post?: never;
+        /** Remove a site script in the draft */
+        delete: operations["delete_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/knowledge/versions": {
         parameters: {
             query?: never;
@@ -526,7 +578,8 @@ export interface paths {
         get: operations["list_versions_api_v1_sites__site_id__knowledge_versions_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete older published versions (never the one the AI uses); the versions left */
+        delete: operations["delete_versions_api_v1_sites__site_id__knowledge_versions_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -785,7 +838,7 @@ export interface components {
          * ChangeTarget
          * @enum {string}
          */
-        ChangeTarget: "site" | "device" | "point" | "topology";
+        ChangeTarget: "site" | "device" | "point" | "topology" | "function";
         /** Device */
         Device: {
             /** Description */
@@ -964,7 +1017,8 @@ export interface components {
         /**
          * KnowledgeChange
          * @description One draft item that differs from the published knowledge. item_key:
-         *     `point:<device_id>:<point name>`, `document:<document_id>` or `device:<device_id>`.
+         *     `point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or
+         *     `script:<script_id>`.
          */
         KnowledgeChange: {
             /** Item Key */
@@ -1037,7 +1091,7 @@ export interface components {
          * KnowledgeItemKind
          * @enum {string}
          */
-        KnowledgeItemKind: "point_guide" | "document" | "device_facts";
+        KnowledgeItemKind: "point_guide" | "document" | "device_facts" | "site_script";
         /**
          * KnowledgeKind
          * @enum {string}
@@ -1117,6 +1171,8 @@ export interface components {
             published_by: string;
             /** Restored From */
             restored_from: number | null;
+            /** Site Scripts */
+            site_scripts: number;
             /** Version */
             version: number;
         };
@@ -1383,8 +1439,8 @@ export interface components {
          * @description One difference between the approved profile and backend-ot's current catalog.
          *
          *     change_id is stable for the same difference: `site`, `topology`, `device:<device_id>`,
-         *     `point:<device_id>:<point name in its device>`. A device added or removed carries its points
-         *     (they are not listed separately).
+         *     `point:<device_id>:<point name in its device>`, `function:<name>`. A device added or removed
+         *     carries its points (they are not listed separately).
          */
         ProfileChange: {
             /** Change Id */
@@ -1396,6 +1452,8 @@ export interface components {
              * @default []
              */
             fields: string[];
+            /** Function Name */
+            function_name?: string | null;
             kind: components["schemas"]["ChangeKind"];
             /** Point Name */
             point_name?: string | null;
@@ -1439,12 +1497,27 @@ export interface components {
             change_ids: string[];
             /** Devices */
             devices: number;
+            /**
+             * Functions
+             * @default 0
+             */
+            functions: number;
             /** Points */
             points: number;
             /** Site Id */
             site_id: number;
             /** Version */
             version: number;
+        };
+        /**
+         * PromptPointLink
+         * @description A point a site prompt is about: the site device and the point's name on it.
+         */
+        PromptPointLink: {
+            /** Device Id */
+            device_id: number;
+            /** Point Name */
+            point_name: string;
         };
         /** PublishRequest */
         PublishRequest: {
@@ -1613,6 +1686,11 @@ export interface components {
              */
             devices: components["schemas"]["Device"][];
             /**
+             * Functions
+             * @default []
+             */
+            functions: components["schemas"]["SiteFunction"][];
+            /**
              * Points
              * @default []
              */
@@ -1644,6 +1722,112 @@ export interface components {
             stale: boolean;
         };
         /**
+         * SiteFunction
+         * @description A calculation backend-ot runs for a site (e.g. a BESS's round-trip efficiency). kind
+         *     `device` runs for one device; device_types limits which (empty: any device).
+         */
+        SiteFunction: {
+            /**
+             * Device Types
+             * @default []
+             */
+            device_types: string[];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "common" | "site" | "device";
+            /** Name */
+            name: string;
+            /**
+             * Output
+             * @default scalar
+             * @enum {string}
+             */
+            output: "scalar" | "series";
+            /**
+             * Parameters
+             * @default []
+             */
+            parameters: components["schemas"]["SiteFunctionParameter"][];
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * SiteFunctionParameter
+         * @description A query parameter a function takes besides the time window.
+         */
+        SiteFunctionParameter: {
+            /** Default */
+            default?: number | string | boolean | null;
+            /** Description */
+            description?: string | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Minimum */
+            minimum?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+            /** Type */
+            type: string;
+        };
+        /** SiteFunctionTestRunRequest */
+        SiteFunctionTestRunRequest: {
+            /**
+             * Device Id
+             * @description Device functions only: the approved device to run it for
+             */
+            device_id?: number | null;
+            /**
+             * End
+             * Format: date-time
+             * @description End of the window, ISO 8601 with a UTC offset
+             */
+            end: string;
+            /**
+             * Parameters
+             * @description Extra parameters the function declares; omit for their defaults
+             */
+            parameters?: {
+                [key: string]: number | string | boolean;
+            };
+            /**
+             * Start
+             * Format: date-time
+             * @description Start of the window, ISO 8601 with a UTC offset
+             */
+            start: string;
+        };
+        /**
+         * SiteFunctionTestRunResponse
+         * @description What the AI's run_site_function tool would return for the same request.
+         */
+        SiteFunctionTestRunResponse: {
+            /** Device Id */
+            device_id?: number | null;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Function */
+            function: string;
+            /** Result */
+            result: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+        };
+        /**
          * SiteKnowledge
          * @description Everything engineers wrote for one site. Point guides name the point within its device
          *     (`point_name` without the `DEVICE.` prefix), so a device rename doesn't orphan them.
@@ -1664,6 +1848,11 @@ export interface components {
              * @default []
              */
             point_guides: components["schemas"]["PointGuide"][];
+            /**
+             * Site Scripts
+             * @default []
+             */
+            site_scripts: components["schemas"]["SiteScript"][];
         };
         /**
          * SiteProfileStatus
@@ -1713,6 +1902,117 @@ export interface components {
             site_id: number;
             /** Timezone */
             timezone: string;
+        };
+        /**
+         * SiteScript
+         * @description One part of the site's general information for the AI (overview, how the site runs, ...),
+         *     written by an admin as several named texts instead of one long prompt. Kept in `position`
+         *     order (the order they were added); the AI reads them all, first, in its site context.
+         */
+        SiteScript: {
+            /** Author */
+            author?: string | null;
+            /**
+             * @default {
+             *       "devices": [],
+             *       "documents": [],
+             *       "functions": [],
+             *       "points": []
+             *     }
+             */
+            links: components["schemas"]["SiteScriptLinks"];
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Script Id */
+            script_id?: string;
+            /** Site Id */
+            site_id: number;
+            /** Text */
+            text: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SiteScriptCreatedResponse */
+        SiteScriptCreatedResponse: {
+            /**
+             * Changes
+             * @description What publishing the draft would change.
+             */
+            changes: components["schemas"]["KnowledgeChange"][];
+            /** @description The draft, or the published knowledge. */
+            content: components["schemas"]["SiteKnowledge"];
+            /**
+             * Draft Revision
+             * @description 0 = no draft: the content is the published one.
+             */
+            draft_revision: number;
+            /** Draft Updated At */
+            draft_updated_at: string | null;
+            /** Draft Updated By */
+            draft_updated_by: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
+            /** Published Version */
+            published_version: number | null;
+            /** Script Id */
+            script_id: string;
+            /** Site Id */
+            site_id: number;
+        };
+        /**
+         * SiteScriptLinks
+         * @description What a site prompt is about, all optional: approved points (and so their guides), site
+         *     functions (by name), documents (by id) and device ratings (by device). Kept sorted and
+         *     without repeats so an unchanged prompt never shows as an edit.
+         */
+        SiteScriptLinks: {
+            /**
+             * Devices
+             * @default []
+             */
+            devices: number[];
+            /**
+             * Documents
+             * @default []
+             */
+            documents: string[];
+            /**
+             * Functions
+             * @default []
+             */
+            functions: string[];
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["PromptPointLink"][];
+        };
+        /** SiteScriptRequest */
+        SiteScriptRequest: {
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+            /** @description Optional: the approved points, site functions, documents and device ratings this prompt is about, so the AI connects them. */
+            links?: components["schemas"]["SiteScriptLinks"];
+            /**
+             * Name
+             * @description e.g. 'Overview', 'Startup'.
+             */
+            name: string;
+            /**
+             * Text
+             * @description The information for the AI (Markdown).
+             */
+            text: string;
         };
         /**
          * StateGuide
@@ -3029,6 +3329,78 @@ export interface operations {
             };
         };
     };
+    test_run_site_function_api_v1_sites__site_id__functions__name__test_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteFunctionTestRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteFunctionTestRunResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such approved function or device */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad window or parameters, or backend-ot refused it */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description backend-ot unreachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_knowledge_api_v1_sites__site_id__knowledge_get: {
         parameters: {
             query?: never;
@@ -3847,6 +4219,220 @@ export interface operations {
             };
         };
     };
+    create_site_script_api_v1_sites__site_id__knowledge_site_scripts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteScriptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteScriptCreatedResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: number;
+                script_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteScriptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__delete: {
+        parameters: {
+            query?: {
+                /** @description The draft revision you loaded (0 = no draft). */
+                draft_revision?: number | null;
+            };
+            header?: never;
+            path: {
+                site_id: number;
+                script_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeStateResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The draft changed since draft_revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an approved point/device, or a secret */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_versions_api_v1_sites__site_id__knowledge_versions_get: {
         parameters: {
             query?: never;
@@ -3901,6 +4487,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_versions_api_v1_sites__site_id__knowledge_versions_delete: {
+        parameters: {
+            query: {
+                /** @description Repeat for each version. */
+                version: number[];
+            };
+            header?: never;
+            path: {
+                site_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeVersionSummary"][];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not onboarded, or no such item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description One of them is the version the AI uses */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

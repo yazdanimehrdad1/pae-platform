@@ -145,10 +145,27 @@ async def versions_are_listed_newest_first_and_taken_once(store: KnowledgeAuthor
     assert await store.get_version(1, 7) is None
 
 
+async def old_versions_can_be_deleted_but_never_the_latest(
+    store: KnowledgeAuthoringStore,
+) -> None:
+    for number in (1, 2, 3):
+        await store.publish(version(number), draft_revision=None)
+    await store.publish(version(1, site_id=2), draft_revision=None)
+    assert await store.delete_versions(1, [1, 3, 9]) == [1]
+    assert [v.version for v in await store.list_versions(1)] == [3, 2]
+    assert await store.delete_versions(1, [2]) == [2]
+    assert await store.delete_versions(1, [3]) == []
+    assert [v.version for v in await store.list_versions(1)] == [3]
+    assert [v.version for v in await store.list_versions(2)] == [1]
+    await store.publish(version(4), draft_revision=None)
+    assert [v.version for v in await store.list_versions(1)] == [4, 3]
+
+
 CHECKS = [
     nothing_at_first,
     drafts_read_back_and_need_the_next_revision,
     a_first_draft_starts_at_revision_one,
     publishing_stores_the_version_and_ends_the_draft,
     versions_are_listed_newest_first_and_taken_once,
+    old_versions_can_be_deleted_but_never_the_latest,
 ]

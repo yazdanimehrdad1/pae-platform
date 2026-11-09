@@ -36,6 +36,14 @@ class InMemoryKnowledgeAuthoringStore:
         versions = self._versions.get(site_id, {})
         return [versions[number] for number in sorted(versions, reverse=True)]
 
+    async def delete_versions(self, site_id: int, versions: list[int]) -> list[int]:
+        stored = self._versions.get(site_id, {})
+        latest = max(stored, default=0)
+        deleted = sorted(number for number in set(versions) if number in stored and number < latest)
+        for number in deleted:
+            del stored[number]
+        return deleted
+
     async def publish(self, version: KnowledgeVersion, draft_revision: int | None) -> None:
         if draft_revision is not None:
             stored = self._drafts.get(version.site_id)

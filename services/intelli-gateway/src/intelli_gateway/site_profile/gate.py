@@ -8,10 +8,14 @@ profile and passes live reads to backend-ot only for approved devices and points
   to approved devices and points. Points keep their approved names (a device rename waiting for
   approval doesn't rename them), and a value whose definition changed in backend-ot is flagged
   `definition_pending_review`.
+- Site functions: only the approved ones (backend-ot labels them ai_assistant; the site admin
+  approves them like devices and points), on approved devices, with their declared parameters.
 """
 
 from collections.abc import Sequence
 from datetime import datetime
+
+from pydantic import JsonValue
 
 from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.schemas.site_data import (
@@ -23,11 +27,14 @@ from intelli_gateway.schemas.site_data import (
     PointInfo,
     PointValue,
     Site,
+    SiteFunction,
+    SiteFunctionRun,
     StateChange,
     Topology,
 )
 from intelli_gateway.site_profile.diff import point_key
 from intelli_gateway.site_profile.service import ApprovedView, SiteProfileService
+from intelli_gateway.utils.exceptions import InvalidRequestError, NotFoundError
 
 
 class ApprovedSiteDataConnector:
@@ -127,6 +134,53 @@ class ApprovedSiteDataConnector:
             return []
         comms = await self._inner.get_device_comms(site_id)
         return [entry for entry in comms if entry.device_id in view.device_ids]
+
+    # --- site functions: approved ones only ---
+
+    async def list_site_functions(self, site_id: int) -> list[SiteFunction]:
+        view = await self._profiles.approved_view(site_id)
+        return list(view.catalog.functions) if view else []
+
+    async def run_site_function(
+        self, site_id: int, run: SiteFunctionRun, max_points: int | None = None
+    ) -> dict[str, JsonValue]:
+        """Runs only an approved function, and a device function only on an approved device of
+        a type it applies to. Raises NotFoundError / InvalidRequestError otherwise."""
+        view = await self._profiles.approved_view(site_id)
+        function = view.function(run.name) if view else None
+        if view is None or function is None:
+            raise NotFoundError(f"no approved site function named {run.name!r}")
+        if function.kind != "device":
+            if run.device_id is not None:
+                raise InvalidRequestError(f"{run.name} is site-wide: leave the device out")
+        else:
+            if run.device_id is None:
+                raise InvalidRequestError(f"{run.name} runs for one device: give its device_id")
+            device = view.device(run.device_id)
+            if device is None:
+                raise NotFoundError(f"no approved device with id {run.device_id}")
+            if function.device_types and device.type not in function.device_types:
+                raise InvalidRequestError(
+                    f"{run.name} applies to {', '.join(function.device_types)} devices, "
+                    f"not to {device.name} ({device.type})"
+                )
+        known = {parameter.name for parameter in function.parameters}
+        unknown = sorted(set(run.parameters) - known)
+        if unknown:
+            raise InvalidRequestError(
+                f"{run.name} has no parameter {', '.join(unknown)}"
+                + (f" (it takes: {', '.join(sorted(known))})" if known else "")
+            )
+        missing = sorted(
+            parameter.name
+            for parameter in function.parameters
+            if parameter.required and parameter.name not in run.parameters
+        )
+        if missing:
+            raise InvalidRequestError(f"{run.name} needs {', '.join(missing)}")
+        return await self._inner.run_site_function(
+            site_id, run, max_points if function.output == "series" else None
+        )
 
     async def aclose(self) -> None:
         await self._inner.aclose()

@@ -2,10 +2,17 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 from intelli_gateway.schemas.knowledge import KnowledgeDocument, PointGuide
-from intelli_gateway.schemas.site_data import AlarmSeverity, Device, PointInfo, Site, Topology
+from intelli_gateway.schemas.site_data import (
+    AlarmSeverity,
+    Device,
+    PointInfo,
+    Site,
+    SiteFunction,
+    Topology,
+)
 
 
 class SignalShape(StrEnum):
@@ -80,6 +87,16 @@ class StaticAlarmEvent(BaseModel):
     duration_hours: float | None  # None: still active
 
 
+class FakeFunction(BaseModel):
+    """A backend-ot site function with a fixed result. ai_assistant: labelled for the AI."""
+
+    model_config = ConfigDict(frozen=True)
+
+    function: SiteFunction
+    result: dict[str, JsonValue]
+    ai_assistant: bool = True
+
+
 class FakeSite(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -93,3 +110,4 @@ class FakeSite(BaseModel):
     stale_devices: dict[int, float] = {}
     documents: tuple[KnowledgeDocument, ...] = ()
     guides: tuple[PointGuide, ...] = ()
+    functions: tuple[FakeFunction, ...] = ()

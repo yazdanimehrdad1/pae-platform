@@ -22,6 +22,8 @@ from intelli_gateway.schemas.api_models.knowledge import (
     PointGuideRequest,
     PublishRequest,
     RevertRequest,
+    SiteScriptCreatedResponse,
+    SiteScriptRequest,
 )
 from intelli_gateway.schemas.api_models.responses import ErrorResponse
 from intelli_gateway.schemas.knowledge import KnowledgeCoverage, KnowledgeVersion
@@ -189,6 +191,62 @@ async def delete_document(
     )
 
 
+@router.post(
+    "/site-scripts",
+    response_model=SiteScriptCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=EDIT,
+    summary="Add a site script (general information about the site) after the others, to the draft",
+)
+async def create_site_script(
+    site_id: int, body: SiteScriptRequest, admin: Admin, knowledge: Knowledge
+) -> SiteScriptCreatedResponse:
+    state, script_id = await knowledge.create_site_script(
+        site_id, body.name, body.text, admin.email, body.draft_revision, body.links
+    )
+    return SiteScriptCreatedResponse(**_state(state).model_dump(), script_id=script_id)
+
+
+@router.put(
+    "/site-scripts/{script_id}",
+    response_model=KnowledgeStateResponse,
+    responses=EDIT,
+    summary="Change a site script's name, text and links in the draft",
+)
+async def update_site_script(
+    site_id: int, script_id: str, body: SiteScriptRequest, admin: Admin, knowledge: Knowledge
+) -> KnowledgeStateResponse:
+    return _state(
+        await knowledge.update_site_script(
+            site_id,
+            script_id,
+            body.name,
+            body.text,
+            admin.email,
+            body.draft_revision,
+            body.links,
+        )
+    )
+
+
+@router.delete(
+    "/site-scripts/{script_id}",
+    response_model=KnowledgeStateResponse,
+    responses=EDIT,
+    summary="Remove a site script in the draft",
+)
+async def delete_site_script(
+    site_id: int,
+    script_id: str,
+    admin: Admin,
+    knowledge: Knowledge,
+    draft_revision: DraftRevisionQuery = None,
+) -> KnowledgeStateResponse:
+    return _state(
+        await knowledge.delete_site_script(site_id, script_id, admin.email, draft_revision)
+    )
+
+
 @router.put(
     "/device-facts/{device_id}",
     response_model=KnowledgeStateResponse,
@@ -266,6 +324,26 @@ async def list_versions(
 ) -> list[KnowledgeVersionSummary]:
     del admin
     return [KnowledgeVersionSummary.of(version) for version in await knowledge.versions(site_id)]
+
+
+@router.delete(
+    "/versions",
+    response_model=list[KnowledgeVersionSummary],
+    responses={
+        422: {"model": ErrorResponse, "description": "One of them is the version the AI uses"}
+    },
+    summary="Delete older published versions (never the one the AI uses); the versions left",
+)
+async def delete_versions(
+    site_id: int,
+    versions: Annotated[
+        list[int], Query(alias="version", min_length=1, description="Repeat for each version.")
+    ],
+    admin: Admin,
+    knowledge: Knowledge,
+) -> list[KnowledgeVersionSummary]:
+    remaining = await knowledge.delete_versions(site_id, versions, admin.email)
+    return [KnowledgeVersionSummary.of(version) for version in remaining]
 
 
 @router.get("/versions/{version}", response_model=KnowledgeVersion, summary="One published version")

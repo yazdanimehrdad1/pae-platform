@@ -149,7 +149,8 @@
           "site",
           "device",
           "point",
-          "topology"
+          "topology",
+          "function"
         ],
         "title": "ChangeTarget",
         "type": "string"
@@ -654,7 +655,7 @@
       },
       "JsonValue": {},
       "KnowledgeChange": {
-        "description": "One draft item that differs from the published knowledge. item_key:\n`point:<device_id>:<point name>`, `document:<document_id>` or `device:<device_id>`.",
+        "description": "One draft item that differs from the published knowledge. item_key:\n`point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or\n`script:<script_id>`.",
         "properties": {
           "item_key": {
             "title": "Item Key",
@@ -825,7 +826,8 @@
         "enum": [
           "point_guide",
           "document",
-          "device_facts"
+          "device_facts",
+          "site_script"
         ],
         "title": "KnowledgeItemKind",
         "type": "string"
@@ -1030,6 +1032,10 @@
             ],
             "title": "Restored From"
           },
+          "site_scripts": {
+            "title": "Site Scripts",
+            "type": "integer"
+          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -1043,7 +1049,8 @@
           "restored_from",
           "point_guides",
           "documents",
-          "device_facts"
+          "device_facts",
+          "site_scripts"
         ],
         "title": "KnowledgeVersionSummary",
         "type": "object"
@@ -1711,7 +1718,7 @@
         "type": "object"
       },
       "ProfileChange": {
-        "description": "One difference between the approved profile and backend-ot's current catalog.\n\nchange_id is stable for the same difference: `site`, `topology`, `device:<device_id>`,\n`point:<device_id>:<point name in its device>`. A device added or removed carries its points\n(they are not listed separately).",
+        "description": "One difference between the approved profile and backend-ot's current catalog.\n\nchange_id is stable for the same difference: `site`, `topology`, `device:<device_id>`,\n`point:<device_id>:<point name in its device>`, `function:<name>`. A device added or removed\ncarries its points (they are not listed separately).",
         "properties": {
           "change_id": {
             "title": "Change Id",
@@ -1735,6 +1742,17 @@
             },
             "title": "Fields",
             "type": "array"
+          },
+          "function_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function Name"
           },
           "kind": {
             "$ref": "#/components/schemas/ChangeKind"
@@ -1831,6 +1849,11 @@
             "title": "Devices",
             "type": "integer"
           },
+          "functions": {
+            "default": 0,
+            "title": "Functions",
+            "type": "integer"
+          },
           "points": {
             "title": "Points",
             "type": "integer"
@@ -1854,6 +1877,26 @@
           "points"
         ],
         "title": "ProfileVersionSummary",
+        "type": "object"
+      },
+      "PromptPointLink": {
+        "description": "A point a site prompt is about: the site device and the point's name on it.",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "integer"
+          },
+          "point_name": {
+            "minLength": 1,
+            "title": "Point Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "point_name"
+        ],
+        "title": "PromptPointLink",
         "type": "object"
       },
       "PublishRequest": {
@@ -2227,6 +2270,14 @@
             "title": "Devices",
             "type": "array"
           },
+          "functions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteFunction"
+            },
+            "title": "Functions",
+            "type": "array"
+          },
           "points": {
             "default": [],
             "items": {
@@ -2325,6 +2376,237 @@
         "title": "SiteForecastHealthResponse",
         "type": "object"
       },
+      "SiteFunction": {
+        "description": "A calculation backend-ot runs for a site (e.g. a BESS's round-trip efficiency). kind\n`device` runs for one device; device_types limits which (empty: any device).",
+        "properties": {
+          "device_types": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Device Types",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "common",
+              "site",
+              "device"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "output": {
+            "default": "scalar",
+            "enum": [
+              "scalar",
+              "series"
+            ],
+            "title": "Output",
+            "type": "string"
+          },
+          "parameters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteFunctionParameter"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "summary"
+        ],
+        "title": "SiteFunction",
+        "type": "object"
+      },
+      "SiteFunctionParameter": {
+        "description": "A query parameter a function takes besides the time window.",
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "SiteFunctionParameter",
+        "type": "object"
+      },
+      "SiteFunctionTestRunRequest": {
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Device functions only: the approved device to run it for",
+            "title": "Device Id"
+          },
+          "end": {
+            "description": "End of the window, ISO 8601 with a UTC offset",
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "description": "Extra parameters the function declares; omit for their defaults",
+            "title": "Parameters",
+            "type": "object"
+          },
+          "start": {
+            "description": "Start of the window, ISO 8601 with a UTC offset",
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "SiteFunctionTestRunRequest",
+        "type": "object"
+      },
+      "SiteFunctionTestRunResponse": {
+        "description": "What the AI's run_site_function tool would return for the same request.",
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "function": {
+            "title": "Function",
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Result",
+            "type": "object"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function",
+          "start",
+          "end",
+          "result"
+        ],
+        "title": "SiteFunctionTestRunResponse",
+        "type": "object"
+      },
       "SiteKnowledge": {
         "description": "Everything engineers wrote for one site. Point guides name the point within its device\n(`point_name` without the `DEVICE.` prefix), so a device rename doesn't orphan them.",
         "properties": {
@@ -2350,6 +2632,14 @@
               "$ref": "#/components/schemas/PointGuide"
             },
             "title": "Point Guides",
+            "type": "array"
+          },
+          "site_scripts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteScript"
+            },
+            "title": "Site Scripts",
             "type": "array"
           }
         },
@@ -2512,6 +2802,246 @@
           "timezone"
         ],
         "title": "SiteResponse",
+        "type": "object"
+      },
+      "SiteScript": {
+        "description": "One part of the site's general information for the AI (overview, how the site runs, ...),\nwritten by an admin as several named texts instead of one long prompt. Kept in `position`\norder (the order they were added); the AI reads them all, first, in its site context.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "links": {
+            "$ref": "#/components/schemas/SiteScriptLinks",
+            "default": {
+              "devices": [],
+              "documents": [],
+              "functions": [],
+              "points": []
+            }
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "name",
+          "text",
+          "position",
+          "updated_at"
+        ],
+        "title": "SiteScript",
+        "type": "object"
+      },
+      "SiteScriptCreatedResponse": {
+        "properties": {
+          "changes": {
+            "description": "What publishing the draft would change.",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SiteKnowledge",
+            "description": "The draft, or the published knowledge."
+          },
+          "draft_revision": {
+            "description": "0 = no draft: the content is the published one.",
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "draft_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated At"
+          },
+          "draft_updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated By"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "published_version",
+          "published_at",
+          "published_by",
+          "draft_revision",
+          "draft_updated_at",
+          "draft_updated_by",
+          "changes",
+          "content",
+          "script_id"
+        ],
+        "title": "SiteScriptCreatedResponse",
+        "type": "object"
+      },
+      "SiteScriptLinks": {
+        "description": "What a site prompt is about, all optional: approved points (and so their guides), site\nfunctions (by name), documents (by id) and device ratings (by device). Kept sorted and\nwithout repeats so an unchanged prompt never shows as an edit.",
+        "properties": {
+          "devices": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "documents": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "functions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Functions",
+            "type": "array"
+          },
+          "points": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PromptPointLink"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "title": "SiteScriptLinks",
+        "type": "object"
+      },
+      "SiteScriptRequest": {
+        "properties": {
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          },
+          "links": {
+            "$ref": "#/components/schemas/SiteScriptLinks",
+            "description": "Optional: the approved points, site functions, documents and device ratings this prompt is about, so the AI connects them."
+          },
+          "name": {
+            "description": "e.g. 'Overview', 'Startup'.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "text": {
+            "description": "The information for the AI (Markdown).",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "text"
+        ],
+        "title": "SiteScriptRequest",
         "type": "object"
       },
       "StateGuide": {
@@ -4619,6 +5149,107 @@
         ]
       }
     },
+    "/api/v1/sites/{site_id}/functions/{name}/test-run": {
+      "post": {
+        "operationId": "test_run_site_function_api_v1_sites__site_id__functions__name__test_run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteFunctionTestRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteFunctionTestRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such approved function or device"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad window or parameters, or backend-ot refused it"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "backend-ot unreachable"
+          }
+        },
+        "summary": "Run an approved site function exactly as the AI would, and see what it gets",
+        "tags": [
+          "site-profiles"
+        ]
+      }
+    },
     "/api/v1/sites/{site_id}/knowledge": {
       "get": {
         "operationId": "get_knowledge_api_v1_sites__site_id__knowledge_get",
@@ -5756,7 +6387,397 @@
         ]
       }
     },
+    "/api/v1/sites/{site_id}/knowledge/site-scripts": {
+      "post": {
+        "operationId": "create_site_script_api_v1_sites__site_id__knowledge_site_scripts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteScriptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteScriptCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Add a site script (general information about the site) after the others, to the draft",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/sites/{site_id}/knowledge/site-scripts/{script_id}": {
+      "delete": {
+        "operationId": "delete_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The draft revision you loaded (0 = no draft).",
+            "in": "query",
+            "name": "draft_revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The draft revision you loaded (0 = no draft).",
+              "title": "Draft Revision"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Remove a site script in the draft",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "put": {
+        "operationId": "update_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteScriptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The draft changed since draft_revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an approved point/device, or a secret"
+          }
+        },
+        "summary": "Change a site script's name, text and links in the draft",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/sites/{site_id}/knowledge/versions": {
+      "delete": {
+        "operationId": "delete_versions_api_v1_sites__site_id__knowledge_versions_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Repeat for each version.",
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "description": "Repeat for each version.",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 1,
+              "title": "Version",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeVersionSummary"
+                  },
+                  "title": "Response Delete Versions Api V1 Sites  Site Id  Knowledge Versions Delete",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not an admin"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not onboarded, or no such item"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "One of them is the version the AI uses"
+          }
+        },
+        "summary": "Delete older published versions (never the one the AI uses); the versions left",
+        "tags": [
+          "knowledge"
+        ]
+      },
       "get": {
         "operationId": "list_versions_api_v1_sites__site_id__knowledge_versions_get",
         "parameters": [

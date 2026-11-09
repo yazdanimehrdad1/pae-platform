@@ -8,8 +8,10 @@ MCP-ready.
 - the Claude integration (`services/claude/client.py`)
 - the agent loop and conversation history
 - the tool layer and its authorization
-- engineer-written knowledge: point guides (meaning, limits, and per state, alarm bit or vendor
-  fault code: message, severity, causes, checks, safety note), manuals, IM scripts, procedures,
+- engineer-written knowledge: site scripts (the admin's general information about the site, as
+  named texts in order, first in the AI's site context, each optionally linked to points, site
+  functions, documents and device ratings), point guides (meaning, limits, and per
+  state, alarm bit or vendor fault code: message, severity, causes, checks, safety note), manuals, IM scripts, procedures,
   experience notes and device ratings, in its own Postgres (`knowledge/`, migration
   `006_knowledge`). Admins edit a draft and publish the whole site at once; the AI reads only
   the published version (`knowledge/published_store.py`). Guides are keyed per site device by
@@ -21,6 +23,11 @@ MCP-ready.
   (approved sites, devices and points); backend-ot changes wait until a site admin approves
   them (admin API `/api/v1/site-profiles` and `/api/v1/sites/{id}/profile/...`, or the CLI
   `python -m intelli_gateway.manage_site_profiles`). Plan: [docs/KNOWLEDGE_PLAN.md](docs/KNOWLEDGE_PLAN.md).
+- **site functions for the AI:** which of backend-ot's site functions the AI may run. backend-ot
+  computes them and labels each `ai_assistant`; the profile copies only those, and each is
+  approved like a point. Tools `list_site_functions` / `run_site_function`, and the admin's
+  `POST /api/v1/sites/{id}/functions/{name}/test-run`, share `site_profile/functions.py`
+  (window limit, series summarized). This service computes no site figures itself.
 - **PlusDAS users** (`auth/`, migration `003_users`): accounts (signed in by email address; admin-created with
   `manage_users`, no self-signup), login and sessions (an opaque token in an HttpOnly cookie; only
   its SHA-256 is stored), and per-user data next. `get_request_context` takes the user from the
@@ -79,6 +86,7 @@ Recipes run in Git for Windows' sh. `make help` lists every target.
 - **Site profile gate:** tools and the agent service get the gated `SiteDataConnector`
   (`wiring.py`); only `SiteProfileService` reads the ungated one. Never copy network or Modbus
   details into a profile, and a sync never changes an approved profile: only an approval does.
+  The gate also runs only approved site functions (approved device, declared parameters).
 - **Agent loop:** the loop talks to tools only through `ToolProvider` (`list_tools` /
   `call_tool`). Never call tool functions directly.
 - **Tools:**

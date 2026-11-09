@@ -10,7 +10,7 @@ from enum import StrEnum
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict
 
-from intelli_gateway.schemas.site_data import Device, PointInfo, Site, Topology
+from intelli_gateway.schemas.site_data import Device, PointInfo, Site, SiteFunction, Topology
 
 
 class SiteCatalog(BaseModel):
@@ -22,6 +22,8 @@ class SiteCatalog(BaseModel):
     devices: tuple[Device, ...] = ()
     points: tuple[PointInfo, ...] = ()
     topology: Topology = Topology()
+    # backend-ot site functions labelled for the AI (by name).
+    functions: tuple[SiteFunction, ...] = ()
 
 
 class CatalogSnapshot(BaseModel):
@@ -53,6 +55,7 @@ class ChangeTarget(StrEnum):
     DEVICE = "device"
     POINT = "point"
     TOPOLOGY = "topology"
+    FUNCTION = "function"
 
 
 class ChangeKind(StrEnum):
@@ -65,8 +68,8 @@ class ProfileChange(BaseModel):
     """One difference between the approved profile and backend-ot's current catalog.
 
     change_id is stable for the same difference: `site`, `topology`, `device:<device_id>`,
-    `point:<device_id>:<point name in its device>`. A device added or removed carries its points
-    (they are not listed separately)."""
+    `point:<device_id>:<point name in its device>`, `function:<name>`. A device added or removed
+    carries its points (they are not listed separately)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -77,6 +80,8 @@ class ProfileChange(BaseModel):
     device_id: int | None = None
     # The point's name within its device (backend-ot's name, without the device prefix).
     point_name: str | None = None
+    # FUNCTION changes: the site function's name.
+    function_name: str | None = None
     # CHANGED only: the fields that differ.
     fields: tuple[str, ...] = ()
 

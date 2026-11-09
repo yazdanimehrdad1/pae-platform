@@ -9,6 +9,7 @@ from intelli_gateway.schemas.knowledge import (
     KnowledgeDocument,
     KnowledgeKind,
     PointGuide,
+    SiteScript,
 )
 
 
@@ -18,6 +19,8 @@ class InMemoryKnowledgeStore:
     ) -> None:
         self._documents = list(documents)
         self._guides = list(guides)
+        # Published site prompts; tests append to it.
+        self.site_scripts: list[SiteScript] = []
 
     @classmethod
     def from_fake_sites(cls, sites: Sequence[FakeSite] = FAKE_SITES) -> "InMemoryKnowledgeStore":
@@ -78,3 +81,6 @@ class InMemoryKnowledgeStore:
     async def list_device_facts(self, site_id: int) -> list[DeviceFacts]:
         del site_id
         return []
+
+    async def list_site_scripts(self, site_id: int) -> list[SiteScript]:
+        return [script for script in self.site_scripts if script.site_id == site_id]

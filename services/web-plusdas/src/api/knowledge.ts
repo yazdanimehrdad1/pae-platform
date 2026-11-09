@@ -1,6 +1,6 @@
 import type {
   DeviceFactsRequest, DocumentCreated, DocumentRequest, KnowledgeCoverage, KnowledgeState, KnowledgeVersion,
-  KnowledgeVersionSummary, PointGuideRequest,
+  KnowledgeVersionSummary, PointGuideRequest, SiteScriptCreated, SiteScriptRequest,
 } from './types/knowledge';
 import { intelliGatewayClient } from './client';
 
@@ -31,6 +31,14 @@ export const knowledgeApi = {
   deleteDocument: (siteId: number, documentId: string, draftRevision?: number): Promise<KnowledgeState> =>
     intelliGatewayClient.deleteJson(`${base(siteId)}/documents/${encodeURIComponent(documentId)}${revisionQuery(draftRevision)}`),
 
+  /** Site scripts: the admin's general information about the site, in order (a new one goes last). */
+  createSiteScript: (siteId: number, body: SiteScriptRequest): Promise<SiteScriptCreated> =>
+    intelliGatewayClient.post(`${base(siteId)}/site-scripts`, body),
+  updateSiteScript: (siteId: number, scriptId: string, body: SiteScriptRequest): Promise<KnowledgeState> =>
+    intelliGatewayClient.put(`${base(siteId)}/site-scripts/${encodeURIComponent(scriptId)}`, body),
+  deleteSiteScript: (siteId: number, scriptId: string, draftRevision?: number): Promise<KnowledgeState> =>
+    intelliGatewayClient.deleteJson(`${base(siteId)}/site-scripts/${encodeURIComponent(scriptId)}${revisionQuery(draftRevision)}`),
+
   putDeviceFacts: (siteId: number, deviceId: number, body: DeviceFactsRequest): Promise<KnowledgeState> =>
     intelliGatewayClient.put(`${base(siteId)}/device-facts/${deviceId}`, body),
   deleteDeviceFacts: (siteId: number, deviceId: number, draftRevision?: number): Promise<KnowledgeState> =>
@@ -48,4 +56,7 @@ export const knowledgeApi = {
   /** Publishes an earlier version's content again, as a new version (409 while there is a draft). */
   restore: (siteId: number, version: number): Promise<KnowledgeVersion> =>
     intelliGatewayClient.post(`${base(siteId)}/versions/${version}/restore`, {}),
+  /** Deletes older versions (never the one the AI uses: 422); returns the versions left. */
+  deleteVersions: (siteId: number, versions: number[]): Promise<KnowledgeVersionSummary[]> =>
+    intelliGatewayClient.deleteJson(`${base(siteId)}/versions?${versions.map(version => `version=${version}`).join('&')}`),
 };

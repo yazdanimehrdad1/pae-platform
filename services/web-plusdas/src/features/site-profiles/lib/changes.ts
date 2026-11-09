@@ -3,7 +3,7 @@ import type { ChangeKind, ChangeTarget, ProfileChange, ProfilePoint } from '@/ap
 // Records, so a kind or target added to intelli-gateway's contract fails the typecheck until it has a label.
 export const CHANGE_KIND_LABELS: Record<ChangeKind, string> = { added: 'New', removed: 'Removed', changed: 'Changed' };
 export const CHANGE_TARGET_LABELS: Record<ChangeTarget, string> = {
-  site: 'Site', device: 'Devices', point: 'Points', topology: 'Topology',
+  site: 'Site', device: 'Devices', point: 'Points', function: 'Site functions', topology: 'Topology',
 };
 const TARGET_ORDER = Object.keys(CHANGE_TARGET_LABELS) as ChangeTarget[];
 

@@ -132,6 +132,18 @@ class SiteContext(BaseModel):
 # --- Discovery (GET /site-functions/site/{site_id}) --------------------------------------
 
 
+class SiteEndpointParameter(BaseModel):
+    """One extra query parameter of a site function (from its params_model)."""
+
+    name: str
+    type: str = Field(..., description="JSON schema type: integer, number, string or boolean")
+    description: str | None = None
+    required: bool = False
+    default: int | float | str | bool | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+
 class SiteEndpointInfo(BaseModel):
     name: str = Field(..., description="Function name, the last URL segment; starts with its kind")
     kind: FunctionKind = Field(
@@ -147,6 +159,16 @@ class SiteEndpointInfo(BaseModel):
     device_types: list[DeviceType] = Field(
         default_factory=list,
         description="Device endpoints only: the device types it applies to; empty means every device",
+    )
+    parameters: list[SiteEndpointParameter] = Field(
+        default_factory=list,
+        description="Query parameters it takes besides the time window (start_time, end_time, time_range, tz) and max_points",
+    )
+    ai_assistant: bool = Field(
+        False, description="intelli-gateway's AI assistant may use it; endpoints without it are hidden from the AI"
+    )
+    user_visible: bool = Field(
+        True, description="Shown to users (historian and reports); False for an endpoint written only for the AI"
     )
 
 

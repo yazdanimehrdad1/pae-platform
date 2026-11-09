@@ -183,3 +183,38 @@ async def test_revert_discard_and_restore(setup: Setup) -> None:
 
         await admin.put(f"{BASE}/point-guides/1/Status", json={"meaning": "On/off"})
         assert (await admin.delete(f"{BASE}/draft")).json()["changes"] == []
+
+        created = await admin.post(
+            f"{BASE}/site-scripts", json={"name": "Overview", "text": "Solar site, one meter."}
+        )
+        assert created.status_code == 201
+        script_id = created.json()["script_id"]
+        assert [s["name"] for s in created.json()["content"]["site_scripts"]] == ["Overview"]
+        links = {"points": [{"device_id": 1, "point_name": "Fault"}], "devices": [1]}
+        changed = await admin.put(
+            f"{BASE}/site-scripts/{script_id}",
+            json={"name": "Overview", "text": "Solar site.", "links": links, "draft_revision": 1},
+        )
+        script = changed.json()["content"]["site_scripts"][0]
+        assert script["text"] == "Solar site."
+        assert script["links"] == {**links, "functions": [], "documents": []}
+        bad_link = await admin.put(
+            f"{BASE}/site-scripts/{script_id}",
+            json={"name": "Overview", "text": "Solar site.", "links": {"devices": [99]}},
+        )
+        assert bad_link.status_code == 422 and "device 99" in bad_link.json()["detail"]
+        assert (
+            await admin.put(f"{BASE}/site-scripts/nope", json={"name": "x", "text": "y"})
+        ).status_code == 404
+        assert (
+            await admin.post(f"{BASE}/site-scripts", json={"name": "", "text": "y"})
+        ).status_code == 422
+        removed = await admin.delete(f"{BASE}/site-scripts/{script_id}")
+        assert removed.json()["content"]["site_scripts"] == [] and removed.json()["changes"] == []
+
+        live = await admin.delete(f"{BASE}/versions", params={"version": [2, 3]})
+        assert live.status_code == 422 and "what the AI uses" in live.json()["detail"]
+        assert (await admin.delete(f"{BASE}/versions")).status_code == 422
+        deleted = await admin.delete(f"{BASE}/versions", params={"version": [1, 2]})
+        assert [v["version"] for v in deleted.json()] == [3]
+        assert (await setup.explain("M1.Fault"))["guide"]["meaning"] == "Meter fault code"

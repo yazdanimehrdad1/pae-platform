@@ -53,6 +53,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
     endpoints=(
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-poi-active-power",
             controller=site_poi_active_power,
@@ -62,6 +63,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-poi-reactive-power",
             controller=site_poi_reactive_power,
@@ -71,6 +73,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-assets-active-power",
             controller=site_assets_active_power,
@@ -80,6 +83,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-assets-reactive-power",
             controller=site_assets_reactive_power,
@@ -89,6 +93,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-bess1-round-trip-efficiency",
             controller=site_bess1_round_trip_efficiency,
@@ -97,6 +102,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-bess2-round-trip-efficiency",
             controller=site_bess2_round_trip_efficiency,
@@ -105,6 +111,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-bess1-rolling-round-trip-efficiency",
             controller=site_bess1_rolling_round_trip_efficiency,
@@ -115,6 +122,7 @@ POWERFLOW_2BESS_1PV_PROFILE = SiteProfile(
         ),
         SiteEndpoint(
             method="GET",
+            ai_assistant=True,
             kind="site",
             name="site-bess2-rolling-round-trip-efficiency",
             controller=site_bess2_rolling_round_trip_efficiency,

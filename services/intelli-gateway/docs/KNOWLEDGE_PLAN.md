@@ -8,7 +8,8 @@ Agreed with the user on 2026-11-06. Not built yet. Read with [PROGRESS.md](PROGR
 - **Everything the AI knows or can reach is in intelli-gateway.** The gateway is the one place that
   controls and limits the AI's information. backend-ot is not changed for the AI's needs, and the
   AI reaches it only through `services/backend_ot/`, only for approved devices and points, and
-  only through allowlisted queries.
+  only through allowlisted queries. One exception (the user's call, 2026-11-08): backend-ot
+  labels its site functions `ai_assistant` / `user_visible` (section 3).
 - **The gateway's Postgres is the only source of truth** for the AI's site knowledge.
 - **Two ways in, one path:** the site admin in the web UI, and code-level seed modules. Both call
   the same `KnowledgeService` (validation, drafts, publish). No Excel import for now.
@@ -52,23 +53,27 @@ The admin adds what backend-ot doesn't have: ratings (e.g. BESS MW/MWh, inverter
 
 | Type | Content | How the AI uses it |
 |---|---|---|
+| Site scripts | the admin's general information about the site, step by step: any number of named texts, in order (2026-11-09); each may link points, site functions, documents and device ratings (optional) | first in the cached site block |
 | Point definition | meaning, unit note, normal range, related points | `explain_point` |
 | Point guide: states | per enum value, bit or vendor fault code: label, severity, message, meaning, probable causes, checks, related points, safety note | `lookup_fault`, `explain_point`, flags on live values |
 | Point guide: limits | above/below a value: severity, message, causes, checks | `explain_point`, flags on live values |
 | Documents | manuals, IM scripts, procedures, experience notes (pasted Markdown, optional device and points) | manuals/scripts/procedures in the cached site block; notes via `search_experience_notes` |
-| Site functions | a library function enabled for the site, its inputs bound to points | generic `list_site_functions` / `run_site_function` |
+| Site functions | backend-ot's site functions labelled `ai_assistant`, approved per site | generic `list_site_functions` / `run_site_function` |
 
-**Site functions (option B):** a Python library in `site_functions/` (functions only, like the
-other feature folders): availability, round-trip efficiency, peer comparison, clipping, SOC drift,
-and wrappers over backend-ot's site-function endpoints (through the allowlist). Each declares its
-inputs (roles such as `charge_energy`) and its output unit. Per site, the admin enables a function
-and binds each input to an approved point, then test-runs it. A new kind of function is a code
-change with tests; enabling and binding is data. The tool list stays fixed (prompt cache stays
-stable); the site's enabled functions are listed in its site block.
+**Site functions (built 2026-11-08; changed from the first plan):** the gateway computes nothing.
+backend-ot runs the site functions its site profiles declare (`SiteEndpoint` in a site's
+`profile.py`), and labels each `ai_assistant` (the gateway may use it) and `user_visible` (the
+historian and reports show it; False for a function written only for the AI). The gateway copies
+only `ai_assistant` functions into the site profile, where each one is a pending change the site
+admin approves like a point; the admin test-runs it from the UI. A new function is a backend-ot
+code change in that site's profile. The tool list stays fixed (prompt cache stays stable). The
+first plan (a gateway Python library with per-site enable and point bindings, migration
+`007_site_functions`) was dropped.
 
 **Life cycle of every item:** draft → published → superseded/archived. Publishing writes a new
 site knowledge version (content hash), which resets the site's prompt and answer caches.
-Versions are kept (who, when, what changed) and can be rolled back.
+Versions are kept (who, when, what changed) and can be rolled back. An admin can delete older
+versions, never the one the AI uses (2026-11-09).
 
 ## 4. Coverage report
 
@@ -76,7 +81,7 @@ Versions are kept (who, when, what changed) and can be rolled back.
 - approved alarm, enum and bitfield points without a guide (first priority), with the code count
 - key analog points without limits
 - devices without ratings, IM script or procedure
-- enabled functions with unbound inputs
+- site functions waiting for approval
 - pending sync diff count, guides needing review
 - gaps the AI hit (section 6)
 
@@ -87,7 +92,7 @@ Versions are kept (who, when, what changed) and can be rolled back.
    profile version 1. Only now does the AI serve the site.
 3. Add ratings and device notes.
 4. Work the coverage report: definitions and state guides for alarm/enum/bitfield points, then
-   limits, then site functions (enable + bind), then IM scripts and procedures.
+   limits, then site functions (approve and try them), then IM scripts and procedures.
 5. Review drafts, publish.
 6. "Try it": standard check questions, showing the answer, tools used, guides cited, cost.
 7. Live. From then on: approve sync diffs, and grow the knowledge (section 6).
@@ -132,8 +137,8 @@ Each step: provider first, `make contract` (additive), tests, PROGRESS.md update
    in as JSON export/import (`manage_knowledge`; files kept out of the repo: real plant data).
 3. **Admin API** under `/api/v1/sites/{site_id}/knowledge/...` (profile, diffs, items, publish,
    coverage), admin role only.
-4. **Site functions:** `site_functions/` library, migration `007_site_functions` (enable +
-   bindings), generic tools, test-run endpoint.
+4. **Site functions** (built 2026-11-08, see PROGRESS.md item 12): backend-ot labels, the site
+   profile approval, generic tools, test-run endpoint and its UI.
 5. **web-plusdas Knowledge pages:** built alongside each step (the user's call, 2026-11-07), not
    all at the end. Done: "AI Site Profiles" (step 1: sites, pending changes, approve, what the AI
    knows, history). Next with their steps: ratings, points (definitions, states, limits),
@@ -143,5 +148,5 @@ Each step: provider first, `make contract` (additive), tests, PROGRESS.md update
 8. **Cost:** cost logging (can land earlier), direct lookups, answer cache, model per run, budgets.
 
 The validator, everywhere: point names must be approved for the site; codes unique per point;
-severity from the fixed list; function inputs bound to existing points with matching units; no
-secrets (passwords, keys, IPs); size limits.
+severity from the fixed list; site functions run only when approved, with their declared
+parameters; no secrets (passwords, keys, IPs); size limits.

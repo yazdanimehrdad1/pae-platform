@@ -7,7 +7,7 @@ device rename is one device change, not a change on every point.
 
 from collections.abc import Collection, Iterable
 
-from intelli_gateway.schemas.site_data import Device, PointInfo
+from intelli_gateway.schemas.site_data import Device, PointInfo, SiteFunction
 from intelli_gateway.schemas.site_profile import (
     ChangeKind,
     ChangeTarget,
@@ -30,12 +30,17 @@ POINT_FIELDS = (
     "enum_labels",
     "bit_labels",
 )
+FUNCTION_FIELDS = ("kind", "summary", "output", "device_types", "parameters")
 SITE_CHANGE_ID = "site"
 TOPOLOGY_CHANGE_ID = "topology"
 
 
 def device_change_id(device_id: int) -> str:
     return f"device:{device_id}"
+
+
+def function_change_id(name: str) -> str:
+    return f"function:{name}"
 
 
 def point_change_id(key: PointKey) -> str:
@@ -67,7 +72,7 @@ def _point_count(count: int) -> str:
 
 
 def diff_catalogs(approved: SiteCatalog | None, current: SiteCatalog) -> list[ProfileChange]:
-    """Every difference, in a stable order: site, devices, points, topology.
+    """Every difference, in a stable order: site, devices, points, site functions, topology.
     With nothing approved yet, everything in the catalog is an addition."""
     changes: list[ProfileChange] = []
     if approved is None:
@@ -140,6 +145,8 @@ def diff_catalogs(approved: SiteCatalog | None, current: SiteCatalog) -> list[Pr
                 )
             )
 
+    changes.extend(_function_changes(approved.functions if approved else (), current.functions))
+
     if approved is None or approved.topology != current.topology:
         changes.append(
             ProfileChange(
@@ -196,6 +203,42 @@ def _point_changes(
                         fields,
                     )
                 )
+    return changes
+
+
+def _function_changes(
+    old_functions: Iterable[SiteFunction], new_functions: Iterable[SiteFunction]
+) -> list[ProfileChange]:
+    old = {function.name: function for function in old_functions}
+    new = {function.name: function for function in new_functions}
+    changes: list[ProfileChange] = []
+    for name in sorted(old.keys() | new.keys()):
+        before, after = old.get(name), new.get(name)
+        if before is None and after is not None:
+            kind, fields, summary = (
+                ChangeKind.ADDED,
+                (),
+                f"new site function {name}: {after.summary}",
+            )
+        elif after is None and before is not None:
+            kind, fields, summary = ChangeKind.REMOVED, (), f"site function {name} removed"
+        elif before is not None and after is not None:
+            fields = _differing(before, after, FUNCTION_FIELDS)
+            if not fields:
+                continue
+            kind, summary = ChangeKind.CHANGED, f"site function {name} changed: {', '.join(fields)}"
+        else:
+            continue
+        changes.append(
+            ProfileChange(
+                change_id=function_change_id(name),
+                target=ChangeTarget.FUNCTION,
+                kind=kind,
+                function_name=name,
+                fields=fields,
+                summary=summary,
+            )
+        )
     return changes
 
 
@@ -261,6 +304,18 @@ def apply_changes(
         if TOPOLOGY_CHANGE_ID in change_ids or approved is None
         else approved.topology
     )
+    # Functions one by one, even when onboarding: the AI gets only the ones the admin approved.
+    functions = {function.name: function for function in approved.functions} if approved else {}
+    new_functions = {function.name: function for function in current.functions}
+    for change_id in change_ids:
+        change = pending[change_id]
+        if change.target is not ChangeTarget.FUNCTION or change.function_name is None:
+            continue
+        if change.kind is ChangeKind.REMOVED:
+            functions.pop(change.function_name, None)
+        else:
+            functions[change.function_name] = new_functions[change.function_name]
+
     return SiteCatalog(
         site=site,
         devices=tuple(devices[device_id] for device_id in sorted(devices)),
@@ -271,6 +326,7 @@ def apply_changes(
             )
         ),
         topology=topology,
+        functions=tuple(functions[name] for name in sorted(functions)),
     )
 
 

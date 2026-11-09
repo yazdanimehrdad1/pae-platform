@@ -30,6 +30,12 @@ class KnowledgeAuthoringStore(Protocol):
         """Every published version of the site, newest first."""
         ...
 
+    async def delete_versions(self, site_id: int, versions: list[int]) -> list[int]:
+        """Delete those versions of the site, never its latest one (the version the AI uses: it is
+        skipped). Returns the version numbers deleted. Numbers are never reused: a publish takes
+        the number after the latest, which is never deleted."""
+        ...
+
     async def publish(self, version: KnowledgeVersion, draft_revision: int | None) -> None:
         """Store the new version and, in the same transaction, delete the draft it came from.
         ConflictError when the version number is taken, or when draft_revision is given and the

@@ -13,8 +13,10 @@ import db.sites as sites_db
 from helpers.sampling import default_max_gap, sample_series_response
 from schemas.api_models import SiteResponse
 from schemas.site_profiles import (
+    ChartParams,
     SiteContext,
     SiteEndpointInfo,
+    SiteEndpointParameter,
     SiteEndpointsResponse,
     TimeWindowParams,
 )
@@ -45,10 +47,43 @@ async def list_site_endpoints(site_id: int) -> SiteEndpointsResponse:
                 summary=endpoint.summary,
                 output=endpoint.output,
                 device_types=list(endpoint.device_types),
+                parameters=extra_parameters(endpoint.params_model),
+                ai_assistant=endpoint.ai_assistant,
+                user_visible=endpoint.user_visible,
             )
             for endpoint in profile.endpoints
         ],
     )
+
+
+_WINDOW_PARAMETER_NAMES = frozenset(TimeWindowParams.model_fields) | frozenset(ChartParams.model_fields)
+
+
+def extra_parameters(params_model: type[TimeWindowParams]) -> list[SiteEndpointParameter]:
+    """The params_model's query parameters besides the time window and max_points."""
+    schema = params_model.model_json_schema()
+    properties: dict[str, dict[str, object]] = schema.get("properties", {})
+    required: list[str] = schema.get("required", [])
+    parameters: list[SiteEndpointParameter] = []
+    for name, field_schema in properties.items():
+        if name in _WINDOW_PARAMETER_NAMES:
+            continue
+        default = field_schema.get("default")
+        minimum = field_schema.get("minimum")
+        maximum = field_schema.get("maximum")
+        description = field_schema.get("description")
+        parameters.append(
+            SiteEndpointParameter(
+                name=name,
+                type=str(field_schema.get("type", "string")),
+                description=description if isinstance(description, str) else None,
+                required=name in required,
+                default=default if isinstance(default, int | float | str | bool) else None,
+                minimum=float(minimum) if isinstance(minimum, int | float) else None,
+                maximum=float(maximum) if isinstance(maximum, int | float) else None,
+            )
+        )
+    return parameters
 
 
 async def run_site_endpoint(

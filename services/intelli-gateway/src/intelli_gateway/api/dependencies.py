@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.auth.service import AuthService
 from intelli_gateway.config import Settings
+from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.knowledge.service import SiteKnowledgeService
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.users import User
@@ -155,3 +156,9 @@ def require_site_access(ctx: RequestContext, site_id: int) -> None:
 def require_role(ctx: RequestContext, role: str) -> None:
     if role not in ctx.roles:
         raise ForbiddenError(f"requires the {role} role")
+
+
+def get_site_data(request: Request) -> SiteDataConnector:
+    """The gated connector (approved sites, devices, points and site functions only)."""
+    site_data: SiteDataConnector = request.app.state.services.site_data
+    return site_data

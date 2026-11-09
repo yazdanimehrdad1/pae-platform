@@ -341,3 +341,34 @@ class SiteSldResponse(StrictModel):
     created_at: datetime
     updated_at: datetime
     sld: SiteSld
+
+
+# --- site functions (GET /api/site-functions/site/{site_id}) ---
+
+
+class SiteEndpointParameter(StrictModel):
+    name: str
+    type: str
+    description: str | None = None
+    required: bool = False
+    default: int | float | str | bool | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+
+class SiteEndpointInfo(StrictModel):
+    name: str
+    kind: Literal["common", "site", "device"]
+    method: Literal["GET"]
+    summary: str
+    output: Literal["scalar", "series"] = "scalar"
+    device_types: list[str] = []
+    parameters: list[SiteEndpointParameter] = []
+    ai_assistant: bool = False
+    user_visible: bool = True
+
+
+class SiteEndpointsResponse(StrictModel):
+    site_id: int
+    profile: str | None
+    endpoints: list[SiteEndpointInfo] = []

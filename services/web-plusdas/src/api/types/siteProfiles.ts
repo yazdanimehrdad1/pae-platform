@@ -13,3 +13,7 @@ export type ProfilePoint = Schemas['PointInfo'];
 export type ProfileDevice = Schemas['Device'];
 export type ChangeKind = Schemas['ChangeKind'];
 export type ChangeTarget = Schemas['ChangeTarget'];
+export type SiteFunction = Schemas['SiteFunction'];
+export type SiteFunctionParameter = Schemas['SiteFunctionParameter'];
+export type SiteFunctionTestRunRequest = Schemas['SiteFunctionTestRunRequest'];
+export type SiteFunctionTestRunResponse = Schemas['SiteFunctionTestRunResponse'];
