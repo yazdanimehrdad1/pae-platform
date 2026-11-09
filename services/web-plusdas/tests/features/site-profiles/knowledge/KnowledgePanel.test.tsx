@@ -23,7 +23,7 @@ const PROFILE: ProfileVersion = {
 const NO_LINKS = { points: [], functions: [], documents: [], devices: [] };
 const EMPTY: KnowledgeState = {
   site_id: 1002, published_version: null, published_at: null, published_by: null, draft_revision: 0,
-  draft_updated_at: null, draft_updated_by: null, changes: [], content: { point_guides: [], documents: [], device_facts: [], site_scripts: [] },
+  draft_updated_at: null, draft_updated_by: null, changes: [], content: { point_guides: [], documents: [], device_facts: [], site_prompts: [] },
 };
 const WITH_DRAFT: KnowledgeState = {
   ...EMPTY,
@@ -35,7 +35,7 @@ const WITH_DRAFT: KnowledgeState = {
     point_guides: [{ site_id: 1002, device_id: 12, point_name: 'State', meaning: 'Inverter state', updated_at: '2026-11-07T10:05:00Z', related_points: [], limits: [], states: [] }],
     documents: [],
     device_facts: [],
-    site_scripts: [],
+    site_prompts: [],
   },
 };
 
@@ -122,19 +122,19 @@ describe('KnowledgePanel', () => {
   });
 
   it('site prompts: adds the next prompt, edits one and deletes one after confirming', async () => {
-    const script = (script_id: string, name: string, text: string, position: number) => ({
-      script_id, site_id: 1002, name, text, position, links: NO_LINKS, author: 'root@example.com', updated_at: '2026-11-09T10:00:00Z',
+    const script = (prompt_id: string, name: string, text: string, position: number) => ({
+      prompt_id, site_id: 1002, name, text, position, links: NO_LINKS, author: 'root@example.com', updated_at: '2026-11-09T10:00:00Z',
     });
     const withScripts: KnowledgeState = {
       ...EMPTY,
       draft_revision: 2,
-      changes: [{ item_key: 'script:b', item_kind: 'site_script', kind: 'added', summary: "added: site prompt 'Startup'" }],
-      content: { ...EMPTY.content, site_scripts: [script('a', 'Overview', 'A 5 MW solar site.', 1), script('b', 'Startup', 'Close the main breaker first.', 2)] },
+      changes: [{ item_key: 'prompt:b', item_kind: 'site_prompt', kind: 'added', summary: "added: site prompt 'Startup'" }],
+      content: { ...EMPTY.content, site_prompts: [script('a', 'Overview', 'A 5 MW solar site.', 1), script('b', 'Startup', 'Close the main breaker first.', 2)] },
     };
     vi.spyOn(knowledgeApi, 'get').mockResolvedValue(withScripts);
-    const create = vi.spyOn(knowledgeApi, 'createSiteScript').mockResolvedValue({ ...withScripts, script_id: 'c' });
-    const update = vi.spyOn(knowledgeApi, 'updateSiteScript').mockResolvedValue(withScripts);
-    const remove = vi.spyOn(knowledgeApi, 'deleteSiteScript').mockResolvedValue(withScripts);
+    const create = vi.spyOn(knowledgeApi, 'createSitePrompt').mockResolvedValue({ ...withScripts, prompt_id: 'c' });
+    const update = vi.spyOn(knowledgeApi, 'updateSitePrompt').mockResolvedValue(withScripts);
+    const remove = vi.spyOn(knowledgeApi, 'deleteSitePrompt').mockResolvedValue(withScripts);
     renderPanel();
 
     expect(await screen.findByRole('tab', { name: 'Site Prompts (2)', selected: true })).toBeTruthy();
@@ -172,15 +172,15 @@ describe('KnowledgePanel', () => {
         ...EMPTY.content,
         documents: [{ document_id: 'doc1', site_id: 1002, kind: 'procedure', title: 'Restore', body: 'Steps', point_names: [], updated_at: '2026-11-09T10:00:00Z' }],
         device_facts: [{ site_id: 1002, device_id: 12, ratings: [], notes: 'Spare fan', updated_at: '2026-11-09T10:00:00Z' }],
-        site_scripts: [{
-          script_id: 'a', site_id: 1002, name: 'Overview', text: 'PV site.', position: 1,
+        site_prompts: [{
+          prompt_id: 'a', site_id: 1002, name: 'Overview', text: 'PV site.', position: 1,
           links: { points: [{ device_id: 12, point_name: 'State' }], functions: ['site-poi-active-power'], documents: ['doc1'], devices: [12] },
           updated_at: '2026-11-09T10:00:00Z',
         }],
       },
     };
     vi.spyOn(knowledgeApi, 'get').mockResolvedValue(state);
-    const create = vi.spyOn(knowledgeApi, 'createSiteScript').mockResolvedValue({ ...state, script_id: 'b' });
+    const create = vi.spyOn(knowledgeApi, 'createSitePrompt').mockResolvedValue({ ...state, prompt_id: 'b' });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} profile={withFunction} /></QueryClientProvider>);
 
@@ -203,7 +203,7 @@ describe('KnowledgePanel', () => {
   it('deletes the selected older versions, never the one the AI uses', async () => {
     const summary = (version: number) => ({
       version, published_at: '2026-11-07T10:00:00Z', published_by: 'root@example.com', change_ids: [], restored_from: null,
-      point_guides: 1, documents: 0, device_facts: 0, site_scripts: 0,
+      point_guides: 1, documents: 0, device_facts: 0, site_prompts: 0,
     });
     vi.spyOn(knowledgeApi, 'get').mockResolvedValue({ ...EMPTY, published_version: 3, published_at: '2026-11-07T10:00:00Z', published_by: 'root@example.com' });
     vi.spyOn(knowledgeApi, 'versions').mockResolvedValue([summary(3), summary(2), summary(1)]);

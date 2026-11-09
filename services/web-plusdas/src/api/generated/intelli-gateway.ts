@@ -532,7 +532,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/sites/{site_id}/knowledge/site-scripts": {
+    "/api/v1/sites/{site_id}/knowledge/site-prompts": {
         parameters: {
             query?: never;
             header?: never;
@@ -541,15 +541,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a site script (general information about the site) after the others, to the draft */
-        post: operations["create_site_script_api_v1_sites__site_id__knowledge_site_scripts_post"];
+        /** Add a site prompt (general information about the site) after the others, to the draft */
+        post: operations["create_site_prompt_api_v1_sites__site_id__knowledge_site_prompts_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/sites/{site_id}/knowledge/site-scripts/{script_id}": {
+    "/api/v1/sites/{site_id}/knowledge/site-prompts/{prompt_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -557,11 +557,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change a site script's name, text and links in the draft */
-        put: operations["update_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__put"];
+        /** Change a site prompt's name, text and links in the draft */
+        put: operations["update_site_prompt_api_v1_sites__site_id__knowledge_site_prompts__prompt_id__put"];
         post?: never;
-        /** Remove a site script in the draft */
-        delete: operations["delete_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__delete"];
+        /** Remove a site prompt in the draft */
+        delete: operations["delete_site_prompt_api_v1_sites__site_id__knowledge_site_prompts__prompt_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1018,7 +1018,7 @@ export interface components {
          * KnowledgeChange
          * @description One draft item that differs from the published knowledge. item_key:
          *     `point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or
-         *     `script:<script_id>`.
+         *     `prompt:<prompt_id>`.
          */
         KnowledgeChange: {
             /** Item Key */
@@ -1091,7 +1091,7 @@ export interface components {
          * KnowledgeItemKind
          * @enum {string}
          */
-        KnowledgeItemKind: "point_guide" | "document" | "device_facts" | "site_script";
+        KnowledgeItemKind: "point_guide" | "document" | "device_facts" | "site_prompt";
         /**
          * KnowledgeKind
          * @enum {string}
@@ -1171,8 +1171,8 @@ export interface components {
             published_by: string;
             /** Restored From */
             restored_from: number | null;
-            /** Site Scripts */
-            site_scripts: number;
+            /** Site Prompts */
+            site_prompts: number;
             /** Version */
             version: number;
         };
@@ -1849,10 +1849,10 @@ export interface components {
              */
             point_guides: components["schemas"]["PointGuide"][];
             /**
-             * Site Scripts
+             * Site Prompts
              * @default []
              */
-            site_scripts: components["schemas"]["SiteScript"][];
+            site_prompts: components["schemas"]["SitePrompt"][];
         };
         /**
          * SiteProfileStatus
@@ -1874,6 +1874,117 @@ export interface components {
             pending_changes: number;
             /** Site Id */
             site_id: number;
+        };
+        /**
+         * SitePrompt
+         * @description One part of the site's general information for the AI (overview, how the site runs, ...),
+         *     written by an admin as several named texts instead of one long prompt. Kept in `position`
+         *     order (the order they were added); the AI reads them all, first, in its site context.
+         */
+        SitePrompt: {
+            /** Author */
+            author?: string | null;
+            /**
+             * @default {
+             *       "devices": [],
+             *       "documents": [],
+             *       "functions": [],
+             *       "points": []
+             *     }
+             */
+            links: components["schemas"]["SitePromptLinks"];
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Prompt Id */
+            prompt_id?: string;
+            /** Site Id */
+            site_id: number;
+            /** Text */
+            text: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SitePromptCreatedResponse */
+        SitePromptCreatedResponse: {
+            /**
+             * Changes
+             * @description What publishing the draft would change.
+             */
+            changes: components["schemas"]["KnowledgeChange"][];
+            /** @description The draft, or the published knowledge. */
+            content: components["schemas"]["SiteKnowledge"];
+            /**
+             * Draft Revision
+             * @description 0 = no draft: the content is the published one.
+             */
+            draft_revision: number;
+            /** Draft Updated At */
+            draft_updated_at: string | null;
+            /** Draft Updated By */
+            draft_updated_by: string | null;
+            /** Prompt Id */
+            prompt_id: string;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
+            /** Published Version */
+            published_version: number | null;
+            /** Site Id */
+            site_id: number;
+        };
+        /**
+         * SitePromptLinks
+         * @description What a site prompt is about, all optional: approved points (and so their guides), site
+         *     functions (by name), documents (by id) and device ratings (by device). Kept sorted and
+         *     without repeats so an unchanged prompt never shows as an edit.
+         */
+        SitePromptLinks: {
+            /**
+             * Devices
+             * @default []
+             */
+            devices: number[];
+            /**
+             * Documents
+             * @default []
+             */
+            documents: string[];
+            /**
+             * Functions
+             * @default []
+             */
+            functions: string[];
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["PromptPointLink"][];
+        };
+        /** SitePromptRequest */
+        SitePromptRequest: {
+            /**
+             * Draft Revision
+             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
+             */
+            draft_revision?: number | null;
+            /** @description Optional: the approved points, site functions, documents and device ratings this prompt is about, so the AI connects them. */
+            links?: components["schemas"]["SitePromptLinks"];
+            /**
+             * Name
+             * @description e.g. 'Overview', 'Startup'.
+             */
+            name: string;
+            /**
+             * Text
+             * @description The information for the AI (Markdown).
+             */
+            text: string;
         };
         /** SiteRefreshResponse */
         SiteRefreshResponse: {
@@ -1902,117 +2013,6 @@ export interface components {
             site_id: number;
             /** Timezone */
             timezone: string;
-        };
-        /**
-         * SiteScript
-         * @description One part of the site's general information for the AI (overview, how the site runs, ...),
-         *     written by an admin as several named texts instead of one long prompt. Kept in `position`
-         *     order (the order they were added); the AI reads them all, first, in its site context.
-         */
-        SiteScript: {
-            /** Author */
-            author?: string | null;
-            /**
-             * @default {
-             *       "devices": [],
-             *       "documents": [],
-             *       "functions": [],
-             *       "points": []
-             *     }
-             */
-            links: components["schemas"]["SiteScriptLinks"];
-            /** Name */
-            name: string;
-            /** Position */
-            position: number;
-            /** Script Id */
-            script_id?: string;
-            /** Site Id */
-            site_id: number;
-            /** Text */
-            text: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** SiteScriptCreatedResponse */
-        SiteScriptCreatedResponse: {
-            /**
-             * Changes
-             * @description What publishing the draft would change.
-             */
-            changes: components["schemas"]["KnowledgeChange"][];
-            /** @description The draft, or the published knowledge. */
-            content: components["schemas"]["SiteKnowledge"];
-            /**
-             * Draft Revision
-             * @description 0 = no draft: the content is the published one.
-             */
-            draft_revision: number;
-            /** Draft Updated At */
-            draft_updated_at: string | null;
-            /** Draft Updated By */
-            draft_updated_by: string | null;
-            /** Published At */
-            published_at: string | null;
-            /** Published By */
-            published_by: string | null;
-            /** Published Version */
-            published_version: number | null;
-            /** Script Id */
-            script_id: string;
-            /** Site Id */
-            site_id: number;
-        };
-        /**
-         * SiteScriptLinks
-         * @description What a site prompt is about, all optional: approved points (and so their guides), site
-         *     functions (by name), documents (by id) and device ratings (by device). Kept sorted and
-         *     without repeats so an unchanged prompt never shows as an edit.
-         */
-        SiteScriptLinks: {
-            /**
-             * Devices
-             * @default []
-             */
-            devices: number[];
-            /**
-             * Documents
-             * @default []
-             */
-            documents: string[];
-            /**
-             * Functions
-             * @default []
-             */
-            functions: string[];
-            /**
-             * Points
-             * @default []
-             */
-            points: components["schemas"]["PromptPointLink"][];
-        };
-        /** SiteScriptRequest */
-        SiteScriptRequest: {
-            /**
-             * Draft Revision
-             * @description The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.
-             */
-            draft_revision?: number | null;
-            /** @description Optional: the approved points, site functions, documents and device ratings this prompt is about, so the AI connects them. */
-            links?: components["schemas"]["SiteScriptLinks"];
-            /**
-             * Name
-             * @description e.g. 'Overview', 'Startup'.
-             */
-            name: string;
-            /**
-             * Text
-             * @description The information for the AI (Markdown).
-             */
-            text: string;
         };
         /**
          * StateGuide
@@ -4219,7 +4219,7 @@ export interface operations {
             };
         };
     };
-    create_site_script_api_v1_sites__site_id__knowledge_site_scripts_post: {
+    create_site_prompt_api_v1_sites__site_id__knowledge_site_prompts_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4230,7 +4230,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SiteScriptRequest"];
+                "application/json": components["schemas"]["SitePromptRequest"];
             };
         };
         responses: {
@@ -4240,7 +4240,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SiteScriptCreatedResponse"];
+                    "application/json": components["schemas"]["SitePromptCreatedResponse"];
                 };
             };
             /** @description Not logged in */
@@ -4290,19 +4290,19 @@ export interface operations {
             };
         };
     };
-    update_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__put: {
+    update_site_prompt_api_v1_sites__site_id__knowledge_site_prompts__prompt_id__put: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 site_id: number;
-                script_id: string;
+                prompt_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SiteScriptRequest"];
+                "application/json": components["schemas"]["SitePromptRequest"];
             };
         };
         responses: {
@@ -4362,7 +4362,7 @@ export interface operations {
             };
         };
     };
-    delete_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__delete: {
+    delete_site_prompt_api_v1_sites__site_id__knowledge_site_prompts__prompt_id__delete: {
         parameters: {
             query?: {
                 /** @description The draft revision you loaded (0 = no draft). */
@@ -4371,7 +4371,7 @@ export interface operations {
             header?: never;
             path: {
                 site_id: number;
-                script_id: string;
+                prompt_id: string;
             };
             cookie?: never;
         };

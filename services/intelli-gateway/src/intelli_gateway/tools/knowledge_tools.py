@@ -99,7 +99,7 @@ point or value.
             "current": dump(reading) if reading else None,
         }
         prompts = related_prompts(
-            await knowledge.list_site_scripts(site_id),
+            await knowledge.list_site_prompts(site_id),
             device_id=point.device_id,
             point_names=(point.name, local_name(point.name, point.device_name)),
         )
@@ -179,7 +179,7 @@ Get the information model (IM) script of one device: how its raw registers map t
             "script": truncate_text(document.body, limits.max_text_chars),
             **_prompts(
                 related_prompts(
-                    await knowledge.list_site_scripts(site_id), document_id=document.document_id
+                    await knowledge.list_site_prompts(site_id), document_id=document.document_id
                 )
             ),
         }
@@ -199,7 +199,7 @@ Returns the best-matching notes (title, author, date, text).
         notes = await knowledge.search_notes(
             site_id, args.keywords, limits.max_rows, device_id=args.device_id
         )
-        scripts = await knowledge.list_site_scripts(site_id)
+        site_prompts = await knowledge.list_site_prompts(site_id)
         rows: list[JSONValue] = [
             {
                 "title": note.title,
@@ -207,7 +207,7 @@ Returns the best-matching notes (title, author, date, text).
                 "device_id": note.device_id,
                 "updated_at": note.updated_at.isoformat(),
                 "text": truncate_text(note.body, limits.max_text_chars),
-                **_prompts(related_prompts(scripts, document_id=note.document_id)),
+                **_prompts(related_prompts(site_prompts, document_id=note.document_id)),
             }
             for note in notes
         ]

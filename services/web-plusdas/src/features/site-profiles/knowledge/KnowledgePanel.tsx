@@ -23,14 +23,14 @@ import { formatDateTime, localPointName, statusOf } from "../lib/changes";
 import { DeviceFactsDialog } from "./DeviceFactsDialog";
 import { DocumentDialog } from "./DocumentDialog";
 import { PointGuideDialog } from "./PointGuideDialog";
-import { SiteScripts } from "./SiteScripts";
+import { SitePrompts } from "./SitePrompts";
 import {
   DOCUMENT_KIND_LABELS, ITEM_STATUS_LABELS, type ItemStatus, documentKey, factsKey, guideKey, isDraftConflict, itemStatus,
   knowledgeQueryKey,
 } from "./lib";
 import { useKnowledge, useKnowledgeEdit } from "./useKnowledge";
 
-// The site's engineer knowledge: site scripts (general information, step by step), what each point
+// The site's engineer knowledge: site prompts (general information, step by step), what each point
 // means and what to do about each state or fault code, documents, and device ratings. Edits go to a draft; "Review & publish" makes the whole
 // draft the version the AI uses (the site at once).
 
@@ -81,15 +81,15 @@ export function KnowledgePanel({ siteId, profile }: { siteId: number; profile: P
         </HideOnPhone>
       </div>
 
-      <Tabs defaultValue="site-scripts">
+      <Tabs defaultValue="site-prompts">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="site-scripts">Site Prompts ({state.content.site_scripts?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="site-prompts">Site Prompts ({state.content.site_prompts?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="points">Point guides</TabsTrigger>
           <TabsTrigger value="documents">Documents ({state.content.documents?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="devices">Device ratings</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
         </TabsList>
-        <TabsContent value="site-scripts" className="pt-2"><SiteScripts siteId={siteId} profile={profile} state={state} /></TabsContent>
+        <TabsContent value="site-prompts" className="pt-2"><SitePrompts siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="points" className="pt-2"><PointGuides siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="documents" className="pt-2"><Documents siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="devices" className="pt-2"><Devices siteId={siteId} profile={profile} state={state} /></TabsContent>
@@ -371,7 +371,7 @@ function Versions({ siteId, state }: { siteId: number; state: KnowledgeState }) 
                 <TableCell className="whitespace-nowrap">{formatDateTime(version.published_at)}</TableCell>
                 <TableCell>{version.published_by}</TableCell>
                 <TableCell>{version.change_ids.length}</TableCell>
-                <TableCell>{version.site_scripts} · {version.point_guides} · {version.documents} · {version.device_facts}</TableCell>
+                <TableCell>{version.site_prompts} · {version.point_guides} · {version.documents} · {version.device_facts}</TableCell>
                 <TableCell className="text-right">
                   {version.version !== state.published_version && (
                     <HideOnPhone>

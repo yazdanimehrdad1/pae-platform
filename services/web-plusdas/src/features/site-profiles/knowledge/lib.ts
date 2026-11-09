@@ -19,7 +19,7 @@ export const knowledgeQueryKey = (siteId: number) => ['site-profiles', siteId, '
 export const guideKey = (deviceId: number, pointName: string) => `point:${deviceId}:${pointName}`;
 export const documentKey = (documentId: string) => `document:${documentId}`;
 export const factsKey = (deviceId: number) => `device:${deviceId}`;
-export const scriptKey = (scriptId: string) => `script:${scriptId}`;
+export const promptKey = (promptId: string) => `prompt:${promptId}`;
 
 /** True when the API answered 409: the draft moved since it was loaded. */
 export const isDraftConflict = (error: unknown) => statusOf(error) === 409;

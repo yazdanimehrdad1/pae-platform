@@ -655,7 +655,7 @@
       },
       "JsonValue": {},
       "KnowledgeChange": {
-        "description": "One draft item that differs from the published knowledge. item_key:\n`point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or\n`script:<script_id>`.",
+        "description": "One draft item that differs from the published knowledge. item_key:\n`point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or\n`prompt:<prompt_id>`.",
         "properties": {
           "item_key": {
             "title": "Item Key",
@@ -827,7 +827,7 @@
           "point_guide",
           "document",
           "device_facts",
-          "site_script"
+          "site_prompt"
         ],
         "title": "KnowledgeItemKind",
         "type": "string"
@@ -1032,8 +1032,8 @@
             ],
             "title": "Restored From"
           },
-          "site_scripts": {
-            "title": "Site Scripts",
+          "site_prompts": {
+            "title": "Site Prompts",
             "type": "integer"
           },
           "version": {
@@ -1050,7 +1050,7 @@
           "point_guides",
           "documents",
           "device_facts",
-          "site_scripts"
+          "site_prompts"
         ],
         "title": "KnowledgeVersionSummary",
         "type": "object"
@@ -2634,12 +2634,12 @@
             "title": "Point Guides",
             "type": "array"
           },
-          "site_scripts": {
+          "site_prompts": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/SiteScript"
+              "$ref": "#/components/schemas/SitePrompt"
             },
-            "title": "Site Scripts",
+            "title": "Site Prompts",
             "type": "array"
           }
         },
@@ -2703,6 +2703,246 @@
           "name"
         ],
         "title": "SiteProfileStatus",
+        "type": "object"
+      },
+      "SitePrompt": {
+        "description": "One part of the site's general information for the AI (overview, how the site runs, ...),\nwritten by an admin as several named texts instead of one long prompt. Kept in `position`\norder (the order they were added); the AI reads them all, first, in its site context.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "links": {
+            "$ref": "#/components/schemas/SitePromptLinks",
+            "default": {
+              "devices": [],
+              "documents": [],
+              "functions": [],
+              "points": []
+            }
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "prompt_id": {
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "name",
+          "text",
+          "position",
+          "updated_at"
+        ],
+        "title": "SitePrompt",
+        "type": "object"
+      },
+      "SitePromptCreatedResponse": {
+        "properties": {
+          "changes": {
+            "description": "What publishing the draft would change.",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SiteKnowledge",
+            "description": "The draft, or the published knowledge."
+          },
+          "draft_revision": {
+            "description": "0 = no draft: the content is the published one.",
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "draft_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated At"
+          },
+          "draft_updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Updated By"
+          },
+          "prompt_id": {
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "site_id",
+          "published_version",
+          "published_at",
+          "published_by",
+          "draft_revision",
+          "draft_updated_at",
+          "draft_updated_by",
+          "changes",
+          "content",
+          "prompt_id"
+        ],
+        "title": "SitePromptCreatedResponse",
+        "type": "object"
+      },
+      "SitePromptLinks": {
+        "description": "What a site prompt is about, all optional: approved points (and so their guides), site\nfunctions (by name), documents (by id) and device ratings (by device). Kept sorted and\nwithout repeats so an unchanged prompt never shows as an edit.",
+        "properties": {
+          "devices": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "documents": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "functions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Functions",
+            "type": "array"
+          },
+          "points": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PromptPointLink"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "title": "SitePromptLinks",
+        "type": "object"
+      },
+      "SitePromptRequest": {
+        "properties": {
+          "draft_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
+            "title": "Draft Revision"
+          },
+          "links": {
+            "$ref": "#/components/schemas/SitePromptLinks",
+            "description": "Optional: the approved points, site functions, documents and device ratings this prompt is about, so the AI connects them."
+          },
+          "name": {
+            "description": "e.g. 'Overview', 'Startup'.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "text": {
+            "description": "The information for the AI (Markdown).",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "text"
+        ],
+        "title": "SitePromptRequest",
         "type": "object"
       },
       "SiteRefreshResponse": {
@@ -2802,246 +3042,6 @@
           "timezone"
         ],
         "title": "SiteResponse",
-        "type": "object"
-      },
-      "SiteScript": {
-        "description": "One part of the site's general information for the AI (overview, how the site runs, ...),\nwritten by an admin as several named texts instead of one long prompt. Kept in `position`\norder (the order they were added); the AI reads them all, first, in its site context.",
-        "properties": {
-          "author": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Author"
-          },
-          "links": {
-            "$ref": "#/components/schemas/SiteScriptLinks",
-            "default": {
-              "devices": [],
-              "documents": [],
-              "functions": [],
-              "points": []
-            }
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "position": {
-            "minimum": 1.0,
-            "title": "Position",
-            "type": "integer"
-          },
-          "script_id": {
-            "title": "Script Id",
-            "type": "string"
-          },
-          "site_id": {
-            "title": "Site Id",
-            "type": "integer"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "site_id",
-          "name",
-          "text",
-          "position",
-          "updated_at"
-        ],
-        "title": "SiteScript",
-        "type": "object"
-      },
-      "SiteScriptCreatedResponse": {
-        "properties": {
-          "changes": {
-            "description": "What publishing the draft would change.",
-            "items": {
-              "$ref": "#/components/schemas/KnowledgeChange"
-            },
-            "title": "Changes",
-            "type": "array"
-          },
-          "content": {
-            "$ref": "#/components/schemas/SiteKnowledge",
-            "description": "The draft, or the published knowledge."
-          },
-          "draft_revision": {
-            "description": "0 = no draft: the content is the published one.",
-            "title": "Draft Revision",
-            "type": "integer"
-          },
-          "draft_updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Draft Updated At"
-          },
-          "draft_updated_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Draft Updated By"
-          },
-          "published_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published At"
-          },
-          "published_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published By"
-          },
-          "published_version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published Version"
-          },
-          "script_id": {
-            "title": "Script Id",
-            "type": "string"
-          },
-          "site_id": {
-            "title": "Site Id",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "site_id",
-          "published_version",
-          "published_at",
-          "published_by",
-          "draft_revision",
-          "draft_updated_at",
-          "draft_updated_by",
-          "changes",
-          "content",
-          "script_id"
-        ],
-        "title": "SiteScriptCreatedResponse",
-        "type": "object"
-      },
-      "SiteScriptLinks": {
-        "description": "What a site prompt is about, all optional: approved points (and so their guides), site\nfunctions (by name), documents (by id) and device ratings (by device). Kept sorted and\nwithout repeats so an unchanged prompt never shows as an edit.",
-        "properties": {
-          "devices": {
-            "default": [],
-            "items": {
-              "type": "integer"
-            },
-            "title": "Devices",
-            "type": "array"
-          },
-          "documents": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Documents",
-            "type": "array"
-          },
-          "functions": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Functions",
-            "type": "array"
-          },
-          "points": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/PromptPointLink"
-            },
-            "title": "Points",
-            "type": "array"
-          }
-        },
-        "title": "SiteScriptLinks",
-        "type": "object"
-      },
-      "SiteScriptRequest": {
-        "properties": {
-          "draft_revision": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The draft revision you loaded (0 = there was no draft). When someone saved since, nothing changes (409): reload. Omit to skip the check.",
-            "title": "Draft Revision"
-          },
-          "links": {
-            "$ref": "#/components/schemas/SiteScriptLinks",
-            "description": "Optional: the approved points, site functions, documents and device ratings this prompt is about, so the AI connects them."
-          },
-          "name": {
-            "description": "e.g. 'Overview', 'Startup'.",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "text": {
-            "description": "The information for the AI (Markdown).",
-            "maxLength": 20000,
-            "minLength": 1,
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "text"
-        ],
-        "title": "SiteScriptRequest",
         "type": "object"
       },
       "StateGuide": {
@@ -3565,7 +3565,7 @@
   "info": {
     "description": "AI helper for site engineers: Claude answers questions about a generation site using read-only tools",
     "title": "intelli-gateway",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -6387,9 +6387,9 @@
         ]
       }
     },
-    "/api/v1/sites/{site_id}/knowledge/site-scripts": {
+    "/api/v1/sites/{site_id}/knowledge/site-prompts": {
       "post": {
-        "operationId": "create_site_script_api_v1_sites__site_id__knowledge_site_scripts_post",
+        "operationId": "create_site_prompt_api_v1_sites__site_id__knowledge_site_prompts_post",
         "parameters": [
           {
             "in": "path",
@@ -6405,7 +6405,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SiteScriptRequest"
+                "$ref": "#/components/schemas/SitePromptRequest"
               }
             }
           },
@@ -6416,7 +6416,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SiteScriptCreatedResponse"
+                  "$ref": "#/components/schemas/SitePromptCreatedResponse"
                 }
               }
             },
@@ -6473,15 +6473,15 @@
             "description": "Not an approved point/device, or a secret"
           }
         },
-        "summary": "Add a site script (general information about the site) after the others, to the draft",
+        "summary": "Add a site prompt (general information about the site) after the others, to the draft",
         "tags": [
           "knowledge"
         ]
       }
     },
-    "/api/v1/sites/{site_id}/knowledge/site-scripts/{script_id}": {
+    "/api/v1/sites/{site_id}/knowledge/site-prompts/{prompt_id}": {
       "delete": {
-        "operationId": "delete_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__delete",
+        "operationId": "delete_site_prompt_api_v1_sites__site_id__knowledge_site_prompts__prompt_id__delete",
         "parameters": [
           {
             "in": "path",
@@ -6494,10 +6494,10 @@
           },
           {
             "in": "path",
-            "name": "script_id",
+            "name": "prompt_id",
             "required": true,
             "schema": {
-              "title": "Script Id",
+              "title": "Prompt Id",
               "type": "string"
             }
           },
@@ -6583,13 +6583,13 @@
             "description": "Not an approved point/device, or a secret"
           }
         },
-        "summary": "Remove a site script in the draft",
+        "summary": "Remove a site prompt in the draft",
         "tags": [
           "knowledge"
         ]
       },
       "put": {
-        "operationId": "update_site_script_api_v1_sites__site_id__knowledge_site_scripts__script_id__put",
+        "operationId": "update_site_prompt_api_v1_sites__site_id__knowledge_site_prompts__prompt_id__put",
         "parameters": [
           {
             "in": "path",
@@ -6602,10 +6602,10 @@
           },
           {
             "in": "path",
-            "name": "script_id",
+            "name": "prompt_id",
             "required": true,
             "schema": {
-              "title": "Script Id",
+              "title": "Prompt Id",
               "type": "string"
             }
           }
@@ -6614,7 +6614,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SiteScriptRequest"
+                "$ref": "#/components/schemas/SitePromptRequest"
               }
             }
           },
@@ -6682,7 +6682,7 @@
             "description": "Not an approved point/device, or a secret"
           }
         },
-        "summary": "Change a site script's name, text and links in the draft",
+        "summary": "Change a site prompt's name, text and links in the draft",
         "tags": [
           "knowledge"
         ]

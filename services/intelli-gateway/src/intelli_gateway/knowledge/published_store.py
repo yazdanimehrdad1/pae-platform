@@ -18,7 +18,7 @@ from intelli_gateway.schemas.knowledge import (
     KnowledgeKind,
     PointGuide,
     SiteKnowledge,
-    SiteScript,
+    SitePrompt,
 )
 from intelli_gateway.site_profile.service import SiteProfileService
 
@@ -82,6 +82,6 @@ class PublishedKnowledgeStore:
         content, devices = await self._site(site_id)
         return [facts for facts in content.device_facts if facts.device_id in devices]
 
-    async def list_site_scripts(self, site_id: int) -> list[SiteScript]:
+    async def list_site_prompts(self, site_id: int) -> list[SitePrompt]:
         content, _devices = await self._site(site_id)
-        return list(content.site_scripts)
+        return list(content.site_prompts)

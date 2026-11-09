@@ -30,7 +30,7 @@ from intelli_gateway.schemas.knowledge import (
     LimitGuide,
     PromptPointLink,
     SiteKnowledge,
-    SiteScriptLinks,
+    SitePromptLinks,
     StateGuide,
     StateKind,
 )
@@ -156,69 +156,69 @@ class TestDraftAndPublish:
         assert state.draft is None and state.changes == ()
 
 
-class TestSiteScripts:
+class TestSitePrompts:
     async def test_scripts_keep_their_order_and_the_ai_reads_them_first(self, setup: Setup) -> None:
-        _state, overview = await setup.knowledge.create_site_script(
+        _state, overview = await setup.knowledge.create_site_prompt(
             SITE_ID, " Overview ", "A 5 MW solar site with one meter.", ADMIN
         )
-        state, startup = await setup.knowledge.create_site_script(
+        state, startup = await setup.knowledge.create_site_prompt(
             SITE_ID, "Startup", "Close the main breaker first.", ADMIN
         )
-        scripts = state.working.site_scripts
+        scripts = state.working.site_prompts
         assert [(s.name, s.position) for s in scripts] == [("Overview", 1), ("Startup", 2)]
         assert [c.item_key for c in state.changes] == sorted(
-            [f"script:{overview}", f"script:{startup}"]
+            [f"prompt:{overview}", f"prompt:{startup}"]
         )
-        assert await setup.ai.list_site_scripts(SITE_ID) == []  # not published yet
+        assert await setup.ai.list_site_prompts(SITE_ID) == []  # not published yet
 
-        state = await setup.knowledge.update_site_script(
+        state = await setup.knowledge.update_site_prompt(
             SITE_ID, overview, "Site overview", "A 5 MW solar site.", ADMIN
         )
-        assert [(s.name, s.position) for s in state.working.site_scripts] == [
+        assert [(s.name, s.position) for s in state.working.site_prompts] == [
             ("Site overview", 1),
             ("Startup", 2),
         ]
         await setup.knowledge.publish(SITE_ID, ADMIN)
-        published = await setup.ai.list_site_scripts(SITE_ID)
+        published = await setup.ai.list_site_prompts(SITE_ID)
         assert [s.name for s in published] == ["Site overview", "Startup"]
         await setup.knowledge.put_device_facts(SITE_ID, 1, [], "Spare CT in store", ADMIN)
         await setup.knowledge.publish(SITE_ID, ADMIN)
         text = render_knowledge(
             await setup.ai.list_documents(SITE_ID),
             await setup.ai.list_device_facts(SITE_ID),
-            await setup.ai.list_site_scripts(SITE_ID),
+            await setup.ai.list_site_prompts(SITE_ID),
         )
         assert text.startswith("## About this site (from the site admin)\n\n### Site overview\n")
         assert text.index("### Startup") < text.index("## Device ratings and notes")
 
     async def test_delete_and_a_new_one_goes_last(self, setup: Setup) -> None:
-        _state, first = await setup.knowledge.create_site_script(SITE_ID, "A", "one", ADMIN)
-        await setup.knowledge.create_site_script(SITE_ID, "B", "two", ADMIN)
+        _state, first = await setup.knowledge.create_site_prompt(SITE_ID, "A", "one", ADMIN)
+        await setup.knowledge.create_site_prompt(SITE_ID, "B", "two", ADMIN)
         await setup.knowledge.publish(SITE_ID, ADMIN)
-        state = await setup.knowledge.delete_site_script(SITE_ID, first, ADMIN)
+        state = await setup.knowledge.delete_site_prompt(SITE_ID, first, ADMIN)
         assert [(c.kind, c.summary) for c in state.changes] == [
             ("removed", "removed: site prompt 'A'")
         ]
-        state, _new = await setup.knowledge.create_site_script(SITE_ID, "C", "three", ADMIN)
-        assert [(s.name, s.position) for s in state.working.site_scripts] == [
+        state, _new = await setup.knowledge.create_site_prompt(SITE_ID, "C", "three", ADMIN)
+        assert [(s.name, s.position) for s in state.working.site_prompts] == [
             ("B", 2),
             ("C", 3),
         ]
         with pytest.raises(NotFoundError):
-            await setup.knowledge.update_site_script(SITE_ID, first, "A", "x", ADMIN)
+            await setup.knowledge.update_site_prompt(SITE_ID, first, "A", "x", ADMIN)
         with pytest.raises(NotFoundError):
-            await setup.knowledge.delete_site_script(SITE_ID, first, ADMIN)
+            await setup.knowledge.delete_site_prompt(SITE_ID, first, ADMIN)
 
     async def test_secrets_are_refused_and_an_export_round_trips(self, setup: Setup) -> None:
         with pytest.raises(InvalidRequestError, match="IP address"):
-            await setup.knowledge.create_site_script(
+            await setup.knowledge.create_site_prompt(
                 SITE_ID, "Network", "The SCADA is at 10.0.0.5", ADMIN
             )
-        await setup.knowledge.create_site_script(SITE_ID, "Overview", "Solar site", ADMIN)
+        await setup.knowledge.create_site_prompt(SITE_ID, "Overview", "Solar site", ADMIN)
         exported = (await setup.knowledge.state(SITE_ID)).working
         other = Setup()
         state = await other.knowledge.import_content(SITE_ID, exported, "ana@example.com")
-        assert [s.name for s in state.working.site_scripts] == ["Overview"]
+        assert [s.name for s in state.working.site_prompts] == ["Overview"]
 
 
 class TestValidation:
@@ -386,7 +386,7 @@ class TestImportAndCoverage:
         assert after.discrete_with_guide == 1 and after.devices_with_facts == 0
 
 
-class TestSiteScriptLinks:
+class TestSitePromptLinks:
     """A site prompt may name the approved points, site functions, documents and device ratings
     it is about; the AI sees them under the prompt."""
 
@@ -396,7 +396,7 @@ class TestSiteScriptLinks:
             DocumentContent(kind=KnowledgeKind.MANUAL, title="Meter manual", body="x"),
             ADMIN,
         )
-        links = SiteScriptLinks(
+        links = SitePromptLinks(
             points=(
                 PromptPointLink(device_id=1, point_name="Status"),
                 PromptPointLink(device_id=1, point_name="Fault"),
@@ -405,63 +405,63 @@ class TestSiteScriptLinks:
             documents=(manual,),
             devices=(1,),
         )
-        state, script_id = await setup.knowledge.create_site_script(
+        state, prompt_id = await setup.knowledge.create_site_prompt(
             SITE_ID, "Metering", "M1 is the revenue meter.", ADMIN, links=links
         )
-        stored = state.working.site_scripts[0].links
+        stored = state.working.site_prompts[0].links
         assert [p.point_name for p in stored.points] == ["Fault", "Status"]
         await setup.knowledge.publish(SITE_ID, ADMIN)
         text = render_knowledge(
             await setup.ai.list_documents(SITE_ID),
             await setup.ai.list_device_facts(SITE_ID),
-            await setup.ai.list_site_scripts(SITE_ID),
+            await setup.ai.list_site_prompts(SITE_ID),
         )
         assert (
             "### Metering\nM1 is the revenue meter.\nRelated: point Fault (device_id 1); "
             "point Status (device_id 1); document 'Meter manual'; ratings of device_id 1"
         ) in text
 
-        state = await setup.knowledge.update_site_script(
-            SITE_ID, script_id, "Metering", "M1 is the revenue meter.", ADMIN
+        state = await setup.knowledge.update_site_prompt(
+            SITE_ID, prompt_id, "Metering", "M1 is the revenue meter.", ADMIN
         )
         assert [(c.kind, c.item_key) for c in state.changes] == [
-            ("changed", f"script:{script_id}")
+            ("changed", f"prompt:{prompt_id}")
         ]  # dropping the links is an edit
 
     @pytest.mark.parametrize(
         ("links", "error"),
         [
             (
-                SiteScriptLinks(points=(PromptPointLink(device_id=1, point_name="Nope"),)),
+                SitePromptLinks(points=(PromptPointLink(device_id=1, point_name="Nope"),)),
                 "point 1 Nope",
             ),
-            (SiteScriptLinks(functions=("site-rte",)), "site function 'site-rte'"),
-            (SiteScriptLinks(devices=(2,)), "device 2"),
-            (SiteScriptLinks(documents=("missing",)), "no document missing"),
+            (SitePromptLinks(functions=("site-rte",)), "site function 'site-rte'"),
+            (SitePromptLinks(devices=(2,)), "device 2"),
+            (SitePromptLinks(documents=("missing",)), "no document missing"),
         ],
         ids=["point", "function", "device", "document"],
     )
     async def test_unknown_links_are_refused(
-        self, setup: Setup, links: SiteScriptLinks, error: str
+        self, setup: Setup, links: SitePromptLinks, error: str
     ) -> None:
         with pytest.raises(InvalidRequestError, match=error):
-            await setup.knowledge.create_site_script(SITE_ID, "A", "text", ADMIN, links=links)
+            await setup.knowledge.create_site_prompt(SITE_ID, "A", "text", ADMIN, links=links)
 
     async def test_deleting_a_document_drops_it_from_the_links(self, setup: Setup) -> None:
         _state, manual = await setup.knowledge.create_document(
             SITE_ID, DocumentContent(kind=KnowledgeKind.MANUAL, title="Manual", body="x"), ADMIN
         )
-        await setup.knowledge.create_site_script(
-            SITE_ID, "A", "text", ADMIN, links=SiteScriptLinks(documents=(manual,), devices=(1,))
+        await setup.knowledge.create_site_prompt(
+            SITE_ID, "A", "text", ADMIN, links=SitePromptLinks(documents=(manual,), devices=(1,))
         )
         state = await setup.knowledge.delete_document(SITE_ID, manual, ADMIN)
-        links = state.working.site_scripts[0].links
+        links = state.working.site_prompts[0].links
         assert (links.documents, links.devices) == ((), (1,))
 
     async def test_a_link_to_a_removed_device_is_orphaned(self) -> None:
         setup = Setup(with_m2=True)
-        _state, script_id = await setup.knowledge.create_site_script(
-            SITE_ID, "A", "text", ADMIN, links=SiteScriptLinks(devices=(2,))
+        _state, prompt_id = await setup.knowledge.create_site_prompt(
+            SITE_ID, "A", "text", ADMIN, links=SitePromptLinks(devices=(2,))
         )
         await setup.approve_backend(with_m2=False)
-        assert f"script:{script_id}" in (await setup.knowledge.coverage(SITE_ID)).orphaned
+        assert f"prompt:{prompt_id}" in (await setup.knowledge.coverage(SITE_ID)).orphaned

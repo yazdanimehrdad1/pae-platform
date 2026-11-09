@@ -51,7 +51,7 @@ computing the same figure yourself from point history: its numbers match the das
     async def list_site_functions(args: NoInput, ctx: RequestContext) -> JSONValue:
         site_id = site_id_of(ctx)
         devices = await site_data.list_devices(site_id)
-        scripts = await knowledge.list_site_scripts(site_id)
+        site_prompts = await knowledge.list_site_prompts(site_id)
         functions: list[JSONValue] = []
         for function in await site_data.list_site_functions(site_id):
             row = dump(function)
@@ -61,7 +61,7 @@ computing the same figure yourself from point history: its numbers match the das
                     for device in devices
                     if not function.device_types or device.type in function.device_types
                 ]
-            prompts = related_prompts(scripts, function=function.name)
+            prompts = related_prompts(site_prompts, function=function.name)
             if prompts:
                 row["related_prompts"] = list[JSONValue](prompts)
             functions.append(row)
@@ -101,7 +101,7 @@ window may be at most {limits.history_max_days} days. Device functions need a de
             "end": args.end.isoformat(),
             **result,
         }
-        prompts = related_prompts(await knowledge.list_site_scripts(site_id), function=args.name)
+        prompts = related_prompts(await knowledge.list_site_prompts(site_id), function=args.name)
         if prompts:
             output["related_prompts"] = list[JSONValue](prompts)
         return output

@@ -164,7 +164,7 @@ it means). Returns at most a fixed number of rows plus the total match count.
             (guide.device_id, guide.point_name)
             for guide in await knowledge.list_point_guides(site_id)
         }
-        scripts = await knowledge.list_site_scripts(site_id)
+        site_prompts = await knowledge.list_site_prompts(site_id)
         rows: list[JSONValue] = []
         for point in points[: limits.max_rows]:
             row: dict[str, JSONValue] = {
@@ -179,7 +179,7 @@ it means). Returns at most a fixed number of rows plus the total match count.
                 "has_guide": (point.device_id, point.name) in guided,
             }
             prompts = related_prompts(
-                scripts,
+                site_prompts,
                 device_id=point.device_id,
                 point_names=(point.name, local_name(point.name, point.device_name)),
             )
@@ -303,7 +303,7 @@ Use it when a question is about one device, or after get_active_alarms points at
                 if entry.severity is not GuideSeverity.INFO
             )
         active = await site_data.get_active_alarms(site_id)
-        prompts = prompts_about_device(await knowledge.list_site_scripts(site_id), device.device_id)
+        prompts = prompts_about_device(await knowledge.list_site_prompts(site_id), device.device_id)
         return {
             **({"related_prompts": list[JSONValue](prompts)} if prompts else {}),
             "device": dump(device),

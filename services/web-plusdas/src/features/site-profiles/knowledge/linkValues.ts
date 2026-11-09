@@ -1,13 +1,13 @@
-import type { KnowledgeState, SiteScriptLinks } from "@/api/types/knowledge";
+import type { KnowledgeState, SitePromptLinks } from "@/api/types/knowledge";
 import type { ProfileVersion } from "@/api/types/siteProfiles";
 import { localPointName } from "../lib/changes";
 
 // A site prompt's optional links: the approved points, site functions, documents and device
 // ratings it is about. They help the AI connect the prompt with what its tools return.
 
-export const NO_LINKS: SiteScriptLinks = { points: [], functions: [], documents: [], devices: [] };
+export const NO_LINKS: SitePromptLinks = { points: [], functions: [], documents: [], devices: [] };
 
-export type LinkKind = keyof SiteScriptLinks;
+export type LinkKind = keyof SitePromptLinks;
 
 export interface LinkOption {
   value: string;
@@ -45,7 +45,7 @@ export function linkOptions(profile: ProfileVersion, state: KnowledgeState): Rec
 }
 
 /** The links as picker values (strings), per kind. */
-export function linkValues(links: SiteScriptLinks | undefined): Record<LinkKind, string[]> {
+export function linkValues(links: SitePromptLinks | undefined): Record<LinkKind, string[]> {
   const current = links ?? NO_LINKS;
   return {
     points: (current.points ?? []).map(point => pointValue(point.device_id, point.point_name)),
@@ -55,7 +55,7 @@ export function linkValues(links: SiteScriptLinks | undefined): Record<LinkKind,
   };
 }
 
-export function valuesToLinks(values: Record<LinkKind, string[]>): SiteScriptLinks {
+export function valuesToLinks(values: Record<LinkKind, string[]>): SitePromptLinks {
   return {
     points: values.points.map(value => {
       const [deviceId, pointName] = value.split(POINT_SEPARATOR);

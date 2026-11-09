@@ -1,6 +1,6 @@
 import type {
   DeviceFactsRequest, DocumentCreated, DocumentRequest, KnowledgeCoverage, KnowledgeState, KnowledgeVersion,
-  KnowledgeVersionSummary, PointGuideRequest, SiteScriptCreated, SiteScriptRequest,
+  KnowledgeVersionSummary, PointGuideRequest, SitePromptCreated, SitePromptRequest,
 } from './types/knowledge';
 import { intelliGatewayClient } from './client';
 
@@ -31,13 +31,13 @@ export const knowledgeApi = {
   deleteDocument: (siteId: number, documentId: string, draftRevision?: number): Promise<KnowledgeState> =>
     intelliGatewayClient.deleteJson(`${base(siteId)}/documents/${encodeURIComponent(documentId)}${revisionQuery(draftRevision)}`),
 
-  /** Site scripts: the admin's general information about the site, in order (a new one goes last). */
-  createSiteScript: (siteId: number, body: SiteScriptRequest): Promise<SiteScriptCreated> =>
-    intelliGatewayClient.post(`${base(siteId)}/site-scripts`, body),
-  updateSiteScript: (siteId: number, scriptId: string, body: SiteScriptRequest): Promise<KnowledgeState> =>
-    intelliGatewayClient.put(`${base(siteId)}/site-scripts/${encodeURIComponent(scriptId)}`, body),
-  deleteSiteScript: (siteId: number, scriptId: string, draftRevision?: number): Promise<KnowledgeState> =>
-    intelliGatewayClient.deleteJson(`${base(siteId)}/site-scripts/${encodeURIComponent(scriptId)}${revisionQuery(draftRevision)}`),
+  /** Site prompts: the admin's general information about the site, in order (a new one goes last). */
+  createSitePrompt: (siteId: number, body: SitePromptRequest): Promise<SitePromptCreated> =>
+    intelliGatewayClient.post(`${base(siteId)}/site-prompts`, body),
+  updateSitePrompt: (siteId: number, promptId: string, body: SitePromptRequest): Promise<KnowledgeState> =>
+    intelliGatewayClient.put(`${base(siteId)}/site-prompts/${encodeURIComponent(promptId)}`, body),
+  deleteSitePrompt: (siteId: number, promptId: string, draftRevision?: number): Promise<KnowledgeState> =>
+    intelliGatewayClient.deleteJson(`${base(siteId)}/site-prompts/${encodeURIComponent(promptId)}${revisionQuery(draftRevision)}`),
 
   putDeviceFacts: (siteId: number, deviceId: number, body: DeviceFactsRequest): Promise<KnowledgeState> =>
     intelliGatewayClient.put(`${base(siteId)}/device-facts/${deviceId}`, body),

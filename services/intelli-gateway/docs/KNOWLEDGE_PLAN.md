@@ -53,7 +53,7 @@ The admin adds what backend-ot doesn't have: ratings (e.g. BESS MW/MWh, inverter
 
 | Type | Content | How the AI uses it |
 |---|---|---|
-| Site scripts | the admin's general information about the site, step by step: any number of named texts, in order (2026-11-09); each may link points, site functions, documents and device ratings (optional) | first in the cached site block |
+| Site prompts | the admin's general information about the site, step by step: any number of named texts, in order (2026-11-09); each may link points, site functions, documents and device ratings (optional) | first in the cached site block |
 | Point definition | meaning, unit note, normal range, related points | `explain_point` |
 | Point guide: states | per enum value, bit or vendor fault code: label, severity, message, meaning, probable causes, checks, related points, safety note | `lookup_fault`, `explain_point`, flags on live values |
 | Point guide: limits | above/below a value: severity, message, causes, checks | `explain_point`, flags on live values |

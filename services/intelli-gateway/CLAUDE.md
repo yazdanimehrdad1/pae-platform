@@ -8,12 +8,12 @@ MCP-ready.
 - the Claude integration (`services/claude/client.py`)
 - the agent loop and conversation history
 - the tool layer and its authorization
-- engineer-written knowledge: site scripts (the admin's general information about the site, as
+- engineer-written knowledge: site prompts (the admin's general information about the site, as
   named texts in order, first in the AI's site context, each optionally linked to points, site
   functions, documents and device ratings), point guides (meaning, limits, and per
   state, alarm bit or vendor fault code: message, severity, causes, checks, safety note), manuals, IM scripts, procedures,
   experience notes and device ratings, in its own Postgres (`knowledge/`, migration
-  `006_knowledge`). Admins edit a draft and publish the whole site at once; the AI reads only
+  `006_knowledge`; `007_site_prompts` renamed stored site scripts). Admins edit a draft and publish the whole site at once; the AI reads only
   the published version (`knowledge/published_store.py`). Guides are keyed per site device by
   the point's name within the device. API `/api/v1/sites/{id}/knowledge`, CLI
   `python -m intelli_gateway.manage_knowledge` (JSON export/import; never commit those files).

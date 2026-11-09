@@ -9,7 +9,7 @@ from intelli_gateway.schemas.knowledge import (
     DeviceFacts,
     KnowledgeDocument,
     PointGuide,
-    SiteScript,
+    SitePrompt,
 )
 
 
@@ -37,6 +37,6 @@ class KnowledgeStore(Protocol):
         """Admin-added ratings and notes of the site's devices."""
         ...
 
-    async def list_site_scripts(self, site_id: int) -> list[SiteScript]:
+    async def list_site_prompts(self, site_id: int) -> list[SitePrompt]:
         """The admin's general information about the site, in order."""
         ...

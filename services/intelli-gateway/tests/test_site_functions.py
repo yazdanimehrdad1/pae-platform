@@ -35,7 +35,7 @@ from site_profile_fakes import (
 )
 
 from intelli_gateway.app import create_app
-from intelli_gateway.schemas.knowledge import SiteScript, SiteScriptLinks
+from intelli_gateway.schemas.knowledge import SitePrompt, SitePromptLinks
 from intelli_gateway.schemas.site_data import SiteFunction, SiteFunctionRun
 from intelli_gateway.schemas.site_profile import ChangeKind, ChangeTarget
 from intelli_gateway.services.backend_ot.client import BackendOtClient
@@ -414,13 +414,13 @@ class TestTestRunApi:
 class TestRelatedPrompts:
     async def test_a_linked_function_names_its_prompt(self, onboarded: Platform) -> None:
         knowledge = InMemoryKnowledgeStore([])
-        knowledge.site_scripts.append(
-            SiteScript(
+        knowledge.site_prompts.append(
+            SitePrompt(
                 site_id=SITE_ID,
                 name="Storage",
                 text="The BESS shaves the evening peak.",
                 position=1,
-                links=SiteScriptLinks(functions=("site-rte",)),
+                links=SitePromptLinks(functions=("site-rte",)),
                 updated_at=FIXED_NOW,
             )
         )

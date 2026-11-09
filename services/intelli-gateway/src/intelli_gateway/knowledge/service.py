@@ -18,17 +18,17 @@ from datetime import datetime, timedelta
 
 from intelli_gateway.interfaces.knowledge_authoring_store import KnowledgeAuthoringStore
 from intelli_gateway.knowledge.authoring import (
-    check_script_documents,
+    check_prompt_documents,
     coverage,
     diff_knowledge,
     document_key,
     facts_key,
     find_document,
-    find_script,
+    find_prompt,
     guide_key,
-    next_script_position,
+    next_prompt_position,
+    prompt_key,
     revert_items,
-    script_key,
     validate_item,
     with_item,
     without_document_links,
@@ -48,8 +48,8 @@ from intelli_gateway.schemas.knowledge import (
     NormalRange,
     PointGuide,
     SiteKnowledge,
-    SiteScript,
-    SiteScriptLinks,
+    SitePrompt,
+    SitePromptLinks,
     StateGuide,
 )
 from intelli_gateway.schemas.site_profile import SiteCatalog
@@ -238,50 +238,50 @@ class SiteKnowledgeService:
             lambda knowledge: without_document_links(without_item(knowledge, key), document_id),
         )
 
-    async def create_site_script(
+    async def create_site_prompt(
         self,
         site_id: int,
         name: str,
         text: str,
         author: str,
         draft_revision: int | None = None,
-        links: SiteScriptLinks | None = None,
+        links: SitePromptLinks | None = None,
     ) -> tuple[KnowledgeState, str]:
-        """Add a site script after the others."""
-        script = self._script(site_id, name, text, author, links=links)
+        """Add a site prompt after the others."""
+        prompt = self._prompt(site_id, name, text, author, links=links)
 
         def change(knowledge: SiteKnowledge) -> SiteKnowledge:
-            check_script_documents(script, knowledge)
-            placed = script.model_copy(update={"position": next_script_position(knowledge)})
+            check_prompt_documents(prompt, knowledge)
+            placed = prompt.model_copy(update={"position": next_prompt_position(knowledge)})
             return with_item(knowledge, placed)
 
-        state = await self._edit(site_id, author, draft_revision, change, script)
-        return state, script.script_id
+        state = await self._edit(site_id, author, draft_revision, change, prompt)
+        return state, prompt.prompt_id
 
-    async def update_site_script(
+    async def update_site_prompt(
         self,
         site_id: int,
-        script_id: str,
+        prompt_id: str,
         name: str,
         text: str,
         author: str,
         draft_revision: int | None = None,
-        links: SiteScriptLinks | None = None,
+        links: SitePromptLinks | None = None,
     ) -> KnowledgeState:
-        """Change a site script's name, text and links; it keeps its place."""
-        script = self._script(site_id, name, text, author, script_id, links)
+        """Change a site prompt's name, text and links; it keeps its place."""
+        prompt = self._prompt(site_id, name, text, author, prompt_id, links)
 
         def change(knowledge: SiteKnowledge) -> SiteKnowledge:
-            check_script_documents(script, knowledge)
-            position = find_script(knowledge, script_id).position  # NotFoundError: unknown id
-            return with_item(knowledge, script.model_copy(update={"position": position}))
+            check_prompt_documents(prompt, knowledge)
+            position = find_prompt(knowledge, prompt_id).position  # NotFoundError: unknown id
+            return with_item(knowledge, prompt.model_copy(update={"position": position}))
 
-        return await self._edit(site_id, author, draft_revision, change, script)
+        return await self._edit(site_id, author, draft_revision, change, prompt)
 
-    async def delete_site_script(
-        self, site_id: int, script_id: str, author: str, draft_revision: int | None = None
+    async def delete_site_prompt(
+        self, site_id: int, prompt_id: str, author: str, draft_revision: int | None = None
     ) -> KnowledgeState:
-        key = script_key(script_id)
+        key = prompt_key(prompt_id)
         return await self._edit(
             site_id, author, draft_revision, lambda knowledge: without_item(knowledge, key)
         )
@@ -356,7 +356,7 @@ class SiteKnowledgeService:
             ),
             *(
                 s.model_copy(update={"site_id": site_id, "author": author, "updated_at": now})
-                for s in content.site_scripts
+                for s in content.site_prompts
             ),
         ]
         for item in items:
@@ -364,8 +364,8 @@ class SiteKnowledgeService:
         imported = SiteKnowledge()
         for item in items:
             imported = with_item(imported, item)
-        for script in imported.site_scripts:
-            check_script_documents(script, imported)
+        for prompt in imported.site_prompts:
+            check_prompt_documents(prompt, imported)
         return await self._edit(site_id, author, None, lambda knowledge: imported)
 
     # --- publishing ---
@@ -476,27 +476,27 @@ class SiteKnowledgeService:
             values["document_id"] = document_id
         return KnowledgeDocument.model_validate(values)
 
-    def _script(
+    def _prompt(
         self,
         site_id: int,
         name: str,
         text: str,
         author: str,
-        script_id: str | None = None,
-        links: SiteScriptLinks | None = None,
-    ) -> SiteScript:
+        prompt_id: str | None = None,
+        links: SitePromptLinks | None = None,
+    ) -> SitePrompt:
         values: dict[str, object] = {
             "site_id": site_id,
             "name": name.strip(),
             "text": text,
             "position": 1,  # placed by the edit
-            "links": links or SiteScriptLinks(),
+            "links": links or SitePromptLinks(),
             "author": author,
             "updated_at": self._clock(),
         }
-        if script_id is not None:
-            values["script_id"] = script_id
-        return SiteScript.model_validate(values)
+        if prompt_id is not None:
+            values["prompt_id"] = prompt_id
+        return SitePrompt.model_validate(values)
 
     async def _edit(
         self,

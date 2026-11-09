@@ -3,20 +3,20 @@ to their results ("related_prompts") so the AI goes back to the admin's prompt f
 
 from collections.abc import Iterable, Sequence
 
-from intelli_gateway.schemas.knowledge import SiteScript
+from intelli_gateway.schemas.knowledge import SitePrompt
 
 
-def prompt_label(script: SiteScript, number: int) -> str:
-    return f"Prompt {number}: {script.name}"
+def prompt_label(prompt: SitePrompt, number: int) -> str:
+    return f"Prompt {number}: {prompt.name}"
 
 
-def _numbered(scripts: Sequence[SiteScript]) -> list[tuple[int, SiteScript]]:
-    ordered = sorted(scripts, key=lambda script: (script.position, script.script_id))
+def _numbered(prompts: Sequence[SitePrompt]) -> list[tuple[int, SitePrompt]]:
+    ordered = sorted(prompts, key=lambda prompt: (prompt.position, prompt.prompt_id))
     return list(enumerate(ordered, start=1))
 
 
 def related_prompts(
-    scripts: Sequence[SiteScript],
+    prompts: Sequence[SitePrompt],
     *,
     device_id: int | None = None,
     point_names: Iterable[str] = (),
@@ -28,8 +28,8 @@ def related_prompts(
     or document."""
     names = set(point_names)
     related: list[str] = []
-    for number, script in _numbered(scripts):
-        links = script.links
+    for number, prompt in _numbered(prompts):
+        links = prompt.links
         linked = (
             (function is not None and function in links.functions)
             or (document_id is not None and document_id in links.documents)
@@ -44,17 +44,17 @@ def related_prompts(
             or (device_id is not None and not names and device_id in links.devices)
         )
         if linked:
-            related.append(prompt_label(script, number))
+            related.append(prompt_label(prompt, number))
     return related
 
 
-def prompts_about_device(scripts: Sequence[SiteScript], device_id: int) -> list[str]:
+def prompts_about_device(prompts: Sequence[SitePrompt], device_id: int) -> list[str]:
     """The prompts linked to this device's ratings or to any of its points."""
     return [
-        prompt_label(script, number)
-        for number, script in _numbered(scripts)
-        if device_id in script.links.devices
-        or any(point.device_id == device_id for point in script.links.points)
+        prompt_label(prompt, number)
+        for number, prompt in _numbered(prompts)
+        if device_id in prompt.links.devices
+        or any(point.device_id == device_id for point in prompt.links.points)
     ]
 
 

@@ -8,8 +8,8 @@ from fakes import FIXED_NOW, Row, as_dict, make_ctx
 from intelli_gateway.schemas.knowledge import (
     KnowledgeKind,
     PromptPointLink,
-    SiteScript,
-    SiteScriptLinks,
+    SitePrompt,
+    SitePromptLinks,
 )
 from intelli_gateway.tools.local_provider import LocalToolProvider
 
@@ -136,13 +136,13 @@ class TestRelatedPrompts:
             for d in await knowledge_store.list_documents(1)
             if d.device_id == 11 and d.kind is KnowledgeKind.IM_SCRIPT
         )
-        knowledge_store.site_scripts.append(
-            SiteScript(
+        knowledge_store.site_prompts.append(
+            SitePrompt(
                 site_id=1,
                 name="Cooling",
                 text="INV2 runs hot.",
                 position=1,
-                links=SiteScriptLinks(
+                links=SitePromptLinks(
                     points=(PromptPointLink(device_id=11, point_name="CabinetTemp"),),
                     documents=(im_script.document_id,),
                 ),

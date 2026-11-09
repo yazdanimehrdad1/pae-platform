@@ -22,8 +22,8 @@ from intelli_gateway.schemas.api_models.knowledge import (
     PointGuideRequest,
     PublishRequest,
     RevertRequest,
-    SiteScriptCreatedResponse,
-    SiteScriptRequest,
+    SitePromptCreatedResponse,
+    SitePromptRequest,
 )
 from intelli_gateway.schemas.api_models.responses import ErrorResponse
 from intelli_gateway.schemas.knowledge import KnowledgeCoverage, KnowledgeVersion
@@ -192,34 +192,34 @@ async def delete_document(
 
 
 @router.post(
-    "/site-scripts",
-    response_model=SiteScriptCreatedResponse,
+    "/site-prompts",
+    response_model=SitePromptCreatedResponse,
     status_code=status.HTTP_201_CREATED,
     responses=EDIT,
-    summary="Add a site script (general information about the site) after the others, to the draft",
+    summary="Add a site prompt (general information about the site) after the others, to the draft",
 )
-async def create_site_script(
-    site_id: int, body: SiteScriptRequest, admin: Admin, knowledge: Knowledge
-) -> SiteScriptCreatedResponse:
-    state, script_id = await knowledge.create_site_script(
+async def create_site_prompt(
+    site_id: int, body: SitePromptRequest, admin: Admin, knowledge: Knowledge
+) -> SitePromptCreatedResponse:
+    state, prompt_id = await knowledge.create_site_prompt(
         site_id, body.name, body.text, admin.email, body.draft_revision, body.links
     )
-    return SiteScriptCreatedResponse(**_state(state).model_dump(), script_id=script_id)
+    return SitePromptCreatedResponse(**_state(state).model_dump(), prompt_id=prompt_id)
 
 
 @router.put(
-    "/site-scripts/{script_id}",
+    "/site-prompts/{prompt_id}",
     response_model=KnowledgeStateResponse,
     responses=EDIT,
-    summary="Change a site script's name, text and links in the draft",
+    summary="Change a site prompt's name, text and links in the draft",
 )
-async def update_site_script(
-    site_id: int, script_id: str, body: SiteScriptRequest, admin: Admin, knowledge: Knowledge
+async def update_site_prompt(
+    site_id: int, prompt_id: str, body: SitePromptRequest, admin: Admin, knowledge: Knowledge
 ) -> KnowledgeStateResponse:
     return _state(
-        await knowledge.update_site_script(
+        await knowledge.update_site_prompt(
             site_id,
-            script_id,
+            prompt_id,
             body.name,
             body.text,
             admin.email,
@@ -230,20 +230,20 @@ async def update_site_script(
 
 
 @router.delete(
-    "/site-scripts/{script_id}",
+    "/site-prompts/{prompt_id}",
     response_model=KnowledgeStateResponse,
     responses=EDIT,
-    summary="Remove a site script in the draft",
+    summary="Remove a site prompt in the draft",
 )
-async def delete_site_script(
+async def delete_site_prompt(
     site_id: int,
-    script_id: str,
+    prompt_id: str,
     admin: Admin,
     knowledge: Knowledge,
     draft_revision: DraftRevisionQuery = None,
 ) -> KnowledgeStateResponse:
     return _state(
-        await knowledge.delete_site_script(site_id, script_id, admin.email, draft_revision)
+        await knowledge.delete_site_prompt(site_id, prompt_id, admin.email, draft_revision)
     )
 
 

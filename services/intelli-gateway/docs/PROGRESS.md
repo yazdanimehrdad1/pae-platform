@@ -308,15 +308,15 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   a 422 without calling backend-ot. The "Try it" dialog worked in headless Chromium.
 - **Not done:** `make test-llm` (paid) with a site-function question.
 
-### 13. Knowledge: site scripts, delete older versions, point guides by device (uncommitted, 2026-11-09)
-- **Site scripts** (the user's call): the admin's general information about the site, entered
+### 13. Knowledge: site prompts, delete older versions, point guides by device (uncommitted, 2026-11-09)
+- **Site prompts** (the user's call): the admin's general information about the site, entered
   step by step as any number of named texts instead of one long prompt. A new knowledge item
-  (`SiteScript`: name, text, position; key `script:<id>`) in the same draft → publish; a new one
+  (`SitePrompt`: name, text, position; key `prompt:<id>`) in the same draft → publish; a new one
   goes last, an edit keeps its place. Secrets are refused like everywhere. The AI reads them all,
   in order, first in the cached site block ("About this site"). API
-  `POST/PUT/DELETE /api/v1/sites/{id}/knowledge/site-scripts[/{script_id}]` (read: the knowledge
+  `POST/PUT/DELETE /api/v1/sites/{id}/knowledge/site-prompts[/{prompt_id}]` (read: the knowledge
   state); version summaries count them. No migration (knowledge is JSONB; old content loads with
-  none). Contract additive. web-plusdas: "Site script" is the first Knowledge tab: numbered
+  none). Contract additive. web-plusdas: "Site prompt" is the first Knowledge tab: numbered
   steps, each with edit and delete (confirmed), and a form for the next step. No reordering yet.
 - `DELETE /api/v1/sites/{id}/knowledge/versions?version=1&version=2` (admin): deletes older
   published versions for good and returns the versions left. The version the AI uses can't be
@@ -329,19 +329,29 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   Postgres integration tests).
 
 ### 14. Site prompts link to points, site functions, documents and device ratings (uncommitted, 2026-11-09)
-- Each site prompt has optional `links` (`SiteScriptLinks`: points as device_id + local point
+- Each site prompt has optional `links` (`SitePromptLinks`: points as device_id + local point
   name, site function names, document ids, device ids for ratings); empty = not applicable. Kept
   sorted and without repeats. Checked on save: points, functions and devices must be in the
   approved profile, documents in the draft. Deleting a document drops it from every prompt's
-  links; a link the approved profile no longer has shows in coverage as `orphaned` (`script:<id>`).
+  links; a link the approved profile no longer has shows in coverage as `orphaned` (`prompt:<id>`).
 - The AI, both directions (the user's call): a `Related: ...` line under each prompt in the
   cached site block (unpublished documents left out), and a `related_prompts` field
   ("Prompt N: name") in explain_point, list_points, get_device_status, get_device_script,
   search_experience_notes, list_site_functions and run_site_function when a prompt links the item.
-- API: `links` on the site-script create/update body (optional). Contract additive; no migration.
+- API: `links` on the site-prompt create/update body (optional).
 - web-plusdas: the prompt form has a "Linked to (optional)" row of four pickers (Points, Site
   functions, Documents, Device ratings: devices that have ratings), selected links show as
   removable badges; each prompt shows its links as badges.
+
+### 15. Site scripts renamed to site prompts everywhere (breaking, contract 0.3.0, uncommitted, 2026-11-09)
+- The user's call, to match the UI: `SiteScript*` → `SitePrompt*`, `site_scripts` →
+  `site_prompts`, `script_id` → `prompt_id`, item key `script:` → `prompt:`, item kind
+  `site_script` → `site_prompt`, routes `/knowledge/site-scripts` → `/knowledge/site-prompts`,
+  store method `list_site_prompts`. IM scripts (`get_device_script`, `im_script`) are unrelated
+  and unchanged. `API_VERSION` 0.2.0 → 0.3.0; web-plusdas (the only consumer) updated in the
+  same change.
+- Migration `007_site_prompts` rewrites stored drafts and versions (the list key, each item's id,
+  and `script:` change ids); integration test runs it on old-format rows.
 
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;

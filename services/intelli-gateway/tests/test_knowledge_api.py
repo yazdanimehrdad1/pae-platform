@@ -185,32 +185,32 @@ async def test_revert_discard_and_restore(setup: Setup) -> None:
         assert (await admin.delete(f"{BASE}/draft")).json()["changes"] == []
 
         created = await admin.post(
-            f"{BASE}/site-scripts", json={"name": "Overview", "text": "Solar site, one meter."}
+            f"{BASE}/site-prompts", json={"name": "Overview", "text": "Solar site, one meter."}
         )
         assert created.status_code == 201
-        script_id = created.json()["script_id"]
-        assert [s["name"] for s in created.json()["content"]["site_scripts"]] == ["Overview"]
+        prompt_id = created.json()["prompt_id"]
+        assert [s["name"] for s in created.json()["content"]["site_prompts"]] == ["Overview"]
         links = {"points": [{"device_id": 1, "point_name": "Fault"}], "devices": [1]}
         changed = await admin.put(
-            f"{BASE}/site-scripts/{script_id}",
+            f"{BASE}/site-prompts/{prompt_id}",
             json={"name": "Overview", "text": "Solar site.", "links": links, "draft_revision": 1},
         )
-        script = changed.json()["content"]["site_scripts"][0]
+        script = changed.json()["content"]["site_prompts"][0]
         assert script["text"] == "Solar site."
         assert script["links"] == {**links, "functions": [], "documents": []}
         bad_link = await admin.put(
-            f"{BASE}/site-scripts/{script_id}",
+            f"{BASE}/site-prompts/{prompt_id}",
             json={"name": "Overview", "text": "Solar site.", "links": {"devices": [99]}},
         )
         assert bad_link.status_code == 422 and "device 99" in bad_link.json()["detail"]
         assert (
-            await admin.put(f"{BASE}/site-scripts/nope", json={"name": "x", "text": "y"})
+            await admin.put(f"{BASE}/site-prompts/nope", json={"name": "x", "text": "y"})
         ).status_code == 404
         assert (
-            await admin.post(f"{BASE}/site-scripts", json={"name": "", "text": "y"})
+            await admin.post(f"{BASE}/site-prompts", json={"name": "", "text": "y"})
         ).status_code == 422
-        removed = await admin.delete(f"{BASE}/site-scripts/{script_id}")
-        assert removed.json()["content"]["site_scripts"] == [] and removed.json()["changes"] == []
+        removed = await admin.delete(f"{BASE}/site-prompts/{prompt_id}")
+        assert removed.json()["content"]["site_prompts"] == [] and removed.json()["changes"] == []
 
         live = await admin.delete(f"{BASE}/versions", params={"version": [2, 3]})
         assert live.status_code == 422 and "what the AI uses" in live.json()["detail"]

@@ -150,7 +150,7 @@ class PromptPointLink(BaseModel):
     point_name: str = Field(min_length=1)
 
 
-class SiteScriptLinks(BaseModel):
+class SitePromptLinks(BaseModel):
     """What a site prompt is about, all optional: approved points (and so their guides), site
     functions (by name), documents (by id) and device ratings (by device). Kept sorted and
     without repeats so an unchanged prompt never shows as an edit."""
@@ -182,25 +182,25 @@ class SiteScriptLinks(BaseModel):
         return not (self.points or self.functions or self.documents or self.devices)
 
 
-class SiteScript(BaseModel):
+class SitePrompt(BaseModel):
     """One part of the site's general information for the AI (overview, how the site runs, ...),
     written by an admin as several named texts instead of one long prompt. Kept in `position`
     order (the order they were added); the AI reads them all, first, in its site context."""
 
     model_config = ConfigDict(frozen=True)
 
-    script_id: str = Field(default_factory=lambda: uuid4().hex)
+    prompt_id: str = Field(default_factory=lambda: uuid4().hex)
     site_id: int
     name: str
     text: str
     position: int = Field(ge=1)
-    links: SiteScriptLinks = SiteScriptLinks()
+    links: SitePromptLinks = SitePromptLinks()
     author: str | None = None
     updated_at: AwareDatetime
 
 
 # Any one item of a site's knowledge (what a draft edit adds, changes or removes).
-KnowledgeItem = PointGuide | KnowledgeDocument | DeviceFacts | SiteScript
+KnowledgeItem = PointGuide | KnowledgeDocument | DeviceFacts | SitePrompt
 
 
 # --- A site's knowledge, its draft and its published versions -----------------------------------
@@ -215,7 +215,7 @@ class SiteKnowledge(BaseModel):
     point_guides: tuple[PointGuide, ...] = ()
     documents: tuple[KnowledgeDocument, ...] = ()
     device_facts: tuple[DeviceFacts, ...] = ()
-    site_scripts: tuple[SiteScript, ...] = ()
+    site_prompts: tuple[SitePrompt, ...] = ()
 
 
 class KnowledgeDraft(BaseModel):
@@ -251,13 +251,13 @@ class KnowledgeItemKind(StrEnum):
     POINT_GUIDE = "point_guide"
     DOCUMENT = "document"
     DEVICE_FACTS = "device_facts"
-    SITE_SCRIPT = "site_script"
+    SITE_PROMPT = "site_prompt"
 
 
 class KnowledgeChange(BaseModel):
     """One draft item that differs from the published knowledge. item_key:
     `point:<device_id>:<point name>`, `document:<document_id>`, `device:<device_id>` or
-    `script:<script_id>`."""
+    `prompt:<prompt_id>`."""
 
     model_config = ConfigDict(frozen=True)
 
