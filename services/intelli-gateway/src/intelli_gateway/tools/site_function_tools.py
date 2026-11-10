@@ -2,6 +2,8 @@
 efficiency...). The AI sees only the ones backend-ot labels for it and the site admin approved;
 the gated connector enforces that, and site_profile/functions.py bounds the result."""
 
+from typing import Literal
+
 from pydantic import AwareDatetime, Field
 
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
@@ -10,7 +12,7 @@ from intelli_gateway.knowledge.prompt_links import related_prompts
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.site_data import ParameterValue, SiteFunctionRun
 from intelli_gateway.schemas.tools import JSONValue, ToolInput
-from intelli_gateway.site_profile.functions import run_function
+from intelli_gateway.site_profile.functions import FunctionLimits, run_function
 from intelli_gateway.tools.base import ToolDefinition, ToolError, tool
 from intelli_gateway.tools.common import SiteToolLimits, dump, site_id_of
 from intelli_gateway.utils.exceptions import InvalidRequestError, NotFoundError
@@ -32,6 +34,12 @@ class RunSiteFunctionInput(ToolInput):
         default_factory=dict[str, ParameterValue],
         description="Extra parameters the function declares (e.g. lookback_days); omit them "
         "for their defaults.",
+    )
+    resolution: Literal["15min", "raw"] = Field(
+        default="15min",
+        description='Series functions only: "15min" (default) gives the first reading of each '
+        '15-minute interval; "raw" gives every reading (when timing, spikes or short events '
+        "matter).",
     )
 
 
@@ -71,8 +79,12 @@ computing the same figure yourself from point history: its numbers match the das
         name="run_site_function",
         description=f"""
 Runs one site function (from list_site_functions) over a time window and returns its result.
-Series in the result are summarized: count, min, max, avg, first, last and a few samples. The
-window may be at most {limits.history_max_days} days. Device functions need a device_id.
+Device functions need a device_id. The window may be at most {limits.history_max_days} days, and
+for a "series" function at most {limits.series_max_hours} hours: for a longer period use a
+function that computes the answer. Each series' timeseries holds the first reading of each
+{limits.series_interval_minutes}-minute interval ([{{time, value}}]), or with resolution "raw"
+every reading (`start`, `offsets_s` in seconds after it, `values`). "gaps" lists stretches with
+no data and "coverage_percent" how much of the window has data: never treat a gap as zero.
 """,
         input_model=RunSiteFunctionInput,
     )
@@ -86,9 +98,11 @@ window may be at most {limits.history_max_days} days. Device functions need a de
             parameters=args.parameters,
         )
         try:
-            result = await run_function(
-                site_data, site_id, run, limits.history_max_days, limits.history_samples
-            )
+            result = (
+                await run_function(
+                    site_data, site_id, run, args.resolution, function_limits(limits)
+                )
+            ).for_ai
         except NotFoundError as error:
             raise ToolError(
                 str(error), hint="call list_site_functions for valid names and devices"
@@ -107,3 +121,11 @@ window may be at most {limits.history_max_days} days. Device functions need a de
         return output
 
     return [list_site_functions, run_site_function]
+
+
+def function_limits(limits: SiteToolLimits) -> FunctionLimits:
+    return FunctionLimits(
+        max_days=limits.history_max_days,
+        series_max_hours=limits.series_max_hours,
+        interval_minutes=limits.series_interval_minutes,
+    )

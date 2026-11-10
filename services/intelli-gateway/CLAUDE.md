@@ -27,7 +27,11 @@ MCP-ready.
   computes them and labels each `ai_assistant`; the profile copies only those, and each is
   approved like a point. Tools `list_site_functions` / `run_site_function`, and the admin's
   `POST /api/v1/sites/{id}/functions/{name}/test-run`, share `site_profile/functions.py`
-  (window limit, series summarized). This service computes no site figures itself.
+  (window limits; a series function at most `TOOL_SERIES_MAX_HOURS`, 6). backend-ot computes
+  the functions; this service only reduces a series: the first reading of each 15-minute
+  interval (the default) or every reading (`resolution: raw`), plus its gaps and coverage. The
+  test-run also returns backend-ot's untouched result (`backend_ot_result`, never sent to the AI)
+  so the admin page can check the reduction.
 - **PlusDAS users** (`auth/`, migration `003_users`): accounts (signed in by email address; admin-created with
   `manage_users`, no self-signup), login and sessions (an opaque token in an HttpOnly cookie; only
   its SHA-256 is stored), and per-user data next. `get_request_context` takes the user from the

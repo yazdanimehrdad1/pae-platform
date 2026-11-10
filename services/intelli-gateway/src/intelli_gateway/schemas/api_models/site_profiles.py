@@ -1,5 +1,7 @@
 """Request and response bodies of the site profile admin routes (api/routers/site_profiles.py)."""
 
+from typing import Literal
+
 from pydantic import AwareDatetime, BaseModel, Field, JsonValue
 
 from intelli_gateway.schemas.site_data import ParameterValue
@@ -54,6 +56,11 @@ class SiteFunctionTestRunRequest(BaseModel):
         default_factory=dict[str, ParameterValue],
         description="Extra parameters the function declares; omit for their defaults",
     )
+    resolution: Literal["15min", "raw"] = Field(
+        default="15min",
+        description="Series functions: the first reading of each 15-minute interval, or every "
+        "reading",
+    )
 
 
 class SiteFunctionTestRunResponse(BaseModel):
@@ -63,4 +70,8 @@ class SiteFunctionTestRunResponse(BaseModel):
     start: AwareDatetime
     end: AwareDatetime
     device_id: int | None = None
-    result: dict[str, JsonValue]
+    result: dict[str, JsonValue] = Field(description="Exactly what the AI gets")
+    backend_ot_result: dict[str, JsonValue] = Field(
+        description="backend-ot's untouched result (every reading, real timestamps), to check "
+        "`result` against; never sent to the AI"
+    )

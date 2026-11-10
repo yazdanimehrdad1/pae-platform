@@ -23,7 +23,7 @@ from intelli_gateway.schemas.api_models.site_profiles import (
 from intelli_gateway.schemas.site_data import SiteFunctionRun
 from intelli_gateway.schemas.site_profile import PendingChanges, ProfileVersion, SiteProfileStatus
 from intelli_gateway.schemas.users import User
-from intelli_gateway.site_profile.functions import run_function
+from intelli_gateway.site_profile.functions import FunctionLimits, run_function
 from intelli_gateway.site_profile.service import SiteProfileService
 
 Responses = dict[int | str, dict[str, Any]]
@@ -162,13 +162,17 @@ async def test_run_site_function(
         device_id=body.device_id,
         parameters=body.parameters,
     )
-    result = await run_function(
-        site_data,
-        site_id,
-        run,
+    limits = FunctionLimits(
         max_days=settings.tool_history_max_days,
-        sample_count=settings.tool_history_samples,
+        series_max_hours=settings.tool_series_max_hours,
+        interval_minutes=settings.tool_series_interval_minutes,
     )
+    result = await run_function(site_data, site_id, run, body.resolution, limits)
     return SiteFunctionTestRunResponse(
-        function=name, start=body.start, end=body.end, device_id=body.device_id, result=result
+        function=name,
+        start=body.start,
+        end=body.end,
+        device_id=body.device_id,
+        result=result.for_ai,
+        backend_ot_result=result.backend_ot,
     )

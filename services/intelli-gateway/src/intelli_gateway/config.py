@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     tool_max_rows: int = Field(default=50, gt=0, alias="TOOL_MAX_ROWS")
     tool_history_samples: int = Field(default=12, ge=2, alias="TOOL_HISTORY_SAMPLES")
     tool_history_max_days: int = Field(default=31, gt=0, alias="TOOL_HISTORY_MAX_DAYS")
+    # Series site functions: the longest window, and the default resolution's interval (the
+    # first reading of each; the AI may ask for every reading instead). Longer periods: a
+    # function that computes the answer.
+    tool_series_max_hours: int = Field(default=6, gt=0, alias="TOOL_SERIES_MAX_HOURS")
+    tool_series_interval_minutes: int = Field(
+        default=15, ge=1, le=60, alias="TOOL_SERIES_INTERVAL_MINUTES"
+    )
     # A point with no new reading for longer than this is flagged stale (device not reporting).
     data_stale_after_s: float = Field(default=600, gt=0, alias="DATA_STALE_AFTER_S")
 

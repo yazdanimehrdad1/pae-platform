@@ -36,7 +36,7 @@ from intelli_gateway.wiring import Services, build_services
 
 # The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
 # (see contracts/README.md).
-API_VERSION = "0.3.0"
+API_VERSION = "0.4.0"
 DESCRIPTION = (
     "AI helper for site engineers: Claude answers questions about a generation site using "
     "read-only tools"

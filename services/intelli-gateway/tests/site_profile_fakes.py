@@ -18,6 +18,7 @@ from doubles.models import (
 )
 from doubles.site_data import FakeSiteDataConnector
 from fakes import fixed_clock
+from pydantic import JsonValue
 
 from intelli_gateway.schemas.site_data import (
     AlarmSeverity,
@@ -137,6 +138,17 @@ RTE = FakeFunction(
     function=SiteFunction(name="site-rte", kind="site", summary="Round-trip efficiency (%)"),
     result={"site_id": SITE_ID, "round_trip_efficiency_pct": 88.5},
 )
+# Every 5 min from 06:00 to 12:00 (value = minutes after 06:00), with an outage from 07:55 to
+# 09:00 that backend-ot marks with a valueless sample.
+POI_SAMPLES: list[JsonValue] = [
+    {
+        "time": f"2026-06-15T{6 + minutes // 60:02d}:{minutes % 60:02d}:00+00:00",
+        "value": float(minutes),
+    }
+    for minutes in range(0, 361, 5)
+    if not 120 <= minutes < 180
+]
+POI_SAMPLES.append({"time": "2026-06-15T08:27:30+00:00", "value": None})
 POI_POWER = FakeFunction(
     function=SiteFunction(
         name="site-poi-power", kind="site", summary="POI power series (kW)", output="series"
@@ -148,10 +160,7 @@ POI_POWER = FakeFunction(
             "id": 0,
             "name": "poi_power",
             "unit": "kW",
-            "timeseries": [
-                {"time": f"2026-06-15T{hour:02d}:00:00+00:00", "value": float(hour * 50)}
-                for hour in range(10)
-            ],
+            "timeseries": POI_SAMPLES,
         },
     },
 )

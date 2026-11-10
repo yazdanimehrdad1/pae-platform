@@ -1797,6 +1797,13 @@ export interface components {
                 [key: string]: number | string | boolean;
             };
             /**
+             * Resolution
+             * @description Series functions: the first reading of each 15-minute interval, or every reading
+             * @default 15min
+             * @enum {string}
+             */
+            resolution: "15min" | "raw";
+            /**
              * Start
              * Format: date-time
              * @description Start of the window, ISO 8601 with a UTC offset
@@ -1808,6 +1815,13 @@ export interface components {
          * @description What the AI's run_site_function tool would return for the same request.
          */
         SiteFunctionTestRunResponse: {
+            /**
+             * Backend Ot Result
+             * @description backend-ot's untouched result (every reading, real timestamps), to check `result` against; never sent to the AI
+             */
+            backend_ot_result: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
             /** Device Id */
             device_id?: number | null;
             /**
@@ -1817,7 +1831,10 @@ export interface components {
             end: string;
             /** Function */
             function: string;
-            /** Result */
+            /**
+             * Result
+             * @description Exactly what the AI gets
+             */
             result: {
                 [key: string]: components["schemas"]["JsonValue"];
             };

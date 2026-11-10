@@ -2548,6 +2548,16 @@
             "title": "Parameters",
             "type": "object"
           },
+          "resolution": {
+            "default": "15min",
+            "description": "Series functions: the first reading of each 15-minute interval, or every reading",
+            "enum": [
+              "15min",
+              "raw"
+            ],
+            "title": "Resolution",
+            "type": "string"
+          },
           "start": {
             "description": "Start of the window, ISO 8601 with a UTC offset",
             "format": "date-time",
@@ -2565,6 +2575,14 @@
       "SiteFunctionTestRunResponse": {
         "description": "What the AI's run_site_function tool would return for the same request.",
         "properties": {
+          "backend_ot_result": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "description": "backend-ot's untouched result (every reading, real timestamps), to check `result` against; never sent to the AI",
+            "title": "Backend Ot Result",
+            "type": "object"
+          },
           "device_id": {
             "anyOf": [
               {
@@ -2589,6 +2607,7 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
             },
+            "description": "Exactly what the AI gets",
             "title": "Result",
             "type": "object"
           },
@@ -2602,7 +2621,8 @@
           "function",
           "start",
           "end",
-          "result"
+          "result",
+          "backend_ot_result"
         ],
         "title": "SiteFunctionTestRunResponse",
         "type": "object"
@@ -3565,7 +3585,7 @@
   "info": {
     "description": "AI helper for site engineers: Claude answers questions about a generation site using read-only tools",
     "title": "intelli-gateway",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "openapi": "3.1.0",
   "paths": {

@@ -36,6 +36,7 @@ const VERSION_1: ProfileVersion = {
         name: 'device-inverter-availability', kind: 'device', summary: 'Inverter availability (%)', output: 'scalar', device_types: ['INVERTER'],
         parameters: [{ name: 'lookback_days', type: 'integer', default: 7, required: false }],
       },
+      { name: 'site-assets-active-power', kind: 'site', summary: 'Assets active power (kW)', output: 'series', device_types: [], parameters: [] },
     ],
   },
 };
@@ -159,6 +160,7 @@ describe('SiteProfileDetailPage', () => {
     const testRun = vi.spyOn(siteProfilesApi, 'testRunFunction').mockResolvedValue({
       function: 'device-inverter-availability', start: '2026-11-07T09:00:00Z', end: '2026-11-08T09:00:00Z', device_id: 12,
       result: { availability_pct: 97.5 },
+      backend_ot_result: { availability_pct: 97.5 },
     });
     renderAt('/site-profiles/1001');
     expect(await screen.findByText('The AI uses profile version 1.')).toBeTruthy();
@@ -189,6 +191,7 @@ describe('SiteProfileDetailPage', () => {
     vi.spyOn(siteProfilesApi, 'testRunFunction').mockResolvedValue({
       function: 'site-bess1-round-trip-efficiency', start: '2026-11-08T22:21:06Z', end: '2026-11-09T22:21:06Z', device_id: null,
       result: { end_time: '2026-11-09T22:21:06.211000Z', efficiency_pct: 88.5 },
+      backend_ot_result: { end_time: '2026-11-09T22:21:06.211000Z', efficiency_pct: 88.5 },
     });
     renderAt('/site-profiles/1001');
     expect(await screen.findByText(/Times in America\/Los_Angeles/)).toBeTruthy();
@@ -203,6 +206,63 @@ describe('SiteProfileDetailPage', () => {
     expect(result.textContent).toMatch(/"end_time": "09 Nov, 14:21 [^"]+"/);
     fireEvent.click(within(dialog).getByRole('switch', { name: 'Show the raw result' }));
     expect(result.textContent).toContain('"end_time": "2026-11-09T22:21:06.211000Z"');
+  });
+
+  it('offers a series function at most 6 hours, as 15-minute buckets or every reading', async () => {
+    vi.spyOn(siteProfilesApi, 'list').mockResolvedValue([{ ...NEW_SITE, approved_version: 1, pending_changes: 0 }]);
+    vi.spyOn(siteProfilesApi, 'get').mockResolvedValue(VERSION_1);
+    vi.spyOn(siteProfilesApi, 'changes').mockResolvedValue({ ...PENDING, approved_version: 1, changes: [] });
+    const testRun = vi.spyOn(siteProfilesApi, 'testRunFunction').mockResolvedValue({
+      function: 'site-assets-active-power', start: '2026-11-09T16:00:00Z', end: '2026-11-09T22:00:00Z', device_id: null,
+      result: {
+        series: {
+          resolution: 'first reading every 15 min',
+          timeseries: [{ time: '2026-11-09T16:00:05Z', value: 10 }, { time: '2026-11-09T16:15:05Z', value: 30 }],
+          gaps: [], coverage_percent: 100,
+        },
+      },
+      backend_ot_result: {
+        series: {
+          timeseries: [
+            { time: '2026-11-09T16:00:05Z', value: 10 }, { time: '2026-11-09T16:07:05Z', value: 20 },
+            { time: '2026-11-09T16:15:05Z', value: 30 },
+          ],
+        },
+      },
+    });
+    renderAt('/site-profiles/1001');
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'What the AI knows' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Try site-assets-active-power' }));
+    const dialog = await screen.findByRole('dialog');
+    const windows = within(dialog).getByLabelText('Window') as HTMLSelectElement;
+    expect([...windows.options].map(option => option.text)).toEqual(['Last 15 minutes', 'Last hour', 'Last 6 hours']);
+    expect(windows.value).toBe('6');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run' }));
+    expect(await within(dialog).findByText(/"resolution": "first reading every 15 min"/)).toBeTruthy();
+    // The page checks the AI's rows against backend-ot's untouched result, which it can also show.
+    expect(within(dialog).getByText(/✓ 2 of 2 rows are backend-ot's first reading of each 15 min \(from 3 readings\)/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('switch', { name: "Show backend-ot's original" }));
+    expect(within(dialog).getByLabelText('Result', { selector: 'pre' }).textContent).toContain('"value": 20');
+    fireEvent.click(within(dialog).getByRole('switch', { name: 'Every reading' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(testRun).toHaveBeenCalledTimes(2));
+
+    const [first, second] = testRun.mock.calls.map(call => call[2]);
+    expect([first.resolution, second.resolution]).toEqual(['15min', 'raw']);
+    expect(new Date(first.end).getTime() - new Date(first.start).getTime()).toBe(6 * 3_600_000);
+  });
+
+  it('offers no resolution for a scalar function', async () => {
+    vi.spyOn(siteProfilesApi, 'list').mockResolvedValue([{ ...NEW_SITE, approved_version: 1, pending_changes: 0 }]);
+    vi.spyOn(siteProfilesApi, 'get').mockResolvedValue(VERSION_1);
+    vi.spyOn(siteProfilesApi, 'changes').mockResolvedValue({ ...PENDING, approved_version: 1, changes: [] });
+    renderAt('/site-profiles/1001');
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'What the AI knows' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Try site-bess1-round-trip-efficiency' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('switch', { name: 'Every reading' })).toBeNull();
+    expect((within(dialog).getByLabelText('Window') as HTMLSelectElement).value).toBe('24');
   });
 
   it('shows why a test-run was refused', async () => {

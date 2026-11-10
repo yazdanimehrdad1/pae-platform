@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Play } from "lucide-react";
 import { siteProfilesApi } from "@/api";
@@ -11,11 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { formatSiteTime } from "@/shared/lib/siteTime";
-import { appliesTo, devicesFor, WINDOWS, withDisplayTimes } from "../lib/functions";
+import { checkAgainstBackendOt } from "../lib/checkSeries";
+import { appliesTo, devicesFor, windowsFor, withDisplayTimes } from "../lib/functions";
 
 // The site functions the AI may run: backend-ot labels them for the AI assistant, the admin
 // approves them here like devices and points, and backend-ot computes them. "Try it" runs one
-// exactly as the AI would and shows what the AI gets back (series summarized).
+// exactly as the AI would and shows what the AI gets back (a series: at most 6 hours, as
+// the first reading of each 15 minutes or every reading, with its gaps; checked against
+// backend-ot's untouched result).
 
 export function SiteFunctionsSection({ siteId, functions, devices, timeZone }: {
   siteId: number;
@@ -77,8 +80,12 @@ function TryFunctionDialog({ siteId, fn, devices, timeZone, onClose }: {
   timeZone: string;
   onClose: () => void;
 }) {
-  const [hours, setHours] = useState<number>(24);
+  const isSeries = fn.output === "series";
+  const windows = windowsFor(fn);
+  const [hours, setHours] = useState<number>(isSeries ? 6 : 24);
+  const [everyReading, setEveryReading] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
   const [deviceId, setDeviceId] = useState<string>(devices[0] ? String(devices[0].device_id) : "");
   const [values, setValues] = useState<Record<string, string>>({});
   const run = useMutation<SiteFunctionTestRunResponse, unknown>({
@@ -96,11 +103,17 @@ function TryFunctionDialog({ siteId, fn, devices, timeZone, onClose }: {
         end: end.toISOString(),
         device_id: fn.kind === "device" ? Number(deviceId) : null,
         parameters,
+        resolution: everyReading ? "raw" : "15min",
       });
     },
   });
   const needsDevice = fn.kind === "device";
   const canRun = !run.isPending && (!needsDevice || deviceId !== "");
+  const checks = useMemo(
+    () => (run.data && isSeries ? checkAgainstBackendOt(run.data.result, run.data.backend_ot_result, run.data.start, run.data.end) : []),
+    [run.data, isSeries],
+  );
+  const shown = run.data ? (showOriginal ? run.data.backend_ot_result : run.data.result) : null;
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -113,9 +126,18 @@ function TryFunctionDialog({ siteId, fn, devices, timeZone, onClose }: {
           <div className="space-y-1">
             <Label htmlFor="function-window">Window</Label>
             <select id="function-window" className={SELECT_CLASS} value={hours} onChange={event => setHours(Number(event.target.value))}>
-              {WINDOWS.map(window => <option key={window.hours} value={window.hours}>{window.label}</option>)}
+              {windows.map(window => <option key={window.hours} value={window.hours}>{window.label}</option>)}
             </select>
           </div>
+          {isSeries && (
+            <div className="space-y-1">
+              <Label htmlFor="function-every-reading">Resolution</Label>
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <Switch id="function-every-reading" checked={everyReading} onCheckedChange={setEveryReading} aria-label="Every reading" />
+                {everyReading ? "Every reading" : "One reading every 15 minutes"}
+              </label>
+            </div>
+          )}
           {needsDevice && (
             <div className="space-y-1">
               <Label htmlFor="function-device">Device</Label>
@@ -155,13 +177,38 @@ function TryFunctionDialog({ siteId, fn, devices, timeZone, onClose }: {
                 <span className="text-muted-foreground">Window: </span>
                 {formatSiteTime(run.data.start, timeZone, { withDate: true })} → {formatSiteTime(run.data.end, timeZone, { withDate: true })}
               </p>
-              <label className="inline-flex items-center gap-2 text-muted-foreground">
-                <Switch checked={showRaw} onCheckedChange={setShowRaw} aria-label="Show the raw result" />
-                Raw (UTC, as the AI gets it)
-              </label>
+              <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
+                {isSeries && (
+                  <label className="inline-flex items-center gap-2">
+                    <Switch checked={showOriginal} onCheckedChange={setShowOriginal} aria-label="Show backend-ot's original" />
+                    backend-ot original
+                  </label>
+                )}
+                <label className="inline-flex items-center gap-2">
+                  <Switch checked={showRaw} onCheckedChange={setShowRaw} aria-label="Show the raw result" />
+                  Raw (UTC, exact)
+                </label>
+              </div>
             </div>
+            {checks.length > 0 && (
+              <ul aria-label="Check against backend-ot" className="space-y-1 text-sm">
+                {checks.map(check => (
+                  <li key={check.path} className={check.ok ? "text-green-700 dark:text-green-400" : "text-destructive"}>
+                    {check.ok ? "✓" : "✗"} {checks.length > 1 ? `${check.path}: ` : ""}{check.summary}
+                    {check.differences.length > 0 && (
+                      <ul className="ml-5 list-disc text-xs">
+                        {check.differences.map(difference => <li key={difference}>{difference}</li>)}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {showOriginal ? "backend-ot's untouched result: every reading. The AI never gets this." : "Exactly what the AI gets."}
+            </p>
             <pre aria-label="Result" className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
-              {JSON.stringify(showRaw ? run.data.result : withDisplayTimes(run.data.result, timeZone), null, 2)}
+              {JSON.stringify(showRaw ? shown : withDisplayTimes(shown, timeZone), null, 2)}
             </pre>
           </div>
         )}

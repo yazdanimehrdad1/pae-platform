@@ -18,6 +18,8 @@ class SiteToolLimits:
     history_samples: int
     history_max_days: int
     max_text_chars: int
+    series_max_hours: int = 6
+    series_interval_minutes: int = 15
 
 
 def site_id_of(ctx: RequestContext) -> int:

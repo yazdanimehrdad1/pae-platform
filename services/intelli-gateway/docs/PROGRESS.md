@@ -353,6 +353,22 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
 - Migration `007_site_prompts` rewrites stored drafts and versions (the list key, each item's id,
   and `script:` change ids); integration test runs it on old-format rows.
 
+### 16. Series site functions: 6 hours, a reading every 15 minutes or every reading (contract 0.4.0, uncommitted, 2026-11-09)
+- A series function's window is at most 6 hours (`TOOL_SERIES_MAX_HOURS`); longer periods are
+  backend-ot functions that compute the answer (the user writes them). Other functions keep
+  `TOOL_HISTORY_MAX_DAYS`.
+- The gateway asks backend-ot for every reading (no `max_points`) and compacts each series in
+  `site_profile/functions.py`: by default a plain `[{time, value}]` series holding the first
+  reading of each 15-minute interval (UTC grid), at backend-ot's own timestamp
+  (`TOOL_SERIES_INTERVAL_MINUTES`; no averages, the user's call); with `resolution: "raw"` every
+  reading as `start` + `offsets_s` + `values`. Both list `gaps` (no reading for over 3 typical poll steps, or at
+  the window's edges) and `coverage_percent`. Replaces the 12-sample summary, which hid outages.
+- Tool `run_site_function` and the admin test-run take `resolution` (additive, 0.3.0 → 0.4.0).
+  The test-run also returns `backend_ot_result` (backend-ot's untouched result, admins only);
+  web-plusdas checks the AI's rows against it and shows ✓ / ✗ per series.
+- Watch: 6 h of 20 s readings raw is about 1,080 values per series; tool output above
+  `TOOL_MAX_OUTPUT_CHARS` (20,000) is truncated. `get_point_history` still returns 12 samples.
+
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
   backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no
@@ -368,6 +384,10 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   `ai_assistant` (the gateway may use it) and `user_visible` (shown in the historian); the AI uses
   a labelled function only after the site admin approves it in the site profile. This is the one
   place backend-ot carries something for the AI (the user's call).
+- **Series data for the AI (2026-11-09):** at most 6 hours; by default the first reading of each
+  15 minutes (no avg/min/max), every reading on request; reduced in this service from every
+  reading backend-ot returns.
+  Longer periods: backend-ot functions that compute the answer.
 - **No fake data at runtime** (2026-11-07): backend-ot and the service's Postgres only; test
   doubles live in `tests/doubles/`.
 - **Repo conventions over the original guide:**

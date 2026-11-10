@@ -198,6 +198,8 @@ def build_services(
             history_samples=settings.tool_history_samples,
             history_max_days=settings.tool_history_max_days,
             max_text_chars=settings.tool_max_output_chars,
+            series_max_hours=settings.tool_series_max_hours,
+            series_interval_minutes=settings.tool_series_interval_minutes,
         ),
     )
     if settings.forecast_enabled:

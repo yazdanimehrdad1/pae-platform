@@ -8,7 +8,9 @@ Invariant guarded:
 - the gate runs only approved functions, a device function only on an approved device of a type
   it applies to, with only the parameters it declares (required ones present); max_points is
   sent only for series functions;
-- results reach Claude bounded: windows longer than the limit are refused, series summarized;
+- results reach Claude bounded: windows longer than the limit are refused (series: 6 hours);
+  a series comes as the first reading of each 15-minute interval (real backend-ot rows) or, on
+  request, every reading, with its gaps and coverage (a gap is never a value);
 - backend-ot's refusals (4xx) surface as InvalidRequestError with backend-ot's message;
 - the admin test-run returns what the tool would, and is admin-only.
 """
@@ -29,6 +31,7 @@ from site_profile_fakes import (
     ALL_FUNCTIONS,
     METER_CHECK,
     POI_POWER,
+    POI_SAMPLES,
     RTE,
     SITE_ID,
     mesa,
@@ -40,7 +43,14 @@ from intelli_gateway.schemas.site_data import SiteFunction, SiteFunctionRun
 from intelli_gateway.schemas.site_profile import ChangeKind, ChangeTarget
 from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConnector
-from intelli_gateway.site_profile.functions import run_function, summarize_result
+from intelli_gateway.site_profile.functions import (
+    FunctionLimits,
+    Reading,
+    find_gaps,
+    first_per_interval,
+    parse_readings,
+    run_function,
+)
 from intelli_gateway.site_profile.gate import ApprovedSiteDataConnector
 from intelli_gateway.site_profile.service import SiteProfileService
 from intelli_gateway.tools.common import SiteToolLimits
@@ -50,6 +60,8 @@ from intelli_gateway.utils.exceptions import InvalidRequestError, NotFoundError
 
 ADMIN = "admin@example.com"
 START = FIXED_NOW - timedelta(days=1)
+SERIES_START = FIXED_NOW - timedelta(hours=6)
+FUNCTION_LIMITS = FunctionLimits(max_days=31, series_max_hours=6, interval_minutes=15)
 LIMITS = SiteToolLimits(max_rows=50, history_samples=4, history_max_days=31, max_text_chars=20_000)
 
 
@@ -197,19 +209,76 @@ class TestGate:
 
 
 class TestRunFunction:
-    async def test_series_are_summarized(self, onboarded: Platform) -> None:
-        result = await run_function(onboarded.gate, SITE_ID, run("site-poi-power"), 31, 4)
-        series = as_dict(result["series"])
-        assert result["peak_kw"] == 450.0
-        summary = as_dict(series["timeseries"])
-        assert (summary["count"], summary["min"], summary["max"], summary["avg"]) == (
-            10,
-            0.0,
-            450.0,
-            225.0,
+    async def test_series_default_to_the_first_reading_of_each_15_minutes(
+        self, onboarded: Platform
+    ) -> None:
+        request_ = SiteFunctionRun(name="site-poi-power", start=SERIES_START, end=FIXED_NOW)
+        result = await run_function(onboarded.gate, SITE_ID, request_, "15min", FUNCTION_LIMITS)
+        assert result.for_ai["peak_kw"] == 450.0  # the function's own fields are untouched
+        # Every reading is fetched: backend-ot is not asked to sample.
+        assert onboarded.source.function_runs[-1][2] is None
+        series = as_dict(result.for_ai["series"])
+        assert series["resolution"] == "first reading every 15 min"
+        rows = series["timeseries"]
+        assert isinstance(rows, list)
+        # 06:00-07:45 and 09:00-12:00: the outage's intervals have no row (see the gaps).
+        assert len(rows) == 21
+        assert rows[:2] == [
+            {"time": "2026-06-15T06:00:00+00:00", "value": 0.0},
+            {"time": "2026-06-15T06:15:00+00:00", "value": 15.0},
+        ]
+        assert rows[7:9] == [
+            {"time": "2026-06-15T07:45:00+00:00", "value": 105.0},
+            {"time": "2026-06-15T09:00:00+00:00", "value": 180.0},
+        ]
+        assert series["gaps"] == [
+            {
+                "start": "2026-06-15T07:55:00+00:00",
+                "end": "2026-06-15T09:00:00+00:00",
+                "minutes": 65.0,
+            }
+        ]
+        assert series["coverage_percent"] == 81.9
+        # The admin gets backend-ot's untouched result to check it against.
+        assert result.backend_ot == POI_POWER.result
+
+    async def test_raw_gives_every_reading(self, onboarded: Platform) -> None:
+        request_ = SiteFunctionRun(name="site-poi-power", start=SERIES_START, end=FIXED_NOW)
+        result = await run_function(onboarded.gate, SITE_ID, request_, "raw", FUNCTION_LIMITS)
+        series = as_dict(result.for_ai["series"])
+        compact = as_dict(series["timeseries"])
+        offsets, values = compact["offsets_s"], compact["values"]
+        assert isinstance(offsets, list) and isinstance(values, list)
+        assert (series["resolution"], compact["start"], len(values)) == (
+            "every reading",
+            SERIES_START.isoformat(),
+            61,
         )
-        assert summary["last"] == {"timestamp": "2026-06-15T09:00:00+00:00", "value": 450.0}
-        assert isinstance(summary["samples"], list) and len(summary["samples"]) == 4
+        assert (offsets[:2], values[:2], offsets[-1], values[-1]) == (
+            [0, 300],
+            [0.0, 5.0],
+            21600,
+            360.0,
+        )
+        assert None not in values  # the gap marker is a gap, not a reading
+        assert series["coverage_percent"] == 81.9
+
+    async def test_series_windows_are_limited_to_6_hours(self, onboarded: Platform) -> None:
+        request_ = SiteFunctionRun(
+            name="site-poi-power", start=SERIES_START - timedelta(minutes=1), end=FIXED_NOW
+        )
+        with pytest.raises(InvalidRequestError, match="limited to 6 hours"):
+            await run_function(onboarded.gate, SITE_ID, request_, "15min", FUNCTION_LIMITS)
+        assert onboarded.source.function_runs == []
+
+    async def test_scalar_results_are_unchanged_over_long_windows(
+        self, onboarded: Platform
+    ) -> None:
+        request_ = SiteFunctionRun(
+            name="site-rte", start=FIXED_NOW - timedelta(days=31), end=FIXED_NOW
+        )
+        result = await run_function(onboarded.gate, SITE_ID, request_, "raw", FUNCTION_LIMITS)
+        assert result.for_ai == result.backend_ot == RTE.result
 
     @pytest.mark.parametrize(
         ("start", "end"),
@@ -219,26 +288,60 @@ class TestRunFunction:
     async def test_bad_windows_are_refused(self, onboarded: Platform, start, end) -> None:
         request_ = SiteFunctionRun(name="site-rte", start=start, end=end)
         with pytest.raises(InvalidRequestError):
-            await run_function(onboarded.gate, SITE_ID, request_, 31, 4)
+            await run_function(onboarded.gate, SITE_ID, request_, "15min", FUNCTION_LIMITS)
         assert onboarded.source.function_runs == []
 
-    def test_summary_skips_samples_without_a_number(self) -> None:
-        content: JsonValue = {
-            "series": [
-                {
-                    "timeseries": [
-                        {"time": "t1", "value": None},
-                        {"time": "t2", "value": 5},
-                        {"time": "t3", "value": True},
-                    ]
-                },
-                {"timeseries": []},
-            ]
-        }
-        summarized = as_dict(summarize_result(content, 4))
-        first, second = summarized["series"]  # type: ignore[misc]
-        assert as_dict(as_dict(first)["timeseries"])["count"] == 1
-        assert as_dict(second)["timeseries"] == {"count": 0}
+    async def test_unknown_function_is_not_found(self, onboarded: Platform) -> None:
+        request_ = SiteFunctionRun(name="site-nope", start=SERIES_START, end=FIXED_NOW)
+        with pytest.raises(NotFoundError):
+            await run_function(onboarded.gate, SITE_ID, request_, "15min", FUNCTION_LIMITS)
+
+
+class TestReadingsAndGaps:
+    def test_samples_without_a_number_or_outside_the_window_are_skipped(self) -> None:
+        samples: list[JsonValue] = [
+            {"time": "2026-06-15T10:00:00Z", "value": None},
+            {"time": "2026-06-15T10:00:10Z", "value": 5},
+            {"time": "2026-06-15T10:00:20Z", "value": True},
+            {"time": "2026-06-15T05:00:00Z", "value": 1.0},
+            {"time": "not a time", "value": 1.0},
+        ]
+        readings = parse_readings(samples, SERIES_START, FIXED_NOW)
+        assert [reading.value for reading in readings] == [5.0]
+
+    def test_first_per_interval_keeps_backend_ots_timestamp(self) -> None:
+        times = [
+            "2026-06-15T10:14:59.900000Z",
+            "2026-06-15T10:15:00.100000Z",
+            "2026-06-15T10:16:00Z",
+        ]
+        readings = parse_readings(
+            [{"time": time, "value": float(index)} for index, time in enumerate(times)],
+            SERIES_START,
+            FIXED_NOW,
+        )
+        assert first_per_interval(readings, timedelta(minutes=15)) == [
+            {"time": times[0], "value": 0.0},
+            {"time": times[1], "value": 1.0},
+        ]
+
+    def test_no_reading_is_one_gap_over_the_whole_window(self) -> None:
+        assert find_gaps([], SERIES_START, FIXED_NOW) == [(SERIES_START, FIXED_NOW)]
+
+    def test_data_starting_late_or_stopping_early_leaves_edge_gaps(self) -> None:
+        late = SERIES_START + timedelta(hours=1)
+        readings = [Reading(late + timedelta(seconds=20 * i), 1.0, "") for i in range(100)]
+        last = readings[-1].time
+        assert find_gaps(readings, SERIES_START, FIXED_NOW) == [
+            (SERIES_START, late),
+            (last, FIXED_NOW),
+        ]
+
+    def test_a_pause_of_up_to_3_steps_is_not_a_gap(self) -> None:
+        times = [SERIES_START + timedelta(seconds=s) for s in (0, 20, 40, 100, 120, 200)]
+        readings = [Reading(time, 1.0, time.isoformat()) for time in times]
+        # Steps 20, 20, 60 (3 steps: fine), 20, 80 (4 steps: a gap).
+        assert find_gaps(readings, SERIES_START, times[-1]) == [(times[4], times[5])]
 
 
 class TestTools:
@@ -378,13 +481,34 @@ class TestTestRunApi:
             await self.login(client, ADMIN)
             response = await client.post(
                 f"/api/v1/sites/{SITE_ID}/functions/site-poi-power/test-run",
-                json={"start": START.isoformat(), "end": FIXED_NOW.isoformat()},
+                json={"start": SERIES_START.isoformat(), "end": FIXED_NOW.isoformat()},
             )
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["function"] == "site-poi-power"
-        assert body["result"]["series"]["timeseries"]["count"] == 10
-        assert len(body["result"]["series"]["timeseries"]["samples"]) == 4
+        series = body["result"]["series"]
+        assert (series["resolution"], len(series["timeseries"])) == (
+            "first reading every 15 min",
+            21,
+        )
+        # backend-ot's untouched result comes along, for the admin to check against.
+        assert body["backend_ot_result"]["series"]["timeseries"] == POI_SAMPLES
+
+    async def test_admin_can_ask_for_every_reading(self, app_client: httpx.AsyncClient) -> None:
+        window = {"start": SERIES_START.isoformat(), "end": FIXED_NOW.isoformat()}
+        async with app_client as client:
+            await self.login(client, ADMIN)
+            raw = await client.post(
+                f"/api/v1/sites/{SITE_ID}/functions/site-poi-power/test-run",
+                json={**window, "resolution": "raw"},
+            )
+            too_long = await client.post(
+                f"/api/v1/sites/{SITE_ID}/functions/site-poi-power/test-run",
+                json={**window, "start": START.isoformat()},
+            )
+        assert raw.status_code == 200, raw.text
+        assert len(raw.json()["result"]["series"]["timeseries"]["values"]) == 61
+        assert too_long.status_code == 422
 
     async def test_unknown_function_is_404_bad_request_422(
         self, app_client: httpx.AsyncClient
