@@ -6,7 +6,6 @@ from collections.abc import Callable
 from datetime import datetime
 
 from intelli_gateway.config import Settings
-from intelli_gateway.fake_data.forecast import FakePvPowerSource, FakeWeatherProvider
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.services.noaa_hrrr.provider import NoaaHrrrProvider
 from intelli_gateway.services.open_meteo.provider import OpenMeteoProvider
@@ -35,21 +34,9 @@ def _noaa_hrrr(settings: Settings, clock: Clock) -> PvForecastSource:
     return WeatherModelSource(NoaaHrrrProvider(), PvlibPvModel())
 
 
-def _fake(settings: Settings, clock: Clock) -> PvForecastSource:
-    del settings
-    return WeatherModelSource(FakeWeatherProvider(name="fake", clock=clock), PvlibPvModel())
-
-
-def _fake_pv_power(settings: Settings, clock: Clock) -> PvForecastSource:
-    del settings
-    return FakePvPowerSource(name="fake_pv_power", clock=clock)
-
-
 SOURCES: dict[str, SourceFactory] = {
     "open_meteo": _open_meteo,
     "noaa_hrrr": _noaa_hrrr,
-    "fake": _fake,  # offline clear-sky weather + the PV model
-    "fake_pv_power": _fake_pv_power,  # offline PV-power API stand-in
 }
 
 

@@ -68,7 +68,15 @@ DEVICES = [
         1,
         "INV1",
         [
-            _point(11, 1, "active_power", "float32", unit="kW", **{"class": "ANALOG"}),
+            _point(
+                11,
+                1,
+                "active_power",
+                "float32",
+                unit="kW",
+                profile_point_description="AC active power at the inverter output",
+                **{"class": "ANALOG"},
+            ),
             _point(
                 12,
                 1,
@@ -231,6 +239,41 @@ SLD = {
 }
 
 
+def _function(name: str, kind: str, **extra: object) -> dict[str, object]:
+    return {"name": name, "kind": kind, "method": "GET", "summary": f"{name} summary", **extra}
+
+
+SITE_FUNCTIONS = {
+    "site_id": 7,
+    "profile": "test_solar",
+    "endpoints": [
+        _function("site-poi-power", "site", output="series", ai_assistant=True),
+        _function(
+            "device-availability",
+            "device",
+            device_types=["INVERTER"],
+            ai_assistant=True,
+            parameters=[{"name": "lookback_days", "type": "integer", "default": 7, "minimum": 1}],
+        ),
+        _function("site-users-only", "site", ai_assistant=False, user_visible=True),
+    ],
+}
+POI_POWER_RESULT = {
+    "site_id": 7,
+    "peak_kw": 900.0,
+    "series": {
+        "id": 0,
+        "name": "poi_power",
+        "data_type": "float32",
+        "unit": "kW",
+        "timeseries": [
+            {"time": f"2026-06-15T{hour:02d}:00:00+00:00", "value": float(hour * 100)}
+            for hour in range(10)
+        ],
+    },
+}
+
+
 class FakeBackendOt:
     """Routes requests to the payloads above; records what was called."""
 
@@ -288,4 +331,16 @@ class FakeBackendOt:
             return httpx.Response(200, json=[CLEARED_EVENT, ACTIVE_EVENT])
         if path == "/api/sites/7/health":
             return httpx.Response(200, json=HEALTH)
+        if path == "/api/site-functions/site/7":
+            return httpx.Response(200, json=SITE_FUNCTIONS)
+        if path == "/api/site-functions/site/7/site-poi-power":
+            return httpx.Response(200, json=POI_POWER_RESULT)
+        if path == "/api/site-functions/site/7/device/1/device-availability":
+            return httpx.Response(
+                404, json={"detail": {"error": "NotFoundError", "message": "no state point"}}
+            )
+        if path == "/api/site-functions/site/7/site-window-check":
+            return httpx.Response(
+                422, json={"detail": [{"loc": ["query"], "msg": "start_time must be before"}]}
+            )
         return httpx.Response(404, json={"detail": f"no fake route for {path}"})

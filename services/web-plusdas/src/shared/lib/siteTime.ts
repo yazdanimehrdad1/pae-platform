@@ -1,6 +1,7 @@
 // Timestamps are shown in the site's local time with its time zone, never the browser's.
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
+const zoneNameFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function formatter(timeZone: string, withDate: boolean): Intl.DateTimeFormat {
   const key = `${timeZone}|${withDate}`;
@@ -12,7 +13,6 @@ function formatter(timeZone: string, withDate: boolean): Intl.DateTimeFormat {
       minute: "2-digit",
       second: withDate ? undefined : "2-digit",
       ...(withDate ? { day: "2-digit", month: "short" } : {}),
-      timeZoneName: "short",
       hour12: false,
     });
     formatters.set(key, cached);
@@ -20,9 +20,22 @@ function formatter(timeZone: string, withDate: boolean): Intl.DateTimeFormat {
   return cached;
 }
 
-/** "14:02:31 GMT-7", or with a date "26 Sept, 14:02 GMT-7". */
+/** The zone's short name at that moment, as people say it: "PST" in winter and "PDT" in summer
+ * for Los Angeles, "MST" for Phoenix. (en-US: en-GB would write "GMT-8".) A zone without a
+ * common abbreviation keeps its offset ("GMT+1"). */
+export function timeZoneAbbreviation(at: Date, timeZone: string): string {
+  let cached = zoneNameFormatters.get(timeZone);
+  if (!cached) {
+    cached = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" });
+    zoneNameFormatters.set(timeZone, cached);
+  }
+  return cached.formatToParts(at).find(part => part.type === "timeZoneName")?.value ?? timeZone;
+}
+
+/** "14:02:31 PST", or with a date "26 Sept, 14:02 PDT". */
 export function formatSiteTime(at: string | number, timeZone: string, options: { withDate?: boolean } = {}): string {
-  return formatter(timeZone, options.withDate ?? false).format(new Date(at));
+  const date = new Date(at);
+  return `${formatter(timeZone, options.withDate ?? false).format(date)} ${timeZoneAbbreviation(date, timeZone)}`;
 }
 
 /** "45 s", "8 min", "2 h 14 min", "3 d 4 h". */

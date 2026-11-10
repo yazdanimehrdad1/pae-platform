@@ -1,5 +1,5 @@
 """Where the forecast gets its sites: location and PV arrays. backend-ot owns that data
-(services/backend_ot/site_config.py); fake_data has fictional ones."""
+(services/backend_ot/site_config.py); tests/doubles has fictional ones."""
 
 from typing import Protocol
 

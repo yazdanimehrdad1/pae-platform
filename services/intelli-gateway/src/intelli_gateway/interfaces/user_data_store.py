@@ -1,5 +1,5 @@
 """A user's stored preferences, saved trends and notes. Implementations: Postgres
-(services/postgres/) and in memory (fake_data/user_data_store.py).
+(services/postgres/) and in memory (tests/doubles/user_data_store.py).
 
 Every method takes the owning user's id and touches only that user's rows: another user's trend
 or note id behaves exactly like one that doesn't exist (None / False), so ids leak nothing.

@@ -12,6 +12,8 @@ SiteEndpoint in that site's profile.py get a URL. Every declaration has the same
         response_model=PoiPowerResult,
         summary="POI active power series with peak and average (kW)",
         output="series",                     # scalar (default) | series
+        ai_assistant=True,                   # intelli-gateway may use it (default False)
+        user_visible=True,                   # shown to users: historian and reports (default True)
     )
 
 output="series" marks an endpoint whose response has a `series` field (one PointTimeseries or a
@@ -21,6 +23,12 @@ and combine series), so it lines up with the raw points it is charted with. Seri
 also accept the chart parameter max_points, applied to what they return (helpers/sampling/README.md).
 A device endpoint may also name the device_types it applies to (empty: every device), so a UI
 offers it only under those devices.
+
+Two labels say who uses an endpoint (at least one must be True):
+    ai_assistant   intelli-gateway's AI assistant may call it (once the site admin approves it in
+                   the gateway). Endpoints without it are never offered to the AI.
+    user_visible   users see it: the historian's site-function list and the report editor. An
+                   endpoint written only for the AI sets user_visible=False.
 
 URL by kind:
     common, site   GET /api/site-functions/site/{site_id}/<name>
@@ -68,6 +76,13 @@ class SiteEndpoint(BaseModel):
         (), description="Device endpoints only: the device types it applies to; empty means every device"
     )
 
+    ai_assistant: bool = Field(
+        False, description="intelli-gateway's AI assistant may use it; endpoints without it are hidden from the AI"
+    )
+    user_visible: bool = Field(
+        True, description="Shown to users (historian and reports); False for an endpoint written only for the AI"
+    )
+
     @field_validator("controller")
     @classmethod
     def _controller_is_async(cls, controller: SiteController) -> SiteController:
@@ -79,4 +94,10 @@ class SiteEndpoint(BaseModel):
     def _device_types_only_on_device_kind(self) -> Self:
         if self.device_types and self.kind != "device":
             raise ValueError(f"device_types is only for device endpoints, not kind '{self.kind}'")
+        return self
+
+    @model_validator(mode="after")
+    def _has_an_audience(self) -> Self:
+        if not (self.ai_assistant or self.user_visible):
+            raise ValueError(f"endpoint '{self.name}' is used by nobody: set ai_assistant or user_visible")
         return self

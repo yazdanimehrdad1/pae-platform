@@ -2,8 +2,15 @@
 
 from typing import cast
 
-from fakes import Row, as_dict, make_ctx
+from doubles.knowledge_store import InMemoryKnowledgeStore
+from fakes import FIXED_NOW, Row, as_dict, make_ctx
 
+from intelli_gateway.schemas.knowledge import (
+    KnowledgeKind,
+    PromptPointLink,
+    SitePrompt,
+    SitePromptLinks,
+)
 from intelli_gateway.tools.local_provider import LocalToolProvider
 
 
@@ -116,3 +123,40 @@ class TestSearchExperienceNotes:
             "search_experience_notes", {"keywords": ["yaw"]}, make_ctx(site_id=1)
         )
         assert as_dict(result.content)["matches"] == 0
+
+
+class TestRelatedPrompts:
+    """Tool results name the site prompts that link the point, document or device."""
+
+    async def test_linked_point_document_and_device(
+        self, provider: LocalToolProvider, knowledge_store: InMemoryKnowledgeStore
+    ) -> None:
+        im_script = next(
+            d
+            for d in await knowledge_store.list_documents(1)
+            if d.device_id == 11 and d.kind is KnowledgeKind.IM_SCRIPT
+        )
+        knowledge_store.site_prompts.append(
+            SitePrompt(
+                site_id=1,
+                name="Cooling",
+                text="INV2 runs hot.",
+                position=1,
+                links=SitePromptLinks(
+                    points=(PromptPointLink(device_id=11, point_name="CabinetTemp"),),
+                    documents=(im_script.document_id,),
+                ),
+                updated_at=FIXED_NOW,
+            )
+        )
+
+        async def call(name: str, args: dict[str, object]) -> Row:
+            return as_dict((await provider.call_tool(name, args, make_ctx())).content)
+
+        expected = ["Prompt 1: Cooling"]
+        assert (await call("explain_point", {"point_name": "INV2.CabinetTemp"}))[
+            "related_prompts"
+        ] == expected
+        assert (await call("get_device_script", {"device_id": 11}))["related_prompts"] == expected
+        assert (await call("get_device_status", {"device_id": 11}))["related_prompts"] == expected
+        assert "related_prompts" not in await call("explain_point", {"point_name": "POI.Frequency"})

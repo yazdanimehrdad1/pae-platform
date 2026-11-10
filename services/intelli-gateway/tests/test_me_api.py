@@ -10,12 +10,12 @@ from collections.abc import AsyncIterator
 
 import httpx
 import pytest
+from doubles.services import build_test_services
 from fakes import ScriptedLLMClient, fixed_clock, make_settings
 from pydantic import TypeAdapter
 
 from intelli_gateway.app import create_app
 from intelli_gateway.schemas.user_data import Note, Preference, SavedTrend
-from intelli_gateway.wiring import build_services
 
 PASSWORD = "correct horse battery"
 TRENDS = TypeAdapter(list[SavedTrend])
@@ -32,7 +32,7 @@ TREND = {
 async def clients() -> AsyncIterator[tuple[httpx.AsyncClient, httpx.AsyncClient]]:
     """Ana and Bob, each logged in on their own client (their own cookie jar), on one app."""
     settings = make_settings(ANTHROPIC_API_KEY="test-key", AUTH_DEV_HEADERS="true")
-    services = build_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
+    services = build_test_services(settings, llm=ScriptedLLMClient(), clock=fixed_clock)
     for name in ("ana@example.com", "bob@example.com"):
         await services.auth.create_user(name, name.title(), "engineer", PASSWORD)
     transport = httpx.ASGITransport(app=create_app(settings, services))

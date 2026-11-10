@@ -2,9 +2,15 @@
 
 from collections.abc import Sequence
 
-from intelli_gateway.fake_data.models import FakeSite
-from intelli_gateway.fake_data.sites import FAKE_SITES
-from intelli_gateway.schemas.knowledge import KnowledgeDocument, KnowledgeKind, PointGuide
+from doubles.models import FakeSite
+from doubles.sites import FAKE_SITES
+from intelli_gateway.schemas.knowledge import (
+    DeviceFacts,
+    KnowledgeDocument,
+    KnowledgeKind,
+    PointGuide,
+    SitePrompt,
+)
 
 
 class InMemoryKnowledgeStore:
@@ -13,6 +19,8 @@ class InMemoryKnowledgeStore:
     ) -> None:
         self._documents = list(documents)
         self._guides = list(guides)
+        # Published site prompts; tests append to it.
+        self.site_prompts: list[SitePrompt] = []
 
     @classmethod
     def from_fake_sites(cls, sites: Sequence[FakeSite] = FAKE_SITES) -> "InMemoryKnowledgeStore":
@@ -69,3 +77,10 @@ class InMemoryKnowledgeStore:
 
     async def list_point_guides(self, site_id: int) -> list[PointGuide]:
         return [guide for guide in self._guides if guide.site_id == site_id]
+
+    async def list_device_facts(self, site_id: int) -> list[DeviceFacts]:
+        del site_id
+        return []
+
+    async def list_site_prompts(self, site_id: int) -> list[SitePrompt]:
+        return [script for script in self.site_prompts if script.site_id == site_id]

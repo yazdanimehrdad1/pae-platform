@@ -1,5 +1,5 @@
 """Stored users and their login sessions. Implementations: Postgres (services/postgres/) and in
-memory (fake_data/user_store.py). Emails are stored lower-case; callers pass them that way."""
+memory (tests/doubles/user_store.py). Emails are stored lower-case; callers pass them that way."""
 
 from datetime import datetime
 from typing import Protocol

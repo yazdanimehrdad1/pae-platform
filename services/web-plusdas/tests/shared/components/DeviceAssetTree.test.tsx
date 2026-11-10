@@ -31,7 +31,7 @@ const entry: DevicePointsEntry = {
 };
 
 const fn = (name: string, kind: SiteEndpointInfo['kind'], extra: Partial<SiteEndpointInfo> = {}): SiteEndpointInfo =>
-  ({ name, kind, method: 'GET', summary: `${name} summary`, output: 'series', device_types: [], ...extra });
+  ({ name, kind, method: 'GET', summary: `${name} summary`, output: 'series', device_types: [], ai_assistant: false, user_visible: true, ...extra });
 
 const functions: SiteEndpointInfo[] = [
   fn('site-poi-power', 'site'),

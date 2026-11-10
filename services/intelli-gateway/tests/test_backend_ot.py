@@ -5,9 +5,9 @@ from datetime import timedelta
 import httpx
 import pytest
 from backend_ot_fake import FakeBackendOt
-from fakes import FIXED_NOW, as_dict, fixed_clock, make_ctx, make_settings, rows
+from doubles.knowledge_store import InMemoryKnowledgeStore
+from fakes import FIXED_NOW, as_dict, fixed_clock, make_ctx, rows
 
-from intelli_gateway.fake_data.knowledge_store import InMemoryKnowledgeStore
 from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_data import (
     BackendOtSiteDataConnector,
@@ -62,6 +62,13 @@ class TestSitesAndCatalog:
         assert points["INV1.alarm_word"].point_class == "ALARM"
         assert points["INV1.alarm_word"].severity == "HIGH"
         assert points["INV1.active_power"].equipment == "inverter"
+
+    async def test_the_profile_description_becomes_the_points_description(
+        self, connector: BackendOtSiteDataConnector
+    ) -> None:
+        points = {point.name: point for point in await connector.list_points(7)}
+        assert points["INV1.active_power"].description == "AC active power at the inverter output"
+        assert points["INV1.spare"].description is None  # no profile line: no description
 
     async def test_catalog_is_cached(
         self, connector: BackendOtSiteDataConnector, backend: FakeBackendOt
@@ -228,32 +235,6 @@ class TestToolsOverBackendOt:
         result = await provider.call_tool("get_active_alarms", {}, make_ctx(site_id=7))
         assert result.is_error
         assert "backend-ot unreachable" in str(as_dict(result.content)["error"])
-
-
-async def test_api_returns_503_when_backend_ot_is_down(backend: FakeBackendOt) -> None:
-    from fakes import ScriptedLLMClient
-
-    from intelli_gateway.app import create_app
-    from intelli_gateway.wiring import build_services
-
-    def down(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("refused", request=request)
-
-    backend.override = down
-    client = BackendOtClient("http://backend-ot.test", 1, 1, transport=backend.transport())
-    settings = make_settings(USE_FAKE_DATA="false", AUTH_DEV_HEADERS="true")  # acts as the dev user
-    services = build_services(
-        settings,
-        llm=ScriptedLLMClient(),
-        site_data=BackendOtSiteDataConnector(client, stale_after_s=600, clock=fixed_clock),
-    )
-    app = create_app(settings, services)
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as http:
-        response = await http.get("/api/v1/sites")
-    assert response.status_code == 503
-    assert "backend-ot" in response.json()["detail"]
 
 
 @pytest.mark.parametrize(

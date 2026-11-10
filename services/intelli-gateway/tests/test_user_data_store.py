@@ -9,9 +9,9 @@ never list, read, change or delete another user's preferences, trends or notes.
 from collections.abc import Awaitable, Callable
 
 import pytest
+from doubles.user_data_store import InMemoryUserDataStore
 from user_data_store_contract import CHECKS
 
-from intelli_gateway.fake_data.user_data_store import InMemoryUserDataStore
 from intelli_gateway.interfaces.user_data_store import UserDataStore
 
 

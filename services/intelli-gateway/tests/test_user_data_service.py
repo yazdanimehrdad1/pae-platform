@@ -9,10 +9,10 @@ import asyncio
 from datetime import timedelta
 
 import pytest
+from doubles.user_data_store import InMemoryUserDataStore
 from fakes import FIXED_NOW, fixed_clock
 from user_data_store_contract import ANA, BOB, trend
 
-from intelli_gateway.fake_data.user_data_store import InMemoryUserDataStore
 from intelli_gateway.schemas.user_data import MAX_PREFERENCE_BYTES, MAX_TRENDS, SavedTrend
 from intelli_gateway.user_data.service import UserDataService
 from intelli_gateway.utils.exceptions import InvalidRequestError, NotFoundError

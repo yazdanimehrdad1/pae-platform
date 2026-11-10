@@ -8,8 +8,10 @@ import math
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
-from intelli_gateway.fake_data.models import AlarmRule, FakePoint, FakeSite, SignalShape
-from intelli_gateway.fake_data.sites import FAKE_SITES
+from pydantic import JsonValue
+
+from doubles.models import AlarmRule, FakePoint, FakeSite, SignalShape
+from doubles.sites import FAKE_SITES
 from intelli_gateway.schemas.site_data import (
     ActiveAlarms,
     ActivePointAlarm,
@@ -21,9 +23,12 @@ from intelli_gateway.schemas.site_data import (
     PointInfo,
     PointValue,
     Site,
+    SiteFunction,
+    SiteFunctionRun,
     StateChange,
     Topology,
 )
+from intelli_gateway.utils.exceptions import InvalidRequestError
 
 HISTORY_STEP = timedelta(minutes=5)
 _EPOCH = datetime(2000, 1, 1, tzinfo=UTC)
@@ -134,6 +139,7 @@ class FakeSiteDataConnector:
         self._models = {fake.site.site_id: PlantModel(fake) for fake in sites}
         self._clock = clock
         self._stale_after_s = stale_after_s
+        self.function_runs: list[tuple[int, SiteFunctionRun, int | None]] = []
 
     # --- catalog ---
 
@@ -301,6 +307,26 @@ class FakeSiteDataConnector:
                 )
             )
         return comms
+
+    # --- site functions ---
+
+    async def list_site_functions(self, site_id: int) -> list[SiteFunction]:
+        """Like backend-ot's connector: only the functions labelled for the AI."""
+        fake = self._sites.get(site_id)
+        return [entry.function for entry in fake.functions if entry.ai_assistant] if fake else []
+
+    async def run_site_function(
+        self, site_id: int, run: SiteFunctionRun, max_points: int | None = None
+    ) -> dict[str, JsonValue]:
+        """The fake function's fixed result. Records each call in `function_runs`."""
+        self.function_runs.append((site_id, run, max_points))
+        fake = self._sites.get(site_id)
+        entry = (
+            next((e for e in fake.functions if e.function.name == run.name), None) if fake else None
+        )
+        if entry is None:
+            raise InvalidRequestError(f"Endpoint '{run.name}' is not declared for site {site_id}")
+        return dict(entry.result)
 
     async def aclose(self) -> None:
         return None

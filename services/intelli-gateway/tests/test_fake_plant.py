@@ -2,10 +2,9 @@
 
 from datetime import timedelta
 
+from doubles.knowledge_store import InMemoryKnowledgeStore
+from doubles.site_data import FakeSiteDataConnector
 from fakes import FIXED_NOW
-
-from intelli_gateway.fake_data.knowledge_store import InMemoryKnowledgeStore
-from intelli_gateway.fake_data.site_data import FakeSiteDataConnector
 
 
 class TestPlantModelAtMidday:

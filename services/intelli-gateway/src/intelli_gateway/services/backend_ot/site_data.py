@@ -5,8 +5,9 @@ Point names: backend-ot names are only unique within a device, so the agent sees
 as `DEVICE.point` (e.g. `INV2.active_power`). This module maps those names back to backend-ot's
 device and point ids. The catalog (devices and their points) is cached per site for a short TTL.
 
-Known gaps in backend-ot, handled here: points have no description, readings carry no quality,
-and there is no poll history, so a device's last reading time stands in for comms health.
+A point's description is its device profile's one-liner (`profile_point_description`), when
+there is one. Known gaps in backend-ot, handled here: readings carry no quality, and there is no
+poll history, so a device's last reading time stands in for comms health.
 """
 
 import asyncio
@@ -14,6 +15,8 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+
+from pydantic import JsonValue
 
 from intelli_gateway.schemas.backend_ot.responses import (
     AlarmDefinitionResponse,
@@ -36,12 +39,15 @@ from intelli_gateway.schemas.site_data import (
     PointInfo,
     PointValue,
     Site,
+    SiteFunction,
+    SiteFunctionParameter,
+    SiteFunctionRun,
     StateChange,
     Topology,
     TopologyConnection,
     TopologyNode,
 )
-from intelli_gateway.services.backend_ot.client import BackendOtClient
+from intelli_gateway.services.backend_ot.client import MAX_POINTS_RANGE, BackendOtClient
 
 # Enough samples for a good summary of any window; backend-ot keeps extremes when it thins.
 HISTORY_MAX_POINTS = 2000
@@ -303,6 +309,43 @@ class BackendOtSiteDataConnector:
             )
         return comms
 
+    # --- site functions ---
+
+    async def list_site_functions(self, site_id: int) -> list[SiteFunction]:
+        """Only the functions backend-ot labels ai_assistant; the others never reach the AI."""
+        response = await self._client.list_site_functions(site_id)
+        return sorted(
+            (
+                SiteFunction(
+                    name=endpoint.name,
+                    kind=endpoint.kind,
+                    summary=endpoint.summary,
+                    output=endpoint.output,
+                    device_types=tuple(endpoint.device_types),
+                    parameters=tuple(
+                        SiteFunctionParameter.model_validate(parameter.model_dump())
+                        for parameter in endpoint.parameters
+                    ),
+                )
+                for endpoint in response.endpoints
+                if endpoint.ai_assistant
+            ),
+            key=lambda function: function.name,
+        )
+
+    async def run_site_function(
+        self, site_id: int, run: SiteFunctionRun, max_points: int | None = None
+    ) -> dict[str, JsonValue]:
+        query: dict[str, str | int | float | bool] = {
+            "start_time": run.start.isoformat(),
+            "end_time": run.end.isoformat(),
+            **run.parameters,
+        }
+        if max_points is not None:
+            low, high = MAX_POINTS_RANGE
+            query["max_points"] = min(max(max_points, low), high)
+        return await self._client.run_site_function(site_id, run.name, run.device_id, query)
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
@@ -325,6 +368,7 @@ class BackendOtSiteDataConnector:
                     point=point,
                     info=PointInfo(
                         name=name,
+                        description=point.profile_point_description or None,
                         unit=point.unit,
                         device_id=device.device_id,
                         device_name=device.name,

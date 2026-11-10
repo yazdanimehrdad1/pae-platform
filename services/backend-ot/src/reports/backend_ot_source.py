@@ -7,6 +7,7 @@ site profiles). Everything else in src/reports/ goes through ReportDataSource.
 
 import types
 import typing
+from collections.abc import Iterable
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -34,6 +35,7 @@ from schemas.reports.api import ReportSiteFunction
 from schemas.reports.definition import PointStat
 from schemas.reports.internal import PointStatValues, ReportSiteContext
 from schemas.site_profiles import TimeWindowParams
+from site_profiles.declarations.endpoint import SiteEndpoint
 from site_profiles.profile_registry import get_site_profile
 
 _NUMERIC_TYPES = {int, float}
@@ -55,6 +57,22 @@ def numeric_fields(model: type[BaseModel]) -> list[str]:
     return names
 
 
+def report_functions(endpoints: Iterable[SiteEndpoint]) -> list[ReportSiteFunction]:
+    """The site functions a report may use: the user-visible ones (an AI-only function is not offered)."""
+    return [
+        ReportSiteFunction(
+            name=endpoint.name,
+            kind=endpoint.kind,
+            output=endpoint.output,
+            summary=endpoint.summary,
+            device_types=list(endpoint.device_types),
+            numeric_fields=numeric_fields(endpoint.response_model),
+        )
+        for endpoint in endpoints
+        if endpoint.user_visible
+    ]
+
+
 class BackendOtReportSource:
     """ReportDataSource over backend-ot's database and site profiles, in process."""
 
@@ -62,19 +80,7 @@ class BackendOtReportSource:
         site = await sites_db.get_site_by_id(site_id)
         if site is None:
             return None
-        functions: list[ReportSiteFunction] = []
-        if site.profile is not None:
-            functions = [
-                ReportSiteFunction(
-                    name=endpoint.name,
-                    kind=endpoint.kind,
-                    output=endpoint.output,
-                    summary=endpoint.summary,
-                    device_types=list(endpoint.device_types),
-                    numeric_fields=numeric_fields(endpoint.response_model),
-                )
-                for endpoint in get_site_profile(site.profile).endpoints
-            ]
+        functions = report_functions(get_site_profile(site.profile).endpoints) if site.profile is not None else []
         devices = await devices_db.get_all_devices(site_id)
         return ReportSiteContext(site=site, devices=devices, functions=functions)
 

@@ -19,12 +19,12 @@ api/routers/forecast.py, tools/forecast_tools.py
         ▼
 solar_forecast/service.py  ForecastService (the facade)
         │  depends only on Protocols:
-        ├── interfaces/site_config_source.py   ← services/backend_ot/site_config.py | fake_data
+        ├── interfaces/site_config_source.py   ← services/backend_ot/site_config.py | tests/doubles
         ├── interfaces/pv_forecast_source.py   ← solar_forecast/weather_model_source.py
         │                                         (= interfaces/weather_provider.py ← services/<provider>/provider.py
         │                                          + interfaces/pv_model.py ← solar_forecast/pv_model.py)
         │                                       ← services/<pv-power-api>/source.py (returns kW directly)
-        └── interfaces/forecast_repository.py  ← services/postgres/forecast_repository.py | fake_data
+        └── interfaces/forecast_repository.py  ← services/postgres/forecast_repository.py | tests/doubles
 ```
 
 Rules:
@@ -126,7 +126,7 @@ selected.
 2. Add settings, a registry entry (`"<name>": lambda settings, clock: <Name>Source(...)`), a
    `SourceCase` in the contract test, and select it in config.
 
-Nothing else changes. `fake_data/forecast.py::FakePvPowerSource` is the worked example of a
+Nothing else changes. `tests/doubles/forecast.py::FakePvPowerSource` is the worked example of a
 PV-power source, and `services/noaa_hrrr/provider.py` is the stub for the planned direct HRRR
 source.
 

@@ -99,7 +99,7 @@ Dependencies point one way: `app` → `features` → `api` / `shared` / `compone
 - **API calls are same-origin only:** backend-ot at `/api/...` (`client`) and the powerflow
   simulator at `/powerflow-api/...` (`powerflowClient`, forwarded to powerflow's `/api`; the
   Simulation page), and intelli-gateway at `/intelli-gateway-api/...` (`intelliGatewayClient`,
-  forwarded to its `/api`; login, the user's data, the PV forecast). Never an absolute URL, never CORS. Never put a trailing slash on an API path
+  forwarded to its `/api`; login, the user's data, the PV forecast, AI site profiles). Never an absolute URL, never CORS. Never put a trailing slash on an API path
   (backend-ot 307s it).
 - A new **streaming** route needs its own nginx location with `proxy_buffering off` (like
   `/api/modbus-live-stream-raw-registers/`).
@@ -154,6 +154,18 @@ too, which `md:` alone can't see: phone-only behaviour that must hold sideways u
   localStorage data once (`app/useBrowserDataImport.ts`).
 - Accounts: admins manage them on the Users page (`features/users/`, `usersApi`); everyone changes
   their own password in Settings. No self-signup.
+- AI Site Profiles (`features/site-profiles/`, `siteProfilesApi`, admins only): what intelli-gateway's AI
+  may see of each site. Review the changes it read from backend-ot and approve them; the first approval
+  onboards a site. Reading backend-ot changes nothing for the AI; only an approval does. Approve sends the
+  reviewed `fetched_at`, and a 409 means backend-ot was read again: refetch and review.
+  Its Knowledge tab (`features/site-profiles/knowledge/`, `knowledgeApi`) edits the site's engineer
+  knowledge (point guides, documents, device ratings) as a draft; "Review & publish" makes the whole
+  draft what the AI uses. Every edit sends `draft_revision` and gets the whole new state back; a 409
+  reloads the draft (`useKnowledgeEdit`). "What the AI knows" also lists the approved site functions
+  (backend-ot's, labelled for the AI) with "Try it" (`siteProfilesApi.testRunFunction`), which shows
+  the result exactly as the AI gets it.
+- Site functions in the historian: `siteFunctionsApi.list` drops the ones backend-ot marks
+  `user_visible: false` (written only for the AI assistant).
 - Still mocked: the Task Builder list (`src/mocks/`, see its README and `docs/backend-gaps.md`).
 - Times of a site show in the site's time zone (`site.timezone`), or the user's own when they flip
   "My time" (`useDisplayTimeZone`, remembered per browser, one switch for Historian, Alarms and

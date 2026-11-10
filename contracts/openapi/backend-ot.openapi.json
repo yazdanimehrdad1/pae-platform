@@ -6318,6 +6318,12 @@
       },
       "SiteEndpointInfo": {
         "properties": {
+          "ai_assistant": {
+            "default": false,
+            "description": "intelli-gateway's AI assistant may use it; endpoints without it are hidden from the AI",
+            "title": "Ai Assistant",
+            "type": "boolean"
+          },
           "device_types": {
             "description": "Device endpoints only: the device types it applies to; empty means every device",
             "items": {
@@ -6368,9 +6374,23 @@
             "title": "Output",
             "type": "string"
           },
+          "parameters": {
+            "description": "Query parameters it takes besides the time window (start_time, end_time, time_range, tz) and max_points",
+            "items": {
+              "$ref": "#/components/schemas/SiteEndpointParameter"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
           "summary": {
             "title": "Summary",
             "type": "string"
+          },
+          "user_visible": {
+            "default": true,
+            "description": "Shown to users (historian and reports); False for an endpoint written only for the AI",
+            "title": "User Visible",
+            "type": "boolean"
           }
         },
         "required": [
@@ -6380,6 +6400,84 @@
           "summary"
         ],
         "title": "SiteEndpointInfo",
+        "type": "object"
+      },
+      "SiteEndpointParameter": {
+        "description": "One extra query parameter of a site function (from its params_model).",
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "type": {
+            "description": "JSON schema type: integer, number, string or boolean",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "SiteEndpointParameter",
         "type": "object"
       },
       "SiteEndpointsResponse": {

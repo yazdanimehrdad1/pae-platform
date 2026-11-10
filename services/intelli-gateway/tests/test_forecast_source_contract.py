@@ -15,6 +15,7 @@ from datetime import UTC, timedelta
 from typing import Protocol, TypeVar
 
 import pytest
+from doubles.forecast import FakePvPowerSource, FakeWeatherProvider
 from forecast_fakes import (
     SITE,
     TWO_PLANE_SITE,
@@ -23,7 +24,6 @@ from forecast_fakes import (
     open_meteo_provider,
 )
 
-from intelli_gateway.fake_data.forecast import FakePvPowerSource, FakeWeatherProvider
 from intelli_gateway.interfaces.pv_forecast_source import PvForecastSource
 from intelli_gateway.interfaces.weather_provider import WeatherProvider
 from intelli_gateway.schemas.solar_forecast import PVForecast, SiteConfig, WeatherForecast

@@ -9,6 +9,11 @@ from pydantic import AwareDatetime, Field
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
 from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.knowledge.guides import applicable_guidance
+from intelli_gateway.knowledge.prompt_links import (
+    local_name,
+    prompts_about_device,
+    related_prompts,
+)
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.knowledge import GuideSeverity
 from intelli_gateway.schemas.site_data import HistorySample
@@ -159,6 +164,7 @@ it means). Returns at most a fixed number of rows plus the total match count.
             (guide.device_id, guide.point_name)
             for guide in await knowledge.list_point_guides(site_id)
         }
+        site_prompts = await knowledge.list_site_prompts(site_id)
         rows: list[JSONValue] = []
         for point in points[: limits.max_rows]:
             row: dict[str, JSONValue] = {
@@ -172,6 +178,13 @@ it means). Returns at most a fixed number of rows plus the total match count.
                 "labels": "enum" if point.enum_labels else "bits" if point.bit_labels else None,
                 "has_guide": (point.device_id, point.name) in guided,
             }
+            prompts = related_prompts(
+                site_prompts,
+                device_id=point.device_id,
+                point_names=(point.name, local_name(point.name, point.device_name)),
+            )
+            if prompts:
+                row["related_prompts"] = list[JSONValue](prompts)
             rows.append({key: value for key, value in row.items() if value is not None})
         return {"total_matches": len(points), "returned": len(rows), "points": rows}
 
@@ -181,7 +194,9 @@ it means). Returns at most a fixed number of rows plus the total match count.
 Get the latest values of up to {MAX_VALUES_PER_CALL} points in one call: value, unit,
 timestamp and age in seconds. Status points also return their label; alarm words return the
 labels of the set bits (active_bits). "stale": true means the point has not updated recently:
-its device may have stopped reporting. Ask for all the points you need at once.
+its device may have stopped reporting. "definition_pending_review": true means the point's
+definition (unit, labels, type) changed at the source and is not approved yet: say that its
+meaning may be out of date. Ask for all the points you need at once.
 """,
         input_model=PointValuesInput,
     )
@@ -288,7 +303,9 @@ Use it when a question is about one device, or after get_active_alarms points at
                 if entry.severity is not GuideSeverity.INFO
             )
         active = await site_data.get_active_alarms(site_id)
+        prompts = prompts_about_device(await knowledge.list_site_prompts(site_id), device.device_id)
         return {
+            **({"related_prompts": list[JSONValue](prompts)} if prompts else {}),
             "device": dump(device),
             "comms": dump(comms) if comms else None,
             "values": [dump(value) for value in list(latest.values())[: limits.max_rows] if value],

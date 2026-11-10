@@ -64,9 +64,10 @@ provider first, with its contract regenerated (the gap table is in that folder's
 ## Next service
 
 - **intelli-gateway: engineer knowledge in Postgres.** Site data now comes from backend-ot
-  (`services/backend_ot/`, strict models with a drift test against backend-ot's contract). With
-  `USE_FAKE_DATA=false` the knowledge store (point guides, notes, manuals, IM scripts) is empty
-  until its Postgres store and an authoring API exist.
+  (`services/backend_ot/`, strict models with a drift test against backend-ot's contract; the
+  gateway runs on no fake data since 2026-11-07). The knowledge store (point guides, notes,
+  manuals, IM scripts) is empty until its Postgres store and an authoring API exist
+  (`services/intelli-gateway/docs/KNOWLEDGE_PLAN.md`, step 2).
 - **backend-ot point classes in the powerflow seed.** `tests/seed_db/powerflow_seed.py` marks
   every bitfield as an ALARM point, so mode words like `DERMode` show up as active alarms
   (intelli-gateway's agent has to explain them away). Classify mode/status bitfields as BINARY.

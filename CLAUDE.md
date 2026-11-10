@@ -11,7 +11,8 @@ services/<name>/     one self-contained service each (code, lockfile (uv.lock / 
   mock-modbus/       DEV-ONLY Modbus TCP simulator standing in for the site devices
   web-plusdas/       the UI: Vite + React SPA served by nginx, /api proxied same-origin to backend-ot
                      /powerflow-api to powerflow (the Simulation page) and /intelli-gateway-api
-                     to intelli-gateway (login, the user's data, the PV forecast in the Historian);
+                     to intelli-gateway (login, the user's data, the PV forecast in the Historian,
+                     AI site profiles);
                      /api and /powerflow-api need a login (nginx asks the gateway)
   powerflow/         microgrid power flow simulator (pandapower) for EMS development: setpoints in,
                      measurements out; sites in its own Postgres (the only store), via the API

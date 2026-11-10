@@ -1,9 +1,9 @@
 import pytest
+from doubles.knowledge_store import InMemoryKnowledgeStore
+from doubles.site_data import FakeSiteDataConnector
 from fakes import fixed_clock, make_settings
 
 from intelli_gateway.config import Settings
-from intelli_gateway.fake_data.knowledge_store import InMemoryKnowledgeStore
-from intelli_gateway.fake_data.site_data import FakeSiteDataConnector
 from intelli_gateway.tools.catalog import build_local_tools
 from intelli_gateway.tools.common import SiteToolLimits
 from intelli_gateway.tools.local_provider import LocalToolProvider

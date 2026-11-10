@@ -7,7 +7,17 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from intelli_gateway.api.middleware.request_id import request_id_middleware
-from intelli_gateway.api.routers import auth, forecast, health, me, sites, tools, users
+from intelli_gateway.api.routers import (
+    auth,
+    forecast,
+    health,
+    knowledge,
+    me,
+    site_profiles,
+    sites,
+    tools,
+    users,
+)
 from intelli_gateway.auth.bootstrap import ensure_configured_accounts
 from intelli_gateway.config import Settings, load_settings
 from intelli_gateway.services.postgres.database import migrate, wait_for_database
@@ -26,7 +36,7 @@ from intelli_gateway.wiring import Services, build_services
 
 # The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
 # (see contracts/README.md).
-API_VERSION = "0.2.0"
+API_VERSION = "0.4.0"
 DESCRIPTION = (
     "AI helper for site engineers: Claude answers questions about a generation site using "
     "read-only tools"
@@ -42,18 +52,22 @@ def _error(status_code: int) -> Callable[[Request, Exception], Awaitable[JSONRes
 
 
 def create_app(settings: Settings | None = None, services: Services | None = None) -> FastAPI:
+    """Without `services` they are built at startup (lifespan) from the settings, so importing
+    the app or rendering its contract needs no database or backend-ot; a missing DATABASE_URL
+    fails the startup. Tests pass their own services (built from tests/doubles/)."""
     settings = settings or load_settings()
-    services = services or build_services(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        del app
         configure_logging(settings.log_level)
+        services: Services = app.state.services or build_services(settings)
+        app.state.services = services
         if services.database is not None:
             await wait_for_database(services.database)
             await migrate(services.database)
         await ensure_configured_accounts(services.auth, settings)
         services.forecast_job.start()
+        services.site_profile_job.start()
         try:
             yield
         finally:
@@ -78,6 +92,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app.include_router(me.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     app.include_router(sites.router, prefix="/api")
+    app.include_router(site_profiles.router, prefix="/api")
+    app.include_router(knowledge.router, prefix="/api")
     app.include_router(tools.router, prefix="/api")
     app.include_router(forecast.router, prefix="/api")
     return app

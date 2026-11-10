@@ -18,6 +18,7 @@ import {
   StickyNote,
   Radio,
   Server,
+  ShieldCheck,
   ExternalLink,
   type LucideIcon,
 } from "lucide-react";
@@ -106,6 +107,14 @@ const navigationItems: NavigationItem[] = [
     icon: Gauge,
     path: '/optimization',
     roles: ['engineer', 'admin']
+  },
+  {
+    id: 'site-profiles',
+    title: 'AI Site Profiles',
+    icon: ShieldCheck,
+    path: '/site-profiles',
+    activePrefixes: ['/site-profiles/'],
+    roles: ['admin']
   },
   {
     id: 'users',

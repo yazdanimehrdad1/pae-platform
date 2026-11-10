@@ -1,6 +1,7 @@
 """The HTTP API end to end, in process, with fake data and a scripted Claude."""
 
 import httpx
+from doubles.services import build_test_services
 from fakes import ScriptedLLMClient, fixed_clock, make_settings, response, text, tool_use
 
 from intelli_gateway.app import create_app
@@ -8,11 +9,10 @@ from intelli_gateway.config import Settings
 from intelli_gateway.schemas.agent import LLMRequest, LLMResponse
 from intelli_gateway.schemas.api_models.responses import AskResponse, SiteResponse, ToolSpecResponse
 from intelli_gateway.utils.exceptions import LLMUnavailableError
-from intelli_gateway.wiring import build_services
 
 
 def make_client(settings: Settings, llm: ScriptedLLMClient) -> httpx.AsyncClient:
-    services = build_services(settings, llm=llm, clock=fixed_clock)
+    services = build_test_services(settings, llm=llm, clock=fixed_clock)
     app = create_app(settings, services)
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
 
@@ -61,7 +61,9 @@ class TestReadEndpoints:
             "get_pv_forecast",
             "get_site_overview",
             "list_points",
+            "list_site_functions",
             "lookup_fault",
+            "run_site_function",
             "search_experience_notes",
         ]
 

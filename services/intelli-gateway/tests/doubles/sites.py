@@ -2,13 +2,13 @@
 knowledge documents and engineer point guides.
 
 Everything here is invented. Values are deterministic functions of time computed by the plant
-model in fake_data/site_data.py, so they hang together: INV2's status, output, alarm word and
+model in doubles/site_data.py, so they hang together: INV2's status, output, alarm word and
 fault code all follow its cabinet temperature.
 """
 
 from datetime import UTC, datetime
 
-from intelli_gateway.fake_data.models import (
+from doubles.models import (
     AlarmRule,
     BitRule,
     FakePoint,

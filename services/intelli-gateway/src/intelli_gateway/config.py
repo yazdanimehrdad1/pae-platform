@@ -52,21 +52,37 @@ class Settings(BaseSettings):
     tool_max_rows: int = Field(default=50, gt=0, alias="TOOL_MAX_ROWS")
     tool_history_samples: int = Field(default=12, ge=2, alias="TOOL_HISTORY_SAMPLES")
     tool_history_max_days: int = Field(default=31, gt=0, alias="TOOL_HISTORY_MAX_DAYS")
+    # Series site functions: the longest window, and the default resolution's interval (the
+    # first reading of each; the AI may ask for every reading instead). Longer periods: a
+    # function that computes the answer.
+    tool_series_max_hours: int = Field(default=6, gt=0, alias="TOOL_SERIES_MAX_HOURS")
+    tool_series_interval_minutes: int = Field(
+        default=15, ge=1, le=60, alias="TOOL_SERIES_INTERVAL_MINUTES"
+    )
     # A point with no new reading for longer than this is flagged stale (device not reporting).
     data_stale_after_s: float = Field(default=600, gt=0, alias="DATA_STALE_AFTER_S")
 
-    # --- Connectors ---
-    # true: fictional in-memory sites. false: site data from backend-ot (services/backend_ot);
-    # engineer knowledge then starts empty until the Postgres store exists.
-    use_fake_data: bool = Field(default=True, alias="USE_FAKE_DATA")
+    # --- backend-ot (all site data; every call is in services/backend_ot/) ---
     backend_ot_url: str = Field(default="http://localhost:8000", alias="BACKEND_OT_URL")
     backend_ot_timeout_s: float = Field(default=10.0, gt=0, alias="BACKEND_OT_TIMEOUT_S")
     backend_ot_retries: int = Field(default=3, ge=1, alias="BACKEND_OT_RETRIES")
     # How long the device and point catalog of a site is cached.
     backend_ot_catalog_ttl_s: float = Field(default=60, ge=0, alias="BACKEND_OT_CATALOG_TTL_S")
 
+    # --- Site profiles (site_profile/; docs/KNOWLEDGE_PLAN.md) ---
+    # The AI always sees only sites a site admin approved, and only their approved devices and
+    # points (no setting turns that off).
+    # How often backend-ot is read for pending changes (also at startup). 0 disables the job
+    # (sync only through POST /api/v1/site-profiles/sync).
+    site_profile_sync_interval_minutes: int = Field(
+        default=15, ge=0, alias="SITE_PROFILE_SYNC_INTERVAL_MINUTES"
+    )
+    # How long a site's approved view is cached per instance (an approval here drops it at once).
+    site_profile_cache_ttl_s: float = Field(default=30, ge=0, alias="SITE_PROFILE_CACHE_TTL_S")
+
     # --- Database (this service's own Postgres) ---
-    # Unset: forecasts are kept in memory (lost on restart). In the dev stack compose sets it.
+    # Required to start: users, site profiles and forecasts live there (startup fails with a
+    # ConfigurationError without it). In the dev stack compose sets it.
     database_url: SecretStr | None = Field(default=None, alias="DATABASE_URL")
 
     # --- Users and login (auth/) ---

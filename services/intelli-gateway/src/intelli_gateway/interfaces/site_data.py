@@ -1,9 +1,11 @@
-"""Site data interface: what backend-ot serves. Implementations: fake_data/site_data.py now,
-services/backend_ot next. All access is read-only."""
+"""Site data interface: what backend-ot serves. Implementations: services/backend_ot/ (gated by
+site_profile/gate.py), tests/doubles/site_data.py in tests. All access is read-only."""
 
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
+
+from pydantic import JsonValue
 
 from intelli_gateway.schemas.site_data import (
     ActiveAlarms,
@@ -14,6 +16,8 @@ from intelli_gateway.schemas.site_data import (
     PointInfo,
     PointValue,
     Site,
+    SiteFunction,
+    SiteFunctionRun,
     StateChange,
     Topology,
 )
@@ -60,5 +64,16 @@ class SiteDataConnector(Protocol):
         ...
 
     async def get_device_comms(self, site_id: int) -> list[DeviceComms]: ...
+
+    async def list_site_functions(self, site_id: int) -> list[SiteFunction]:
+        """The site functions backend-ot offers the AI (labelled ai_assistant), by name."""
+        ...
+
+    async def run_site_function(
+        self, site_id: int, run: SiteFunctionRun, max_points: int | None = None
+    ) -> dict[str, JsonValue]:
+        """The function's result (each has its own shape). max_points samples a series result.
+        Raises InvalidRequestError when backend-ot refuses the request."""
+        ...
 
     async def aclose(self) -> None: ...

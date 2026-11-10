@@ -4,12 +4,12 @@
 import os
 
 import pytest
+from doubles.services import build_test_services
 from fakes import fixed_clock
 
 from intelli_gateway.config import load_settings
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.services.claude.client import AnthropicLLMClient
-from intelli_gateway.wiring import build_services
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RUN_LLM_TESTS") != "1", reason="set RUN_LLM_TESTS=1 to call the real Claude API"
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(
 async def test_tool_use_and_prompt_caching_against_the_real_api() -> None:
     settings = load_settings()
     llm = AnthropicLLMClient(settings)
-    services = build_services(settings, llm=llm, clock=fixed_clock)
+    services = build_test_services(settings, llm=llm, clock=fixed_clock)
     ctx = RequestContext(
         user_id="integration", roles=frozenset({"engineer"}), site_ids=None, request_id="it"
     )
@@ -28,9 +28,11 @@ async def test_tool_use_and_prompt_caching_against_the_real_api() -> None:
             ctx, 1, "What is the current state code of INV2, and what does it mean?", None
         )
         assert first.result.stop_reason == "end_turn", first.result.answer
-        assert any(
-            call.name in {"get_point_value", "list_points"} for call in first.result.tool_calls
-        )
+        # It read the site through a tool rather than guess (any tool that reads INV2's state).
+        called = [call.name for call in first.result.tool_calls]
+        reads_state = {"get_point_values", "get_device_status", "list_points", "explain_point"}
+        assert reads_state & set(called), called
+        assert not any(call.is_error for call in first.result.tool_calls), called
         assert first.result.answer
 
         second = await services.gateway.ask(

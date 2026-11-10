@@ -1,15 +1,19 @@
 """FastAPI dependencies: who is asking (the session cookie), access checks, the wired services."""
 
 from datetime import timedelta
+from typing import Annotated
 
-from fastapi import Header, HTTPException, Request, Response
+from fastapi import Depends, Header, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.auth.service import AuthService
 from intelli_gateway.config import Settings
+from intelli_gateway.interfaces.site_data import SiteDataConnector
+from intelli_gateway.knowledge.service import SiteKnowledgeService
 from intelli_gateway.schemas.context import RequestContext
 from intelli_gateway.schemas.users import User
+from intelli_gateway.site_profile.service import SiteProfileService
 from intelli_gateway.solar_forecast.service import ForecastService
 from intelli_gateway.utils.exceptions import ForbiddenError, UnauthorizedError
 from intelli_gateway.utils.logger import request_id_var
@@ -69,6 +73,13 @@ async def get_current_user(request: Request, response: Response) -> User:
     return authenticated.user
 
 
+async def require_admin(user: Annotated[User, Depends(get_current_user)]) -> User:
+    """The logged-in admin (session only, never the dev headers); 401/403 otherwise."""
+    if user.role != "admin":
+        raise ForbiddenError("requires the admin role")
+    return user
+
+
 def _split(header: str | None) -> list[str]:
     return [part.strip() for part in (header or "").split(",") if part.strip()]
 
@@ -121,6 +132,16 @@ def get_forecast_service(request: Request) -> ForecastService:
     return service
 
 
+def get_site_profile_service(request: Request) -> SiteProfileService:
+    service: SiteProfileService = request.app.state.services.site_profiles
+    return service
+
+
+def get_knowledge_service(request: Request) -> SiteKnowledgeService:
+    service: SiteKnowledgeService = request.app.state.services.knowledge
+    return service
+
+
 def get_database(request: Request) -> AsyncEngine | None:
     """This service's own Postgres engine, or None when DATABASE_URL is unset."""
     database: AsyncEngine | None = request.app.state.services.database
@@ -135,3 +156,9 @@ def require_site_access(ctx: RequestContext, site_id: int) -> None:
 def require_role(ctx: RequestContext, role: str) -> None:
     if role not in ctx.roles:
         raise ForbiddenError(f"requires the {role} role")
+
+
+def get_site_data(request: Request) -> SiteDataConnector:
+    """The gated connector (approved sites, devices, points and site functions only)."""
+    site_data: SiteDataConnector = request.app.state.services.site_data
+    return site_data
