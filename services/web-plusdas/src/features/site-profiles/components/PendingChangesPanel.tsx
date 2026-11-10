@@ -24,7 +24,7 @@ const KIND_STYLES: Record<ChangeKind, string> = {
 
 const changesQueryKey = (siteId: number) => ["site-profiles", siteId, "changes"] as const;
 
-export function PendingChangesPanel({ siteId, onboarded }: { siteId: number; onboarded: boolean }) {
+export function PendingChangesPanel({ siteId, onboarded, timeZone }: { siteId: number; onboarded: boolean; timeZone: string }) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { data: pending, isLoading, isError, error } = useQuery({
@@ -95,7 +95,7 @@ export function PendingChangesPanel({ siteId, onboarded }: { siteId: number; onb
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          backend-ot read {formatDateTime(pending.fetched_at)} · {pending.changes.length} change(s)
+          backend-ot read {formatDateTime(pending.fetched_at, timeZone)} · {pending.changes.length} change(s)
           {!onboarded && pending.changes.length > 0 && " · approving onboards the site for the AI"}
         </p>
         {readButton}

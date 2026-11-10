@@ -108,7 +108,8 @@ KIND_LABELS: dict[PowerflowDeviceKind, str] = {
 # powerflow sites have no real location. The PV forecast needs one, so every simulated site sits
 # at the same sunny dev location, and every PV array gets the same plausible fixed-tilt layout.
 DEV_SITE_COORDINATES = Coordinates(lat=33.45, lng=-112.07, elevation_m=331.0)  # Phoenix, AZ
-DEV_SITE_TIMEZONE = "America/Phoenix"
+# The dev sites keep Pacific time (the user's choice), though the coordinates are in Phoenix.
+DEV_SITE_TIMEZONE = "America/Los_Angeles"
 DEV_PV_TILT_DEG = 25.0
 DEV_PV_AZIMUTH_DEG = 180.0  # south
 DEV_PV_SYSTEM_LOSS_PCT = 14.0

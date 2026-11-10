@@ -48,7 +48,7 @@ afterEach(() => vi.restoreAllMocks());
 
 function renderPanel() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} profile={PROFILE} /></QueryClientProvider>);
+  render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} timeZone="America/Los_Angeles" profile={PROFILE} /></QueryClientProvider>);
 }
 
 describe('KnowledgePanel', () => {
@@ -87,7 +87,7 @@ describe('KnowledgePanel', () => {
       },
     };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} profile={twoDevices} /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} timeZone="America/Los_Angeles" profile={twoDevices} /></QueryClientProvider>);
     const pointRows = () => screen.getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell').slice(0, 2).map(cell => cell.textContent));
 
     expect(await screen.findByText(/Nothing published yet/)).toBeTruthy();
@@ -182,7 +182,7 @@ describe('KnowledgePanel', () => {
     vi.spyOn(knowledgeApi, 'get').mockResolvedValue(state);
     const create = vi.spyOn(knowledgeApi, 'createSitePrompt').mockResolvedValue({ ...state, prompt_id: 'b' });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} profile={withFunction} /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} timeZone="America/Los_Angeles" profile={withFunction} /></QueryClientProvider>);
 
     const shown = within((await screen.findAllByRole('list', { name: 'Links' }))[0]).getAllByRole('listitem').map(item => item.textContent);
     expect(shown).toEqual(['Points:INV1.State', 'Site functions:site-poi-active-power', 'Documents:Restore', 'Device ratings:INV1']);
@@ -226,7 +226,7 @@ describe('KnowledgePanel', () => {
 
   it('asks to onboard the site first when there is no approved profile', () => {
     const queryClient = new QueryClient();
-    render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} profile={undefined} /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><KnowledgePanel siteId={1002} timeZone="America/Los_Angeles" profile={undefined} /></QueryClientProvider>);
     expect(screen.getByText(/Onboard the site first/)).toBeTruthy();
   });
 });

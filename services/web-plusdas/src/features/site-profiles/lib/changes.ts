@@ -1,4 +1,5 @@
 import type { ChangeKind, ChangeTarget, ProfileChange, ProfilePoint } from '@/api/types/siteProfiles';
+import { formatSiteTime } from '@/shared/lib/siteTime';
 
 // Records, so a kind or target added to intelli-gateway's contract fails the typecheck until it has a label.
 export const CHANGE_KIND_LABELS: Record<ChangeKind, string> = { added: 'New', removed: 'Removed', changed: 'Changed' };
@@ -41,8 +42,9 @@ export function localPointName(point: ProfilePoint): string {
   return point.name.startsWith(prefix) ? point.name.slice(prefix.length) : point.name;
 }
 
-export function formatDateTime(value: string | null | undefined): string {
-  return value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+/** "09 Nov, 14:21 PST" in `timeZone` (the site's, or the user's own: useDisplayTimeZone). */
+export function formatDateTime(value: string | null | undefined, timeZone: string): string {
+  return value ? formatSiteTime(value, timeZone, { withDate: true }) : '—';
 }
 
 /** React Query key of the site list; every site profile query key starts with it. */

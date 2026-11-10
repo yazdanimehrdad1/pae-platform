@@ -9,16 +9,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { appliesTo, devicesFor, WINDOWS } from "../lib/functions";
+import { Switch } from "@/components/ui/switch";
+import { formatSiteTime } from "@/shared/lib/siteTime";
+import { appliesTo, devicesFor, WINDOWS, withDisplayTimes } from "../lib/functions";
 
 // The site functions the AI may run: backend-ot labels them for the AI assistant, the admin
 // approves them here like devices and points, and backend-ot computes them. "Try it" runs one
 // exactly as the AI would and shows what the AI gets back (series summarized).
 
-export function SiteFunctionsSection({ siteId, functions, devices }: {
+export function SiteFunctionsSection({ siteId, functions, devices, timeZone }: {
   siteId: number;
   functions: SiteFunction[];
   devices: ProfileDevice[];
+  timeZone: string;
 }) {
   const [trying, setTrying] = useState<SiteFunction | null>(null);
   return (
@@ -60,20 +63,22 @@ export function SiteFunctionsSection({ siteId, functions, devices }: {
           </Table>
         </div>
       )}
-      {trying && <TryFunctionDialog siteId={siteId} fn={trying} devices={devicesFor(trying, devices)} onClose={() => setTrying(null)} />}
+      {trying && <TryFunctionDialog siteId={siteId} fn={trying} devices={devicesFor(trying, devices)} timeZone={timeZone} onClose={() => setTrying(null)} />}
     </section>
   );
 }
 
 const SELECT_CLASS = "flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-function TryFunctionDialog({ siteId, fn, devices, onClose }: {
+function TryFunctionDialog({ siteId, fn, devices, timeZone, onClose }: {
   siteId: number;
   fn: SiteFunction;
   devices: ProfileDevice[];
+  timeZone: string;
   onClose: () => void;
 }) {
   const [hours, setHours] = useState<number>(24);
+  const [showRaw, setShowRaw] = useState(false);
   const [deviceId, setDeviceId] = useState<string>(devices[0] ? String(devices[0].device_id) : "");
   const [values, setValues] = useState<Record<string, string>>({});
   const run = useMutation<SiteFunctionTestRunResponse, unknown>({
@@ -144,9 +149,21 @@ function TryFunctionDialog({ siteId, fn, devices, onClose }: {
         </div>
         {run.isError && <p role="alert" className="text-sm text-destructive">{getErrorMessage(run.error)}</p>}
         {run.data && (
-          <pre aria-label="Result" className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
-            {JSON.stringify(run.data.result, null, 2)}
-          </pre>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Window: </span>
+                {formatSiteTime(run.data.start, timeZone, { withDate: true })} → {formatSiteTime(run.data.end, timeZone, { withDate: true })}
+              </p>
+              <label className="inline-flex items-center gap-2 text-muted-foreground">
+                <Switch checked={showRaw} onCheckedChange={setShowRaw} aria-label="Show the raw result" />
+                Raw (UTC, as the AI gets it)
+              </label>
+            </div>
+            <pre aria-label="Result" className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
+              {JSON.stringify(showRaw ? run.data.result : withDisplayTimes(run.data.result, timeZone), null, 2)}
+            </pre>
+          </div>
         )}
       </DialogContent>
     </Dialog>

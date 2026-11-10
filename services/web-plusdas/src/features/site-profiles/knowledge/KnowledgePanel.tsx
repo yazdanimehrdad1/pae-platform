@@ -51,7 +51,7 @@ function StatusBadge({ status }: { status: ItemStatus }) {
   return <Badge variant="outline" className={STATUS_STYLES[status]}>{ITEM_STATUS_LABELS[status]}</Badge>;
 }
 
-export function KnowledgePanel({ siteId, profile }: { siteId: number; profile: ProfileVersion | undefined }) {
+export function KnowledgePanel({ siteId, profile, timeZone }: { siteId: number; profile: ProfileVersion | undefined; timeZone: string }) {
   const { data: state, isLoading, isError, error } = useKnowledge(siteId);
   const [reviewing, setReviewing] = useState(false);
 
@@ -65,12 +65,12 @@ export function KnowledgePanel({ siteId, profile }: { siteId: number; profile: P
         <div className="text-sm">
           <p>
             {state.published_version
-              ? <>The AI uses <strong>version {state.published_version}</strong>, published {formatDateTime(state.published_at)} by {state.published_by}.</>
+              ? <>The AI uses <strong>version {state.published_version}</strong>, published {formatDateTime(state.published_at, timeZone)} by {state.published_by}.</>
               : "Nothing published yet: the AI has no engineer knowledge for this site."}
           </p>
           <p className="text-muted-foreground">
             {state.changes.length > 0
-              ? `${state.changes.length} unpublished change(s) in the draft (last saved ${formatDateTime(state.draft_updated_at)} by ${state.draft_updated_by}).`
+              ? `${state.changes.length} unpublished change(s) in the draft (last saved ${formatDateTime(state.draft_updated_at, timeZone)} by ${state.draft_updated_by}).`
               : "No unpublished changes."}
           </p>
         </div>
@@ -93,7 +93,7 @@ export function KnowledgePanel({ siteId, profile }: { siteId: number; profile: P
         <TabsContent value="points" className="pt-2"><PointGuides siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="documents" className="pt-2"><Documents siteId={siteId} profile={profile} state={state} /></TabsContent>
         <TabsContent value="devices" className="pt-2"><Devices siteId={siteId} profile={profile} state={state} /></TabsContent>
-        <TabsContent value="versions" className="pt-2"><Versions siteId={siteId} state={state} /></TabsContent>
+        <TabsContent value="versions" className="pt-2"><Versions siteId={siteId} state={state} timeZone={timeZone} /></TabsContent>
       </Tabs>
 
       {reviewing && <PublishDialog siteId={siteId} state={state} onClose={() => setReviewing(false)} />}
@@ -290,7 +290,7 @@ function Devices({ siteId, profile, state }: { siteId: number; profile: ProfileV
   );
 }
 
-function Versions({ siteId, state }: { siteId: number; state: KnowledgeState }) {
+function Versions({ siteId, state, timeZone }: { siteId: number; state: KnowledgeState; timeZone: string }) {
   const queryClient = useQueryClient();
   const { data: versions = [], isLoading } = useQuery({
     queryKey: ["site-profiles", siteId, "knowledge-versions", state.published_version],
@@ -368,7 +368,7 @@ function Versions({ siteId, state }: { siteId: number; state: KnowledgeState }) 
                   v{version.version}{version.restored_from ? <span className="text-muted-foreground"> (from v{version.restored_from})</span> : null}
                   {version.version === state.published_version && <Badge variant="outline" className="ml-2">AI uses this</Badge>}
                 </TableCell>
-                <TableCell className="whitespace-nowrap">{formatDateTime(version.published_at)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDateTime(version.published_at, timeZone)}</TableCell>
                 <TableCell>{version.published_by}</TableCell>
                 <TableCell>{version.change_ids.length}</TableCell>
                 <TableCell>{version.site_prompts} · {version.point_guides} · {version.documents} · {version.device_facts}</TableCell>

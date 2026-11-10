@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { BookOpen, ChevronRight, RefreshCw } from "lucide-react";
-import { siteProfilesApi } from "@/api";
+import { siteProfilesApi, sitesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import type { SiteProfileStatus } from "@/api/types/siteProfiles";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/shared/contexts/auth";
 import { toast } from "@/shared/hooks/use-toast";
+import { BROWSER_TIME_ZONE, useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { SITE_PROFILES_QUERY_KEY, formatDateTime } from "./lib/changes";
 
 // Every site intelli-gateway has read from backend-ot: whether the AI may use it (onboarded, the
@@ -25,6 +26,12 @@ export default function SiteProfilesPage() {
     queryFn: siteProfilesApi.list,
     enabled: isAdmin,
   });
+  // Each row's times in that site's zone (backend-ot's site record), or the user's own zone if
+  // they chose "My time" (the same preference as every page).
+  const { display } = useDisplayTimeZone(null);
+  const { data: sites = [] } = useQuery({ queryKey: ["sites"], queryFn: sitesApi.getAll, enabled: isAdmin });
+  const timeZoneOf = (siteId: number): string =>
+    display === "browser" ? BROWSER_TIME_ZONE : sites.find(site => site.id === String(siteId))?.timezone ?? BROWSER_TIME_ZONE;
   const syncAll = useMutation({
     mutationFn: siteProfilesApi.syncAll,
     onSuccess: (fresh) => {
@@ -77,7 +84,7 @@ export default function SiteProfilesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {statuses.map(status => <StatusRow key={status.site_id} status={status} />)}
+              {statuses.map(status => <StatusRow key={status.site_id} status={status} timeZone={timeZoneOf(status.site_id)} />)}
             </TableBody>
           </Table>
         </div>
@@ -86,7 +93,7 @@ export default function SiteProfilesPage() {
   );
 }
 
-function StatusRow({ status }: { status: SiteProfileStatus }) {
+function StatusRow({ status, timeZone }: { status: SiteProfileStatus; timeZone: string }) {
   const onboarded = status.approved_version != null;
   return (
     <TableRow>
@@ -110,8 +117,8 @@ function StatusRow({ status }: { status: SiteProfileStatus }) {
           ? <Link to={`/site-profiles/${status.site_id}?tab=changes`}><Badge variant="secondary">{status.pending_changes} to review</Badge></Link>
           : <span className="text-muted-foreground">None</span>}
       </TableCell>
-      <TableCell className="whitespace-nowrap">{formatDateTime(status.approved_at)}</TableCell>
-      <TableCell className="whitespace-nowrap">{formatDateTime(status.fetched_at)}</TableCell>
+      <TableCell className="whitespace-nowrap">{formatDateTime(status.approved_at, timeZone)}</TableCell>
+      <TableCell className="whitespace-nowrap">{formatDateTime(status.fetched_at, timeZone)}</TableCell>
     </TableRow>
   );
 }

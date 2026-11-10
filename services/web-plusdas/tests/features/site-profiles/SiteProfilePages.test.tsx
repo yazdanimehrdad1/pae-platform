@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { authApi, siteProfilesApi } from '@/api';
+import { authApi, siteProfilesApi, sitesApi } from '@/api';
 import type { MeResponse } from '@/api/types/me';
 import type { PendingChanges, ProfileVersion, SiteProfileStatus } from '@/api/types/siteProfiles';
 import { AuthProvider } from '@/shared/contexts/auth';
@@ -176,6 +176,33 @@ describe('SiteProfileDetailPage', () => {
     const [siteId, name, body] = testRun.mock.calls[0];
     expect([siteId, name, body.device_id, body.parameters]).toEqual([1001, 'device-inverter-availability', 12, { lookback_days: 3 }]);
     expect(new Date(body.end).getTime() - new Date(body.start).getTime()).toBe(168 * 3_600_000);
+  });
+
+  it("shows the test-run's times in the site's time zone, and the raw UTC result on request", async () => {
+    vi.spyOn(siteProfilesApi, 'list').mockResolvedValue([{ ...NEW_SITE, approved_version: 1, pending_changes: 0 }]);
+    vi.spyOn(siteProfilesApi, 'get').mockResolvedValue(VERSION_1);
+    vi.spyOn(siteProfilesApi, 'changes').mockResolvedValue({ ...PENDING, approved_version: 1, changes: [] });
+    vi.spyOn(sitesApi, 'getAll').mockResolvedValue([{
+      id: '1001', name: 'Powerflow 2BESS 1PV', location: '', type: 'facility', status: 'online', deviceCount: 9,
+      lastUpdate: FETCHED_AT, operator: 'x', description: '', timezone: 'America/Los_Angeles',
+    }]);
+    vi.spyOn(siteProfilesApi, 'testRunFunction').mockResolvedValue({
+      function: 'site-bess1-round-trip-efficiency', start: '2026-11-08T22:21:06Z', end: '2026-11-09T22:21:06Z', device_id: null,
+      result: { end_time: '2026-11-09T22:21:06.211000Z', efficiency_pct: 88.5 },
+    });
+    renderAt('/site-profiles/1001');
+    expect(await screen.findByText(/Times in America\/Los_Angeles/)).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'What the AI knows' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Try site-bess1-round-trip-efficiency' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run' }));
+
+    // 22:21 UTC is 14:21 in Los Angeles (UTC-8 in November).
+    expect(await within(dialog).findByText(/08 Nov, 14:21 .* → 09 Nov, 14:21/)).toBeTruthy();
+    const result = within(dialog).getByLabelText('Result');
+    expect(result.textContent).toMatch(/"end_time": "09 Nov, 14:21 [^"]+"/);
+    fireEvent.click(within(dialog).getByRole('switch', { name: 'Show the raw result' }));
+    expect(result.textContent).toContain('"end_time": "2026-11-09T22:21:06.211000Z"');
   });
 
   it('shows why a test-run was refused', async () => {

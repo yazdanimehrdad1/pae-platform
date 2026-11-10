@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { siteProfilesApi } from "@/api";
+import { siteProfilesApi, sitesApi } from "@/api";
 import { getErrorMessage } from "@/api/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TimeZoneToggle } from "@/shared/components/TimeZoneToggle";
 import { useAuth } from "@/shared/contexts/auth";
+import { useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { ApprovedProfilePanel } from "./components/ApprovedProfilePanel";
 import { PendingChangesPanel } from "./components/PendingChangesPanel";
 import { KnowledgePanel } from "./knowledge/KnowledgePanel";
@@ -31,6 +33,13 @@ export default function SiteProfileDetailPage() {
     retry: false,
   });
   const statuses = useQuery({ queryKey: SITE_PROFILES_QUERY_KEY, queryFn: siteProfilesApi.list, enabled: isAdmin });
+  // Times in the site's zone (backend-ot's site record, like the Historian and Alarms), or the
+  // user's own if they switched to "My time"; the same preference as every other page.
+  const sites = useQuery({ queryKey: ["sites"], queryFn: sitesApi.getAll, enabled: isAdmin });
+  const siteRecord = sites.data?.find(entry => entry.id === String(siteId));
+  const { timeZone, display, setDisplay, siteTimeZone } = useDisplayTimeZone(
+    siteRecord?.timezone ?? profile.data?.catalog.site.timezone,
+  );
 
   if (!isAdmin) {
     return (
@@ -51,13 +60,16 @@ export default function SiteProfileDetailPage() {
       <Link to="/site-profiles" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="w-4 h-4 mr-1" />AI Site Profiles
       </Link>
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">{name}</h1>
         <p className="text-muted-foreground mt-1">
           {profile.isLoading && "Loading the profile..."}
           {onboarded && `The AI uses profile version ${profile.data.version}.`}
           {notOnboarded && "Not onboarded: the AI doesn't see this site yet."}
         </p>
+        </div>
+        <TimeZoneToggle siteTimeZone={siteTimeZone} display={display} onDisplayChange={setDisplay} />
       </div>
       {profile.isError && !notOnboarded && (
         <p className="text-destructive">Could not load the profile: {getErrorMessage(profile.error)}</p>
@@ -71,23 +83,23 @@ export default function SiteProfileDetailPage() {
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="changes" className="pt-2">
-          {profile.isLoading ? <p className="text-muted-foreground">Loading...</p> : <PendingChangesPanel siteId={siteId} onboarded={onboarded} />}
+          {profile.isLoading ? <p className="text-muted-foreground">Loading...</p> : <PendingChangesPanel siteId={siteId} onboarded={onboarded} timeZone={timeZone} />}
         </TabsContent>
         <TabsContent value="profile" className="pt-2">
-          <ApprovedProfilePanel profile={profile.data} />
+          <ApprovedProfilePanel profile={profile.data} timeZone={timeZone} />
         </TabsContent>
         <TabsContent value="knowledge" className="pt-2">
-          <KnowledgePanel siteId={siteId} profile={profile.data} />
+          <KnowledgePanel siteId={siteId} profile={profile.data} timeZone={timeZone} />
         </TabsContent>
         <TabsContent value="history" className="pt-2">
-          <VersionHistory siteId={siteId} enabled={onboarded} />
+          <VersionHistory siteId={siteId} enabled={onboarded} timeZone={timeZone} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function VersionHistory({ siteId, enabled }: { siteId: number; enabled: boolean }) {
+function VersionHistory({ siteId, enabled, timeZone }: { siteId: number; enabled: boolean; timeZone: string }) {
   const { data: versions = [], isLoading, isError, error } = useQuery({
     queryKey: ["site-profiles", siteId, "versions"],
     queryFn: () => siteProfilesApi.versions(siteId),
@@ -114,7 +126,7 @@ function VersionHistory({ siteId, enabled }: { siteId: number; enabled: boolean 
           {versions.map(version => (
             <TableRow key={version.version}>
               <TableCell className="font-medium">v{version.version}</TableCell>
-              <TableCell className="whitespace-nowrap">{formatDateTime(version.approved_at)}</TableCell>
+              <TableCell className="whitespace-nowrap">{formatDateTime(version.approved_at, timeZone)}</TableCell>
               <TableCell>{version.approved_by}</TableCell>
               <TableCell>{version.change_ids.length}</TableCell>
               <TableCell>{version.devices}</TableCell>

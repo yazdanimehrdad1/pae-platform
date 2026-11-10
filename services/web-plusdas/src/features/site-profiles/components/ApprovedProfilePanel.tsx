@@ -15,7 +15,7 @@ function matches(point: ProfilePoint, filter: string): boolean {
   return [point.name, point.description ?? "", point.unit ?? ""].some(text => text.toLowerCase().includes(needle));
 }
 
-export function ApprovedProfilePanel({ profile }: { profile: ProfileVersion | undefined }) {
+export function ApprovedProfilePanel({ profile, timeZone }: { profile: ProfileVersion | undefined; timeZone: string }) {
   const [filter, setFilter] = useState("");
   const pointsByDevice = useMemo(() => {
     const grouped = new Map<number, ProfilePoint[]>();
@@ -34,7 +34,7 @@ export function ApprovedProfilePanel({ profile }: { profile: ProfileVersion | un
   return (
     <div className="space-y-4">
       <dl className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <Fact label="Version" value={`v${profile.version} · ${formatDateTime(profile.approved_at)}`} />
+        <Fact label="Version" value={`v${profile.version} · ${formatDateTime(profile.approved_at, timeZone)}`} />
         <Fact label="Approved by" value={profile.approved_by} />
         <Fact label="Time zone" value={site.timezone ?? "UTC"} />
         <Fact label="Capacity" value={site.capacity_kw != null ? `${site.capacity_kw.toLocaleString()} kW` : "—"} />
@@ -99,7 +99,7 @@ export function ApprovedProfilePanel({ profile }: { profile: ProfileVersion | un
         })}
       </Accordion>
 
-      <SiteFunctionsSection siteId={profile.site_id} functions={functions} devices={devices} />
+      <SiteFunctionsSection siteId={profile.site_id} functions={functions} devices={devices} timeZone={timeZone} />
     </div>
   );
 }
