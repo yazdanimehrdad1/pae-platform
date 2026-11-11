@@ -16,6 +16,13 @@ class AskRequest(BaseModel):
     )
 
 
+class FeedbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rating: Literal["up", "down"] | None = Field(description="null clears the feedback.")
+    comment: str | None = Field(default=None, max_length=2000)
+
+
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

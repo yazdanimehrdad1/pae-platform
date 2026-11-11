@@ -37,8 +37,9 @@ async def list_sites(
 @router.post(
     "/sites/{site_id}/ask",
     response_model=AskResponse,
-    summary="Ask a question about a site",
+    summary="Ask a question about a site (saved in your conversations)",
     responses={
+        401: {"model": ErrorResponse, "description": "Not logged in"},
         403: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
         503: {"model": ErrorResponse},
@@ -54,6 +55,8 @@ async def ask(
     result = outcome.result
     return AskResponse(
         conversation_id=outcome.conversation_id,
+        turn_id=outcome.turn.turn_id,
+        created_at=outcome.turn.created_at,
         answer=result.answer,
         stop_reason=result.stop_reason,
         iterations=result.iterations,

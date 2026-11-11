@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { alarmsApi } from '@/api';
 import type { ActiveAlarmsSummaryRecord } from '@/api/types/alarms';
 import { AppSidebar } from '@/app/layout/AppSidebar';
@@ -29,12 +29,18 @@ beforeEach(() => {
   vi.spyOn(alarmsApi, 'getActiveSummary').mockResolvedValue(NOTHING_ACTIVE);
 });
 
-function renderSidebar() {
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="location">{location.pathname + location.search}</span>;
+}
+
+function renderSidebar(showLocation = false) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <AppSidebar />
+        {showLocation && <LocationProbe />}
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -43,6 +49,22 @@ function renderSidebar() {
 const alarmsLink = () => screen.getByRole('link', { name: 'System alarms' });
 
 describe('AppSidebar', () => {
+  it.each(['engineer', 'admin', 'monitor'])('offers the AI Assistant to a %s', (current) => {
+    role.current = current;
+    renderSidebar();
+    expect(screen.getByRole('link', { name: 'AI Assistant' }).getAttribute('href')).toBe('/assistant');
+  });
+
+  it('asks the AI Assistant from the box: Enter opens its page with the question', () => {
+    role.current = 'monitor';
+    renderSidebar(true);
+    const box = screen.getByRole('textbox', { name: 'Ask AI Assistant' });
+    fireEvent.change(box, { target: { value: '  BESS 1 state?  ' } });
+    fireEvent.submit(box);
+    expect(screen.getByTestId('location').textContent).toBe('/assistant?q=BESS%201%20state%3F');
+    expect((box as HTMLInputElement).value).toBe('');
+  });
+
   it('lists Simulation between AI Tasks and Optimization for engineers', () => {
     role.current = 'engineer';
     renderSidebar();

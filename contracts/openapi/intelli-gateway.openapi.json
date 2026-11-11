@@ -92,6 +92,12 @@
             "title": "Conversation Id",
             "type": "string"
           },
+          "created_at": {
+            "description": "When it was asked (UTC).",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
           "iterations": {
             "title": "Iterations",
             "type": "integer"
@@ -119,12 +125,19 @@
             "title": "Tool Calls",
             "type": "array"
           },
+          "turn_id": {
+            "description": "This answer's id: for feedback on it.",
+            "title": "Turn Id",
+            "type": "integer"
+          },
           "usage": {
             "$ref": "#/components/schemas/UsageResponse"
           }
         },
         "required": [
           "conversation_id",
+          "turn_id",
+          "created_at",
           "answer",
           "stop_reason",
           "iterations",
@@ -154,6 +167,91 @@
         ],
         "title": "ChangeTarget",
         "type": "string"
+      },
+      "ConversationResponse": {
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnResponse"
+            },
+            "title": "Turns",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "site_id",
+          "title",
+          "created_at",
+          "updated_at",
+          "turns"
+        ],
+        "title": "ConversationResponse",
+        "type": "object"
+      },
+      "ConversationSummaryResponse": {
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "integer"
+          },
+          "title": {
+            "description": "The first question, shortened.",
+            "title": "Title",
+            "type": "string"
+          },
+          "turns": {
+            "description": "How many questions it holds.",
+            "title": "Turns",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "site_id",
+          "title",
+          "created_at",
+          "updated_at",
+          "turns"
+        ],
+        "title": "ConversationSummaryResponse",
+        "type": "object"
       },
       "Device": {
         "properties": {
@@ -498,6 +596,44 @@
           "detail"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "up",
+                  "down"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null clears the feedback.",
+            "title": "Rating"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "FeedbackRequest",
         "type": "object"
       },
       "ForecastHealthResponse": {
@@ -3364,6 +3500,124 @@
         "title": "TrendOrderRequest",
         "type": "object"
       },
+      "TurnResponse": {
+        "description": "One question and its answer in a saved conversation.",
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "enum": [
+                  "up",
+                  "down"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback"
+          },
+          "feedback_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback At"
+          },
+          "feedback_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Comment"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "position": {
+            "description": "0 for the conversation's first question.",
+            "title": "Position",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "site_local_time": {
+            "description": "The site's local time when asked (ISO 8601 with its offset).",
+            "title": "Site Local Time",
+            "type": "string"
+          },
+          "stop_reason": {
+            "title": "Stop Reason",
+            "type": "string"
+          },
+          "tool_calls": {
+            "description": "What the AI read to answer (tools and their arguments; not the values).",
+            "items": {
+              "$ref": "#/components/schemas/ToolCallResponse"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageResponse"
+          }
+        },
+        "required": [
+          "turn_id",
+          "position",
+          "question",
+          "answer",
+          "stop_reason",
+          "model",
+          "tool_calls",
+          "usage",
+          "duration_ms",
+          "created_at",
+          "site_local_time",
+          "feedback",
+          "feedback_comment",
+          "feedback_at"
+        ],
+        "title": "TurnResponse",
+        "type": "object"
+      },
       "UsageResponse": {
         "properties": {
           "cache_creation_input_tokens": {
@@ -3585,7 +3839,7 @@
   "info": {
     "description": "AI helper for site engineers: Claude answers questions about a generation site using read-only tools",
     "title": "intelli-gateway",
-    "version": "0.4.0"
+    "version": "0.5.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -3705,6 +3959,376 @@
         "summary": "Log out: ends the session and clears the cookie",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/conversations": {
+      "get": {
+        "operationId": "list_conversations_api_v1_conversations_get",
+        "parameters": [
+          {
+            "description": "Only this site's conversations",
+            "in": "query",
+            "name": "site_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this site's conversations",
+              "title": "Site Id"
+            }
+          },
+          {
+            "description": "Dev auth only: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationSummaryResponse"
+                  },
+                  "title": "Response List Conversations Api V1 Conversations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Your AI conversations, newest first",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1/conversations/{conversation_id}": {
+      "get": {
+        "operationId": "get_conversation_api_v1_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dev auth only: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such conversation of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One of your conversations: every question, answer, what the AI read, tokens",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/turns/{turn_id}/feedback": {
+      "put": {
+        "operationId": "set_feedback_api_v1_conversations__conversation_id__turns__turn_id__feedback_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Dev auth only: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such conversation of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rate an answer (up / down, optional comment); a null rating clears it",
+        "tags": [
+          "conversations"
         ]
       }
     },
@@ -4981,6 +5605,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -5022,7 +5656,7 @@
             "description": "Service Unavailable"
           }
         },
-        "summary": "Ask a question about a site",
+        "summary": "Ask a question about a site (saved in your conversations)",
         "tags": [
           "v1"
         ]

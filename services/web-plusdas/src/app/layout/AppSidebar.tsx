@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
   Bell,
@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  MessageSquare,
   StickyNote,
   Radio,
   Server,
@@ -84,6 +85,13 @@ const navigationItems: NavigationItem[] = [
     title: 'Reports',
     icon: FileText,
     path: '/reports',
+    roles: ['engineer', 'admin', 'monitor']
+  },
+  {
+    id: 'assistant',
+    title: 'AI Assistant',
+    icon: MessageSquare,
+    path: '/assistant',
     roles: ['engineer', 'admin', 'monitor']
   },
   {
@@ -162,7 +170,16 @@ interface SidebarPanelProps {
 function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: SidebarPanelProps) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  // The box asks the AI Assistant: Enter opens its page with the question, which asks it.
+  const askAssistant = () => {
+    const question = searchQuery.trim();
+    if (!question) return;
+    setSearchQuery('');
+    navigate(`/assistant?q=${encodeURIComponent(question)}`);
+    onNavigate?.();
+  };
 
   const visibleItems = navigationItems.filter(item =>
     user && item.roles.includes(user.role)
@@ -213,15 +230,16 @@ function SidebarPanel({ isCollapsed, onToggleCollapse, onNavigate, className }: 
 
       {!isCollapsed && (
         <div className="p-4 border-b border-sidebar-border flex-shrink-0">
-          <div className="relative">
+          <form className="relative" role="search" onSubmit={(event) => { event.preventDefault(); askAssistant(); }}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-sidebar-foreground/60" />
             <Input
               placeholder="Ask AI Assistant..."
+              aria-label="Ask AI Assistant"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/60"
             />
-          </div>
+          </form>
         </div>
       )}
 

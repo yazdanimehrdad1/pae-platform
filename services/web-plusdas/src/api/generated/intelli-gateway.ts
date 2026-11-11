@@ -76,6 +76,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your AI conversations, newest first */
+        get: operations["list_conversations_api_v1_conversations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of your conversations: every question, answer, what the AI read, tokens */
+        get: operations["get_conversation_api_v1_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}/turns/{turn_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Rate an answer (up / down, optional comment); a null rating clears it */
+        put: operations["set_feedback_api_v1_conversations__conversation_id__turns__turn_id__feedback_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forecast/health": {
         parameters: {
             query?: never;
@@ -329,7 +380,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ask a question about a site */
+        /** Ask a question about a site (saved in your conversations) */
         post: operations["ask_api_v1_sites__site_id__ask_post"];
         delete?: never;
         options?: never;
@@ -816,6 +867,12 @@ export interface components {
             answer: string;
             /** Conversation Id */
             conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When it was asked (UTC).
+             */
+            created_at: string;
             /** Iterations */
             iterations: number;
             /** Model */
@@ -827,6 +884,11 @@ export interface components {
             stop_reason: string;
             /** Tool Calls */
             tool_calls: components["schemas"]["ToolCallResponse"][];
+            /**
+             * Turn Id
+             * @description This answer's id: for feedback on it.
+             */
+            turn_id: number;
             usage: components["schemas"]["UsageResponse"];
         };
         /**
@@ -839,6 +901,54 @@ export interface components {
          * @enum {string}
          */
         ChangeTarget: "site" | "device" | "point" | "topology" | "function";
+        /** ConversationResponse */
+        ConversationResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Site Id */
+            site_id: number;
+            /** Title */
+            title: string;
+            /** Turns */
+            turns: components["schemas"]["TurnResponse"][];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ConversationSummaryResponse */
+        ConversationSummaryResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Site Id */
+            site_id: number;
+            /**
+             * Title
+             * @description The first question, shortened.
+             */
+            title: string;
+            /**
+             * Turns
+             * @description How many questions it holds.
+             */
+            turns: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** Device */
         Device: {
             /** Description */
@@ -952,6 +1062,16 @@ export interface components {
         ErrorResponse: {
             /** Detail */
             detail: string;
+        };
+        /** FeedbackRequest */
+        FeedbackRequest: {
+            /** Comment */
+            comment?: string | null;
+            /**
+             * Rating
+             * @description null clears the feedback.
+             */
+            rating: ("up" | "down") | null;
         };
         /** ForecastHealthResponse */
         ForecastHealthResponse: {
@@ -2162,6 +2282,51 @@ export interface components {
              */
             trend_ids: number[];
         };
+        /**
+         * TurnResponse
+         * @description One question and its answer in a saved conversation.
+         */
+        TurnResponse: {
+            /** Answer */
+            answer: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Feedback */
+            feedback: ("up" | "down") | null;
+            /** Feedback At */
+            feedback_at: string | null;
+            /** Feedback Comment */
+            feedback_comment: string | null;
+            /** Model */
+            model: string | null;
+            /**
+             * Position
+             * @description 0 for the conversation's first question.
+             */
+            position: number;
+            /** Question */
+            question: string;
+            /**
+             * Site Local Time
+             * @description The site's local time when asked (ISO 8601 with its offset).
+             */
+            site_local_time: string;
+            /** Stop Reason */
+            stop_reason: string;
+            /**
+             * Tool Calls
+             * @description What the AI read to answer (tools and their arguments; not the values).
+             */
+            tool_calls: components["schemas"]["ToolCallResponse"][];
+            /** Turn Id */
+            turn_id: number;
+            usage: components["schemas"]["UsageResponse"];
+        };
         /** UsageResponse */
         UsageResponse: {
             /** Cache Creation Input Tokens */
@@ -2359,6 +2524,171 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_conversations_api_v1_conversations_get: {
+        parameters: {
+            query?: {
+                /** @description Only this site's conversations */
+                site_id?: number | null;
+            };
+            header?: {
+                /** @description Dev auth only: user id. */
+                "x-user-id"?: string | null;
+                /** @description Dev auth only: comma-separated roles. */
+                "x-roles"?: string | null;
+                /** @description Dev auth only: comma-separated site ids the user may access. */
+                "x-site-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryResponse"][];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_conversation_api_v1_conversations__conversation_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Dev auth only: user id. */
+                "x-user-id"?: string | null;
+                /** @description Dev auth only: comma-separated roles. */
+                "x-roles"?: string | null;
+                /** @description Dev auth only: comma-separated site ids the user may access. */
+                "x-site-ids"?: string | null;
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such conversation of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_feedback_api_v1_conversations__conversation_id__turns__turn_id__feedback_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Dev auth only: user id. */
+                "x-user-id"?: string | null;
+                /** @description Dev auth only: comma-separated roles. */
+                "x-roles"?: string | null;
+                /** @description Dev auth only: comma-separated site ids the user may access. */
+                "x-site-ids"?: string | null;
+            };
+            path: {
+                conversation_id: string;
+                turn_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such conversation of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -3245,6 +3575,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AskResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Forbidden */
