@@ -1876,10 +1876,10 @@ export interface components {
          */
         AlarmEventsTableBlock: {
             /**
-             * Device Ids
-             * @description Only these devices; empty for all
+             * Alarm Ids
+             * @description Only these of the site's alarms (alarm definition ids); empty for all
              */
-            device_ids?: number[];
+            alarm_ids?: number[];
             /**
              * Id
              * @description Identifier within the report: lower-case letters, digits, underscore
@@ -3778,8 +3778,30 @@ export interface components {
             /** Start Index */
             start_index: number;
         };
+        /**
+         * ReportAlarm
+         * @description One of the site's live alarms, which an alarm events table may pick.
+         */
+        ReportAlarm: {
+            /** Id */
+            id: number;
+            /** Message */
+            message: string;
+            /** Name */
+            name: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "HIGH" | "MEDIUM" | "LOW";
+        };
         /** ReportCatalogResponse */
         ReportCatalogResponse: {
+            /**
+             * Alarms
+             * @description The site's live alarms, by name
+             */
+            alarms?: components["schemas"]["ReportAlarm"][];
             /** Block Kinds */
             block_kinds: ("text" | "kpi" | "chart" | "point_stats_table" | "alarm_events_table")[];
             /**

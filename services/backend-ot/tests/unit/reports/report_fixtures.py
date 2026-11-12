@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from reports.blocks import BlockContext
 from schemas.api_models import DevicePointResponse
-from schemas.reports.api import ReportSiteFunction
+from schemas.reports.api import ReportAlarm, ReportSiteFunction
 from schemas.reports.internal import ReportSiteContext
 from unit.reports.fake_data_source import FakeReportDataSource
 from unit.site_fixtures import make_device, make_point, make_site
@@ -30,13 +30,18 @@ FUNCTIONS = [
     ),
 ]
 
+ALARMS = [
+    ReportAlarm(id=5, name="bess_trip", severity="HIGH", message="BESS tripped"),
+    ReportAlarm(id=6, name="comms_lost", severity="HIGH", message="A device stopped communicating"),
+]
+
 
 def site_context(points: list[DevicePointResponse] | None = None) -> ReportSiteContext:
     bess = make_device(1, [POWER, SOC], device_type="BESS")
     inverter = make_device(2, [INVERTER_STATE], device_type="INVERTER")
     if points is not None:
         bess = make_device(1, points, device_type="BESS")
-    return ReportSiteContext(site=make_site(), devices=[bess, inverter], functions=FUNCTIONS)
+    return ReportSiteContext(site=make_site(), devices=[bess, inverter], functions=FUNCTIONS, alarms=ALARMS)
 
 
 def block_context(data_source: FakeReportDataSource, timezone: str = "America/Los_Angeles") -> BlockContext:

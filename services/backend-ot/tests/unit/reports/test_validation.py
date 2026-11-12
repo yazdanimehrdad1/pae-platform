@@ -39,7 +39,7 @@ class TestValidDefinition:
             ]),
             ChartBlock(kind="chart", id="power", series=[PointSeries(source="point", point_id=POWER.id), SiteFunctionSeries(source="site_function", function="site-poi-power")]),
             PointStatsTableBlock(kind="point_stats_table", id="stats", point_ids=[POWER.id, SOC.id]),
-            AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", device_ids=[1]),
+            AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", alarm_ids=[5, 6]),
         )
         assert definition_errors(report, site_context()) == []
 
@@ -52,9 +52,9 @@ class TestPointsAndDevices:
             "chart: point 998 is not on this site",
         ]
 
-    def test_unknown_alarm_table_device(self):
-        report = definition(AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", device_ids=[77]))
-        assert definition_errors(report, site_context()) == ["alarms: device 77 is not on this site"]
+    def test_unknown_alarm_in_an_alarm_table(self):
+        report = definition(AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", alarm_ids=[5, 77]))
+        assert definition_errors(report, site_context()) == ["alarms: alarm 77 is not on this site"]
 
 
 class TestTextVariables:

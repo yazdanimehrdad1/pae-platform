@@ -13,6 +13,10 @@ const OPTIONS: BuilderOptions = {
     { deviceId: 2, deviceName: 'bess_1', deviceType: 'BESS' },
   ] as DevicePointsEntry[],
   functions: [],
+  alarms: [
+    { id: 5, name: 'bess1_fault', severity: 'HIGH', message: 'BESS 1 faulted' },
+    { id: 6, name: 'device_comm_loss', severity: 'HIGH', message: 'A device stopped communicating' },
+  ],
   textVariables: {},
   siteName: 'Alpha',
   timeZone: 'UTC',
@@ -43,15 +47,22 @@ describe('PointStatsTableEditor', () => {
 });
 
 describe('AlarmEventsTableEditor', () => {
-  const block: Block<'alarm_events_table'> = { kind: 'alarm_events_table', id: 'alarms_1', severity: null, device_ids: [2], limit: 200 };
+  const block: Block<'alarm_events_table'> = { kind: 'alarm_events_table', id: 'alarms_1', severity: null, alarm_ids: [6], limit: 200 };
 
-  it('filters by the ticked devices, none meaning all', () => {
+  it("picks the site's defined alarms, none meaning all", () => {
     const onChange = vi.fn();
     render(<AlarmEventsTableEditor block={block} options={OPTIONS} onChange={onChange} />);
-    fireEvent.click(screen.getByRole('checkbox', { name: 'meter_1' }));
-    expect(onChange).toHaveBeenLastCalledWith({ ...block, device_ids: [2, 1] });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'bess_1' }));
-    expect(onChange).toHaveBeenLastCalledWith({ ...block, device_ids: [] });
+    expect(screen.getByRole('checkbox', { name: 'device_comm_loss' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'bess1_fault' }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...block, alarm_ids: [6, 5] });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'device_comm_loss' }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...block, alarm_ids: [] });
+  });
+
+  it('says so when the site has no alarms', () => {
+    render(<AlarmEventsTableEditor block={block} options={{ ...OPTIONS, alarms: [] }} onChange={vi.fn()} />);
+    expect(screen.getByText('This site has no alarms defined.')).toBeTruthy();
+    expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
   it('keeps the row limit between 1 and 1000', () => {

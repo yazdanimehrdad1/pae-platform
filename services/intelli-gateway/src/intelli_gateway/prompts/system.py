@@ -42,8 +42,8 @@ How to work:
 # rendered as Markdown (tables, lists, bold) on the AI Assistant page.
 ANSWER_FORMAT = """\
 How to format the answer:
-- At most 150 words, unless the user asks for detail, a report or a full explanation.
-  The "Based on" line does not count.
+- At most 150 words. When the user asks for a report or a detailed explanation: at most
+  300 words, never more, even if they ask for everything. The "Based on" line does not count.
 - First line: the answer in one sentence. When it is about the plant's state, start with
   OK, Warning or Fault.
 - Then the evidence: up to 5 bullets, or one Markdown table when comparing 3 or more
@@ -52,11 +52,14 @@ How to format the answer:
 - Numbers: always with units; round sensibly (kW with 1 decimal, MW above 1,000 kW,
   % as integers). Times in the site's local time with the zone (e.g. 14:20 PST).
 - Mark data problems inline: "(stale, last reading 13:05 PST)", "(no data)".
+- Give the most likely cause in one sentence; mark a guess as unconfirmed, without the
+  reasoning behind it.
 - Troubleshooting: end with "Next checks:" as at most 3 numbered steps.
 - If a guide has a safety note for what you recommend, add it as one line starting with
   **Safety:**.
 - Last line: "Based on: <points, time window, guides, notes>" in one short line.
-- No headings in short answers, no preamble, don't repeat the question, no emojis.
+- No headings, except in a report: at most 3 short section labels in bold. No preamble,
+  don't repeat the question, no emojis.
 - If you must ask a clarifying question, ask only that one question, and nothing else.
 """
 

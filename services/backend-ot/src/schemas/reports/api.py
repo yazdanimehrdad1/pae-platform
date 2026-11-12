@@ -5,6 +5,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.api_models.alarms import AlarmSeverity
 from schemas.api_models.types import DeviceType
 from schemas.reports.definition import BlockKind, PointStat, ReportDefinition, ReportWindow
 from schemas.reports.schedules import ReportCadence
@@ -107,6 +108,15 @@ class ReportRunResponse(ReportRunSummary):
 # --- Catalog (what the builder can offer for a site) -------------------------------------
 
 
+class ReportAlarm(BaseModel):
+    """One of the site's live alarms, which an alarm events table may pick."""
+
+    id: int
+    name: str
+    severity: AlarmSeverity
+    message: str
+
+
 class ReportSiteFunction(BaseModel):
     name: str
     kind: FunctionKind = Field(..., description="device functions need a device_id")
@@ -140,6 +150,7 @@ class ReportCatalogResponse(BaseModel):
     point_stats: list[PointStat]
     max_window_days: int = MAX_WINDOW_DAYS
     site_functions: list[ReportSiteFunction] = Field(default_factory=list)
+    alarms: list[ReportAlarm] = Field(default_factory=list, description="The site's live alarms, by name")
     text_variables: ReportTextVariables = Field(default_factory=ReportTextVariables)
 
 

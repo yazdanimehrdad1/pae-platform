@@ -68,6 +68,7 @@ async def get_catalog(site_id: int, data_source: ReportDataSource) -> ReportCata
         block_kinds=BLOCK_KINDS,
         point_stats=list(ALL_STATS),
         site_functions=context.functions,
+        alarms=context.alarms,
         text_variables=text_variable_catalog(),
     )
 

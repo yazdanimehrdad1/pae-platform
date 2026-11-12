@@ -5,14 +5,15 @@ from schemas.reports import AlarmEventRow, AlarmEventsTableBlock, AlarmEventsTab
 
 
 async def resolve_alarm_events_table(block: AlarmEventsTableBlock, context: BlockContext) -> AlarmEventsTableResult:
-    """Newest raise first, at most `limit` rows; total_count says how many matched. An event still
+    """Newest raise first, at most `limit` rows; total_count says how many matched. Only the chosen
+    alarms when alarm_ids names some, whichever device (or none) each event is about. An event still
     active at the window end lasts until the window end."""
     events = await context.data_source.get_alarm_events(
         context.site_id, context.window_start, context.window_end, severity=block.severity
     )
-    if block.device_ids:
-        wanted = set(block.device_ids)
-        events = [event for event in events if event.device_id in wanted]
+    if block.alarm_ids:
+        wanted = set(block.alarm_ids)
+        events = [event for event in events if event.definition_id in wanted]
     names = await context.data_source.get_alarm_names(context.site_id)
     device_names = {device.device_id: device.name for device in context.site.devices}
 
