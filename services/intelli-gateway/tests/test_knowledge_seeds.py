@@ -75,9 +75,7 @@ def catalog(site_name: str = SITE_NAME, without: str | None = None) -> SiteCatal
         site=Site(site_id=SITE, name=site_name),
         devices=tuple(devices),
         points=tuple(points),
-        functions=tuple(
-            SiteFunction(name=name, kind="site", summary=name) for name in FUNCTIONS
-        ),
+        functions=tuple(SiteFunction(name=name, kind="site", summary=name) for name in FUNCTIONS),
     )
 
 

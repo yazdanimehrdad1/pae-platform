@@ -7,17 +7,16 @@ import { getErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { TimeZoneToggle } from "@/shared/components/TimeZoneToggle";
 import { useDisplayTimeZone } from "@/shared/hooks/useDisplayTimeZone";
 import { PREFERENCE_KEYS, usePreference } from "@/shared/hooks/usePreference";
-import { formatSiteTime } from "@/shared/lib/siteTime";
+import { ConversationItem } from "./components/ConversationItem";
 import { TurnView } from "./components/TurnView";
 import { ASSISTANT_SITES_QUERY_KEY, conversationQueryKey, conversationsQueryKey } from "./queryKeys";
 
 // Ask the AI about one site. The AI reads the site's data when asked (approved points only),
-// and every conversation is saved for the user: the list on the left reopens one. Only the sites
-// the user may access are offered. The sidebar's "Ask AI Assistant..." box opens this page with
+// and every conversation is saved for the user: the list on the left reopens, renames or
+// permanently deletes one. Only the sites the user may access are offered. The sidebar's "Ask AI Assistant..." box opens this page with
 // ?q=<question> and asks it.
 
 const SELECT_CLASS = "flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -67,6 +66,23 @@ const AssistantPage = () => {
     },
     onSettled: () => setPendingQuestion(null),
   });
+
+  const rename = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => assistantApi.rename(id, { title }),
+    onSuccess: (_summary, { id }) => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["assistant", "conversations"] }),
+      queryClient.invalidateQueries({ queryKey: conversationQueryKey(id) }),
+    ]),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => assistantApi.remove(id),
+    onSuccess: (_nothing, id) => {
+      if (id === conversationId) setConversationId(null);
+      queryClient.removeQueries({ queryKey: conversationQueryKey(id) });
+      return queryClient.invalidateQueries({ queryKey: ["assistant", "conversations"] });
+    },
+  });
+  const listError = rename.error ?? remove.error;
 
   // The sidebar's box: ask its question once the site is known, then drop it from the URL.
   const sidebarQuestion = searchParams.get("q");
@@ -124,22 +140,17 @@ const AssistantPage = () => {
             </Button>
             <nav aria-label="Conversations" className="space-y-1">
               {conversations.data?.length === 0 && <p className="text-xs text-muted-foreground">No conversations yet.</p>}
+              {listError && <p role="alert" className="text-xs text-destructive">{getErrorMessage(listError)}</p>}
               {conversations.data?.map(summary => (
-                <button
+                <ConversationItem
                   key={summary.conversation_id}
-                  type="button"
-                  aria-current={summary.conversation_id === conversationId ? "true" : undefined}
-                  onClick={() => setConversationId(summary.conversation_id)}
-                  className={cn(
-                    "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent",
-                    summary.conversation_id === conversationId && "bg-accent",
-                  )}
-                >
-                  <span className="block truncate">{summary.title}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {formatSiteTime(summary.updated_at, timeZone, { withDate: true })} · {summary.turns} {summary.turns === 1 ? "question" : "questions"}
-                  </span>
-                </button>
+                  summary={summary}
+                  isOpen={summary.conversation_id === conversationId}
+                  timeZone={timeZone}
+                  onOpen={() => setConversationId(summary.conversation_id)}
+                  onRename={title => { remove.reset(); rename.mutate({ id: summary.conversation_id, title }); }}
+                  onDelete={() => { rename.reset(); remove.mutate(summary.conversation_id); }}
+                />
               ))}
             </nav>
           </aside>

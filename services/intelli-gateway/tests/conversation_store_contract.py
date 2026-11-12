@@ -127,8 +127,34 @@ async def sets_and_clears_feedback(store: ConversationStore) -> None:
     assert await store.set_feedback("c1", 999_999, "up", None, LATER) is None
 
 
+async def renames_and_keeps_the_name(store: ConversationStore) -> None:
+    await store.save(conversation(), turn())
+    renamed = await store.rename("c1", "Inverter 2 derate")
+    assert renamed is not None
+    assert (renamed.title, renamed.turns, renamed.updated_at) == ("Inverter 2 derate", 1, NOW)
+    # A later question keeps the new name.
+    found = await store.get("c1")
+    assert found is not None and found.title == "Inverter 2 derate"
+    found.updated_at = LATER
+    await store.save(found, turn("again", at=LATER))
+    assert [s.title for s in await store.list_for_user(ANA)] == ["Inverter 2 derate"]
+    assert await store.rename("missing", "x") is None
+
+
+async def deletes_a_conversation_with_its_turns(store: ConversationStore) -> None:
+    await store.save(conversation("c1"), turn())
+    await store.save(conversation("c2"), turn())
+    assert await store.delete("c1") is True
+    assert await store.get("c1") is None
+    assert await store.turns("c1") == []
+    assert [s.conversation_id for s in await store.list_for_user(ANA)] == ["c2"]
+    assert await store.delete("c1") is False
+
+
 CHECKS: list[Callable[[ConversationStore], Awaitable[None]]] = [
     keeps_the_history_and_numbers_the_turns,
     lists_a_users_conversations_newest_first,
     sets_and_clears_feedback,
+    renames_and_keeps_the_name,
+    deletes_a_conversation_with_its_turns,
 ]

@@ -62,7 +62,7 @@ class TurnResponse(BaseModel):
 class ConversationSummaryResponse(BaseModel):
     conversation_id: str
     site_id: int
-    title: str = Field(description="The first question, shortened.")
+    title: str = Field(description="The first question, shortened, unless the user renamed it.")
     created_at: AwareDatetime
     updated_at: AwareDatetime
     turns: int = Field(description="How many questions it holds.")

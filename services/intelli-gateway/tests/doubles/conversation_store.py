@@ -75,3 +75,23 @@ class InMemoryConversationStore:
                     turns[index] = updated
                     return updated
         return None
+
+    async def rename(self, conversation_id: str, title: str) -> ConversationSummary | None:
+        async with self._lock:
+            found = self._conversations.get(conversation_id)
+            if found is None:
+                return None
+            found.title = title
+            return ConversationSummary(
+                conversation_id=found.conversation_id,
+                site_id=found.site_id,
+                title=title,
+                created_at=found.created_at,
+                updated_at=found.updated_at,
+                turns=len(self._turns.get(conversation_id, [])),
+            )
+
+    async def delete(self, conversation_id: str) -> bool:
+        async with self._lock:
+            self._turns.pop(conversation_id, None)
+            return self._conversations.pop(conversation_id, None) is not None

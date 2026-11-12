@@ -271,6 +271,30 @@ class TestConversations:
         assert (cleared_turn.feedback, cleared_turn.feedback_comment) == (None, None)
         assert (missing.status_code, bad.status_code) == (404, 422)
 
+    async def test_rename_a_conversation(self, settings: Settings) -> None:
+        async with make_client(settings, self.llm()) as client:
+            first = await self.ask_twice(client)
+            url = f"/api/v1/conversations/{first.conversation_id}"
+            renamed = await client.patch(url, json={"title": "  Inverter   2 derate "})
+            blank = await client.patch(url, json={"title": "   "})
+            listed = (await client.get("/api/v1/conversations")).json()
+            missing = await client.patch("/api/v1/conversations/nope", json={"title": "x"})
+        summary = ConversationSummaryResponse.model_validate(renamed.json())
+        assert (summary.title, summary.turns) == ("Inverter 2 derate", 2)
+        assert [item["title"] for item in listed] == ["Inverter 2 derate"]
+        assert (blank.status_code, missing.status_code) == (422, 404)
+
+    async def test_delete_a_conversation_for_good(self, settings: Settings) -> None:
+        async with make_client(settings, self.llm()) as client:
+            first = await self.ask_twice(client)
+            url = f"/api/v1/conversations/{first.conversation_id}"
+            deleted = await client.delete(url)
+            opened = await client.get(url)
+            listed = (await client.get("/api/v1/conversations")).json()
+            again = await client.delete(url)
+        assert (deleted.status_code, deleted.content) == (204, b"")
+        assert (opened.status_code, listed, again.status_code) == (404, [], 404)
+
     async def test_another_users_conversation_is_not_found(self, settings: Settings) -> None:
         async with make_client(settings, self.llm()) as client:
             first = await self.ask_twice(client)
@@ -284,8 +308,19 @@ class TestConversations:
                 json={"rating": "up"},
                 headers=other,
             )
+            renamed = await client.patch(
+                f"/api/v1/conversations/{first.conversation_id}",
+                json={"title": "mine now"},
+                headers=other,
+            )
+            deleted = await client.delete(
+                f"/api/v1/conversations/{first.conversation_id}", headers=other
+            )
+            still_there = await client.get(f"/api/v1/conversations/{first.conversation_id}")
         assert listed == []
         assert (opened.status_code, rated.status_code) == (404, 404)
+        assert (renamed.status_code, deleted.status_code) == (404, 404)
+        assert ConversationResponse.model_validate(still_there.json()).title == "INV2 state?"
 
     async def test_conversations_of_sites_out_of_reach_are_hidden(self, settings: Settings) -> None:
         async with make_client(settings, self.llm()) as client:

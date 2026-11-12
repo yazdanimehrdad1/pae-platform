@@ -168,6 +168,24 @@
         "title": "ChangeTarget",
         "type": "string"
       },
+      "ConversationRenameRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "description": "The new name; runs of whitespace become one space.",
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ConversationRenameRequest",
+        "type": "object"
+      },
       "ConversationResponse": {
         "properties": {
           "conversation_id": {
@@ -227,7 +245,7 @@
             "type": "integer"
           },
           "title": {
-            "description": "The first question, shortened.",
+            "description": "The first question, shortened, unless the user renamed it.",
             "title": "Title",
             "type": "string"
           },
@@ -3839,7 +3857,7 @@
   "info": {
     "description": "AI helper for site engineers: Claude answers questions about a generation site using read-only tools",
     "title": "intelli-gateway",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -4082,6 +4100,113 @@
       }
     },
     "/api/v1/conversations/{conversation_id}": {
+      "delete": {
+        "operationId": "delete_conversation_api_v1_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dev auth only: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such conversation of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete one of your conversations for good, with every question and answer",
+        "tags": [
+          "conversations"
+        ]
+      },
       "get": {
         "operationId": "get_conversation_api_v1_conversations__conversation_id__get",
         "parameters": [
@@ -4192,6 +4317,130 @@
           }
         },
         "summary": "One of your conversations: every question, answer, what the AI read, tokens",
+        "tags": [
+          "conversations"
+        ]
+      },
+      "patch": {
+        "operationId": "rename_conversation_api_v1_conversations__conversation_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dev auth only: user id.",
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: user id.",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated roles.",
+            "in": "header",
+            "name": "x-roles",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated roles.",
+              "title": "X-Roles"
+            }
+          },
+          {
+            "description": "Dev auth only: comma-separated site ids the user may access.",
+            "in": "header",
+            "name": "x-site-ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dev auth only: comma-separated site ids the user may access.",
+              "title": "X-Site-Ids"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationRenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not logged in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such conversation of yours"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename one of your conversations",
         "tags": [
           "conversations"
         ]

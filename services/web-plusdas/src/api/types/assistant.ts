@@ -9,5 +9,6 @@ export type AskResponse = Schemas['AskResponse'];
 export type ConversationSummary = Schemas['ConversationSummaryResponse'];
 export type Conversation = Schemas['ConversationResponse'];
 export type ConversationTurn = Schemas['TurnResponse'];
+export type ConversationRenameRequest = Schemas['ConversationRenameRequest'];
 export type FeedbackRequest = Schemas['FeedbackRequest'];
 export type AnswerRating = NonNullable<FeedbackRequest['rating']>;

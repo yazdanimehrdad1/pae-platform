@@ -31,11 +31,20 @@ describe('assistantApi (intelli-gateway, same origin)', () => {
     await assistantApi.conversations();
     await assistantApi.conversation('c/1');
     await assistantApi.setFeedback('c/1', 7, { rating: 'down', comment: 'wrong device' });
+    await assistantApi.rename('c/1', { title: 'BESS 1 check' });
     expect(calls(fetchMock)).toEqual([
       { request: `GET ${BASE}/conversations?site_id=1002`, body: undefined },
       { request: `GET ${BASE}/conversations`, body: undefined },
       { request: `GET ${BASE}/conversations/c%2F1`, body: undefined },
       { request: `PUT ${BASE}/conversations/c%2F1/turns/7/feedback`, body: { rating: 'down', comment: 'wrong device' } },
+      { request: `PATCH ${BASE}/conversations/c%2F1`, body: { title: 'BESS 1 check' } },
     ]);
+  });
+
+  it('deletes a conversation (no content back)', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await assistantApi.remove('c/1');
+    expect(calls(fetchMock)).toEqual([{ request: `DELETE ${BASE}/conversations/c%2F1`, body: undefined }]);
   });
 });

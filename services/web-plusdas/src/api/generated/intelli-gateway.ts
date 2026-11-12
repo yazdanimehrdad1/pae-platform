@@ -104,10 +104,12 @@ export interface paths {
         get: operations["get_conversation_api_v1_conversations__conversation_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete one of your conversations for good, with every question and answer */
+        delete: operations["delete_conversation_api_v1_conversations__conversation_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Rename one of your conversations */
+        patch: operations["rename_conversation_api_v1_conversations__conversation_id__patch"];
         trace?: never;
     };
     "/api/v1/conversations/{conversation_id}/turns/{turn_id}/feedback": {
@@ -901,6 +903,14 @@ export interface components {
          * @enum {string}
          */
         ChangeTarget: "site" | "device" | "point" | "topology" | "function";
+        /** ConversationRenameRequest */
+        ConversationRenameRequest: {
+            /**
+             * Title
+             * @description The new name; runs of whitespace become one space.
+             */
+            title: string;
+        };
         /** ConversationResponse */
         ConversationResponse: {
             /** Conversation Id */
@@ -935,7 +945,7 @@ export interface components {
             site_id: number;
             /**
              * Title
-             * @description The first question, shortened.
+             * @description The first question, shortened, unless the user renamed it.
              */
             title: string;
             /**
@@ -2600,6 +2610,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such conversation of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_conversation_api_v1_conversations__conversation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Dev auth only: user id. */
+                "x-user-id"?: string | null;
+                /** @description Dev auth only: comma-separated roles. */
+                "x-roles"?: string | null;
+                /** @description Dev auth only: comma-separated site ids the user may access. */
+                "x-site-ids"?: string | null;
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such conversation of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_conversation_api_v1_conversations__conversation_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Dev auth only: user id. */
+                "x-user-id"?: string | null;
+                /** @description Dev auth only: comma-separated roles. */
+                "x-roles"?: string | null;
+                /** @description Dev auth only: comma-separated site ids the user may access. */
+                "x-site-ids"?: string | null;
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationRenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryResponse"];
                 };
             };
             /** @description Not logged in */

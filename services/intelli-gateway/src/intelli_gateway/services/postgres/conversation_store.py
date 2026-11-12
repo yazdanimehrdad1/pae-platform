@@ -1,6 +1,6 @@
 """PostgresConversationStore: AI conversations and their turns in this service's Postgres
-(SQLAlchemy 2 Core over asyncpg). Tables from migration 008_conversations. Nothing is deleted:
-every conversation is kept (a retention policy comes later)."""
+(SQLAlchemy 2 Core over asyncpg). Tables from migration 008_conversations. A conversation is
+kept until its user deletes it; its turns go with it (ON DELETE CASCADE)."""
 
 from datetime import datetime
 from typing import cast
@@ -16,6 +16,7 @@ from sqlalchemy import (
     Table,
     Text,
     and_,
+    delete,
     func,
     insert,
     select,
@@ -94,6 +95,23 @@ async def _turn_row(connection: AsyncConnection, turn_id: int) -> Turn | None:
     return _turn(row) if row is not None else None
 
 
+# Each conversation's summary: its columns but the history, and how many turns it holds.
+_TURN_COUNT = (
+    select(func.count())
+    .select_from(turns_table)
+    .where(turns_table.c.conversation_id == conversations_table.c.conversation_id)
+    .scalar_subquery()
+)
+SUMMARIES = select(
+    conversations_table.c.conversation_id,
+    conversations_table.c.site_id,
+    conversations_table.c.title,
+    conversations_table.c.created_at,
+    conversations_table.c.updated_at,
+    _TURN_COUNT.label("turns"),
+)
+
+
 class PostgresConversationStore:
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
@@ -151,30 +169,32 @@ class PostgresConversationStore:
     async def list_for_user(
         self, user_id: int, site_id: int | None = None
     ) -> list[ConversationSummary]:
-        turn_count = (
-            select(func.count())
-            .select_from(turns_table)
-            .where(turns_table.c.conversation_id == conversations_table.c.conversation_id)
-            .scalar_subquery()
-        )
         conditions = [conversations_table.c.user_id == user_id]
         if site_id is not None:
             conditions.append(conversations_table.c.site_id == site_id)
-        query = (
-            select(
-                conversations_table.c.conversation_id,
-                conversations_table.c.site_id,
-                conversations_table.c.title,
-                conversations_table.c.created_at,
-                conversations_table.c.updated_at,
-                turn_count.label("turns"),
-            )
-            .where(and_(*conditions))
-            .order_by(conversations_table.c.updated_at.desc())
-        )
+        query = SUMMARIES.where(and_(*conditions)).order_by(conversations_table.c.updated_at.desc())
         async with self._engine.connect() as connection:
             result = await connection.execute(query)
             return [ConversationSummary.model_validate(dict(row)) for row in result.mappings()]
+
+    async def rename(self, conversation_id: str, title: str) -> ConversationSummary | None:
+        this_one = conversations_table.c.conversation_id == conversation_id
+        async with self._engine.begin() as connection:
+            result = await connection.execute(
+                update(conversations_table).where(this_one).values(title=title)
+            )
+            if result.rowcount == 0:
+                return None
+            row = (await connection.execute(SUMMARIES.where(this_one))).mappings().one()
+            return ConversationSummary.model_validate(dict(row))
+
+    async def delete(self, conversation_id: str) -> bool:
+        statement = delete(conversations_table).where(
+            conversations_table.c.conversation_id == conversation_id
+        )
+        async with self._engine.begin() as connection:
+            result = await connection.execute(statement)
+            return result.rowcount > 0
 
     async def turns(self, conversation_id: str) -> list[Turn]:
         query = (

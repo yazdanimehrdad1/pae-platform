@@ -1,9 +1,9 @@
-"""What the API routes call: ask a question about a site, the user's saved conversations and
-their feedback, list sites, list tools.
+"""What the API routes call: ask a question about a site, the user's saved conversations (open,
+rename, delete) and their feedback, list sites, list tools.
 
 Conversations belong to a real user (the users table) and one site. A user only ever sees their
 own conversations, and only for the sites they can access; anything else looks missing (404).
-Every conversation is kept (no delete; a retention policy comes later)."""
+A conversation is kept until its user deletes it (for good: its turns go with it)."""
 
 import time
 import uuid
@@ -201,6 +201,21 @@ class GatewayService:
         if turn is None:
             raise NotFoundError("answer not found")
         return turn
+
+    async def rename_conversation(
+        self, ctx: RequestContext, conversation_id: str, title: str
+    ) -> ConversationSummary:
+        await self._own_conversation(ctx, conversation_id)
+        renamed = await self._conversations.rename(conversation_id, " ".join(title.split()))
+        if renamed is None:  # deleted meanwhile
+            raise NotFoundError("conversation not found")
+        return renamed
+
+    async def delete_conversation(self, ctx: RequestContext, conversation_id: str) -> None:
+        """Deletes one of the user's conversations for good, with every question and answer."""
+        await self._own_conversation(ctx, conversation_id)
+        if not await self._conversations.delete(conversation_id):
+            raise NotFoundError("conversation not found")
 
     async def _own_conversation(self, ctx: RequestContext, conversation_id: str) -> Conversation:
         user_id = user_id_of(ctx)

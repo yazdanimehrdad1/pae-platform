@@ -23,6 +23,17 @@ class FeedbackRequest(BaseModel):
     comment: str | None = Field(default=None, max_length=2000)
 
 
+class ConversationRenameRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(
+        min_length=1,
+        max_length=200,
+        pattern=r"\S",
+        description="The new name; runs of whitespace become one space.",
+    )
+
+
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

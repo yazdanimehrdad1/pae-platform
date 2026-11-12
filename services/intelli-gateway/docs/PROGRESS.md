@@ -408,6 +408,15 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   AI profile must be approved first). Tests: `tests/test_knowledge_seeds.py`.
 - Local dev stack: site 1002 seeded as knowledge v8 (replacing v7's hand-entered test items).
 
+### 19. Rename and delete a conversation (contract 0.6.0, uncommitted, 2026-11-11)
+- `PATCH /api/v1/conversations/{id}` `{title}` (1-200 chars, whitespace collapsed; updated_at
+  unchanged, later questions keep the name) and `DELETE /api/v1/conversations/{id}` (204;
+  permanent: the turns, ratings included, go with it via ON DELETE CASCADE). Own conversations
+  only, for sites the user can access; anything else is a 404. No migration (title existed).
+- `ConversationStore.rename` / `delete` in the protocol, Postgres and the in-memory double, with
+  shared contract checks. web-plusdas: rename in place and delete (after a confirm) in the
+  AI Assistant's conversation list (`features/assistant/components/ConversationItem.tsx`).
+
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
   backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no

@@ -9,7 +9,8 @@ MCP-ready.
 - the agent loop and the **saved conversations** (`services/postgres/conversation_store.py`,
   migration `008_conversations`): per user and site, the raw history plus one turn record per
   question (what the AI read: tools and arguments, never values; tokens; the user's 👍/👎).
-  Every conversation is kept (no delete; retention later). Asking needs a real user (session,
+  Its user can rename it or delete it for good (its turns go too); otherwise it is kept (no
+  automatic retention yet). Asking needs a real user (session,
   or a numeric `X-User-Id` in dev-header mode); a user sees only their own conversations, for
   the sites they can access. API `/api/v1/sites/{id}/ask`, `/api/v1/conversations`.
 - the tool layer and its authorization

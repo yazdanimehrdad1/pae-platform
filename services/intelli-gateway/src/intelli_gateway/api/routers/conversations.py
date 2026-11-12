@@ -1,16 +1,19 @@
-"""The user's saved AI conversations: list, open, and feedback on an answer.
+"""The user's saved AI conversations: list, open, rename, delete, and feedback on an answer.
 
 A user sees only their own conversations, and only for sites they can access; anything else is
-a 404, like one that doesn't exist. Every conversation is kept: there is no delete (a retention
-policy comes later)."""
+a 404, like one that doesn't exist. A conversation is kept until its user deletes it; deleting
+is permanent (every question, answer and rating goes with it)."""
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.api.dependencies import get_request_context, get_service
-from intelli_gateway.schemas.api_models.requests import FeedbackRequest
+from intelli_gateway.schemas.api_models.requests import (
+    ConversationRenameRequest,
+    FeedbackRequest,
+)
 from intelli_gateway.schemas.api_models.responses import (
     ConversationResponse,
     ConversationSummaryResponse,
@@ -94,6 +97,38 @@ async def get_conversation(
         updated_at=conversation.updated_at,
         turns=[turn_response(turn) for turn in view.turns],
     )
+
+
+@router.patch(
+    "/{conversation_id}",
+    response_model=ConversationSummaryResponse,
+    responses={**NOT_FOUND, **UNAUTHORIZED},
+    summary="Rename one of your conversations",
+)
+async def rename_conversation(
+    conversation_id: str,
+    body: ConversationRenameRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: GatewayService = Depends(get_service),
+) -> ConversationSummaryResponse:
+    summary = await service.rename_conversation(ctx, conversation_id, body.title)
+    return ConversationSummaryResponse.model_validate(summary.model_dump())
+
+
+@router.delete(
+    "/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={**NOT_FOUND, **UNAUTHORIZED},
+    summary="Delete one of your conversations for good, with every question and answer",
+)
+async def delete_conversation(
+    conversation_id: str,
+    ctx: RequestContext = Depends(get_request_context),
+    service: GatewayService = Depends(get_service),
+) -> Response:
+    await service.delete_conversation(ctx, conversation_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put(

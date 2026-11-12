@@ -4,7 +4,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { assistantApi, authApi, meApi } from '@/api';
-import type { AskResponse, AssistantSite, Conversation, ConversationTurn } from '@/api/types/assistant';
+import type {
+  AskResponse, AssistantSite, Conversation, ConversationSummary, ConversationTurn,
+} from '@/api/types/assistant';
 import type { MeResponse } from '@/api/types/me';
 import { AuthProvider } from '@/shared/contexts/auth';
 import AssistantPage from '@/features/assistant/AssistantPage';
@@ -28,6 +30,9 @@ const TURN: ConversationTurn = {
 const CONVERSATION: Conversation = {
   conversation_id: 'c1', site_id: 1002, title: 'BESS 1 state?',
   created_at: TURN.created_at, updated_at: TURN.created_at, turns: [TURN],
+};
+const SUMMARY: ConversationSummary = {
+  conversation_id: 'c1', site_id: 1002, title: 'BESS 1 state?', created_at: TURN.created_at, updated_at: TURN.created_at, turns: 1,
 };
 const ASKED: AskResponse = {
   conversation_id: 'c1', turn_id: 7, created_at: TURN.created_at, answer: TURN.answer, stop_reason: 'end_turn',
@@ -124,13 +129,54 @@ describe('AssistantPage', () => {
     const feedback = vi.spyOn(assistantApi, 'setFeedback').mockResolvedValue(TURN);
     renderAt('/assistant');
 
-    fireEvent.click(await screen.findByRole('button', { name: /BESS 1 state\?/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^BESS 1 state\?/ }));
     const comment = await screen.findByLabelText('Feedback comment');
     fireEvent.change(comment, { target: { value: 'wrong BESS' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(feedback).toHaveBeenCalledWith('c1', 7, { rating: 'down', comment: 'wrong BESS' }));
     fireEvent.click(screen.getByRole('button', { name: 'Not helpful' }));
     await waitFor(() => expect(feedback).toHaveBeenLastCalledWith('c1', 7, { rating: null, comment: null }));
+  });
+
+  it('renames a conversation in place: Enter saves, Escape cancels', async () => {
+    vi.spyOn(assistantApi, 'conversations').mockResolvedValue([SUMMARY]);
+    const rename = vi.spyOn(assistantApi, 'rename').mockResolvedValue({ ...SUMMARY, title: 'BESS 1 check' });
+    renderAt('/assistant');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename BESS 1 state?' }));
+    const box = screen.getByLabelText<HTMLInputElement>('Conversation name');
+    expect(box.value).toBe('BESS 1 state?');
+    fireEvent.change(box, { target: { value: 'ignored' } });
+    fireEvent.keyDown(box, { key: 'Escape' });
+    expect(screen.queryByLabelText('Conversation name')).toBeNull();
+    expect(rename).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename BESS 1 state?' }));
+    fireEvent.change(screen.getByLabelText('Conversation name'), { target: { value: '  BESS 1   check ' } });
+    fireEvent.keyDown(screen.getByLabelText('Conversation name'), { key: 'Enter' });
+    await waitFor(() => expect(rename).toHaveBeenCalledWith('c1', { title: 'BESS 1 check' }));
+  });
+
+  it('deletes a conversation only after confirming, and closes it if it was open', async () => {
+    const conversations = vi.spyOn(assistantApi, 'conversations').mockResolvedValue([SUMMARY]);
+    vi.spyOn(assistantApi, 'conversation').mockResolvedValue(CONVERSATION);
+    const remove = vi.spyOn(assistantApi, 'remove').mockResolvedValue(undefined);
+    renderAt('/assistant');
+
+    fireEvent.click(await screen.findByRole('button', { name: /^BESS 1 state\?/ }));
+    expect(await screen.findByText('BESS 1 is discharging at 250 kW.')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete BESS 1 state?' }));
+    expect(await screen.findByText(/deleted permanently/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(remove).not.toHaveBeenCalled();
+
+    conversations.mockResolvedValue([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete BESS 1 state?' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('c1'));
+    expect(await screen.findByText('No conversations yet.')).toBeTruthy();
+    expect(screen.queryByText('BESS 1 is discharging at 250 kW.')).toBeNull();
   });
 
   it("asks the sidebar's question on arrival and drops it from the address", async () => {
