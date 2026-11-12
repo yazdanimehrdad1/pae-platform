@@ -69,6 +69,9 @@ describe('AssistantPage', () => {
     expect(conversations).toHaveBeenCalledWith(1002);
     fireEvent.change(screen.getByLabelText('Your question'), { target: { value: 'BESS 1 state?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    // Sent: the box empties right away, and the button waits for the answer.
+    expect((screen.getByLabelText('Your question') as HTMLTextAreaElement).value).toBe('');
+    expect((await screen.findByRole('status')).textContent).toContain('Thinking');
 
     expect(await screen.findByText('BESS 1 is discharging at 250 kW.')).toBeTruthy();
     expect(ask).toHaveBeenCalledWith(1002, { question: 'BESS 1 state?', conversation_id: null });
@@ -82,6 +85,19 @@ describe('AssistantPage', () => {
     fireEvent.change(screen.getByLabelText('Your question'), { target: { value: 'and BESS 2?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
     await waitFor(() => expect(ask).toHaveBeenLastCalledWith(1002, { question: 'and BESS 2?', conversation_id: 'c1' }));
+  });
+
+  it('puts the question back in the box when the ask fails', async () => {
+    vi.spyOn(assistantApi, 'conversations').mockResolvedValue([]);
+    vi.spyOn(assistantApi, 'ask').mockRejectedValue(new Error('The AI is not available'));
+    renderAt('/assistant');
+
+    const box = (await screen.findByLabelText('Your question')) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: 'BESS 1 state?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('The AI is not available');
+    expect(box.value).toBe('BESS 1 state?');
   });
 
   it('reopens a saved conversation and rates an answer with a comment', async () => {

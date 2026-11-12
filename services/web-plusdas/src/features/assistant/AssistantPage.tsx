@@ -55,8 +55,10 @@ const AssistantPage = () => {
       return assistantApi.ask(siteId, { question: text, conversation_id: conversationId });
     },
     onMutate: text => setPendingQuestion(text),
+    // The box empties when the question is sent (submit); it comes back only if the ask fails
+    // and the user hasn't started typing another one.
+    onError: (_error, text) => setQuestion(current => current || text),
     onSuccess: async answer => {
-      setQuestion("");
       setConversationId(answer.conversation_id);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: conversationQueryKey(answer.conversation_id) }),
@@ -85,7 +87,9 @@ const AssistantPage = () => {
   };
   const submit = () => {
     const text = question.trim();
-    if (text && !ask.isPending) ask.mutate(text);
+    if (!text || ask.isPending) return;
+    setQuestion("");
+    ask.mutate(text);
   };
   const turns = conversationId !== null ? conversation.data?.turns ?? [] : [];
 
@@ -175,7 +179,7 @@ const AssistantPage = () => {
                 }}
               />
               <Button type="submit" disabled={ask.isPending || !question.trim()}>
-                <Send className="w-4 h-4 mr-1" />{ask.isPending ? "Asking..." : "Ask"}
+                <Send className="w-4 h-4 mr-1" />Ask
               </Button>
             </form>
           </section>
