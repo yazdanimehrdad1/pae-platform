@@ -395,6 +395,19 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   (step 2) will replace. web-plusdas renders answers as Markdown (react-markdown + remark-gfm;
   raw HTML is never rendered). Whether Claude keeps to it is not yet checked on a live question.
 
+### 18. Knowledge seed for the 2bess_1pv dev site (uncommitted, 2026-11-11)
+- `knowledge/seeds/powerflow_2bess_1pv.py` (registered in `knowledge/seeds/__init__.py::SEEDS`):
+  ratings for bess1, bess2, pv1 and the plant controller; 12 point guides (BESS InvSt, SoC, Evt1;
+  pv1 InvSt, ThrotSrc, WAvail; plant controller GridMode, Alrm; POI Hz); 4 documents (manual, IM
+  script, procedure, experience note); 5 site prompts linking nothing, points only, documents
+  only, and points + documents + functions + ratings. Devices are found by name in the approved
+  profile; documents and prompts have fixed ids, so seeding again changes nothing.
+- `manage_knowledge seed <name> --by <email> [--site] [--no-publish]`: import (the admin UI's
+  checks) and publish; it replaces the site's knowledge (earlier versions stay restorable).
+  `make seed-knowledge SEED=...` here, `make seed-ai-2bess-1pv` at the root (dev stack; the site's
+  AI profile must be approved first). Tests: `tests/test_knowledge_seeds.py`.
+- Local dev stack: site 1002 seeded as knowledge v8 (replacing v7's hand-entered test items).
+
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
   backend-ot stays data-only. Individual accounts, roles engineer | admin | monitor, no

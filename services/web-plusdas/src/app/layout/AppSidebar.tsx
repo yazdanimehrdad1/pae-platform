@@ -88,13 +88,6 @@ const navigationItems: NavigationItem[] = [
     roles: ['engineer', 'admin', 'monitor']
   },
   {
-    id: 'assistant',
-    title: 'AI Assistant',
-    icon: MessageSquare,
-    path: '/assistant',
-    roles: ['engineer', 'admin', 'monitor']
-  },
-  {
     id: 'task-builder',
     title: 'AI Tasks',
     icon: Bot,
@@ -115,6 +108,13 @@ const navigationItems: NavigationItem[] = [
     icon: Gauge,
     path: '/optimization',
     roles: ['engineer', 'admin']
+  },
+  {
+    id: 'assistant',
+    title: 'AI Assistant',
+    icon: MessageSquare,
+    path: '/assistant',
+    roles: ['engineer', 'admin', 'monitor']
   },
   {
     id: 'site-profiles',

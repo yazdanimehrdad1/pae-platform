@@ -88,14 +88,26 @@ describe('AppSidebar', () => {
     expect(screen.queryByRole('link', { name: 'Open Sites in a new tab' })).toBeNull();
   });
 
-  it('lists Optimization between Simulation and Notes, linking to its page', () => {
+  it('lists Optimization after Simulation, then the AI pages, linking to its page', () => {
     role.current = 'engineer';
     renderSidebar();
     const titles = navTitles();
     const optimization = titles.indexOf('Optimization');
     expect(titles[optimization - 1]).toBe('Simulation');
-    expect(titles[optimization + 1]).toBe('Notes');
+    expect(titles[optimization + 1]).toBe('AI Assistant');
     expect(screen.getByRole('link', { name: 'Optimization' }).getAttribute('href')).toBe('/optimization');
+  });
+
+  it('shows an admin AI Assistant and AI Site Profiles together, right after Optimization', () => {
+    role.current = 'admin';
+    renderSidebar();
+    const titles = navTitles();
+    const optimization = titles.indexOf('Optimization');
+    expect(titles.slice(optimization, optimization + 3)).toEqual([
+      'Optimization',
+      'AI Assistant',
+      'AI Site Profiles',
+    ]);
   });
 
   it('hides Optimization from monitors', () => {
