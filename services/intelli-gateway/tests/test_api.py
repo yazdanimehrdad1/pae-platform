@@ -119,6 +119,9 @@ class TestAsk:
         static, site_block = llm.requests[0].system
         assert not static.cache
         assert site_block.cache
+        # The answer format is part of the static (cache-stable) prompt.
+        assert "At most 150 words" in static.text
+        assert "Based on:" in static.text
         assert "Sunfield" in site_block.text
         assert "INV2 derating on warm days" in site_block.text
         # The current time goes in the user turn, never in the cached system prompt.

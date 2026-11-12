@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatSiteTime } from "@/shared/lib/siteTime";
 import { conversationQueryKey } from "../queryKeys";
+import { AnswerMarkdown } from "./AnswerMarkdown";
 
 // One question and the AI's answer: what it read (tools and their arguments, not the values),
 // the tokens it used, and the user's 👍 / 👎 with an optional comment.
@@ -38,7 +39,7 @@ export function TurnView({ conversationId, turn, timeZone }: {
   return (
     <article className="space-y-2" aria-label={`Answer to: ${turn.question}`}>
       <div className="ml-auto max-w-[85%] rounded-lg bg-primary/10 px-3 py-2 text-sm whitespace-pre-wrap">{turn.question}</div>
-      <div className="rounded-lg border bg-card px-3 py-2 text-sm whitespace-pre-wrap">{turn.answer}</div>
+      <div className="rounded-lg border bg-card px-3 py-2 text-sm"><AnswerMarkdown text={turn.answer} /></div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>{formatSiteTime(turn.created_at, timeZone, { withDate: true })}</span>
         <span>{tokensText(turn)}</span>

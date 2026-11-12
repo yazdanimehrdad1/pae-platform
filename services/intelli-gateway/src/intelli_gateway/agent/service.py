@@ -18,6 +18,7 @@ from intelli_gateway.interfaces.site_data import SiteDataConnector
 from intelli_gateway.interfaces.tool_provider import ToolProvider
 from intelli_gateway.knowledge.loader import KnowledgeLoader
 from intelli_gateway.prompts.system import (
+    ANSWER_FORMAT,
     STATIC_INSTRUCTIONS,
     render_site_block,
     render_user_turn,
@@ -128,7 +129,7 @@ class GatewayService:
 
         knowledge = await self._knowledge.load(site_id)
         system = [
-            SystemBlock(STATIC_INSTRUCTIONS),
+            SystemBlock(STATIC_INSTRUCTIONS + "\n" + ANSWER_FORMAT),
             SystemBlock(render_site_block(site, knowledge.text), cache=True),
         ]
         started = time.perf_counter()

@@ -387,6 +387,13 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   conversations, answer with what the AI read and its tokens, 👍/👎 with a comment; the
   sidebar's "Ask AI Assistant..." box opens it with the question.
 - Tokens are stored, not cost (per-model rates come with the "fewer tokens" step).
+- Answer format (2026-11-11): `prompts/system.py::ANSWER_FORMAT`, sent in the static system
+  block after `STATIC_INSTRUCTIONS`: at most 150 words unless asked for detail, the answer in
+  the first line (OK/Warning/Fault for plant state), up to 5 bullets or one table (≤ 8 rows),
+  units and site-local times, data problems marked inline, "Next checks" (≤ 3), a **Safety:**
+  line from the guides, a closing "Based on:" line. It is the block the admin-editable AI rules
+  (step 2) will replace. web-plusdas renders answers as Markdown (react-markdown + remark-gfm;
+  raw HTML is never rendered). Whether Claude keeps to it is not yet checked on a live question.
 
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
