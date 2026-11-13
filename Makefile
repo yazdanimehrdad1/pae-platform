@@ -76,7 +76,8 @@ help:
 	@echo ""
 	@echo "Cloud environments (env=prod: pae-platform-prod, env=dev: pae-development; see deploy/PLAN.md):"
 	@echo "  infra-up env=...   create or complete that environment's GCP infrastructure (idempotent)"
-	@echo "  admin-password env=...  the first admin's login and its password (from Secret Manager)"
+	@echo "  admin-password env=...  the first admin's login and first password (from Secret Manager)"
+	@echo "  set-password env=... EMAIL=...  set a user's password on that VM (recovery, no login needed)"
 	@echo "  ssh env=...        shell on that environment's VM through IAP"
 	@echo "  ui env=...         that environment's UI through an IAP tunnel on http://localhost:8080"
 	@echo "  host-setup env=... one-time VM setup (data disk, Docker, Ops Agent, backup timer)"
@@ -167,9 +168,15 @@ seed-ai-2bess-1pv:
 	$(MAKE) -C services/intelli-gateway seed-knowledge SEED=powerflow_2bess_1pv COMPOSE="$(DEV_COMPOSE)" SITE="$(SITE)"
 
 # PlusDAS user accounts, kept by intelli-gateway (no self-signup), in the dev stack.
+# set-password env=dev|prod sets it on that cloud's VM instead (deploy/cloud/Makefile).
 USER_TARGETS := create-user set-password disable-user enable-user
 $(USER_TARGETS):
-	$(MAKE) -C services/intelli-gateway $@ COMPOSE="$(DEV_COMPOSE)" EMAIL="$(EMAIL)" ROLE="$(ROLE)" DISPLAY_NAME="$(DISPLAY_NAME)"
+	@if [ -n "$(env)" ]; then \
+		test "$@" = set-password || { echo "$@ runs in the dev stack only (no env=); in the cloud use the Users page" >&2; exit 2; }; \
+		$(MAKE) --no-print-directory -C deploy/cloud set-password env="$(env)" EMAIL="$(EMAIL)"; \
+	else \
+		$(MAKE) -C services/intelli-gateway $@ COMPOSE="$(DEV_COMPOSE)" EMAIL="$(EMAIL)" ROLE="$(ROLE)" DISPLAY_NAME="$(DISPLAY_NAME)"; \
+	fi
 
 # E2E against the running dev stack: backend-ot polls mock-modbus and agrees with the contract.
 E2E_API := http://localhost:$(or $(BACKEND_OT_HTTP_PORT),8000)/api

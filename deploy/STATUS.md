@@ -29,7 +29,8 @@ Done stages (details in `PLAN.md`): 0 cleanup, 1 deployment readiness, 2 CI, 3 i
 | Back up now | `make backup env=dev` (all databases to `gs://pae-development-backups`; weekly runs are automatic) |
 | Load a simulated site | `make cloud-seed-site env=dev SITE=2bess_1pv` (dev only; `REPLACE=1` deletes the site and its history first, to apply a changed point list) |
 | Shell on the server | `make ssh env=dev` |
-| Log in (first time) | dev `admin@plusdas.dev`, prod `admin@plusdas.local` (`BOOTSTRAP_ADMIN_EMAIL` in `cloud/config/<env>.env`); its password: `make admin-password env=dev` (or `env=prod`; the secret `intelli-gateway-bootstrap-admin-password`). Then set your own in Settings, and add everyone else on the Users page |
+| Log in (first time) | dev `admin@plusdas.dev`, prod `admin@plusdas.local` (`BOOTSTRAP_ADMIN_EMAIL` in `cloud/config/<env>.env`); its password: `make admin-password env=dev` (or `env=prod`; the secret `intelli-gateway-bootstrap-admin-password`). Then set your own in Settings (the secret keeps the first one), and add everyone else on the Users page |
+| Forgotten password | `make set-password env=dev EMAIL=<address>` (or `env=prod`): asks for a new one on the VM over IAP SSH, ends that user's sessions; needs GCP access, no PlusDAS login |
 | Demo login (dev only) | `demo@plusdas.dev` / `demo-password` (the dev secret `intelli-gateway-demo-user-password`; to change it: add a new version, then redeploy) |
 | Logs in the Console | https://console.cloud.google.com/logs/query?project=pae-development, query `log_id("pae_containers")` |
 | Servers in the Console | https://console.cloud.google.com/compute/instances?project=pae-development (and `?project=pae-platform-prod`) |
