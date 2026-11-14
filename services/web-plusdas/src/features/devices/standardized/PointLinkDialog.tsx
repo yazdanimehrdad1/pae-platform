@@ -9,13 +9,16 @@ import { devicesApi } from "@/api/devices";
 import { getErrorMessage } from "@/api/client";
 import type { DevicePoint } from "@/api/types/devicePoints";
 import { toast } from "@/shared/hooks/use-toast";
-import { draftFromPoint, powerScale, toLinkRequest, validateLinkDraft, type PointLinkDraft } from "./lib/pointLink";
+import { draftFromPoint, suggestedScale, toLinkRequest, validateLinkDraft, type PointLinkDraft } from "./lib/pointLink";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   return message ? <p id={id} role="alert" className="text-xs text-alarm-high">{message}</p> : null;
 }
 
-/** Link a STANDARDIZED point to one of its device's active NATIVE points (`sources`), or change its link. */
+/**
+ * Link a STANDARDIZED point to one of its device's active NATIVE points (`sources`), or change its link.
+ * The user picks the unit and the scale; between power units the dialog only suggests a scale.
+ */
 export function PointLinkDialog({ open, onOpenChange, siteId, deviceId, point, sources }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,18 +38,12 @@ export function PointLinkDialog({ open, onOpenChange, siteId, deviceId, point, s
   }, [open, point]);
 
   const source = sources.find(candidate => String(candidate.id) === draft.sourcePointId);
-  const errors = validateLinkDraft(draft, source?.unit);
+  const errors = validateLinkDraft(draft);
   const shownErrors = hasTriedSave ? errors : {};
+  const suggestion = source ? suggestedScale(draft, source.unit) : null;
+  const sourceNotRecorded = source?.record_enabled === false;
 
-  // Between power units the scale follows from the units, so fill it in as they change.
-  const update = (changes: Partial<PointLinkDraft>) => {
-    setDraft(previous => {
-      const next = { ...previous, ...changes };
-      const nextSource = sources.find(candidate => String(candidate.id) === next.sourcePointId);
-      const expected = powerScale(nextSource?.unit, next.unit.trim());
-      return expected !== null && !("scale" in changes) ? { ...next, scale: String(expected) } : next;
-    });
-  };
+  const update = (changes: Partial<PointLinkDraft>) => setDraft(previous => ({ ...previous, ...changes }));
 
   const saveMutation = useMutation({
     mutationFn: () => devicesApi.linkPoint(siteId, deviceId, point!.id, toLinkRequest(draft)),
@@ -85,11 +82,17 @@ export function PointLinkDialog({ open, onOpenChange, siteId, deviceId, point, s
                 {sources.map(candidate => (
                   <SelectItem key={candidate.id} value={String(candidate.id)}>
                     {candidate.name}{candidate.unit ? ` (${candidate.unit})` : ""}
+                    {candidate.record_enabled === false ? " · not recorded" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <FieldError id="link-source-error" message={shownErrors.source} />
+            {sourceNotRecorded && (
+              <p className="text-xs text-muted-foreground">
+                This point isn't recorded, so the link shows no readings until you turn its recording on.
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -103,6 +106,15 @@ export function PointLinkDialog({ open, onOpenChange, siteId, deviceId, point, s
                 onChange={event => update({ scale: event.target.value })}
                 aria-invalid={!!shownErrors.scale} aria-describedby="link-scale-error" />
               <FieldError id="link-scale-error" message={shownErrors.scale} />
+              {suggestion !== null && (
+                <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                  <span>Suggested for {source?.unit} → {draft.unit.trim()}: × {suggestion}</span>
+                  <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs"
+                    onClick={() => update({ scale: String(suggestion) })}>
+                    Use
+                  </Button>
+                </p>
+              )}
             </div>
           </div>
           {source && (

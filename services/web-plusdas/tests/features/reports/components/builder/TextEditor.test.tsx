@@ -12,6 +12,7 @@ const OPTIONS: BuilderOptions = {
   points: [],
   devices: [{ deviceId: 12, deviceName: 'gen_1', deviceType: 'GENERATOR' }] as DevicePointsEntry[],
   functions: [],
+  alarms: [],
   textVariables: {
     site: [{ name: 'site_name', description: 'Site name' }],
     device_fields: [{ name: 'name', description: 'Name' }, { name: 'type', description: 'Type' }],

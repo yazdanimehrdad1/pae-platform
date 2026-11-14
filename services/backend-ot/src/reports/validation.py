@@ -1,5 +1,5 @@
-"""Checking a report definition against its site: every point, device and site function it names
-must exist there and fit where it is used. Pure: works on a ReportSiteContext."""
+"""Checking a report definition against its site: every point, device, site function and alarm it
+names must exist there and fit where it is used. Pure: works on a ReportSiteContext."""
 
 from reports.text_variables import text_variable_errors
 from schemas.reports import (
@@ -51,8 +51,8 @@ def _block_errors(
             return errors
         case PointStatsTableBlock(point_ids=point_ids):
             return _point_errors(point_ids, context)
-        case AlarmEventsTableBlock(device_ids=device_ids):
-            return [f"device {device_id} is not on this site" for device_id in device_ids if context.find_device(device_id) is None]
+        case AlarmEventsTableBlock(alarm_ids=alarm_ids):
+            return [f"alarm {alarm_id} is not on this site" for alarm_id in alarm_ids if context.find_alarm(alarm_id) is None]
     return [f"unknown block kind {block!r}"]
 
 

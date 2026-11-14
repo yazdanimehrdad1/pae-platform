@@ -5,6 +5,7 @@ type Schemas = components['schemas'];
 // Wire types: generated from backend-ot's contract, never hand-written.
 export type ReportCatalogRecord = Schemas['ReportCatalogResponse'];
 export type ReportSiteFunction = Schemas['ReportSiteFunction'];
+export type ReportAlarm = Schemas['ReportAlarm'];
 export type ReportDefinition = Schemas['ReportDefinition'];
 export type ReportWindow = ReportDefinition['window'];
 export type ReportBlock = ReportDefinition['blocks'][number];

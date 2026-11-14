@@ -3,8 +3,9 @@
 A NATIVE point with record_enabled = false gets no new readings. Everything computed from stored
 readings then goes blank: a STANDARDIZED point linked to it (source_point_id), a VIRTUAL point that
 reads it, and a USER alarm whose rule reads it. Turning recording off is refused (409) while any of
-those exist; the reverse direction (pointing one of them at a non-recorded point) is refused by
-check_input_points and apply_point_link.
+those exist. The reverse direction (pointing one of them at a non-recorded point) is refused for
+virtual points and alarms (check_input_points), but allowed for a standardized link: the user may
+link first and turn recording on later (apply_point_link).
 """
 
 from collections.abc import Collection

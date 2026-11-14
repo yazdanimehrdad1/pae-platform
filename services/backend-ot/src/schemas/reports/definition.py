@@ -180,7 +180,9 @@ class AlarmEventsTableBlock(_Block):
 
     kind: Literal["alarm_events_table"]
     severity: AlarmSeverity | None = Field(None, description="Only this severity; null for all")
-    device_ids: list[int] = Field(default_factory=list, max_length=50, description="Only these devices; empty for all")
+    alarm_ids: list[int] = Field(
+        default_factory=list, max_length=100, description="Only these of the site's alarms (alarm definition ids); empty for all"
+    )
     limit: int = Field(200, ge=1, le=MAX_ALARM_ROWS)
 
 

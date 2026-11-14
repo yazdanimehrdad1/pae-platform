@@ -12,7 +12,9 @@ vi.mock('@/shared/hooks/use-toast', () => ({ toast: vi.fn() }));
 const sources = [
   { id: 14, name: 'W', category: 'NATIVE', unit: 'W' },
   { id: 15, name: 'SoC', category: 'NATIVE', unit: '%' },
+  { id: 16, name: 'AL1', category: 'NATIVE', unit: 'A', record_enabled: false },
 ] as unknown as DevicePoint[];
+const scaleInput = () => screen.getByLabelText('Scale (×)') as HTMLInputElement;
 const linked = {
   id: 57, name: 'BESS_ACTIVE_POWER', category: 'STANDARDIZED', source_point_id: 14, unit: 'kW', scale_factor: 0.001,
 } as unknown as DevicePoint;
@@ -37,26 +39,49 @@ describe('PointLinkDialog', () => {
     expect(link).not.toHaveBeenCalled();
   });
 
-  it('fills in the power scale when the unit changes, and saves through the link route', async () => {
+  it('keeps the scale the user typed when the unit changes, and saves any unit and scale', async () => {
     const link = vi.spyOn(devicesApi, 'linkPoint').mockResolvedValue(linked);
     const { onOpenChange } = renderDialog(linked);
 
-    expect((screen.getByLabelText('Scale (×)') as HTMLInputElement).value).toBe('0.001');
+    expect(scaleInput().value).toBe('0.001');
     fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'W' } });
-    expect((screen.getByLabelText('Scale (×)') as HTMLInputElement).value).toBe('1');
+    expect(scaleInput().value).toBe('0.001');
     fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'kW' } });
+    fireEvent.change(scaleInput(), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save link' }));
 
-    await waitFor(() => expect(link).toHaveBeenCalledWith('1001', 2, 57, { source_point_id: 14, unit: 'kW', scale_factor: 0.001 }));
+    await waitFor(() => expect(link).toHaveBeenCalledWith('1001', 2, 57, { source_point_id: 14, unit: 'kW', scale_factor: 2 }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it('blocks a typed scale that does not convert the power units', async () => {
+  it('suggests the power conversion, and "Use" fills it in', () => {
+    renderDialog(linked);
+    expect(screen.queryByText(/Suggested for/)).toBeNull();
+
+    fireEvent.change(scaleInput(), { target: { value: '1' } });
+    expect(screen.getByText('Suggested for W → kW: × 0.001')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Use' }));
+    expect(scaleInput().value).toBe('0.001');
+    expect(screen.queryByText(/Suggested for/)).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'my unit' } });
+    expect(screen.queryByText(/Suggested for/)).toBeNull();
+  });
+
+  it('still refuses a scale that is not a number', async () => {
     const link = vi.spyOn(devicesApi, 'linkPoint');
     renderDialog(linked);
-    fireEvent.change(screen.getByLabelText('Scale (×)'), { target: { value: '1' } });
+    fireEvent.change(scaleInput(), { target: { value: 'abc' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save link' }));
-    expect(await screen.findByText('W to kW needs a scale of 0.001.')).toBeTruthy();
+    expect(await screen.findByText('Enter a number.')).toBeTruthy();
     expect(link).not.toHaveBeenCalled();
+  });
+
+  it('warns when the chosen source is not recorded, and still saves', async () => {
+    const link = vi.spyOn(devicesApi, 'linkPoint').mockResolvedValue(linked);
+    renderDialog({ ...linked, source_point_id: 16, unit: 'A', scale_factor: 1 } as unknown as DevicePoint);
+    expect(screen.getByText(/isn't recorded, so the link shows no readings/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save link' }));
+    await waitFor(() => expect(link).toHaveBeenCalledWith('1001', 2, 57, { source_point_id: 16, unit: 'A', scale_factor: 1 }));
   });
 });

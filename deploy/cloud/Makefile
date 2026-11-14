@@ -32,7 +32,7 @@ GCLOUD_VM := --project $(PROJECT) --zone $(ZONE) --tunnel-through-iap --quiet --
 SSH := gcloud compute ssh $(VM) $(GCLOUD_VM) --command
 COMPOSE_ON_VM := sudo docker compose -p pae
 
-.PHONY: require-env infra-up admin-password ssh ui host-setup deploy status logs stats backup seed-site
+.PHONY: require-env infra-up admin-password set-password ssh ui host-setup deploy status logs stats backup seed-site
 
 require-env:
 	@case "$(env)" in prod|dev) ;; *) echo "pass env=prod or env=dev" >&2; exit 2 ;; esac
@@ -43,11 +43,21 @@ infra-up: require-env
 
 # The first admin's login: its address (config/<env>.env) and the password from Secret Manager,
 # printed in this terminal only. It stays valid until that admin changes it in Settings.
+# The password is one line with $(...) so it runs in sh: on Windows, make runs a line without
+# shell syntax directly, where printf doesn't exist.
 admin-password: require-env
 	@echo "login: $$(sed -n 's/^BOOTSTRAP_ADMIN_EMAIL=//p' config/$(env).env)"
-	@printf 'password: '
-	@gcloud secrets versions access latest --secret intelli-gateway-bootstrap-admin-password --project $(PROJECT)
-	@echo
+	@password="$$(gcloud secrets versions access latest --secret intelli-gateway-bootstrap-admin-password --project $(PROJECT))"; \
+		printf 'first password (until changed in Settings): %s\n' "$$password"
+	@echo "forgotten since? make set-password env=$(env) EMAIL=<address>"
+
+# Recovery without an admin login: set a user's password on the VM, as the gateway's
+# manage_users CLI (asked twice, not echoed, never stored outside the gateway's database; ends
+# their sessions). GCP access to the project is the authority. -t gives the prompt a terminal.
+set-password: require-env
+	@echo "$(EMAIL)" | grep -Eqx '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+' || { echo "usage: make set-password env=$(env) EMAIL=<address>" >&2; exit 2; }
+	gcloud compute ssh $(VM) --project $(PROJECT) --zone $(ZONE) --tunnel-through-iap \
+		--command "$(COMPOSE_ON_VM) exec intelli-gateway python -m intelli_gateway.manage_users set-password --email $(EMAIL)" -- -t
 
 # A shell on the VM through IAP (OS Login; no external IP, no keys to manage).
 ssh: require-env

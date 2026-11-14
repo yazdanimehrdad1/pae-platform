@@ -4,6 +4,7 @@ import {
   describeLink,
   draftFromPoint,
   powerScale,
+  suggestedScale,
   toLinkRequest,
   validateLinkDraft,
 } from '@/features/devices/standardized/lib/pointLink';
@@ -15,7 +16,7 @@ const linked = {
 const unlinked = { id: 58, name: 'BESS_STATUS', category: 'STANDARDIZED' } as unknown as DevicePoint;
 
 describe('powerScale', () => {
-  it('converts between power units, as backend-ot checks', () => {
+  it('converts between power units', () => {
     expect(powerScale('W', 'kW')).toBe(0.001);
     expect(powerScale('MW', 'kW')).toBe(1000);
     expect(powerScale('kW', 'kW')).toBe(1);
@@ -28,21 +29,30 @@ describe('powerScale', () => {
   });
 });
 
+describe('suggestedScale', () => {
+  it('suggests the power conversion while the typed scale differs', () => {
+    expect(suggestedScale({ sourcePointId: '14', unit: 'kW', scale: '1' }, 'W')).toBe(0.001);
+    expect(suggestedScale({ sourcePointId: '14', unit: ' MW ', scale: '' }, 'W')).toBe(0.000001);
+  });
+
+  it('suggests nothing once the scale matches, or for other quantities', () => {
+    expect(suggestedScale({ sourcePointId: '14', unit: 'kW', scale: '0.001' }, 'W')).toBeNull();
+    expect(suggestedScale({ sourcePointId: '15', unit: '%', scale: '2' }, '%')).toBeNull();
+    expect(suggestedScale({ sourcePointId: '14', unit: 'my unit', scale: '2' }, 'W')).toBeNull();
+  });
+});
+
 describe('validateLinkDraft', () => {
   it('needs a source and a numeric scale', () => {
-    expect(validateLinkDraft({ sourcePointId: '', unit: '', scale: 'x' }, null)).toEqual({
+    expect(validateLinkDraft({ sourcePointId: '', unit: '', scale: 'x' })).toEqual({
       source: 'Pick the point this one shows.', scale: 'Enter a number.',
     });
+    expect(validateLinkDraft({ sourcePointId: '14', unit: '', scale: ' ' }).scale).toBe('Enter a number.');
   });
 
-  it('rejects a power scale that does not convert the units', () => {
-    expect(validateLinkDraft({ sourcePointId: '14', unit: 'kW', scale: '1' }, 'W').scale)
-      .toBe('W to kW needs a scale of 0.001.');
-    expect(validateLinkDraft({ sourcePointId: '14', unit: 'kW', scale: '0.001' }, 'W')).toEqual({});
-  });
-
-  it('accepts any scale for other quantities', () => {
-    expect(validateLinkDraft({ sourcePointId: '15', unit: '%', scale: '2' }, '%')).toEqual({});
+  it('accepts any unit and any scale, even one that does not convert power units', () => {
+    expect(validateLinkDraft({ sourcePointId: '14', unit: 'kW', scale: '1' })).toEqual({});
+    expect(validateLinkDraft({ sourcePointId: '14', unit: 'my unit', scale: '-2.5' })).toEqual({});
   });
 });
 

@@ -10,11 +10,11 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from intelli_gateway.agent.conversations import InMemoryConversationStore
 from intelli_gateway.agent.loop import AgentLoop
 from intelli_gateway.agent.service import GatewayService
 from intelli_gateway.auth.service import AuthService, SessionSettings
 from intelli_gateway.config import Settings
+from intelli_gateway.interfaces.conversation_store import ConversationStore
 from intelli_gateway.interfaces.forecast_repository import ForecastRepository
 from intelli_gateway.interfaces.knowledge_authoring_store import KnowledgeAuthoringStore
 from intelli_gateway.interfaces.knowledge_store import KnowledgeStore
@@ -32,6 +32,7 @@ from intelli_gateway.services.backend_ot.client import BackendOtClient
 from intelli_gateway.services.backend_ot.site_config import BackendOtSiteConfigSource
 from intelli_gateway.services.backend_ot.site_data import BackendOtSiteDataConnector
 from intelli_gateway.services.claude.client import AnthropicLLMClient
+from intelli_gateway.services.postgres.conversation_store import PostgresConversationStore
 from intelli_gateway.services.postgres.database import create_database_engine
 from intelli_gateway.services.postgres.forecast_repository import PostgresForecastRepository
 from intelli_gateway.services.postgres.knowledge_authoring_store import (
@@ -113,6 +114,7 @@ def build_services(
     user_data_store: UserDataStore | None = None,
     site_profile_store: SiteProfileStore | None = None,
     knowledge_authoring_store: KnowledgeAuthoringStore | None = None,
+    conversation_store: ConversationStore | None = None,
 ) -> Services:
     # One backend-ot client for every backend-ot reader (none when tests passed both readers).
     backend_ot = None
@@ -140,6 +142,7 @@ def build_services(
         or user_data_store is None
         or site_profile_store is None
         or knowledge_authoring_store is None
+        or conversation_store is None
     ):
         database = _database(settings)
         forecast_repository = forecast_repository or PostgresForecastRepository(database)
@@ -149,6 +152,7 @@ def build_services(
         knowledge_authoring_store = knowledge_authoring_store or PostgresKnowledgeAuthoringStore(
             database
         )
+        conversation_store = conversation_store or PostgresConversationStore(database)
     user_data = UserDataService(user_data_store, clock)
     site_profiles = SiteProfileService(
         site_profile_store, source_data, clock, cache_ttl_s=settings.site_profile_cache_ttl_s
@@ -209,7 +213,7 @@ def build_services(
     gateway = GatewayService(
         site_data=site_data,
         knowledge=KnowledgeLoader(knowledge_store, llm, settings.knowledge_token_warn),
-        conversations=InMemoryConversationStore(),
+        conversations=conversation_store,
         tools=provider,
         loop=AgentLoop(
             llm,

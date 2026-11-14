@@ -1,17 +1,18 @@
 """
 Unit tests for the standardized point link check (helpers.device_points.standardized_point_links).
 
-Invariant guarded: a link is set only from a STANDARDIZED point to an active, recorded NATIVE point
-on the same device, and between power units (W, kW, MW) its scale_factor must convert the source's unit
-into the link's; other quantities are taken as given. A rejected link leaves the point untouched.
-Rows are in-memory ORM objects (no DB).
+Invariant guarded: a link is set only from a STANDARDIZED point to an active NATIVE point on the
+same device, recorded or not, with whatever unit and scale_factor the user chose (no unit conversion
+is enforced, not even between power units); a scale that isn't finite is refused by the request
+model. A rejected link leaves the point untouched. Rows are in-memory ORM objects (no DB).
 """
 
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
-from helpers.device_points.standardized_point_links import apply_point_link, power_scale_error
+from helpers.device_points.standardized_point_links import apply_point_link
 from schemas.api_models import StandardizedPointLinkRequest
 from schemas.db_models.orm_models import DevicePoint
 from utils.exceptions import ValidationError
@@ -46,6 +47,21 @@ class TestApplyPointLink:
         assert (point.source_point_id, point.unit, point.scale_factor) == (11, "%", 1.0)
 
     @pytest.mark.parametrize(
+        ("unit", "scale_factor"),
+        [("kW", 2.0), ("kW", 1.0), ("MW", 0.5), ("horsepower", -0.5), (None, 0.0)],
+        ids=["w-to-kw-any-scale", "w-to-kw-no-conversion", "w-to-mw-any-scale", "custom-unit-negative", "no-unit-zero"],
+    )
+    def test_any_unit_and_scale_are_taken_as_given(self, unit: str | None, scale_factor: float):
+        point = standardized()
+        apply_point_link(point, POWER_W, StandardizedPointLinkRequest(source_point_id=10, unit=unit, scale_factor=scale_factor))
+        assert (point.source_point_id, point.unit, point.scale_factor) == (10, unit, scale_factor)
+
+    def test_a_source_that_isnt_recorded_can_be_linked(self):
+        point = standardized()
+        apply_point_link(point, device_point(10, "W", unit="W", record_enabled=False), POWER_LINK)
+        assert (point.source_point_id, point.unit, point.scale_factor) == (10, "kW", 0.001)
+
+    @pytest.mark.parametrize(
         ("point", "source", "message"),
         [
             (device_point(1, "W2"), POWER_W, "only STANDARDIZED"),
@@ -53,35 +69,17 @@ class TestApplyPointLink:
             (standardized(), device_point(10, "W", "VIRTUAL", unit="W"), "active NATIVE"),
             (standardized(), device_point(10, "W", "STANDARDIZED", unit="W"), "active NATIVE"),
             (standardized(), device_point(10, "W", unit="W", deleted_at=datetime(2026, 1, 1, tzinfo=UTC)), "active NATIVE"),
-            (standardized(), device_point(10, "W", unit="W", record_enabled=False), "not recorded"),
         ],
-        ids=["point-not-standardized", "source-on-another-device", "virtual-source", "standardized-source", "deleted-source", "unrecorded-source"],
+        ids=["point-not-standardized", "source-on-another-device", "virtual-source", "standardized-source", "deleted-source"],
     )
     def test_rejected_links_leave_the_point_untouched(self, point: DevicePoint, source: DevicePoint, message: str):
         with pytest.raises(ValidationError, match=message):
             apply_point_link(point, source, POWER_LINK)
         assert (point.source_point_id, point.unit, point.scale_factor) == (None, None, None)
 
-    def test_a_scale_that_does_not_convert_the_power_unit_is_rejected(self):
-        point = standardized()
-        with pytest.raises(ValidationError, match="expected 0.001"):
-            apply_point_link(point, POWER_W, POWER_LINK.model_copy(update={"scale_factor": 1.0}))
-        assert point.source_point_id is None
 
-
-class TestPowerScaleError:
-    @pytest.mark.parametrize(
-        ("source_unit", "unit", "scale_factor"),
-        [("W", "kW", 0.001), ("MW", "kW", 1000.0), ("kW", "kW", 1.0), ("kW", "W", 1000.0)],
-    )
-    def test_converting_scales_pass(self, source_unit: str, unit: str, scale_factor: float):
-        assert power_scale_error(source_unit, unit, scale_factor) is None
-
-    def test_a_wrong_scale_says_what_was_expected(self):
-        assert power_scale_error("W", "kW", 1.0) == "scale_factor 1 doesn't turn W into kW (expected 0.001)"
-
-    @pytest.mark.parametrize(
-        ("source_unit", "unit"), [("%", "%"), ("kvar", "kvar"), (None, None), ("W", None), (None, "kW")]
-    )
-    def test_other_quantities_are_not_checked(self, source_unit: str | None, unit: str | None):
-        assert power_scale_error(source_unit, unit, 2.0) is None
+class TestLinkRequest:
+    @pytest.mark.parametrize("scale_factor", [float("inf"), float("-inf"), float("nan")])
+    def test_a_scale_that_isnt_finite_is_refused(self, scale_factor: float):
+        with pytest.raises(PydanticValidationError):
+            StandardizedPointLinkRequest(source_point_id=10, scale_factor=scale_factor)

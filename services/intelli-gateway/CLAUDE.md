@@ -6,7 +6,13 @@ MCP-ready.
 
 **Owns:**
 - the Claude integration (`services/claude/client.py`)
-- the agent loop and conversation history
+- the agent loop and the **saved conversations** (`services/postgres/conversation_store.py`,
+  migration `008_conversations`): per user and site, the raw history plus one turn record per
+  question (what the AI read: tools and arguments, never values; tokens; the user's 👍/👎).
+  Its user can rename it or delete it for good (its turns go too); otherwise it is kept (no
+  automatic retention yet). Asking needs a real user (session,
+  or a numeric `X-User-Id` in dev-header mode); a user sees only their own conversations, for
+  the sites they can access. API `/api/v1/sites/{id}/ask`, `/api/v1/conversations`.
 - the tool layer and its authorization
 - engineer-written knowledge: site prompts (the admin's general information about the site, as
   named texts in order, first in the AI's site context, each optionally linked to points, site
@@ -130,5 +136,5 @@ Recipes run in Git for Windows' sh. `make help` lists every target.
 - **The tests' fictional sites are a plant model** (`tests/doubles/site_data.py::PlantModel`): derived points read other
   points (INV2 status from cabinet temperature, POI = sum). Tests assert on its values at
   `tests/fakes.py::FIXED_NOW`, so changing a signal can move many tests.
-- **Conversations are in memory** and process-local. Concurrent requests on the same
-  conversation are not serialized (v1).
+- **Concurrent asks on the same conversation are not serialized:** both run on the same
+  history and the later save wins the history (both turns are recorded).

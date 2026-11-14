@@ -31,7 +31,7 @@ from reports.stats import compute_point_stats
 from schemas.api_models import PointTimeseries, TimeseriesPoint
 from schemas.api_models.alarms import AlarmEventResponse, AlarmSeverity
 from schemas.db_models.orm_models import DevicePointsReading
-from schemas.reports.api import ReportSiteFunction
+from schemas.reports.api import ReportAlarm, ReportSiteFunction
 from schemas.reports.definition import PointStat
 from schemas.reports.internal import PointStatValues, ReportSiteContext
 from schemas.site_profiles import TimeWindowParams
@@ -82,7 +82,11 @@ class BackendOtReportSource:
             return None
         functions = report_functions(get_site_profile(site.profile).endpoints) if site.profile is not None else []
         devices = await devices_db.get_all_devices(site_id)
-        return ReportSiteContext(site=site, devices=devices, functions=functions)
+        alarms = [
+            ReportAlarm(id=alarm.id, name=alarm.name, severity=alarm.severity, message=alarm.message)
+            for alarm in await list_alarm_definitions(site_id)
+        ]
+        return ReportSiteContext(site=site, devices=devices, functions=functions, alarms=alarms)
 
     async def get_point_series(
         self, site_id: int, point_ids: list[int], start: datetime, end: datetime, max_points: int

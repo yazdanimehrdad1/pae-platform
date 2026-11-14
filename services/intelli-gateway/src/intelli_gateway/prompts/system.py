@@ -32,11 +32,35 @@ How to work:
   person carries it out.
 - Tool results that start with "error" explain what went wrong and often give a hint; follow
   the hint instead of guessing.
-- Say which points, time windows, guides and notes your answer is based on. Give units.
 - If the question is ambiguous (which device, which time window), ask a short clarifying
   question instead of guessing.
 - If the data is missing, stale or inconclusive, say so plainly and suggest what to check next.
-- Be concise: lead with the answer, then the evidence.
+"""
+
+# How answers look. Kept apart from the instructions above: the admin-editable "AI rules"
+# (roadmap step 2) will replace this block, while the instructions stay in code. Answers are
+# rendered as Markdown (tables, lists, bold) on the AI Assistant page.
+ANSWER_FORMAT = """\
+How to format the answer:
+- At most 150 words. When the user asks for a report or a detailed explanation: at most
+  300 words, never more, even if they ask for everything. The "Based on" line does not count.
+- First line: the answer in one sentence. When it is about the plant's state, start with
+  OK, Warning or Fault.
+- Then the evidence: up to 5 bullets, or one Markdown table when comparing 3 or more
+  devices, points or time steps (at most 8 rows; columns such as
+  Device | Point | Value | Unit | Time).
+- Numbers: always with units; round sensibly (kW with 1 decimal, MW above 1,000 kW,
+  % as integers). Times in the site's local time with the zone (e.g. 14:20 PST).
+- Mark data problems inline: "(stale, last reading 13:05 PST)", "(no data)".
+- Give the most likely cause in one sentence; mark a guess as unconfirmed, without the
+  reasoning behind it.
+- Troubleshooting: end with "Next checks:" as at most 3 numbered steps.
+- If a guide has a safety note for what you recommend, add it as one line starting with
+  **Safety:**.
+- Last line: "Based on: <points, time window, guides, notes>" in one short line.
+- No headings, except in a report: at most 3 short section labels in bold. No preamble,
+  don't repeat the question, no emojis.
+- If you must ask a clarifying question, ask only that one question, and nothing else.
 """
 
 

@@ -56,7 +56,7 @@ export function newBlock(kind: BlockKind, blocks: ReportBlock[]): ReportBlock {
     case "point_stats_table":
       return { kind, id, title, point_ids: [UNSET_POINT], stats: ["min", "max", "avg", "last"], bucket: "none" };
     case "alarm_events_table":
-      return { kind, id, title, severity: null, device_ids: [], limit: 200 };
+      return { kind, id, title, severity: null, alarm_ids: [], limit: 200 };
   }
 }
 

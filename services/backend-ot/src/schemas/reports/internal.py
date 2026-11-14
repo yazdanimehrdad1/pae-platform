@@ -5,18 +5,19 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from schemas.api_models import DevicePointResponse, DeviceWithPoints, SiteResponse
-from schemas.reports.api import ReportSiteFunction
+from schemas.reports.api import ReportAlarm, ReportSiteFunction
 from schemas.reports.definition import PointStat, ReportDefinition, ReportWindow
 from schemas.reports.schedules import ReportCadence
 
 
 class ReportSiteContext(BaseModel):
     """What a report is checked and generated against: the site, its active devices and points,
-    and the site functions its profile offers."""
+    the site functions its profile offers, and its live alarms."""
 
     site: SiteResponse
     devices: list[DeviceWithPoints] = Field(default_factory=list)
     functions: list[ReportSiteFunction] = Field(default_factory=list)
+    alarms: list[ReportAlarm] = Field(default_factory=list)
 
     def find_point(self, point_id: int) -> tuple[DevicePointResponse, DeviceWithPoints] | None:
         for device in self.devices:
@@ -30,6 +31,9 @@ class ReportSiteContext(BaseModel):
 
     def find_function(self, name: str) -> ReportSiteFunction | None:
         return next((function for function in self.functions if function.name == name), None)
+
+    def find_alarm(self, alarm_id: int) -> ReportAlarm | None:
+        return next((alarm for alarm in self.alarms if alarm.id == alarm_id), None)
 
 
 class DueSchedule(BaseModel):

@@ -78,6 +78,7 @@ function Builder({ siteId, template }: { siteId: string; template: ReportTemplat
     points: devicePointOptions(devices.data ?? [], { includeVirtual: true }),
     devices: devices.data ?? [],
     functions: catalog.data?.site_functions ?? [],
+    alarms: catalog.data?.alarms ?? [],
     textVariables: catalog.data?.text_variables ?? {},
     siteName: site?.name ?? `Site ${siteId}`,
     timeZone,

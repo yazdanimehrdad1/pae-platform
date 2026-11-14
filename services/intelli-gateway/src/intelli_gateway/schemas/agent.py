@@ -2,6 +2,7 @@
 format (text, thinking, tool_use, tool_result), which Claude on Bedrock/Vertex/Foundry shares."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Literal, TypedDict
 
 from intelli_gateway.schemas.tools import JSONValue, ToolSpec
@@ -81,6 +82,12 @@ class AgentResult:
 @dataclass
 class Conversation:
     conversation_id: str
-    user_id: str
+    # The asking user's id in the users table (conversations belong to a real user).
+    user_id: int
     site_id: int
+    # The first question, shortened: what the user's conversation list shows.
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    # The raw Messages-API history the agent continues from (append-only).
     messages: list[ChatMessage] = field(default_factory=lambda: list[ChatMessage]())

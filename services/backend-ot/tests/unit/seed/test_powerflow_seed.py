@@ -17,6 +17,8 @@ location (coordinates with elevation) so it can be forecast. The
 committed contracts are read as static fixtures (no DB/network).
 """
 
+import math
+
 import pytest
 from seed_db.powerflow_seed import (
     DEVICE_TYPES,
@@ -38,7 +40,6 @@ from seed_db.powerflow_seed import (
 
 from helpers.device_points.address_overlap import NativePointRange, validate_no_register_overlap
 from helpers.device_points.device_standardized_points import generate_standardized_points
-from helpers.device_points.standardized_point_links import power_scale_error
 from schemas.api_models import SiteSld
 from schemas.api_models.types import register_size
 from schemas.tests_models import (
@@ -48,9 +49,18 @@ from schemas.tests_models import (
     SeedData,
     SeedPointLink,
 )
+from site_profiles.common.shared_helper_functions import POWER_UNIT_TO_KW
 from site_profiles.profile_registry import SITE_PROFILES_BY_KEY
 
 SITE = "2bess_1pv"
+
+
+def converts_power_unit(source_unit: str | None, unit: str | None, scale_factor: float) -> bool:
+    """Whether the scale turns a power source's unit into the link's (W -> kW: 0.001). The API lets the
+    user pick any scale, so only the seed holds itself to this; other quantities always pass."""
+    if source_unit not in POWER_UNIT_TO_KW or unit not in POWER_UNIT_TO_KW:
+        return True
+    return math.isclose(scale_factor, POWER_UNIT_TO_KW[source_unit] / POWER_UNIT_TO_KW[unit])
 
 
 @pytest.fixture(scope="module")
@@ -270,7 +280,7 @@ class TestPointLinks:
             assert link.point_name in template, link
             assert source_device == link.device_name, link
             source = native[(source_device, source_name)]
-            assert power_scale_error(source.unit, link.link.unit, link.link.scale_factor) is None, link
+            assert converts_power_unit(source.unit, link.link.unit, link.link.scale_factor), link
 
 
 class TestNotRecordedPoints:

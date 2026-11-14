@@ -1876,10 +1876,10 @@ export interface components {
          */
         AlarmEventsTableBlock: {
             /**
-             * Device Ids
-             * @description Only these devices; empty for all
+             * Alarm Ids
+             * @description Only these of the site's alarms (alarm definition ids); empty for all
              */
-            device_ids?: number[];
+            alarm_ids?: number[];
             /**
              * Id
              * @description Identifier within the report: lower-case letters, digits, underscore
@@ -3778,8 +3778,30 @@ export interface components {
             /** Start Index */
             start_index: number;
         };
+        /**
+         * ReportAlarm
+         * @description One of the site's live alarms, which an alarm events table may pick.
+         */
+        ReportAlarm: {
+            /** Id */
+            id: number;
+            /** Message */
+            message: string;
+            /** Name */
+            name: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "HIGH" | "MEDIUM" | "LOW";
+        };
         /** ReportCatalogResponse */
         ReportCatalogResponse: {
+            /**
+             * Alarms
+             * @description The site's live alarms, by name
+             */
+            alarms?: components["schemas"]["ReportAlarm"][];
             /** Block Kinds */
             block_kinds: ("text" | "kpi" | "chart" | "point_stats_table" | "alarm_events_table")[];
             /**
@@ -5014,18 +5036,18 @@ export interface components {
         StandardizedPointLinkRequest: {
             /**
              * Scale Factor
-             * @description Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)
+             * @description Source value x scale_factor = the standardized value; any finite number the user chooses
              * @default 1
              */
             scale_factor: number;
             /**
              * Source Point Id
-             * @description An active NATIVE point on the same device
+             * @description An active NATIVE point on the same device, recorded or not (one that isn't recorded shows no readings until its recording is turned on)
              */
             source_point_id: number;
             /**
              * Unit
-             * @description Unit of the standardized point's values, e.g. 'kW'
+             * @description Unit of the standardized point's values, any text, e.g. 'kW'
              */
             unit?: string | null;
         };

@@ -109,7 +109,6 @@ export default function DeviceDetails() {
   // A standardized point shows the readings of a NATIVE point on this device once linked to it.
   const standardizedPoints = activePoints.filter(p => p.category === 'STANDARDIZED');
   const nativePoints = activePoints.filter(p => p.category === 'NATIVE');
-  // Only recorded points have readings to show, so only they can be a link source.
   const recordedNativePoints = nativePoints.filter(p => p.record_enabled !== false);
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; point: DevicePoint | null }>({ open: false, point: null });
   const deletedPoints = allPoints.filter(p => p.deleted_at);
@@ -667,7 +666,7 @@ export default function DeviceDetails() {
           siteId={selectedSite.id}
           deviceId={deviceIdNum}
           point={linkDialog.point}
-          sources={recordedNativePoints}
+          sources={nativePoints}
         />
       )}
 
