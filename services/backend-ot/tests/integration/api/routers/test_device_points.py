@@ -8,11 +8,11 @@ NATIVE points after each write, unless a manual override locked them. Virtual po
 and updated only through the /virtual routes (never bulk or the generic PUT), their inputs checked
 (same site, active, not virtual, a bitfield for bit tests), their storage derived from the kind.
 Standardized point links: set and cleared only through .../{point_id}/link, only from a STANDARDIZED
-point to an active NATIVE point on its device with a scale that converts power units; kept by id
-across renames, cleared when the source is hard-deleted.
+point to an active NATIVE point on its device (recorded or not) with any unit and scale the user
+chooses; kept by id across renames, cleared when the source is hard-deleted.
 Recording: a point records by default; only a NATIVE point can stop, and not while a standardized
 link, virtual point or user alarm reads it (409); a bulk upsert that leaves record_enabled out keeps
-it, and nothing new can be made to read a point that isn't recorded.
+it. No new virtual point or alarm can read a point that isn't recorded; a standardized link can.
 """
 
 import asyncpg
@@ -674,12 +674,21 @@ class TestLinkErrors:
             assert response.status_code == 400, source_id
         assert await stored_link(client, bess.active_power) == (None, None, None)
 
-    async def test_a_scale_that_does_not_convert_the_power_unit_is_400(self, client):
+    async def test_any_unit_and_scale_the_user_chooses_are_stored(self, client):
         bess = await create_linked_bess(client, linked=False)
-        wrong = POWER_LINK.model_copy(update={"source_point_id": bess.power.id, "scale_factor": 1.0})
-        response = await put_link(client, bess.active_power, wrong)
-        assert response.status_code == 400
-        assert error_message(response) == "scale_factor 1 doesn't turn W into kW (expected 0.001)"
+        for unit, scale_factor in (("kW", 2.0), ("kW", 1.0), ("my unit", -0.25)):
+            chosen = StandardizedPointLinkRequest(source_point_id=bess.power.id, unit=unit, scale_factor=scale_factor)
+            response = await put_link(client, bess.active_power, chosen)
+            assert response.status_code == 200, response.text
+            assert await stored_link(client, bess.active_power) == (bess.power.id, unit, scale_factor)
+
+    async def test_a_scale_that_isnt_a_number_is_422(self, client):
+        bess = await create_linked_bess(client, linked=False)
+        point = bess.active_power
+        body = POWER_LINK.model_copy(update={"source_point_id": bess.power.id}).model_dump(mode="json") | {"scale_factor": "x"}
+        response = await client.put(link_url(point.site_id, point.device_id, point.id), json=body)
+        assert response.status_code == 422
+        assert await stored_link(client, point) == (None, None, None)
 
     async def test_a_non_integer_source_point_id_is_422(self, client):
         bess = await create_linked_bess(client, linked=False)
@@ -793,13 +802,13 @@ class TestRecordEnabled:
         assert response.status_code == 409, response.text
         assert "alarm 'too_high'" in error_message(response)
 
-    async def test_nothing_new_can_read_a_point_that_isnt_recorded(self, client):
+    async def test_only_a_standardized_link_can_read_a_point_that_isnt_recorded(self, client):
         bess = await create_linked_bess(client, linked=False)
         power = await stop_recording(client, bess.power)
 
         response = await put_link(client, bess.active_power, POWER_LINK.model_copy(update={"source_point_id": power.id}))
-        assert response.status_code == 400, response.text
-        assert "not recorded" in error_message(response)
+        assert response.status_code == 200, response.text
+        assert await stored_link(client, bess.active_power) == (power.id, "kW", 0.001)
 
         virtual = VirtualPointCreateRequest(name="P", definition=calculation(power.id))
         response = await client.post(

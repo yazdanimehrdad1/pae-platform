@@ -7539,12 +7539,12 @@
         "properties": {
           "scale_factor": {
             "default": 1.0,
-            "description": "Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)",
+            "description": "Source value x scale_factor = the standardized value; any finite number the user chooses",
             "title": "Scale Factor",
             "type": "number"
           },
           "source_point_id": {
-            "description": "An active NATIVE point on the same device",
+            "description": "An active NATIVE point on the same device, recorded or not (one that isn't recorded shows no readings until its recording is turned on)",
             "title": "Source Point Id",
             "type": "integer"
           },
@@ -7558,7 +7558,7 @@
                 "type": "null"
               }
             ],
-            "description": "Unit of the standardized point's values, e.g. 'kW'",
+            "description": "Unit of the standardized point's values, any text, e.g. 'kW'",
             "title": "Unit"
           }
         },

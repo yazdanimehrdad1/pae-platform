@@ -5036,18 +5036,18 @@ export interface components {
         StandardizedPointLinkRequest: {
             /**
              * Scale Factor
-             * @description Source value x scale_factor = the standardized value; between power units it must convert them (W -> kW: 0.001)
+             * @description Source value x scale_factor = the standardized value; any finite number the user chooses
              * @default 1
              */
             scale_factor: number;
             /**
              * Source Point Id
-             * @description An active NATIVE point on the same device
+             * @description An active NATIVE point on the same device, recorded or not (one that isn't recorded shows no readings until its recording is turned on)
              */
             source_point_id: number;
             /**
              * Unit
-             * @description Unit of the standardized point's values, e.g. 'kW'
+             * @description Unit of the standardized point's values, any text, e.g. 'kW'
              */
             unit?: string | null;
         };
