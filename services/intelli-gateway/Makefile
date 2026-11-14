@@ -23,7 +23,7 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: require-no-dev-stack help install lint lint-fix format typecheck test test-integration test-llm contract build rebuild up down down-all restart \
-	logs ps clean run create-user set-password disable-user enable-user
+	logs ps clean run create-user set-password disable-user enable-user seed-knowledge
 
 # Standalone stack (the gateway + its Postgres). Host ports: INTELLI_GATEWAY_HTTP_PORT (8030),
 # INTELLI_GATEWAY_POSTGRES_PORT (5437).
@@ -60,6 +60,7 @@ help:
 	@echo "Users (in the running container; from the repo root for the dev stack):"
 	@echo "  create-user EMAIL=... [ROLE=engineer|admin|monitor] [DISPLAY_NAME=...]"
 	@echo "  set-password / disable-user / enable-user EMAIL=..."
+	@echo "  seed-knowledge SEED=<seed> [SITE=<id>] [BY=<email>]  engineer knowledge from knowledge/seeds/"
 
 # ---------------------------------------------------------------------------
 # Develop
@@ -159,3 +160,10 @@ set-password:
 disable-user enable-user:
 	@test -n "$(EMAIL)" || { echo "usage: make $@ EMAIL=<email>"; exit 2; }
 	$(MANAGE_USERS) $(subst -user,,$@) --email "$(EMAIL)"
+
+# Engineer knowledge from a code-level seed (knowledge/seeds/, simulated powerflow sites only):
+# replaces the site's knowledge and publishes it (earlier versions stay restorable). The site
+# needs an approved profile first. SITE= picks it when the seed's site name isn't unique.
+seed-knowledge:
+	@test -n "$(SEED)" || { echo "usage: make seed-knowledge SEED=<seed> [SITE=<site id>] [BY=<email>]"; exit 2; }
+	$(COMPOSE) exec $(APP) python -m intelli_gateway.manage_knowledge seed "$(SEED)" 		--by "$(or $(BY),admin@plusdas.local)" $(if $(SITE),--site $(SITE))

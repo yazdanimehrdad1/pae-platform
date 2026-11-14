@@ -201,9 +201,9 @@ export function AlarmEventsTableEditor({ block, options, onChange }: {
   options: BuilderOptions;
   onChange: (block: Block<"alarm_events_table">) => void;
 }) {
-  const deviceIds = block.device_ids ?? [];
-  const toggleDevice = (deviceId: number, checked: boolean) =>
-    onChange({ ...block, device_ids: checked ? [...deviceIds, deviceId] : deviceIds.filter(candidate => candidate !== deviceId) });
+  const alarmIds = block.alarm_ids ?? [];
+  const toggleAlarm = (alarmId: number, checked: boolean) =>
+    onChange({ ...block, alarm_ids: checked ? [...alarmIds, alarmId] : alarmIds.filter(candidate => candidate !== alarmId) });
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
@@ -228,15 +228,25 @@ export function AlarmEventsTableEditor({ block, options, onChange }: {
         </div>
       </div>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Devices <span className="font-normal text-muted-foreground">(none ticked: every device, and site-level alarms)</span></legend>
-        <div className="flex flex-wrap gap-4">
-          {options.devices.map(device => (
-            <label key={device.deviceId} className="flex items-center gap-2 text-sm">
-              <Checkbox checked={deviceIds.includes(device.deviceId)} onCheckedChange={checked => toggleDevice(device.deviceId, checked === true)} />
-              {device.deviceName}
-            </label>
-          ))}
-        </div>
+        <legend className="text-sm font-medium">Alarms <span className="font-normal text-muted-foreground">(none ticked: every alarm of the site)</span></legend>
+        {options.alarms.length === 0 ? (
+          <p className="text-sm text-muted-foreground">This site has no alarms defined.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {options.alarms.map(alarm => (
+              <label key={alarm.id} className="flex items-start gap-2 text-sm" title={alarm.message}>
+                <Checkbox
+                  className="mt-0.5" aria-label={alarm.name}
+                  checked={alarmIds.includes(alarm.id)} onCheckedChange={checked => toggleAlarm(alarm.id, checked === true)}
+                />
+                <span className="min-w-0">
+                  <span className="break-words">{alarm.name}</span>{" "}
+                  <span className="text-xs text-muted-foreground">{SEVERITY[alarm.severity].label}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </fieldset>
     </div>
   );

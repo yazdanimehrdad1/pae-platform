@@ -53,9 +53,11 @@ def series(point_id: int, name: str, values: list[float]) -> PointTimeseries:
     )
 
 
-def event(event_id: int, device_id: int | None, raised_at: datetime, cleared_at: datetime | None, severity: str = "HIGH") -> AlarmEventResponse:
+def event(
+    event_id: int, device_id: int | None, raised_at: datetime, cleared_at: datetime | None, severity: str = "HIGH", alarm_id: int = 5
+) -> AlarmEventResponse:
     return AlarmEventResponse(
-        id=event_id, definition_id=5, site_id=1001, device_id=device_id, severity=severity,
+        id=event_id, definition_id=alarm_id, site_id=1001, device_id=device_id, severity=severity,
         raised_at=raised_at, cleared_at=cleared_at, message="tripped",
     )
 
@@ -162,17 +164,28 @@ class TestPointStatsTable:
 
 
 class TestAlarmEventsTable:
-    async def test_filters_limits_counts_and_measures(self):
+    async def test_filters_by_alarm_limits_counts_and_measures(self):
         cleared = event(1, 1, WINDOW_START + timedelta(hours=2), WINDOW_START + timedelta(hours=3))
         active = event(2, 1, WINDOW_END - timedelta(minutes=30), None)
-        other_device = event(3, 2, WINDOW_START, None)
-        data_source = FakeReportDataSource(events=[active, cleared, other_device], alarm_names={5: "bess_trip"})
-        block = AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", device_ids=[1], limit=1)
+        other_alarm = event(3, 1, WINDOW_START, None, alarm_id=6)
+        data_source = FakeReportDataSource(events=[active, cleared, other_alarm], alarm_names={5: "bess_trip", 6: "comms_lost"})
+        block = AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", alarm_ids=[5], limit=1)
         result = await resolve_block(block, block_context(data_source))
         assert isinstance(result, AlarmEventsTableResult)
         assert result.total_count == 2
         (row,) = result.rows
         assert (row.event_id, row.alarm_name, row.device_name, row.duration_seconds) == (2, "bess_trip", "device_1", 1800.0)
+
+    async def test_a_chosen_alarm_keeps_its_site_wide_events(self):
+        # Regression: a device filter dropped every event without a device (a plant controller's
+        # comms loss), so a report listed none of them.
+        site_wide = event(1, None, WINDOW_START, WINDOW_START + timedelta(minutes=8), alarm_id=6)
+        on_a_device = event(2, 2, WINDOW_START, WINDOW_START + timedelta(minutes=1), alarm_id=6)
+        data_source = FakeReportDataSource(events=[site_wide, on_a_device], alarm_names={6: "comms_lost"})
+        block = AlarmEventsTableBlock(kind="alarm_events_table", id="alarms", alarm_ids=[6])
+        result = await resolve_block(block, block_context(data_source))
+        assert isinstance(result, AlarmEventsTableResult)
+        assert [(row.event_id, row.device_name) for row in result.rows] == [(1, None), (2, "device_2")]
 
     async def test_severity_filter_and_cleared_duration(self):
         cleared = event(1, None, WINDOW_START, WINDOW_START + timedelta(minutes=5), severity="MEDIUM")

@@ -20,9 +20,7 @@ async def test_tool_use_and_prompt_caching_against_the_real_api() -> None:
     settings = load_settings()
     llm = AnthropicLLMClient(settings)
     services = build_test_services(settings, llm=llm, clock=fixed_clock)
-    ctx = RequestContext(
-        user_id="integration", roles=frozenset({"engineer"}), site_ids=None, request_id="it"
-    )
+    ctx = RequestContext(user_id="1", roles=frozenset({"engineer"}), site_ids=None, request_id="it")
     try:
         first = await services.gateway.ask(
             ctx, 1, "What is the current state code of INV2, and what does it mean?", None

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from intelli_gateway.api.middleware.request_id import request_id_middleware
 from intelli_gateway.api.routers import (
     auth,
+    conversations,
     forecast,
     health,
     knowledge,
@@ -36,7 +37,7 @@ from intelli_gateway.wiring import Services, build_services
 
 # The OpenAPI `info.version` is this service's contract version: bump it for a breaking change
 # (see contracts/README.md).
-API_VERSION = "0.4.0"
+API_VERSION = "0.6.0"
 DESCRIPTION = (
     "AI helper for site engineers: Claude answers questions about a generation site using "
     "read-only tools"
@@ -92,6 +93,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app.include_router(me.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     app.include_router(sites.router, prefix="/api")
+    app.include_router(conversations.router, prefix="/api")
     app.include_router(site_profiles.router, prefix="/api")
     app.include_router(knowledge.router, prefix="/api")
     app.include_router(tools.router, prefix="/api")

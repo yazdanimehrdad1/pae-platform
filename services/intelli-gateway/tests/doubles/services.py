@@ -9,6 +9,7 @@ from typing import Any
 
 from fakes import fixed_clock
 
+from doubles.conversation_store import InMemoryConversationStore
 from doubles.forecast import FakeSiteConfigSource, InMemoryForecastRepository
 from doubles.knowledge_authoring_store import InMemoryKnowledgeAuthoringStore
 from doubles.knowledge_store import InMemoryKnowledgeStore
@@ -37,5 +38,6 @@ def build_test_services(
         "user_data_store": InMemoryUserDataStore(),
         "site_profile_store": InMemorySiteProfileStore.onboarded(sites, clock()),
         "knowledge_authoring_store": InMemoryKnowledgeAuthoringStore(),
+        "conversation_store": InMemoryConversationStore(),
     }
     return build_services(settings, clock=clock, **(defaults | overrides))

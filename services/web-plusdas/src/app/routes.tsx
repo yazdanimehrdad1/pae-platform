@@ -20,6 +20,7 @@ const TaskBuilder = lazy(() => import("@/features/task-builder/TaskBuilderPage")
 const Simulation = lazy(() => import("@/features/simulation/SimulationPage"));
 const Optimization = lazy(() => import("@/features/optimization/OptimizationPage"));
 const NotesPage = lazy(() => import("@/features/notes/NotesPage"));
+const Assistant = lazy(() => import("@/features/assistant/AssistantPage"));
 const Settings = lazy(() => import("@/features/settings/SettingsPage"));
 const Users = lazy(() => import("@/features/users/UsersPage"));
 const SiteProfiles = lazy(() => import("@/features/site-profiles/SiteProfilesPage"));
@@ -63,6 +64,7 @@ export const AppRoutes = () => {
           <Route path="/site-profiles/:siteId" element={<DashboardLayout><SiteProfileDetail /></DashboardLayout>} />
           <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           <Route path="/notes" element={<DashboardLayout><NotesPage /></DashboardLayout>} />
+          <Route path="/assistant" element={<DashboardLayout><Assistant /></DashboardLayout>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

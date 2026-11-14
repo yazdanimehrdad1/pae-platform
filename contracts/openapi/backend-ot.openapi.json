@@ -614,13 +614,13 @@
         "additionalProperties": false,
         "description": "The alarm events that overlap the window, newest raise first.",
         "properties": {
-          "device_ids": {
-            "description": "Only these devices; empty for all",
+          "alarm_ids": {
+            "description": "Only these of the site's alarms (alarm definition ids); empty for all",
             "items": {
               "type": "integer"
             },
-            "maxItems": 50,
-            "title": "Device Ids",
+            "maxItems": 100,
+            "title": "Alarm Ids",
             "type": "array"
           },
           "id": {
@@ -4680,8 +4680,50 @@
         "title": "RegisterRange",
         "type": "object"
       },
+      "ReportAlarm": {
+        "description": "One of the site's live alarms, which an alarm events table may pick.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "severity",
+          "message"
+        ],
+        "title": "ReportAlarm",
+        "type": "object"
+      },
       "ReportCatalogResponse": {
         "properties": {
+          "alarms": {
+            "description": "The site's live alarms, by name",
+            "items": {
+              "$ref": "#/components/schemas/ReportAlarm"
+            },
+            "title": "Alarms",
+            "type": "array"
+          },
           "block_kinds": {
             "items": {
               "enum": [
@@ -8421,7 +8463,7 @@
   "info": {
     "description": "Modbus TCP service for polling and storing time-series data",
     "title": "PAE Backend OT",
-    "version": "4.0.0"
+    "version": "5.0.0"
   },
   "openapi": "3.1.0",
   "paths": {

@@ -353,7 +353,7 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
 - Migration `007_site_prompts` rewrites stored drafts and versions (the list key, each item's id,
   and `script:` change ids); integration test runs it on old-format rows.
 
-### 16. Series site functions: 6 hours, a reading every 15 minutes or every reading (contract 0.4.0, uncommitted, 2026-11-09)
+### 16. Series site functions: 6 hours, a reading every 15 minutes or every reading (contract 0.4.0, 2026-11-09)
 - A series function's window is at most 6 hours (`TOOL_SERIES_MAX_HOURS`); longer periods are
   backend-ot functions that compute the answer (the user writes them). Other functions keep
   `TOOL_HISTORY_MAX_DAYS`.
@@ -368,6 +368,54 @@ computes nothing; backend-ot runs its site functions and the gateway decides whi
   web-plusdas checks the AI's rows against it and shows ✓ / ✗ per series.
 - Watch: 6 h of 20 s readings raw is about 1,080 values per series; tool output above
   `TOOL_MAX_OUTPUT_CHARS` (20,000) is truncated. `get_point_history` still returns 12 samples.
+
+### 17. Ask page and saved conversations (contract 0.5.0, uncommitted, 2026-11-10)
+- Step 1 of the roadmap agreed on 2026-11-10 (ask page → AI rules → learning loop → fewer
+  tokens). The AI reads backend-ot only when asked (tools, approved points), never on a
+  schedule and never as a snapshot of the site.
+- Migration `008_conversations`: `ai_conversations` (user, site, title, raw history) and
+  `ai_turns` (question, answer, tool calls with arguments, the four token counts, duration,
+  the site's local time when asked, feedback up/down + comment). Kept: no delete, no cascade
+  from users (retention later, the user's call).
+- `PostgresConversationStore` + in-memory double under one contract test
+  (`tests/conversation_store_contract.py`); a `build_services` parameter.
+- API: ask returns `turn_id` and `created_at`; `GET /api/v1/conversations[?site_id=]`,
+  `GET /api/v1/conversations/{id}`, `PUT .../turns/{turn_id}/feedback`. Every role may ask,
+  only about sites they can access (today every site: per-user grants come later). Asking
+  needs a real user: a session, or a numeric `X-User-Id` with dev headers.
+- web-plusdas: the AI Assistant page (`/assistant`, every role): site picker, saved
+  conversations, answer with what the AI read and its tokens, 👍/👎 with a comment; the
+  sidebar's "Ask AI Assistant..." box opens it with the question.
+- Tokens are stored, not cost (per-model rates come with the "fewer tokens" step).
+- Answer format (2026-11-11): `prompts/system.py::ANSWER_FORMAT`, sent in the static system
+  block after `STATIC_INSTRUCTIONS`: at most 150 words unless asked for detail, the answer in
+  the first line (OK/Warning/Fault for plant state), up to 5 bullets or one table (≤ 8 rows),
+  units and site-local times, data problems marked inline, "Next checks" (≤ 3), a **Safety:**
+  line from the guides, a closing "Based on:" line. It is the block the admin-editable AI rules
+  (step 2) will replace. web-plusdas renders answers as Markdown (react-markdown + remark-gfm;
+  raw HTML is never rendered). Whether Claude keeps to it is not yet checked on a live question.
+
+### 18. Knowledge seed for the 2bess_1pv dev site (uncommitted, 2026-11-11)
+- `knowledge/seeds/powerflow_2bess_1pv.py` (registered in `knowledge/seeds/__init__.py::SEEDS`):
+  ratings for bess1, bess2, pv1 and the plant controller; 12 point guides (BESS InvSt, SoC, Evt1;
+  pv1 InvSt, ThrotSrc, WAvail; plant controller GridMode, Alrm; POI Hz); 4 documents (manual, IM
+  script, procedure, experience note); 5 site prompts linking nothing, points only, documents
+  only, and points + documents + functions + ratings. Devices are found by name in the approved
+  profile; documents and prompts have fixed ids, so seeding again changes nothing.
+- `manage_knowledge seed <name> --by <email> [--site] [--no-publish]`: import (the admin UI's
+  checks) and publish; it replaces the site's knowledge (earlier versions stay restorable).
+  `make seed-knowledge SEED=...` here, `make seed-ai-2bess-1pv` at the root (dev stack; the site's
+  AI profile must be approved first). Tests: `tests/test_knowledge_seeds.py`.
+- Local dev stack: site 1002 seeded as knowledge v8 (replacing v7's hand-entered test items).
+
+### 19. Rename and delete a conversation (contract 0.6.0, uncommitted, 2026-11-11)
+- `PATCH /api/v1/conversations/{id}` `{title}` (1-200 chars, whitespace collapsed; updated_at
+  unchanged, later questions keep the name) and `DELETE /api/v1/conversations/{id}` (204;
+  permanent: the turns, ratings included, go with it via ON DELETE CASCADE). Own conversations
+  only, for sites the user can access; anything else is a 404. No migration (title existed).
+- `ConversationStore.rename` / `delete` in the protocol, Postgres and the in-memory double, with
+  shared contract checks. web-plusdas: rename in place and delete (after a confirm) in the
+  AI Assistant's conversation list (`features/assistant/components/ConversationItem.tsx`).
 
 ## Decisions made with the user (don't change without asking)
 - **intelli-gateway owns PlusDAS users** (login, sessions, per-user data) in its own Postgres;
@@ -410,7 +458,7 @@ The site knowledge, onboarding and answer-cost plan agreed on 2026-11-06 is
 4. ~~Site functions~~ (done, "12." above: backend-ot's functions labelled `ai_assistant`,
    approved per site; no gateway library, no bindings).
 5. web-plusdas Knowledge pages.
-6. Persistent conversations, per-site grants.
+6. ~~Persistent conversations~~ (done, "17." above); per-site grants still to do.
 7. Growth loop: gap log, conversation to note, verified answers.
 8. Answer cost: cost logging, direct lookups, answer cache, model per run, budgets.
 
